@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Filter Parameters Converter</title>
+  <link href="default.css" rel="stylesheet" type="text/css">
+</head>
+
+<body>
+  <div class="container">
+    <h1>Import your MSO config to your AVR(Denon/Marantz)</h1>
+    <div>
+      To make the export from MSO, the related menu is available here:
+    </div>
+    <div class="thumbnail-container">
+      <img src="img/mso_mini.png" alt="sample" class="thumbnail" data-full="img/mso.png">
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      Drop your Equalizer APO export file here or click to select
+      <input type="file" id="fileInput" accept=".txt" style="display: none">
+    </div>
+    <div id="results"></div>
+    <div>
+      The import inside REW is done automaticaly.<br>
+      requirements is :<br>
+      - REW API server must be started<br>
+      - measurement having a name beginning by the name in MSO must be loaded<br><br>
+      Otherwise filter import can be done through the EQ window with the created file:<br>
+    </div>
+    <div class="thumbnail-container">
+      <img src="img/rew_mini.png" alt="sample" class="thumbnail" data-full="img/rew.png">
+    </div>
+    <div id="RewCommands">
+      <div id="imagePopup" class="popup">
+        <span class="close-btn">&times;</span>
+        <img id="fullImage" src="" alt="Full size image">
+      </div>
+      <button type="submit" id="buttoncheckREWButton" onclick="checkREWButton()" class="button secondary-button">
+        Check REW<br></button>
+      <button type="submit" id="buttonresetREWSettings" onclick="resetREWSettings()" class="button secondary-button">
+        resetREW<br>
+      </button>
+      <button type="submit" id="buttoncreatesAverages" onclick="createsAverages()" class="button secondary-button">
+        averages<br>
+      </button>
+      <br>
+      <div>
+        Revert AVR low pass filter (applied only to sub measurements):<br>
+        <select id="filterSelect" class="combo-box">
+          <option value="80">80Hz</option>
+          <option value="90">90Hz</option>
+          <option value="100">100Hz</option>
+          <option value="110">110Hz</option>
+          <option value="120">120Hz</option>
+          <option value="150">150Hz</option>
+          <option value="180">180Hz</option>
+          <option value="200">200Hz</option>
+          <option value="250" selected="">250Hz</option>
+        </select>
+        <button type="submit" id="buttonrevertLfeFilter" onclick="revertLfeFilter()" class="button secondary-button">
+          proceed<br>
+        </button>
+      </div>
+      <br>
+      <button type="submit" id="buttoncreateOCAButton" onclick="createOCAButton()" class="button secondary-button">
+        Creates OCA file<br>
+      </button>
+      <div id="status"></div>
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/10.4.3/decimal.min.js"></script>
+  <script src="apo2camilla.js"></script>
+  <script src="rew-api.js"></script>
+  <script src="audyssey.js"></script>
+  <script src="oca-file.js"></script>
+  <script src="main.js"></script>
+</body>
+
+</html>
