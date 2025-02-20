@@ -1,0 +1,65 @@
+<div>
+  <h1>Measurements from the REW</h1>
+  <p>Measure each channel with the played sweeps (preferably multiple times and at multiple locations),
+    measure LP last and leave the mic at this position. Will be easyer for further tests after calibration</p>
+  <h2>AVR settings</h2>
+  <ol>
+    <li>Set the volume level to 0,62 (should gives around 75db at Front Right)</li>
+    <li>import flat correction curves with MQX saved flat file or use odd program</li>
+    <li>Set Audyssey to reference and Dynamic EQ ON (Optionnal, depends on you preference), Set the strength of DEQ to
+      5dB, all other Audyssey settings off.</li>
+    <li>Disable loudnees management</li>
+    <li>Assign XLR sub 3 output to center to bypass LFE Low Pass filter</li>
+    <li>Turn off ECO Mode</li>
+    <li>Check :</li>
+    <ul>
+      <li>all distance to 3m (do not use &lsquo;set default&rsquo; button)</li>
+      <li>all levels to 0db</li>
+    </ul>
+  </ol>
+  <h2>REW settings</h2>
+  <ol>
+    <li>Select java EXCL</li>
+    <li>Sampling rate 48kHz, frequency range 0-24000Hz, uses dolby atmos truehd files with <a
+        href="https://www.videolan.org/vlc/" target="_blank">VLC</a> :
+      <details class="shrinkable-container">
+        <summary>Lossless Audio Files </summary>
+        <ul>
+          <li><a href="ressources/lossless/C.mlp">C.mlp</a></li>
+          <li><a href="ressources/lossless/FL.mlp">FL.mlp</a></li>
+          <li><a href="ressources/lossless/FR.mlp">FR.mlp</a></li>
+          <li><a href="ressources/lossless/SLA.mlp">SLA.mlp</a></li>
+          <li><a href="ressources/lossless/SRA.mlp">SRA.mlp</a></li>
+          <li><a href="ressources/lossless/SBL.mlp">SBL.mlp</a></li>
+          <li><a href="ressources/lossless/SBR.mlp">SBR.mlp</a></li>
+          <li><a href="ressources/lossless/TFL.mlp">TFL.mlp</a></li>
+          <li><a href="ressources/lossless/TFR.mlp">TFR.mlp</a></li>
+          <li><a href="ressources/lossless/TRL.mlp">TRL.mlp</a></li>
+          <li><a href="ressources/lossless/TRR.mlp">TRR.mlp</a></li>
+          <li><a href="ressources/lossless/BDL.mlp">BDL.mlp</a></li>
+          <li><a href="ressources/lossless/BDR.mlp">BDR.mlp</a></li>
+          <li><a href="ressources/lossless/FDL.mlp">FDL.mlp</a></li>
+          <li><a href="ressources/lossless/FDR.mlp">FDR.mlp</a></li>
+          <li><a href="ressources/lossless/FHL.mlp">FHL.mlp</a></li>
+          <li><a href="ressources/lossless/FHR.mlp">FHR.mlp</a></li>
+          <li><a href="ressources/lossless/FWL.mlp">FWL.mlp</a></li>
+          <li><a href="ressources/lossless/FWR.mlp">FWR.mlp</a></li>
+          <li><a href="ressources/lossless/RHL.mlp">RHL.mlp</a></li>
+          <li><a href="ressources/lossless/RHR.mlp">RHR.mlp</a></li>
+          <li><a href="ressources/lossless/SDL.mlp">SDL.mlp</a></li>
+          <li><a href="ressources/lossless/SDR.mlp">SDR.mlp</a></li>
+          <li><a href="ressources/lossless/SHL.mlp">SHL.mlp</a></li>
+          <li><a href="ressources/lossless/SHR.mlp">SHR.mlp</a></li>
+          <li><a href="ressources/lossless/SWx.mlp">SWx.mlp</a></li>
+          <li><a href="ressources/lossless/SWx_10dB_louder.mlp">SWx_10dB_louder.mlp</a></li>
+          <li><a href="ressources/lossless/TML.mlp">TML.mlp</a></li>
+          <li><a href="ressources/lossless/TMR.mlp">TMR.mlp</a></li>
+        </ul>
+      </details>
+    </li>
+    <li>Acoustic Timing reference to Front Left channel (same a atmos files)</li>
+    <li>Measurement loudness to -12dBFS (important for Atmos channels to play at the correct volumes)</li>
+  </ol>
+  <h2>Measurements</h2>
+  <p>measure multiples positions</p>
+</div>

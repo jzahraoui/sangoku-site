@@ -4,17 +4,17 @@ const CHANNEL_TYPES = {
   EnChannelType_Center: { measurementOrder: 1, channelIndex: 1, code: "C" },
   EnChannelType_FrontRight: { measurementOrder: 2, channelIndex: 2, code: "FR" },
   EnChannelType_FrontWideRight: { measurementOrder: 3, channelIndex: 3, code: "FWR" },
-  EnChannelType_SurrRight: { measurementOrder: 4, channelIndex: 4, code: "SRA" },
+  // EnChannelType_SurrRight: { measurementOrder: 4, channelIndex: 4, code: "SRA" },
   EnChannelType_SurrRightA: { measurementOrder: 5, channelIndex: 5, code: "SRA" },
   EnChannelType_SurrRightB: { measurementOrder: 6, channelIndex: 6, code: "SRB" },
-  EnChannelType_SurrRightC: { measurementOrder: 7, channelIndex: 7, code: null },
+  // EnChannelType_SurrRightC: { measurementOrder: 7, channelIndex: 7, code: null },
   EnChannelType_SBackRight: { measurementOrder: 8, channelIndex: 8, code: "SBR" },
-  EnChannelType_SBackCenter: { measurementOrder: 9, channelIndex: 9, code: "SBL" },
+  // EnChannelType_SBackCenter: { measurementOrder: 9, channelIndex: 9, code: "SBL" },
   EnChannelType_SBackLeft: { measurementOrder: 10, channelIndex: 10, code: "SBL" },
-  EnChannelType_SurrLeftC: { measurementOrder: 11, channelIndex: 11, code: null },
+  // EnChannelType_SurrLeftC: { measurementOrder: 11, channelIndex: 11, code: null },
   EnChannelType_SurrLeftB: { measurementOrder: 12, channelIndex: 12, code: "SLB" },
   EnChannelType_SurrLeftA: { measurementOrder: 13, channelIndex: 13, code: "SLA" },
-  EnChannelType_SurrLeft: { measurementOrder: 14, channelIndex: 14, code: "SLA" },
+  // EnChannelType_SurrLeft: { measurementOrder: 14, channelIndex: 14, code: "SLA" },
   EnChannelType_FrontWideLeft: { measurementOrder: 15, channelIndex: 15, code: "FWL" },
   EnChannelType_FrontHeightRight: { measurementOrder: 16, channelIndex: 18, code: "FHR" },
   EnChannelType_FrontDolbyRight: { measurementOrder: 17, channelIndex: 20, code: "FDR" },
@@ -36,36 +36,36 @@ const CHANNEL_TYPES = {
   EnChannelType_FrontHeightLeft: { measurementOrder: 33, channelIndex: 40, code: "FHL" },
   EnChannelType_FrontHeightCenter: { measurementOrder: 34, channelIndex: 16, code: "CH" },
   EnChannelType_Overhead: { measurementOrder: 35, channelIndex: 41, code: "TS" },
-  EnChannelType_FrontHeightWideRight: { measurementOrder: 36, channelIndex: 23, code: null },
-  EnChannelType_SBHeightRight: { measurementOrder: 37, channelIndex: 27, code: null },
-  EnChannelType_SBHeightLeft: { measurementOrder: 38, channelIndex: 31, code: null },
-  EnChannelType_FrontHeightWideLeft: { measurementOrder: 39, channelIndex: 35, code: null },
-  EnChannelType_FrontDolbyCenter: { measurementOrder: 40, channelIndex: 17, code: null },
-  EnChannelType_SBDolbyCenter: { measurementOrder: 41, channelIndex: 29, code: null },
+  // EnChannelType_FrontHeightWideRight: { measurementOrder: 36, channelIndex: 23, code: null },
+  // EnChannelType_SBHeightRight: { measurementOrder: 37, channelIndex: 27, code: null },
+  // EnChannelType_SBHeightLeft: { measurementOrder: 38, channelIndex: 31, code: null },
+  // EnChannelType_FrontHeightWideLeft: { measurementOrder: 39, channelIndex: 35, code: null },
+  // EnChannelType_FrontDolbyCenter: { measurementOrder: 40, channelIndex: 17, code: null },
+  // EnChannelType_SBDolbyCenter: { measurementOrder: 41, channelIndex: 29, code: null },
 
   // Subwoofer channels
-  EnChannelType_SWLFE: { measurementOrder: 42, channelIndex: 42, code: "SW1" },
-  EnChannelType_SWLeft2sp: { measurementOrder: 42, channelIndex: 43, code: "SW1" },
-  EnChannelType_SWLeft3sp: { measurementOrder: 42, channelIndex: 44, code: "SW1" },
-  EnChannelType_SWRight2sp: { measurementOrder: 43, channelIndex: 45, code: "SW2" },
-  EnChannelType_SWRight3sp: { measurementOrder: 43, channelIndex: 46, code: "SW2" },
-  EnChannelType_SWFront2sp: { measurementOrder: 42, channelIndex: 47, code: "SW1" },
-  EnChannelType_SWFront3sp: { measurementOrder: 42, channelIndex: 48, code: "SW1" },
-  EnChannelType_SWBack2sp: { measurementOrder: 43, channelIndex: 49, code: "SW2" },
-  EnChannelType_SWBack3sp: { measurementOrder: 44, channelIndex: 50, code: "SW3" },
-  EnChannelType_SWMiddle2sp: { measurementOrder: 51, channelIndex: 51, code: null },
-  EnChannelType_SWLFE2sp: { measurementOrder: 42, channelIndex: 52, code: "SW1" },
-  EnChannelType_SWLFE3sp: { measurementOrder: 42, channelIndex: 53, code: "SW1" },
-  EnChannelType_SWLFE4sp: { measurementOrder: 42, channelIndex: 65, code: "SW1" },
+  // EnChannelType_SWLFE: { measurementOrder: 42, channelIndex: 42, code: "SW1" },
+  // EnChannelType_SWLeft2sp: { measurementOrder: 42, channelIndex: 43, code: "SW1" },
+  // EnChannelType_SWLeft3sp: { measurementOrder: 42, channelIndex: 44, code: "SW1" },
+  // EnChannelType_SWRight2sp: { measurementOrder: 43, channelIndex: 45, code: "SW2" },
+  // EnChannelType_SWRight3sp: { measurementOrder: 43, channelIndex: 46, code: "SW2" },
+  // EnChannelType_SWFront2sp: { measurementOrder: 42, channelIndex: 47, code: "SW1" },
+  // EnChannelType_SWFront3sp: { measurementOrder: 42, channelIndex: 48, code: "SW1" },
+  // EnChannelType_SWBack2sp: { measurementOrder: 43, channelIndex: 49, code: "SW2" },
+  // EnChannelType_SWBack3sp: { measurementOrder: 44, channelIndex: 50, code: "SW3" },
+  // EnChannelType_SWMiddle2sp: { measurementOrder: 51, channelIndex: 51, code: null },
+  // EnChannelType_SWLFE2sp: { measurementOrder: 42, channelIndex: 52, code: "SW1" },
+  // EnChannelType_SWLFE3sp: { measurementOrder: 42, channelIndex: 53, code: "SW1" },
+  // EnChannelType_SWLFE4sp: { measurementOrder: 42, channelIndex: 65, code: "SW1" },
   EnChannelType_SWMix1: { measurementOrder: 42, channelIndex: 54, code: "SW1" },
   EnChannelType_SWMix2: { measurementOrder: 43, channelIndex: 55, code: "SW2" },
   EnChannelType_SWMix3: { measurementOrder: 44, channelIndex: 56, code: "SW3" },
   EnChannelType_SWMix4: { measurementOrder: 45, channelIndex: 57, code: "SW4" },
-  EnChannelType_SWFrontLeft3sp: { measurementOrder: 42, channelIndex: 58, code: "SW1" },
+  // EnChannelType_SWFrontLeft3sp: { measurementOrder: 42, channelIndex: 58, code: "SW1" },
   EnChannelType_SWFrontLeft4sp: { measurementOrder: 42, channelIndex: 59, code: "SW1" },
   EnChannelType_SWFrontRight4sp: { measurementOrder: 43, channelIndex: 60, code: "SW2" },
-  EnChannelType_SWFrontRight3sp: { measurementOrder: 43, channelIndex: 61, code: "SW2" },
-  EnChannelType_SWRear3sp: { measurementOrder: 44, channelIndex: 64, code: "SW3" },
+  // EnChannelType_SWFrontRight3sp: { measurementOrder: 43, channelIndex: 61, code: "SW2" },
+  //EnChannelType_SWRear3sp: { measurementOrder: 44, channelIndex: 64, code: "SW3" },
   EnChannelType_SWBackLeft4sp: { measurementOrder: 44, channelIndex: 62, code: "SW3" },
   EnChannelType_SWBackRight4sp: { measurementOrder: 45, channelIndex: 63, code: "SW4" },
   EnChannelType_SWMode: { measurementOrder: -1, channelIndex: -1, code: null },
@@ -90,11 +90,7 @@ const CHANNEL_TYPES = {
 
     return Object.entries(this).find(([key, value]) =>
       value.code === code && typeof value === 'object'
-    )?.[1];
-  },
-
-  isSubwoofer(code) {
-    return code.startsWith('SW');
+    )?.[1] || this.EnChannelType_SWMode;
   },
 
   /**
@@ -108,10 +104,10 @@ const CHANNEL_TYPES = {
     const searchTerm = name.toUpperCase();
 
     const subwooferMap = {
-      SW1: ["SWL", "SWFL"],
-      SW2: ["SWR", "SWFR"],
-      SW3: ["SWBL"],
-      SW4: ["SWBR"],
+      SW1: ["SWL", "SWFL", "SWMIX1"],
+      SW2: ["SWR", "SWFR", "SWMIX2",],
+      SW3: ["SWBL", "SWMIX3",],
+      SW4: ["SWBR", "SWMIX4",],
     };
     // check if searchTerm is include into subwooferMap 
     for (const [key, values] of Object.entries(subwooferMap)) {
@@ -183,4 +179,4 @@ const CHANNEL_TYPES = {
 Object.freeze(CHANNEL_TYPES);
 
 // Export for module usage
-//export { CHANNEL_TYPES };
+export { CHANNEL_TYPES };
