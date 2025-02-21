@@ -28,7 +28,10 @@ Room Correction Helper is a specialized tool designed to assist in:
   - Automatic measurement import into REW
   
 - **SPL and Multi-Subwoofer Optimization:**  
-  Tools to adjust measurements gain, align subwoofer, and generate optimized configurations for room correction.
+  Tools to adjust measurements gain, align subwoofer, and generate optimized configurations. Includes automatic alignment tools to ensure proper synchronization between different speakers. Uses impulse response analysis to determine peak alignment points.
+
+- **Preview**  
+  Apply AVR filters processing on the current work to generates accurates preview of the signal.
   
 - **Configuration Export:**  
   Generate OCA file that can be used to program your audio processing hardware.
@@ -42,8 +45,6 @@ Room Correction Helper is a specialized tool designed to assist in:
   The stylesheet defining the visual layout and responsive design for the application.
 
 - **JavaScript Files:**
-  - **main.js:**  
-    Main application logic and view-model instantiation, integrating with REW commands and file parsing.
   - **MeasurementItem.js:**  
     Contains code for processing measurement data including filtering, and transformation.
   - **MeasurementViewModel.js:**  
@@ -55,10 +56,10 @@ Room Correction Helper is a specialized tool designed to assist in:
 
 ### Basic Setup
 
-1. Download and install the latest REW beta
-2. Import your .avr file generated from the odd executable or .ady from mobile app
-3. Connect to REW using the "Connect" button
-4. Use provided tools to creates your personalised configuration
+1. Download and install the latest REW beta (minimum v71)
+2. Import your .ady created from mobile app
+3. Or import your .avr file generated from the odd executable and your manually made measurements in REW
+4. Connect to REW using the "Connect" button
 
 ### Multi-Sub Optimization
 
@@ -75,17 +76,48 @@ Room Correction Helper is a specialized tool designed to assist in:
 4. Generate filters
 5. use find sub alignement to apply timming to your sub
 
+### Filter Design & Application
+
+Users can design custom filters or apply predefined equalization settings.
+Automatic filters implements recursive filtering for smooth transitions between frequency bands. they are limited to 500Hz.
+Filters are applied to measurements using convolution processing.
+
+### generates OCA file
+
+check the filters.
+generates preview.
+creates oca file.
+import it to your receiver using the odd program.
+
 ## Disclaimer
 
 This tool is provided for experimental and informational purposes only. **Before sending any configuration to your equipment, please verify all parameters carefully.** The generated configurations and adjustments are based on user-provided data and may not be appropriate for every scenario. Incorrect settings may lead to undesirable behavior or may potentially damage your audio hardware. By using this tool, you agree that you assume all responsibility and risk associated with its use. The developers are not liable for any damage or malfunction that may occur as a result of applying the generated configurations.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit pull requests.
+Contributions are welcome! Feel free to:
 
-- Fork the repository and submit a pull request with your improvements.
-- Ensure your changes follow the coding style used in the project.
-- Update documentation and tests as needed.
+- Report issues
+- Suggest new features
+- Submit pull requests
+- Improve documentation
+
+## Thanks & Acknowledgments
+
+Special thanks to:
+
+- John Mulcahy for his excellent audio measurement software [Room EQ Wizard (REW)](https://www.roomeqwizard.com/)
+- @ratneuron, the author of odd program
+- All users who have supported this project through PayPal and Patreon donations
+- The open-source community for providing the libraries used in this project:
+  - Knockout.js
+  - js-yaml
+  - JSZip
+  - FileSaver.js
+  - math.js
+  - Font Awesome
+
+Your support helps maintain and improve this room correction helper tool. Whether through code contributions, bug reports, or donations, every form of support is greatly appreciated.
 
 ## Credits
 
@@ -95,8 +127,8 @@ Designed & Developed by Sangoku
 
 If you find this tool helpful, consider supporting the development:
 
-- PayPal donations
-- Patreon support
+- [PayPal](https://www.paypal.com/donate/?hosted_button_id=V53J7XLBD3A2C)
+- [Patreon](https://www.patreon.com/Sangoku)
 
 ## License
 
