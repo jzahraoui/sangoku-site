@@ -57,9 +57,10 @@ Room Correction Helper is a specialized tool designed to assist in:
 ### Basic Setup
 
 1. Download and install the latest REW beta (minimum v71)
-2. Import your .ady created from mobile app
-3. Or import your .avr file generated from the odd executable and your manually made measurements in REW
-4. Connect to REW using the "Connect" button
+2. go to the website url of this project: [https://sangoku.work/](https://sangoku.work/)
+3. Import your .ady created from mobile app
+4. Or import your .avr file generated from the odd executable and your manually made measurements in REW
+5. Connect to REW using the "Connect" button
 
 ### Multi-Sub Optimization
 
