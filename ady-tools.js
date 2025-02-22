@@ -1,6 +1,7 @@
 
 class AdyTools {
 
+  static SPL_OFFSET = 82.0;
 
   constructor(fileContent) {
     if (!fileContent) {
@@ -52,7 +53,6 @@ class AdyTools {
         const measurementDataNumber = measurementData.map(Number);
 
         const filename = `${measurementName}.txt`;
-        const dataOffset = 75.0;
         const peakValue = Math.max(...measurementDataNumber);
         const peakIndex = measurementDataNumber.indexOf(peakValue);
         const fileHeader = [
@@ -68,7 +68,7 @@ class AdyTools {
           `${measurementDataNumber.length} // Response length`,
           `${SAMPLE_INTERVAL.toExponential(16).replace('e', 'E')} // Sample interval (seconds)`,
           `${START_TIME} // Start time (seconds)`,
-          `${dataOffset.toFixed(1)} // Data offset (dB)`,
+          `${AdyTools.SPL_OFFSET.toFixed(1)} // Data offset (dB)`,
           '* Data start'
         ];
 
