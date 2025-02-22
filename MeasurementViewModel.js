@@ -754,19 +754,30 @@ class MeasurementViewModel {
         };
         const maximisedSumTitle = 'LFE Max Sum';
         const subsMeasurements = self.uniqueSubsMeasurements();
+        const uuids = subsMeasurements.map(item => item.uuid);
+        const firstMeasurement = subsMeasurements[0];
+        // to first measurement delay the others sub must align to
+        const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
+        const firstMeasurementLevel = await firstMeasurement.getTargetLevel();
+        const targetLevel = firstMeasurementLevel + 3;
+        const frequencyResponses = [];
 
         self.status(`${self.status()} \nusing: ${JSON.stringify(optimizerConfig)}`);
-        const frequencyResponses = [];
+
+        self.status(`${self.status()} \nAdjust SPL levels to ${targetLevel.toFixed(1)}dB`);
+        // TODO: find the center by detecting low and high rolloff
+        await this.processCommands('Align SPL', uuids, {
+          "frequencyHz": 80,
+          "spanOctaves": 2,
+          "targetdB": targetLevel
+        });
+
         self.status(`${self.status()} \nDeleting previous settings...`);
 
         const previousMaxSum = self.measurements().filter(item => item.title() === maximisedSumTitle);
         for (const item of previousMaxSum) {
           await item.delete();
         }
-
-        // get first element of subsMeasurements to get the delay the others sub must align to
-        const firstMeasurement = subsMeasurements[0];
-        const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
 
         for (const measurement of subsMeasurements) {
           // await measurement.resetcumulativeIRShiftSeconds();
@@ -781,25 +792,12 @@ class MeasurementViewModel {
 
         }
 
-        const firstMeasurementLevel = await firstMeasurement.getTargetLevel();
-        const targetLevel = firstMeasurementLevel + 3;
-        self.status(`${self.status()} \nAdjust SPL levels to ${targetLevel.toFixed(1)}dB`);
-        const uuids = frequencyResponses.map(item => item.measurement);
-        // TODO: find the center by detecting low and high rolloff
-        await this.processCommands('Align SPL', uuids, {
-          "frequencyHz": 80,
-          "spanOctaves": 2,
-          "targetdB": targetLevel
-        });
-
         self.status(`${self.status()} \nSarting lookup...`);
         const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
         const optimizerResults = await optimizer
           .optimizeSubwoofers();
 
         const optimizedSubs = optimizerResults.optimizedSubs;
-
-        self.status(`${self.status()} \nSolution found`);
 
         // Process each REW configuration sequentially
         for (const sub of optimizedSubs) {
