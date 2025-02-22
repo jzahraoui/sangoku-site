@@ -514,8 +514,12 @@ class MeasurementViewModel {
           await measurement.eqCommands("Calculate target level");
           const targetLevel = await measurement.getTargetLevel();
           await measurement.addSPLOffsetDB(firstMeasurementLevel - targetLevel);
-          await self.apiService.postSafe(`measurements/${measurement.uuid}/target-level`, firstMeasurementLevel);
+          await measurement.setTargetLevel(firstMeasurementLevel);
           await measurement.removeWorkingSettings();
+        }
+        for (const sub of self.uniqueSubsMeasurements()) {
+          // TODO: adjust sub level
+          await sub.setTargetLevel(firstMeasurementLevel);
         }
         // apply SPLoffset to other measurement positions
         await this.copySplOffsetDeltadB();

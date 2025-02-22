@@ -656,7 +656,24 @@ class MeasurementItem {
   }
 
   async getTargetLevel() {
-    return await this.parentViewModel.apiService.fetchSafe("target-level", this.uuid);
+    const level = await this.parentViewModel.apiService.fetchSafe("target-level", this.uuid);
+    return Number(level.toFixed(2));
+  }
+
+  async setTargetLevel(level) {
+    if (!level) {
+      throw new Error(`Invalid level: ${level}`);
+    }
+    level = Number(level.toFixed(2));
+    if (isNaN(level)) {
+      throw new Error(`Invalid level: ${level}`);
+    }
+    const currentLevel = await this.getTargetLevel();
+    if (level === currentLevel) {
+      return true;
+    }
+    await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/target-level`, level);
+    return true;
   }
 
   async resetFilters() {
