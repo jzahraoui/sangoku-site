@@ -735,6 +735,7 @@ class MeasurementViewModel {
 
         await self.loadData();
 
+        // TODO: Detect low and high rolloff to set right parameters
         const optimizerConfig = {
           frequency: {
             min: 20,    // Hz
@@ -746,9 +747,9 @@ class MeasurementViewModel {
             step: 0.1   // dB
           },
           delay: {
-            min: -0.005,    // seconds
-            max: 0.005,     // seconds
-            step: 0.00001   // seconds
+            min: -0.005,    // 5ms
+            max: 0.005,     // 5ms
+            step: 0.00001   // 0.01ms
           }
         };
         const maximisedSumTitle = 'LFE Max Sum';
@@ -784,6 +785,7 @@ class MeasurementViewModel {
         const targetLevel = firstMeasurementLevel + 3;
         self.status(`${self.status()} \nAdjust SPL levels to ${targetLevel.toFixed(1)}dB`);
         const uuids = frequencyResponses.map(item => item.measurement);
+        // TODO: find the center by detecting low and high rolloff
         await this.processCommands('Align SPL', uuids, {
           "frequencyHz": 80,
           "spanOctaves": 2,
