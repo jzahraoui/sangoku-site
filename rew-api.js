@@ -343,19 +343,23 @@ export default class RewApi {
       if (response.status === 202) {
         // Determine result URL and process expected response
         let processExpectedResponse;
+        const processID = data.message.match(/.*ID \d+/);
 
         if (url.startsWith('import')) {
-          const body = this.parseRequestBody(options);
-          if (!body) {
-            throw new Error('Missing or invalid body for import request');
-          }
-          if (!expectedProcess) {
+          if (!processID) {
+            const body = this.parseRequestBody(options);
+            if (!body) {
+              throw new Error('Missing or invalid body for import request');
+            }
             processExpectedResponse = {
               "message": body.path || body.identifier
             };
+          } else {
+            processExpectedResponse = {
+              "message": processID?.[0]
+            };
           }
         } else {
-          const processID = data.message.match(/.*ID \d+/);
           if (!processID) {
             throw new Error('Invalid process ID in response');
           }
