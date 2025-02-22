@@ -505,13 +505,16 @@ class MeasurementViewModel {
         self.status("Computing SPL alignment...");
 
         console.debug(`Computing SPL alignment`);
+        const firstMeasurement = self.uniqueSpeakersMeasurements()[0];
+        const firstMeasurementLevel = await firstMeasurement.getTargetLevel();
+
         for (const measurement of self.uniqueSpeakersMeasurements()) {
           await measurement.applyWorkingSettings();
           await measurement.setTargetSettings({ "shape": "None" });
           await measurement.eqCommands("Calculate target level");
           const targetLevel = await measurement.getTargetLevel();
-          await measurement.addSPLOffsetDB(75 - targetLevel);
-          await self.apiService.postSafe(`measurements/${measurement.uuid}/target-level`, 75);
+          await measurement.addSPLOffsetDB(firstMeasurementLevel - targetLevel);
+          await self.apiService.postSafe(`measurements/${measurement.uuid}/target-level`, firstMeasurementLevel);
           await measurement.removeWorkingSettings();
         }
         // apply SPLoffset to other measurement positions
