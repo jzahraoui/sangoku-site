@@ -339,7 +339,7 @@ class BusinessTools {
       let mustBeInverted = false;
 
       try {
-        // get the sub impulse closser to the front left, better method than cros corr align
+        // get the sub impulse closer to the front left, better method than cros corr align
         const distanceToSpeakerPeak = PredictedLfeFiltered.timeOfIRPeakSeconds - predictedSpeakerFiltered.timeOfIRPeakSeconds;
         await PredictedLfeFiltered.addIROffsetSeconds(distanceToSpeakerPeak);
         totalOffset = distanceToSpeakerPeak;
