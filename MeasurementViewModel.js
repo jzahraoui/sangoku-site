@@ -193,7 +193,7 @@ class MeasurementViewModel {
               "identifier": `${channel.commandId}_P${Number(position) + 1}`,
               "startTime": 0,
               "sampleRate": 48000,
-              "splOffset": 75,
+              "splOffset": AdyTools.SPL_OFFSET,
               "applyCal": false,
               "data": encodedData
             };
@@ -846,8 +846,8 @@ class MeasurementViewModel {
 
         await this.apiService.postSafe(`eq/match-target-settings`,
           {
-            startFrequency: optimizerConfig.frequency.min,
-            endFrequency: optimizerConfig.frequency.max,
+            startFrequency: 10,
+            endFrequency: 500,
             individualMaxBoostdB: 0,
             overallMaxBoostdB: 0,
             flatnessTargetdB: 1,
