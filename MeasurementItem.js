@@ -738,7 +738,9 @@ class MeasurementItem {
       this.associatedFilter = null;
       await this.parentViewModel.copyFilters();
       this.parentViewModel.saveMeasurements();
+      return true;
     }
+    return false;
   }
 
   /**
