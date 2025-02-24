@@ -638,6 +638,8 @@ class MeasurementViewModel {
           await self.businessTools.createMeasurementPreview(item);
         }
 
+        await this.copyMeasurementCommonAttributes();
+
         self.status('Preview generated successfully');
       } catch (error) {
         self.handleError(`Preview failed: ${error.message}`, error);
