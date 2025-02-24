@@ -238,10 +238,9 @@ class MeasurementItem {
   }
 
   _computeDistanceInMeters(valueInSeconds) {
-    const roundFactor = 100;
     const valueInMeters = this._computeInMeters(valueInSeconds)
       + MeasurementItem.DEFAULT_SHIFT_IN_METERS;
-    return Math.round(roundFactor * valueInMeters) / roundFactor;
+    return MeasurementItem.cleanFloat32Value(valueInMeters, 2);
   }
 
   _computeDistanceInSeconds(valueInMeters) {
@@ -498,8 +497,8 @@ class MeasurementItem {
   }
 
   async addIROffsetSeconds(amountToAdd) {
-    const roundFactor = 100000; // 2 decimals on ms value
-    amountToAdd = Math.round(amountToAdd * roundFactor) / roundFactor;
+    // 2 decimals on ms value
+    amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 5);
     if (amountToAdd === 0) {
       return true;
     }
@@ -521,8 +520,7 @@ class MeasurementItem {
   }
 
   async addSPLOffsetDB(amountToAdd) {
-    const roundFactor = 100;
-    amountToAdd = Math.round(amountToAdd * roundFactor) / roundFactor;
+    amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 2);
     if (amountToAdd === 0) {
       return true;
     }
@@ -1011,13 +1009,10 @@ class MeasurementItem {
     return filter;
   }
 
-  static cleanFloat32Value(value) {
-    // Use a constant for better maintainability and performance
-    const PRECISION = 7;
-
+  static cleanFloat32Value(value, precision = 7) {
     // Use toFixed for direct string conversion to desired precision
     // Then convert back to number for consistent output
-    return Number(value.toFixed(PRECISION));
+    return Number(value.toFixed(precision));
   }
 
   transformIR(filterImpulseResponse, sampleCount, invert = false) {
