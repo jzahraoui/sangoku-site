@@ -8,35 +8,6 @@ class MeasurementItem {
   static MODEL_DISTANCE_LIMIT = 6.0;
   static MODEL_DISTANCE_CRITICAL_LIMIT = 7.35;
 
-  static SPEAKERS_LENGTH_BASIC = 128; // 128 taps
-  static SUB_LENGTH_BASIC = 512; // 512 taps
-
-  static SPEAKERS_LENGTH_XT = 512; // 512 taps
-  static SUB_LENGTH_XT = 512; // 512 taps
-
-  static SPEAKERS_LENGTH_XT32 = 16321; // 1024 taps
-  static SUB_LENGTH_XT32 = 16055; // 704 taps
-
-  static SPEAKERS_FILTER_TAPS_BASIC = 128;
-  static SUB_FILTER_TAPS_BASIC = 512;
-
-  static SPEAKERS_FILTER_TAPS_XT = 512;
-  static SUB_FILTER_TAPS_XT = 512;
-
-  static SPEAKERS_FILTER_TAPS_XT32 = 1024;
-  static SUB_FILTER_TAPS_XT32 = 704;
-
-  static EQType_MultEQ = 0
-  static EQType_MultEQXT = 1
-  static EQType_MultEQXT32 = 2
-
-  static FREQUENCY_48_KHZ = 48000;
-  static FREQUENCY_6_KHZ = 6000;
-
-  static GAIN_ADJUSTMENT_EXP = -0.44999998807907104;
-  static GAIN_ADJUSTMENT_EXP_SOFT = -0.35;
-
-  static GAIN_ADJUSTMENT = Math.pow(10, MeasurementItem.GAIN_ADJUSTMENT_EXP_SOFT);
 
   static measurementType = { SPEAKERS: 0, SUB: 1, FILTER: 2, AVERAGE: 3 }
 
@@ -639,7 +610,20 @@ class MeasurementItem {
       console.warn(`Invalid filter length: ${filters.length} expected 22`);
     }
     const currentFilters = await this.getFilters();
-    if (filters === currentFilters) {
+
+    let isAlreadySet = true;
+    for (const filter of filters) {
+      const index = filter.index;
+      const found = currentFilters.find(f => f.index === index);
+      if (!found) {
+        throw new Error(`Invalid filter index: ${index}`);
+      }
+      if (!this.compareObjects(filter, found)) {
+        isAlreadySet = false;
+        break;
+      }
+    }
+    if (isAlreadySet) {
       return true;
     }
     // TODO: creates a new filter array containing only the different filters
@@ -649,7 +633,83 @@ class MeasurementItem {
     this.filters(filters);
     this.parentViewModel.removeMeasurementUuid(this.associatedFilter);
     this.associatedFilter = null;
-    await this.parentViewModel.copyFilters();
+    return true;
+  }
+
+  compareObjects(obj1, obj2) {
+    const sortedStringify = (obj) =>
+      JSON.stringify(Object.keys(obj).sort().reduce((sorted, key) => {
+        sorted[key] = obj[key];
+        return sorted;
+      }, {}));
+
+    return sortedStringify(obj1) === sortedStringify(obj2);
+  }
+
+  async copyFiltersToOther() {
+    const targets = this.parentViewModel.notUniqueMeasurements().filter(response =>
+      response?.channelName() === this.channelName()
+    );
+
+    if (!targets.length) {
+      return false;
+    }
+
+    for (const otherItem of targets) {
+      await otherItem.setFilters(this.filters());
+      otherItem.associatedFilter = this.associatedFilter;
+    }
+
+    return true;
+  }
+
+  copyCrossoverToOther() {
+    const targets = this.parentViewModel.notUniqueMeasurements().filter(response =>
+      response?.channelName() === this.channelName()
+    );
+
+    if (!targets.length) {
+      return false;
+    }
+
+    for (const otherItem of targets) {
+      otherItem.crossover(this.crossover());
+      otherItem.speakerType(this.speakerType());
+    }
+
+    return true;
+  }
+
+  async copySplOffsetDeltadBToOther() {
+    const targets = this.parentViewModel.notUniqueMeasurements().filter(response =>
+      response?.channelName() === this.channelName()
+    );
+
+    if (!targets.length) {
+      return false;
+    }
+
+    for (const otherItem of targets) {
+      await otherItem.setSPLOffsetDB(this.splOffsetDeltadB());
+    }
+
+    return true;
+  }
+
+  async copyCumulativeIRShiftToOther() {
+    const targets = this.parentViewModel.notUniqueMeasurements().filter(response =>
+      response?.channelName() === this.channelName()
+    );
+
+    if (!targets.length) {
+      return false;
+    }
+
+    for (const otherItem of targets) {
+      await otherItem.setcumulativeIRShiftSeconds(this.cumulativeIRShiftSeconds());
+      await otherItem.setInverted(this.inverted());
+    }
+
     return true;
   }
 
@@ -696,7 +756,6 @@ class MeasurementItem {
     this.filters(emptyFilter);
     this.parentViewModel.removeMeasurementUuid(this.associatedFilter);
     this.associatedFilter = null;
-    await this.parentViewModel.copyFilters();
     return true;
   }
 
@@ -715,8 +774,6 @@ class MeasurementItem {
       throw new Error(`Invalid filter: ${filter}`);
     }
     this.associatedFilter = filter.uuid;
-    await this.parentViewModel.copyFilters();
-    this.parentViewModel.saveMeasurements();
   }
 
   async setAssociatedFilterUuid(filterUuid) {
@@ -734,57 +791,11 @@ class MeasurementItem {
     if (this.associatedFilterItem()) {
       await this.parentViewModel.removeMeasurementUuid(this.associatedFilter);
       this.associatedFilter = null;
-      await this.parentViewModel.copyFilters();
-      this.parentViewModel.saveMeasurements();
       return true;
     }
     return false;
   }
 
-  /**
-   * Get the filter length based on the EQ type.
-   * @param {number} EQType - The type of EQ (0 for MultEQ, 1 for MultEQXT, 2 for MultEQXT32).
-   * @returns {number} The filter length.
-   */
-  getFilterLength(EQType) {
-    if (!this.haveImpulseResponse) {
-      return;
-    }
-    if (!EQType) {
-      throw new Error(`Invalid EQ type: ${EQType}`);
-    }
-
-    switch (EQType) {
-      case MeasurementItem.EQType_MultEQ:
-        return this.isSub() ? MeasurementItem.SUB_LENGTH_BASIC : MeasurementItem.SPEAKERS_LENGTH_BASIC;
-      case MeasurementItem.EQType_MultEQXT:
-        return this.isSub() ? MeasurementItem.SUB_LENGTH_XT : MeasurementItem.SPEAKERS_LENGTH_XT;
-      case MeasurementItem.EQType_MultEQXT32:
-        return this.isSub() ? MeasurementItem.SUB_LENGTH_XT32 : MeasurementItem.SPEAKERS_LENGTH_XT32;
-      default:
-        throw new Error(`Invalid EQ type: ${EQType}`);
-    }
-  }
-
-  getFilterFreq(EQType) {
-    if (!this.haveImpulseResponse) {
-      return;
-    }
-    if (!EQType) {
-      throw new Error(`Invalid EQ type: ${EQType}`);
-    }
-
-    switch (EQType) {
-      case MeasurementItem.EQType_MultEQ:
-        return this.isSub() ? MeasurementItem.FREQUENCY_48_KHZ : MeasurementItem.FREQUENCY_6_KHZ;
-      case MeasurementItem.EQType_MultEQXT:
-        return this.isSub() ? MeasurementItem.FREQUENCY_48_KHZ : MeasurementItem.FREQUENCY_6_KHZ;
-      case MeasurementItem.EQType_MultEQXT32:
-        return MeasurementItem.FREQUENCY_48_KHZ;
-      default:
-        throw new Error(`Invalid EQ type: ${EQType}`);
-    }
-  }
 
   async producePredictedMeasurement() {
     if (this.isFilter) {
@@ -969,72 +980,10 @@ class MeasurementItem {
     return minimumPhase;
   }
 
-  async computeFilterGeneration(sampleCount, freq, invert) {
-
-    if (!this.isFilter) {
-      throw new Error(`${this.displayMeasurementTitle()} is not a filter`);
-    }
-
-    if (!this.haveImpulseResponse) {
-      return;
-    }
-
-    if (!sampleCount) {
-      throw new Error(`Invalid sample count: ${sampleCount}`);
-    }
-    if (!freq) {
-      throw new Error(`Invalid frequency: ${freq}`);
-    }
-
-    const rightWindowWidth = MeasurementItem.cleanFloat32Value((sampleCount - 1) * 1000 / freq);
-
-    await this.setIrWindows(
-      {
-        leftWindowType: "Rectangular",
-        rightWindowType: "Rectangular",
-        leftWindowWidthms: "0",
-        rightWindowWidthms: rightWindowWidth,
-        refTimems: "0",
-        addFDW: false,
-        addMTW: false
-      });
-
-    // makes sure the filter was not inverted by user
-    await this.setInverted(false);
-    const trimmedFilter = await this.genericCommand("Trim IR to windows");
-    const filterImpulseResponse = await trimmedFilter.getImpulseResponse(freq);
-
-    const filter = this.transformIR(filterImpulseResponse, sampleCount, invert);
-    await trimmedFilter.delete();
-    return filter;
-  }
-
   static cleanFloat32Value(value, precision = 7) {
     // Use toFixed for direct string conversion to desired precision
     // Then convert back to number for consistent output
     return Number(value.toFixed(precision));
-  }
-
-  transformIR(filterImpulseResponse, sampleCount, invert = false) {
-
-    if (!filterImpulseResponse || !Array.isArray(filterImpulseResponse)) {
-      throw new Error('filterImpulseResponse must be a valid array');
-    }
-    if (sampleCount !== filterImpulseResponse.length) {
-      throw new Error(`Invalid sample count: filterImpulseResponse contains ${filterImpulseResponse.length} samples, expected ${sampleCount}`);
-    }
-
-    const operands = new Float32Array(3);
-    operands[0] = MeasurementItem.GAIN_ADJUSTMENT;
-    operands[1] = invert ? -1 : 1;
-
-    // multiply each impulse response value by gain adjustment and inversion factor
-    const filter = filterImpulseResponse.map((value) => {
-      operands[2] = value;
-      return MeasurementItem.cleanFloat32Value(operands[0] * operands[1] * operands[2]);
-    });
-
-    return filter;
   }
 
   static decodeRewBase64(encodedData) {

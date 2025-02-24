@@ -217,7 +217,6 @@ class MeasurementViewModel {
 
       self.jsonAvrData(data);
       self.OCAFileGenerator = new OCAFileGenerator(data);
-      await self.saveMeasurements();
     };
 
     // Handle file reading
@@ -290,6 +289,13 @@ class MeasurementViewModel {
 
     self.isProcessing = ko.observable(false);
 
+    self.isProcessing.subscribe(function (newValue) {
+      if (newValue === false) {
+        // Save to persistent storage
+        self.saveMeasurements();
+      }
+    });
+
     self.currentSelectedPosition = ko.observable();
 
     self.importMsoConfigInRew = async function (REWconfigs) {
@@ -329,7 +335,6 @@ class MeasurementViewModel {
         self.error('');
         //self.status("Pulling...");
         //await self.loadData();
-        //self.saveMeasurements();
         self.toggleBackgroundPolling();
         //self.status(`${self.rewVersion}: ${self.measurements().length} measurements founds`);
       } catch (error) {
@@ -427,7 +432,7 @@ class MeasurementViewModel {
         if (uniquecumulativeIRShiftSeconds.size !== 1) {
           throw new Error(`Some measurements have timing offset, please undo t=0 changes`);
         }
-        
+
         // creates array of uuid attributes for each code into groupedResponse
         await self.businessTools.processGroupedResponses(
           self.groupedMeasurements(),
@@ -501,10 +506,9 @@ class MeasurementViewModel {
           const offset = -firstMeasurementPeak + measurement.timeOfIRPeakSeconds;
           console.debug(`${measurement.displayMeasurementTitle()} -> ${(offset * 1000).toFixed(2)}ms`);
           await measurement.addIROffsetSeconds(offset);
+          // apply SPLoffset to other measurement positions
+          await measurement.copyCumulativeIRShiftToOther();
         }
-
-        // apply SPLoffset to other measurement positions
-        await this.copyCumulativeIRShift();
 
         self.status('Align peaks successful');
 
@@ -539,9 +543,9 @@ class MeasurementViewModel {
         for (const sub of self.uniqueSubsMeasurements()) {
           // TODO: adjust sub level
           await sub.setTargetLevel(firstMeasurementLevel);
+          // apply SPLoffset to other measurement positions
+          await sub.copySplOffsetDeltadBToOther();
         }
-        // apply SPLoffset to other measurement positions
-        await this.copySplOffsetDeltadB();
 
         self.status("SPL alignment successful");
 
@@ -608,8 +612,11 @@ class MeasurementViewModel {
           speakerItem,
           self.uniqueSubsMeasurements()
         );
-        // copy to other positions
-        await self.copyCumulativeIRShift();
+        for (const sub of self.uniqueSubsMeasurements()) {
+          // copy to other positions
+          await sub.copyCumulativeIRShiftToOther();
+        }
+
         for (const predictedLfe of self.allPredictedLfeMeasurement()) {
           // skip selected lfe
           if (predictedLfe.uuid === selectedLfe.uuid) continue;
@@ -638,9 +645,8 @@ class MeasurementViewModel {
           // display progression in the status
           self.status(`Generating preview for ${item.displayMeasurementTitle()}`);
           await self.businessTools.createMeasurementPreview(item);
+          await item.copyFiltersToOther();
         }
-
-        await this.copyMeasurementCommonAttributes();
 
         self.status('Preview generated successfully');
       } catch (error) {
@@ -662,6 +668,7 @@ class MeasurementViewModel {
           // display progression in the status
           self.status(`Generating filter for channel ${item.channelName()}`);
           await item.createStandardFilter();
+          await item.copyFiltersToOther();
         }
 
         self.status('Preview generated successfully');
@@ -721,6 +728,7 @@ class MeasurementViewModel {
         self.OCAFileGenerator.numberOfSubwoofers = self.uniqueSubsMeasurements().length;
         self.OCAFileGenerator.versionEvo = 'Sangoku_custom';
 
+        await self.apiService.updateAPI('inhibit-graph-updates', true);
         const jsonData = await self.OCAFileGenerator.createOCAFile(self.uniqueMeasurements());
 
         // Validate input
@@ -744,6 +752,7 @@ class MeasurementViewModel {
       } catch (error) {
         self.handleError(`OCA file failed: ${error.message}`, error);
       } finally {
+        await self.apiService.updateAPI('inhibit-graph-updates', false);
         self.isProcessing(false);
       }
     };
@@ -811,6 +820,7 @@ class MeasurementViewModel {
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
           frequencyResponse.position = measurement.position();
+          const detect = this.detectSubwooferCutoff(frequencyResponse.freqs, frequencyResponse.magnitude, -15);
           frequencyResponses.push(frequencyResponse);
 
         }
@@ -843,6 +853,9 @@ class MeasurementViewModel {
 
             await subMeasurement.addSPLOffsetDB(sub.param.gain);
 
+            await subMeasurement.copyCumulativeIRShiftToOther();
+            await subMeasurement.copySplOffsetDeltadBToOther();
+
           } catch (error) {
             throw new Error(`Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`);
           }
@@ -851,7 +864,6 @@ class MeasurementViewModel {
           self.status(`${self.status()} \n${infoMessage}`);
           console.debug(infoMessage);
         }
-        await self.copyCumulativeIRShift();
 
         self.status(`${self.status()} \nCreates sub sumation`);
         // DEBUG use REW api way to generate the sum for compare
@@ -921,6 +933,7 @@ class MeasurementViewModel {
         self.error('');
         await self.businessTools.createMeasurementPreview(
           measurement, self.predictedLfeMeasurement());
+        await measurement.copyFiltersToOther();
       } catch (error) {
         self.handleError(`Preview generation failed: ${error.message}`, error);
       } finally {
@@ -1071,6 +1084,83 @@ class MeasurementViewModel {
     });
   }
 
+  /**
+   * Detect subwoofer frequency cutoff points
+   * @param {number[]} frequencies - Array of frequency points
+   * @param {number[]} magnitude - Array of magnitude values in dB
+   * @param {number} thresholdDb - Cutoff threshold in dB (default -3dB)
+   * @returns {Object} Object containing low and high cutoff frequencies
+   */
+  detectSubwooferCutoff(frequencies, magnitude, thresholdDb = -6, low = 10, high = 500) {
+    // Find peak magnitude in typical subwoofer passband (20-200Hz)
+    let peakMagnitude = -Infinity;
+    for (let i = 0; i < frequencies.length; i++) {
+      if (frequencies[i] >= low && frequencies[i] <= high) {
+        peakMagnitude = Math.max(peakMagnitude, magnitude[i]);
+      }
+    }
+
+    // Calculate threshold level
+    const thresholdLevel = peakMagnitude + thresholdDb;
+
+    // Find low frequency cutoff
+    let lowCutoff = null;
+    for (let i = 0; i < frequencies.length - 1; i++) {
+      if (magnitude[i] >= thresholdLevel) {
+        if (i > 0) {
+          // Interpolate for more accurate result
+          lowCutoff = this.interpolateFrequency(
+            frequencies[i - 1], frequencies[i],
+            magnitude[i - 1], magnitude[i],
+            thresholdLevel
+          );
+        } else {
+          lowCutoff = frequencies[i];
+        }
+        break;
+      }
+    }
+
+    // Find high frequency cutoff
+    let highCutoff = null;
+    for (let i = frequencies.length - 1; i > 0; i--) {
+      if (magnitude[i] >= thresholdLevel) {
+        if (i < frequencies.length - 1) {
+          // Interpolate for more accurate result
+          highCutoff = this.interpolateFrequency(
+            frequencies[i], frequencies[i + 1],
+            magnitude[i], magnitude[i + 1],
+            thresholdLevel
+          );
+        } else {
+          highCutoff = frequencies[i];
+        }
+        break;
+      }
+    }
+
+    return {
+      lowCutoff,
+      highCutoff,
+      peakMagnitude
+    };
+  }
+
+  /**
+  * Linear interpolation for frequency
+  */
+  interpolateFrequency(freq1, freq2, mag1, mag2, targetMag) {
+    const ratio = (targetMag - mag1) / (mag2 - mag1);
+    return freq1 + (freq2 - freq1) * ratio;
+  }
+
+  /**
+  * Round number to specified decimal places
+  */
+  roundToPrecision(number, precision = 1) {
+    return Number(Math.round(number + 'e' + precision) + 'e-' + precision);
+  }
+
   async createsSumFromFR(measurementList) {
 
     try {
@@ -1137,101 +1227,15 @@ class MeasurementViewModel {
   async copyMeasurementCommonAttributes() {
     console.time('copyMeasurements');
 
-    await this.copySplOffsetDeltadB();
-    await this.copyCumulativeIRShift();
-    await this.copyFilters();
-    this.copyCrossover();
+
+    for (const item of this.uniqueMeasurements()) {
+      await item.copySplOffsetDeltadBToOther();
+      await item.copyCumulativeIRShiftToOther();
+      await item.copyFiltersToOther();
+      item.copyCrossoverToOther();
+    }
 
     console.timeEnd('copyMeasurements');
-  }
-
-
-  async copySplOffsetDeltadB() {
-
-    for (const item of this.uniqueMeasurements()) {
-      if (item.channelName() === this.UNKNOWN_GROUP_NAME) {
-        continue;
-      }
-
-      // get items from measurements array having the same channelName
-      const items = this.notUniqueMeasurements().filter(response =>
-        response?.channelName() === item.channelName()
-      );
-      if (!items.length) {
-        continue;
-      }
-      for (const otherItem of items) {
-        await otherItem.setSPLOffsetDB(item.splOffsetDeltadB());
-      }
-
-    }
-  }
-
-  async copyCumulativeIRShift() {
-
-    for (const item of this.uniqueMeasurements()) {
-      if (item.channelName() === this.UNKNOWN_GROUP_NAME) {
-        continue;
-      }
-
-      // get items from measurements array having the same channelName
-      const items = this.notUniqueMeasurements().filter(response =>
-        response?.channelName() === item.channelName()
-      );
-      if (!items.length) {
-        continue;
-      }
-      for (const otherItem of items) {
-        await otherItem.setcumulativeIRShiftSeconds(item.cumulativeIRShiftSeconds());
-        await otherItem.setInverted(item.inverted());
-      }
-
-    }
-  }
-
-  async copyFilters() {
-
-    for (const item of this.uniqueMeasurements()) {
-      if (item.channelName() === this.UNKNOWN_GROUP_NAME) {
-        continue;
-      }
-
-      // get items from measurements array having the same channelName
-      const items = this.notUniqueMeasurements().filter(response =>
-        response?.channelName() === item.channelName()
-      );
-      if (!items.length) {
-        continue;
-      }
-      for (const otherItem of items) {
-        otherItem.associatedFilter = item.associatedFilter;
-        // TODO: bug, enter into infinite loop
-        //await otherItem.setFilters(await item.getFilters());
-      }
-
-    }
-  }
-
-  copyCrossover() {
-
-    for (const item of this.uniqueMeasurements()) {
-      if (item.channelName() === this.UNKNOWN_GROUP_NAME) {
-        continue;
-      }
-
-      // get items from measurements array having the same channelName
-      const items = this.notUniqueMeasurements().filter(response =>
-        response?.channelName() === item.channelName()
-      );
-      if (!items.length) {
-        continue;
-      }
-      for (const otherItem of items) {
-        otherItem.crossover(item.crossover());
-        otherItem.speakerType(item.speakerType());
-      }
-
-    }
   }
 
   updateTranslations(language) {
@@ -1383,9 +1387,6 @@ class MeasurementViewModel {
         this.measurements.push(item);
       }
 
-      // Save to persistent storage
-      this.saveMeasurements();
-
       return true; // Indicate successful addition
 
     } catch (error) {
@@ -1423,8 +1424,6 @@ class MeasurementViewModel {
 
       this.measurements.remove(function (item) { return item.uuid === itemUuid });
 
-      // Save updated measurements
-      this.saveMeasurements();
       console.debug(`measurement ${itemUuid} removed`);
 
       return true; // Indicate successful deletion
