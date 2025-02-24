@@ -165,14 +165,7 @@ class BusinessTools {
 
         // remove inversion and gain for each item
         for (const measurement of usableItems) {
-          if (measurement.alignSPLOffsetdB()) {
-            throw new Error(`Measurement ${measurement.displayMeasurementTitle()} has SPL offset, please remove it before processing`);
-          }
-          if (measurement.cumulativeIRShiftSeconds()) {
-            throw new Error(`Measurement ${measurement.displayMeasurementTitle()} has offset t=0, please remove it before processing`);
-          }
           await measurement.setInverted(false);
-          await measurement.setSPLOffsetDB(0);
         }
 
         // Get UUIDs of usable items
@@ -477,6 +470,9 @@ class BusinessTools {
     if (item.channelName() === this.viewModel.UNKNOWN_GROUP_NAME) {
       return true;
     }
+
+    await item.resetSmoothing();
+    await item.resetIrWindows();
 
     const predictedChannel = await item.producePredictedMeasurement();
 

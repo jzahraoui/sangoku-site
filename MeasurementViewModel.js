@@ -409,6 +409,25 @@ class MeasurementViewModel {
         self.status("Average is runing...");
 
         await self.apiService.updateAPI('inhibit-graph-updates', true);
+
+        const allOffset = self.measurements().map(item => item.splOffsetdB());
+        const uniqueOffsets = new Set(allOffset);
+        if (uniqueOffsets.size !== 1) {
+          throw new Error(`Some measurements do not have the same SPL offset, please load not altered measurements`);
+        }
+
+        const allAlignOffset = self.measurements().map(item => item.alignSPLOffsetdB());
+        const uniqueAlignOffsets = new Set(allAlignOffset);
+        if (uniqueAlignOffsets.size !== 1) {
+          throw new Error(`Some measurements have SPL offset, please undo SPL alignment`);
+        }
+
+        const allcumulativeIRShiftSeconds = self.measurements().map(item => item.cumulativeIRShiftSeconds().toFixed(7));
+        const uniquecumulativeIRShiftSeconds = new Set(allcumulativeIRShiftSeconds);
+        if (uniquecumulativeIRShiftSeconds.size !== 1) {
+          throw new Error(`Some measurements have timing offset, please undo t=0 changes`);
+        }
+        
         // creates array of uuid attributes for each code into groupedResponse
         await self.businessTools.processGroupedResponses(
           self.groupedMeasurements(),
