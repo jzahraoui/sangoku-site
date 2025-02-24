@@ -1205,7 +1205,8 @@ class MeasurementViewModel {
       }
       for (const otherItem of items) {
         otherItem.associatedFilter = item.associatedFilter;
-        await otherItem.setFilters(await item.getFilters());
+        // TODO: bug, enter into infinite loop
+        //await otherItem.setFilters(await item.getFilters());
       }
 
     }
