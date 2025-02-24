@@ -415,7 +415,7 @@ class BusinessTools {
         "isAuto": false,
       }];
       await sub.setFilters(subFilter);
-      const PredictedLfeFiltered = await this.createPredictedWithKeepedInversion(sub);
+      const PredictedLfeFiltered = await sub.producePredictedMeasurementFromEQ();
 
       // apply high pass filter at cuttOffFrequency
       const speakerFilter = [{
@@ -435,27 +435,12 @@ class BusinessTools {
       }];
       await speaker.setFilters(speakerFilter);
       // generate predicted filtered measurement for speaker
-      const predictedSpeakerFiltered = await this.createPredictedWithKeepedInversion(speaker);
+      const predictedSpeakerFiltered = await speaker.producePredictedMeasurementFromEQ();
 
       return { PredictedLfeFiltered, predictedSpeakerFiltered };
     } catch (error) {
       throw new Error(`${error.message}`, { cause: error });
     }
-  }
-
-  async createPredictedWithKeepedInversion(item) {
-
-    const wasInverted = item.inverted();
-    if (wasInverted) {
-      await item.setInverted(false);
-    }
-    const PredictedFiltered = await item.eqCommands('Generate predicted measurement');
-    if (wasInverted) {
-      await item.setInverted(true);
-      await PredictedFiltered.setInverted(true);
-    }
-    return PredictedFiltered;
-
   }
 
   async createMeasurementPreview(item) {

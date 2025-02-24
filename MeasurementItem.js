@@ -805,6 +805,26 @@ class MeasurementItem {
     return predictedResult;
   }
 
+  async producePredictedMeasurementFromEQ() {
+    if (this.isFilter) {
+      throw new Error(`action can not be done on a Filter: ${this.displayMeasurementTitle()}`);
+    }
+
+    // to preserve invertion info in the result
+    const wasInverted = this.inverted();
+    if (wasInverted) {
+      await this.setInverted(false);
+    }
+    const PredictedFiltered = await this.eqCommands('Generate predicted measurement');
+    if (wasInverted) {
+      await this.setInverted(true);
+      await PredictedFiltered.setInverted(true);
+    }
+
+    PredictedFiltered.setTitle(`predicted ${this.title()}`);
+
+    return PredictedFiltered;
+  }
 
   async createUserFilter() {
     if (this.isFilter) {
