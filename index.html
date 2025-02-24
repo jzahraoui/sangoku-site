@@ -146,13 +146,13 @@
         click: renameMeasurement,
         disable: isProcessing,
         css: { 'disabled': isProcessing }">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'rename'"></span>
+            <span data-bind="text: isProcessing() ? 'Processing...' : 'Rename'"></span>
           </button>
           <button class="button" data-bind="
         click: buttonresetREWButton,
         disable: isProcessing,
         css: { 'disabled': isProcessing }">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'resetREW'"></span>
+            <span data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"></span>
           </button>
         </div>
 
@@ -191,13 +191,13 @@
         click: buttonAlignPeaks,
         disable: isProcessing,
         css: { 'disabled': isProcessing }">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'align peaks'"></span>
+            <span data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"></span>
           </button>
           <button class="button" data-bind="
         click: buttonAlignSPL,
         disable: isProcessing,
         css: { 'disabled': isProcessing }">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'align SPL'"></span>
+            <span data-bind="text: isProcessing() ? 'Processing...' : 'Align SPL'"></span>
           </button>
         </div>
         <!-- MSO Config Import Section -->
