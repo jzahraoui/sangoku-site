@@ -1139,7 +1139,7 @@ class MeasurementViewModel {
 
     await this.copySplOffsetDeltadB();
     await this.copyCumulativeIRShift();
-    this.copyFilters();
+    await this.copyFilters();
     this.copyCrossover();
 
     console.timeEnd('copyMeasurements');
@@ -1189,7 +1189,7 @@ class MeasurementViewModel {
     }
   }
 
-  copyFilters() {
+  async copyFilters() {
 
     for (const item of this.uniqueMeasurements()) {
       if (item.channelName() === this.UNKNOWN_GROUP_NAME) {
@@ -1205,7 +1205,7 @@ class MeasurementViewModel {
       }
       for (const otherItem of items) {
         otherItem.associatedFilter = item.associatedFilter;
-        //await otherItem.setFilters(await item.getFilters());
+        await otherItem.setFilters(await item.getFilters());
       }
 
     }
