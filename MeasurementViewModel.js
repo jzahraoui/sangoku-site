@@ -593,6 +593,8 @@ class MeasurementViewModel {
         self.error('');
         self.status("Searching for alignement...");
 
+        await self.loadData();
+
         const selectedLfe = self.predictedLfeMeasurement();
 
         if (!selectedLfe) {
