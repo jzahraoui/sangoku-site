@@ -922,7 +922,7 @@ class MeasurementItem {
         individualMaxBoostdB: 0,
         overallMaxBoostdB: maxBoost,
         flatnessTargetdB: 1,
-        allowNarrowFiltersBelow200Hz: true,
+        allowNarrowFiltersBelow200Hz: false,
         varyQAbove200Hz: false,
         allowLowShelf: false,
         allowHighShelf: false

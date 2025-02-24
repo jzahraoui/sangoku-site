@@ -868,7 +868,7 @@ class MeasurementViewModel {
             individualMaxBoostdB: 0,
             overallMaxBoostdB: 0,
             flatnessTargetdB: 1,
-            allowNarrowFiltersBelow200Hz: true,
+            allowNarrowFiltersBelow200Hz: false,
             varyQAbove200Hz: false,
             allowLowShelf: false,
             allowHighShelf: false
