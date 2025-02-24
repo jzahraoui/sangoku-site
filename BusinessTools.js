@@ -367,9 +367,6 @@ class BusinessTools {
             `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()} cmp`);
         }
 
-        // apply time offset to initial subwoofer measurements
-        await PredictedLfeFiltered.addIROffsetSeconds(-shiftDelay);
-
         totalOffset = totalOffset - shiftDelay;
         const resultMessage =
           `Subwoofer aligment: ${(totalOffset * 1000)
