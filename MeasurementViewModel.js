@@ -566,7 +566,7 @@ class MeasurementViewModel {
         await measurement.createStandardFilter();
 
       } catch (error) {
-        self.handleError(`Match target: ${error.message}`, error);
+        self.handleError(`Filter compute failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
       }
@@ -645,7 +645,7 @@ class MeasurementViewModel {
           // display progression in the status
           self.status(`Generating preview for ${item.displayMeasurementTitle()}`);
           await self.businessTools.createMeasurementPreview(item);
-          await item.copyFiltersToOther();
+          await item.copyAllToOther();
         }
 
         self.status('Preview generated successfully');
@@ -931,9 +931,8 @@ class MeasurementViewModel {
         self.isProcessing(true);
         await self.apiService.updateAPI('inhibit-graph-updates', true);
         self.error('');
-        await self.businessTools.createMeasurementPreview(
-          measurement, self.predictedLfeMeasurement());
-        await measurement.copyFiltersToOther();
+        await self.businessTools.createMeasurementPreview(measurement);
+        await measurement.copyAllToOther();
       } catch (error) {
         self.handleError(`Preview generation failed: ${error.message}`, error);
       } finally {
@@ -1229,10 +1228,7 @@ class MeasurementViewModel {
 
 
     for (const item of this.uniqueMeasurements()) {
-      await item.copySplOffsetDeltadBToOther();
-      await item.copyCumulativeIRShiftToOther();
-      await item.copyFiltersToOther();
-      item.copyCrossoverToOther();
+      await item.copyAllToOther();
     }
 
     console.timeEnd('copyMeasurements');
@@ -1307,9 +1303,8 @@ class MeasurementViewModel {
     const deletedKeys = [...existingKeys].filter(uuid => !newKeys.has(uuid));
     if (deletedKeys.length > 0) {
       for (const uuid of deletedKeys) {
-        console.debug(`Removing measurement: ${uuid}`);
         const isDeleted = this.measurements.remove(function (item) { return item.uuid === uuid; });
-        isDeleted || console.debug(`removed: ${uuid}`);
+        if (isDeleted) console.debug(`removed: ${uuid}`);
       }
     }
 
@@ -1317,7 +1312,7 @@ class MeasurementViewModel {
     const unlikedFilter = mergedMeasurements.filter(
       item => item.associatedFilter && !newKeys.has(item.associatedFilter));
 
-    if (deletedKeys.length > 0) {
+    if (unlikedFilter.length > 0) {
       for (const item of unlikedFilter) {
         item.associatedFilter = null;
         console.debug(`Removing filter: ${item.displayMeasurementTitle()}`);

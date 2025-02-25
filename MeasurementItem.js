@@ -51,7 +51,6 @@ class MeasurementItem {
     // Observable properties
     self.crossover = ko.observable(defaultCrossover);
     self.speakerType = ko.observable(defaultSpeakerType);
-    self.filters = ko.observableArray([]);
     self.isSub = ko.observable(isSW);
 
     // Computed properties
@@ -598,8 +597,8 @@ class MeasurementItem {
   }
 
   async getFilters() {
-    this.filters(await this.parentViewModel.apiService.fetchSafe("filters", this.uuid));
-    return this.filters();
+    const measurementFilters = await this.parentViewModel.apiService.fetchSafe("filters", this.uuid);
+    return measurementFilters;
   }
 
   async setFilters(filters) {
@@ -611,7 +610,7 @@ class MeasurementItem {
     }
     const currentFilters = await this.getFilters();
 
-    let isAlreadySet = true;
+    const filtersCleaned = [];
     for (const filter of filters) {
       const index = filter.index;
       const found = currentFilters.find(f => f.index === index);
@@ -619,20 +618,17 @@ class MeasurementItem {
         throw new Error(`Invalid filter index: ${index}`);
       }
       if (!this.compareObjects(filter, found)) {
-        isAlreadySet = false;
-        break;
+        filtersCleaned.push(filter);
       }
     }
-    if (isAlreadySet) {
+    if (filtersCleaned.length === 0) {
       return true;
     }
     // TODO: creates a new filter array containing only the different filters
     await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/filters`,
-      { filters: filters });
+      { filters: filtersCleaned });
 
-    this.filters(filters);
-    this.parentViewModel.removeMeasurementUuid(this.associatedFilter);
-    this.associatedFilter = null;
+    await this.deleteAssociatedFilter();
     return true;
   }
 
@@ -655,8 +651,9 @@ class MeasurementItem {
       return false;
     }
 
+    const measurementFilters = await this.getFilters();
     for (const otherItem of targets) {
-      await otherItem.setFilters(this.filters());
+      await otherItem.setFilters(measurementFilters);
       otherItem.associatedFilter = this.associatedFilter;
     }
 
@@ -713,6 +710,17 @@ class MeasurementItem {
     return true;
   }
 
+  async copyAllToOther() {
+
+    await this.copySplOffsetDeltadBToOther();
+    await this.copyCumulativeIRShiftToOther();
+    await this.copyFiltersToOther();
+    this.copyCrossoverToOther();
+
+    return true;
+
+  }
+
   async getTargetLevel() {
     const level = await this.parentViewModel.apiService.fetchSafe("target-level", this.uuid);
     return Number(level.toFixed(2));
@@ -747,15 +755,13 @@ class MeasurementItem {
       }))
     };
 
-    if (JSON.stringify(currentFilters) === JSON.stringify(emptyFilter.filters)) {
+    if (this.compareObjects(currentFilters, emptyFilter.filters)) {
       return true;
     }
 
-    await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/filters`,
-      emptyFilter);
-    this.filters(emptyFilter);
-    this.parentViewModel.removeMeasurementUuid(this.associatedFilter);
-    this.associatedFilter = null;
+    await this.setFilters(emptyFilter.filters);
+
+    await this.deleteAssociatedFilter();
     return true;
   }
 
@@ -788,6 +794,9 @@ class MeasurementItem {
   }
 
   async deleteAssociatedFilter() {
+    if (this.associatedFilter === null) {
+      return true;
+    }
     if (this.associatedFilterItem()) {
       await this.parentViewModel.removeMeasurementUuid(this.associatedFilter);
       this.associatedFilter = null;
@@ -797,7 +806,7 @@ class MeasurementItem {
   }
 
 
-  async producePredictedMeasurement() {
+  async producePredictedMeasurementWithAssociatedFilter() {
     if (this.isFilter) {
       throw new Error(`action can not be done on a Filter: ${this.displayMeasurementTitle()}`);
     }
@@ -814,7 +823,7 @@ class MeasurementItem {
     return predictedResult;
   }
 
-  async producePredictedMeasurementFromEQ() {
+  async producePredictedMeasurement() {
     if (this.isFilter) {
       throw new Error(`action can not be done on a Filter: ${this.displayMeasurementTitle()}`);
     }
@@ -894,8 +903,6 @@ class MeasurementItem {
       throw new Error(`Operation not permitted on a sub ${this.displayMeasurementTitle()}`);
     }
 
-    await this.deleteAssociatedFilter();
-
     await this.applyWorkingSettings();
 
     if (this.crossover()) {
@@ -959,12 +966,9 @@ class MeasurementItem {
 
     await this.eqCommands('Match target');
 
-    const filterResponse = await this.generateFilterMeasurement();
-
-    await this.setAssociatedFilter(filterResponse);
     await this.removeWorkingSettings();
 
-    return filterResponse;
+    return true;
   }
 
   async createMinimumPhaseCopy() {

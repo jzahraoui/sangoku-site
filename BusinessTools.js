@@ -415,7 +415,7 @@ class BusinessTools {
         "isAuto": false,
       }];
       await sub.setFilters(subFilter);
-      const PredictedLfeFiltered = await sub.producePredictedMeasurementFromEQ();
+      const PredictedLfeFiltered = await sub.producePredictedMeasurement();
 
       // apply high pass filter at cuttOffFrequency
       const speakerFilter = [{
@@ -435,7 +435,7 @@ class BusinessTools {
       }];
       await speaker.setFilters(speakerFilter);
       // generate predicted filtered measurement for speaker
-      const predictedSpeakerFiltered = await speaker.producePredictedMeasurementFromEQ();
+      const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
 
       return { PredictedLfeFiltered, predictedSpeakerFiltered };
     } catch (error) {
