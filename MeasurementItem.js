@@ -934,23 +934,26 @@ class MeasurementItem {
 
 
     // apply high pass filter at cuttOffFrequency
-    const speakerFilter = [{
-      "index": 21,
-      "enabled": true,
-      "isAuto": false,
-      "frequency": this.crossover(),
-      "shape": "BU",
-      "slopedBPerOctave": 12,
-      "type": "High pass"
-    },
-    {
-      "index": 22,
-      "type": "None",
-      "enabled": true,
-      "isAuto": false,
-    }];
-    await this.setFilters(speakerFilter);
-
+    if (this.crossover()) {
+      const speakerFilter = [{
+        "index": 21,
+        "enabled": true,
+        "isAuto": false,
+        "frequency": this.crossover(),
+        "shape": "BU",
+        "slopedBPerOctave": 12,
+        "type": "High pass"
+      },
+      {
+        "index": 22,
+        "type": "None",
+        "enabled": true,
+        "isAuto": false,
+      }];
+      await this.setFilters(speakerFilter);
+    } else {
+      await this.resetFilters();
+    }
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`,
       {
         startFrequency: 10,
