@@ -537,7 +537,8 @@ class MeasurementViewModel {
           await measurement.eqCommands("Calculate target level");
           const targetLevel = await measurement.getTargetLevel();
           await measurement.addSPLOffsetDB(firstMeasurementLevel - targetLevel);
-          await measurement.setTargetLevel(firstMeasurementLevel);
+          await measurement.setTargetLevel(firstMeasurementLevel);          
+          await measurement.copySplOffsetDeltadBToOther();
           await measurement.removeWorkingSettings();
         }
         for (const sub of self.uniqueSubsMeasurements()) {
@@ -1209,7 +1210,6 @@ class MeasurementViewModel {
       "magnitude": encodedMagnitudeData,
       "phase": encodedPhaseData
     };
-    // TODO: if the previous imported have the same identifier as this one, the end process detection do not work
     await this.apiService.postSafe('import/frequency-response-data', options);
 
     // trick to retreive the imported measurement
