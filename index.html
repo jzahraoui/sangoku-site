@@ -88,7 +88,7 @@
           </div>
           <div>
             <h3>Customisation</h3>
-            <label>Selects the crossover point for the LFE channel:</label>
+            <label>Selects Low Pass Filter for the LFE channel:</label>
             <select class="combo-box" data-bind="
               options: LfeFrequencies,
               optionsText: 'text',
@@ -96,7 +96,14 @@
               event: { change: $root.saveMeasurements },
               value: lpfForLFE">
             </select>
-
+            <label>Selects which low frequency signals are sent to the subwoofer outputs:</label>
+            <select class="combo-box" data-bind="
+              options: subwooferOutputChoice,
+              optionsText: 'text',
+              optionsValue: 'value',
+              event: { change: $root.saveMeasurements },
+              value: subwooferOutput">
+            </select>
             <label class="checkbox-container">
               <input class="checkmark" type="checkbox" data-bind="
                 checked: enableDynamicEq,
@@ -118,14 +125,6 @@
               enableLowFrequencyContainment
               <span class="checkmark"></span>
             </label>
-            <label>Selects which low frequency signals are sent to the subwoofer outputs:</label>
-            <select class="combo-box" data-bind="
-              options: subwooferOutputChoice,
-              optionsText: 'text',
-              optionsValue: 'value',
-              event: { change: $root.saveMeasurements },
-              value: subwooferOutput">
-            </select>
           </div>
         </details>
         Perform the <a data-description="measurement.html" href="#" class="code-link">measurements</a>; they must be
@@ -139,19 +138,20 @@
           <button class="button" data-bind="
         click: buttoncheckREWButton,
         disable: isProcessing,
-        css: { 'disabled': isProcessing }">
+        css: { 'disabled': isProcessing }" data-tooltip="Click to connect or disconnect to REW">
             <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
           </button>
           <button class="button" data-bind="
         click: renameMeasurement,
         disable: isProcessing,
-        css: { 'disabled': isProcessing }">
+        css: { 'disabled': isProcessing }" data-tooltip="Click to rename the measurements for homogenity">
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Rename'"></span>
           </button>
           <button class="button" data-bind="
         click: buttonresetREWButton,
         disable: isProcessing,
-        css: { 'disabled': isProcessing }">
+        css: { 'disabled': isProcessing }"
+            data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)">
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"></span>
           </button>
         </div>
@@ -160,7 +160,7 @@
         <div class="control-group">
           <h2>Speakers Tools</h2>
 
-          <h3>Averaging</h3>
+          <h3>Averaging between all positions</h3>
           <p class="warning-text">WARNING: all current inversions and gains will be removed to produce consistent result
           </p>
 
@@ -184,7 +184,7 @@
           css: { 'disabled': isProcessing }">
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"></span>
           </button>
-          <h3>Alignement</h3>
+          <h3>Alignment inside the selected position</h3>
           <p>SPL alignement makes sense on the averaged measurements, do not forget to selected corresponding position
             before running the task</p>
           <button class="button" data-bind="

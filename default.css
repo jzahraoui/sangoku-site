@@ -714,3 +714,33 @@ button:disabled {
   background-color: #2ecc71;
   box-shadow: 0 0 5px #2ecc71;
 }
+
+/* Tooltip styling */
+.button {
+  position: relative; /* Required for tooltip positioning */
+  cursor: pointer;
+}
+
+.button::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 110%; /* Position above the button */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s;
+}
+
+
+/* Show tooltip on hover */
+.button:hover::after,
+.button:hover::before {
+  opacity: 1;
+  visibility: visible;
+}
