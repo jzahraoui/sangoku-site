@@ -58,6 +58,7 @@ jobs:
             --exclude ".github/**" \
             --exclude eslint.config.mjs \
             --exclude .gitignore \
+            --cache-control "max-age=3600" \
             . s3://${S3_BUCKET}/
 
       - name: Invalidate CloudFront
