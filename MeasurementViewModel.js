@@ -393,9 +393,10 @@ class MeasurementViewModel {
         );
         self.status(`${self.status()}\nClear commands`);
         await self.apiService.clearCommands();
+        const firstMeasurementLevel = await self.mainTargetLevel();
         for (const item of self.measurements()) {
           self.status(`${self.status()}\nReseting ${item.displayMeasurementTitle()}`);
-          await item.resetAll();
+          await item.resetAll(firstMeasurementLevel);
         }
 
         self.status(`${self.status()}\nReset successful`);
@@ -478,6 +479,11 @@ class MeasurementViewModel {
         self.status("Computing sum...");
         await self.apiService.updateAPI('inhibit-graph-updates', true);
 
+        const firstMeasurementLevel = await self.mainTargetLevel();
+        for (const subItem of self.subsMeasurements()) {
+          await subItem.setTargetLevel(firstMeasurementLevel);
+        }
+
         for (const [position, subResponses] of Object.entries(self.byPositionsGroupedSubsMeasurements())) {
           await self.produceSumProcess(self, subResponses);
         }
@@ -528,24 +534,17 @@ class MeasurementViewModel {
         self.status("Computing SPL alignment...");
 
         console.debug(`Computing SPL alignment`);
-        const firstMeasurement = self.uniqueSpeakersMeasurements()[0];
-        const firstMeasurementLevel = await firstMeasurement.getTargetLevel();
+        const firstMeasurementLevel = await self.mainTargetLevel();
 
         for (const measurement of self.uniqueSpeakersMeasurements()) {
           await measurement.applyWorkingSettings();
-          await measurement.setTargetSettings({ "shape": "None" });
+          await measurement.resetTargetSettings();
           await measurement.eqCommands("Calculate target level");
           const targetLevel = await measurement.getTargetLevel();
           await measurement.addSPLOffsetDB(firstMeasurementLevel - targetLevel);
           await measurement.setTargetLevel(firstMeasurementLevel);          
           await measurement.copySplOffsetDeltadBToOther();
           await measurement.removeWorkingSettings();
-        }
-        for (const sub of self.uniqueSubsMeasurements()) {
-          // TODO: adjust sub level
-          await sub.setTargetLevel(firstMeasurementLevel);
-          // apply SPLoffset to other measurement positions
-          await sub.copySplOffsetDeltadBToOther();
         }
 
         self.status("SPL alignment successful");
@@ -565,6 +564,7 @@ class MeasurementViewModel {
         self.error('');
 
         await measurement.createStandardFilter();
+        await measurement.copyFiltersToOther();
 
       } catch (error) {
         self.handleError(`Filter compute failed: ${error.message}`, error);
@@ -672,9 +672,9 @@ class MeasurementViewModel {
           await item.copyFiltersToOther();
         }
 
-        self.status('Preview generated successfully');
+        self.status('Filters generated successfully');
       } catch (error) {
-        self.handleError(`Generating filter failed: ${error.message}`, error);
+        self.handleError(`Filter generation failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
         await self.apiService.updateAPI('inhibit-graph-updates', false);
@@ -713,10 +713,7 @@ class MeasurementViewModel {
           throw new Error(`Please load avr file first`);
         }
         this.targetCurve = await this.apiService.checkTargetCurve();
-
-        const firstMeasurement = self.uniqueMeasurements()[0];
-        const level = await firstMeasurement.getTargetLevel();
-        self.OCAFileGenerator.tcName = `${self.targetCurve} ${level.toFixed(2)}dB`;
+        self.OCAFileGenerator.tcName = `${self.targetCurve} ${await self.mainTargetLevel()}dB`;
         self.OCAFileGenerator.softRoll = self.softRoll();
         self.OCAFileGenerator.enableDynamicEq = self.enableDynamicEq();
         self.OCAFileGenerator.dynamicEqRefLevel = self.dynamicEqRefLevel();
@@ -791,7 +788,7 @@ class MeasurementViewModel {
         const firstMeasurement = subsMeasurements[0];
         // to first measurement delay the others sub must align to
         const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
-        const firstMeasurementLevel = await firstMeasurement.getTargetLevel();
+        const firstMeasurementLevel = await self.mainTargetLevel();
         const targetLevel = firstMeasurementLevel + 3;
         const frequencyResponses = [];
 
@@ -848,14 +845,12 @@ class MeasurementViewModel {
               await subMeasurement.setInverted(false);
             } else {
               throw new Error(`Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`);
-            }
+            }            
             // reverse delay if previous iteration and apply specified delay
             await subMeasurement.addIROffsetSeconds(sub.param.delay);
 
             await subMeasurement.addSPLOffsetDB(sub.param.gain);
 
-            await subMeasurement.copyCumulativeIRShiftToOther();
-            await subMeasurement.copySplOffsetDeltadBToOther();
 
           } catch (error) {
             throw new Error(`Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`);
@@ -891,6 +886,7 @@ class MeasurementViewModel {
             allowHighShelf: false
           });
 
+        await maximisedSum.setTargetLevel(firstMeasurementLevel);
         await maximisedSum.eqCommands('Match target');
 
         const filters = await maximisedSum.getFilters();
@@ -901,6 +897,9 @@ class MeasurementViewModel {
 
         for (const sub of subsMeasurements) {
           await sub.setFilters(filters);
+          await sub.copyFiltersToOther();
+          await sub.copyCumulativeIRShiftToOther();
+          await sub.copySplOffsetDeltadBToOther();
         }
 
         self.status(`${self.status()} \nMultiSubOptimizer successfull`);
@@ -1082,6 +1081,23 @@ class MeasurementViewModel {
     self.uniqueSpeakersMeasurements = ko.computed(() => {
       return self.uniqueMeasurements().filter(item => !item.isSub());
     });
+  }
+
+  async mainTargetLevel() {
+    const firstMeasurement = this.uniqueMeasurements()[0];
+    if (!firstMeasurement) {
+      return 75;
+    }
+    const level = await firstMeasurement.getTargetLevel();
+    return Number(level.toFixed(2));
+  }
+
+  async setTargetLevelToAll() {
+    const firstMeasurementLevel = await this.mainTargetLevel();
+    for (const measurement of this.measurements()) {
+      await measurement.setTargetLevel(firstMeasurementLevel);
+    }
+    return firstMeasurementLevel;
   }
 
   /**

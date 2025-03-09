@@ -225,7 +225,7 @@ class MeasurementItem {
     this.inverted(!this.inverted());
   }
 
-  async resetAll() {
+  async resetAll(targetLevel = 75) {
     try {
       await this.resetSmoothing();
       await this.resetIrWindows();
@@ -234,6 +234,7 @@ class MeasurementItem {
       await this.ResetEqualiser();
       await this.resetcumulativeIRShiftSeconds();
       await this.setInverted(false);
+      await this.setTargetLevel(targetLevel);
     } catch (error) {
       throw new Error(
         `Failed to reset for response ${this.displayMeasurementTitle()}: ${error.message}`, { cause: error });
@@ -624,7 +625,6 @@ class MeasurementItem {
     if (filtersCleaned.length === 0) {
       return true;
     }
-    // TODO: creates a new filter array containing only the different filters
     await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/filters`,
       { filters: filtersCleaned });
 
@@ -902,6 +902,9 @@ class MeasurementItem {
     if (this.isSub()) {
       throw new Error(`Operation not permitted on a sub ${this.displayMeasurementTitle()}`);
     }
+
+    const firstMeasurementLevel = await this.parentViewModel.mainTargetLevel();
+    await this.setTargetLevel(firstMeasurementLevel);
 
     await this.applyWorkingSettings();
 
