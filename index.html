@@ -254,6 +254,14 @@
           <!-- MSO Import Instructions -->
           <details class="shrinkable-container">
             <summary>Details on how to use MSO import</summary>
+            
+            <button class="button" data-bind="
+              click: buttonCreatesMsoExports,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }">
+              <span data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"></span>
+            </button>
+
             <div>
               <p>MSO do not provide exports for REW, this is a trick that using the Equalizer APO to achieve this goal.
                 To make the export from MSO, the related menu is available here:</p>

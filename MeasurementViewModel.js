@@ -766,6 +766,68 @@ class MeasurementViewModel {
       }
     };
 
+    self.buttonCreatesMsoExports = async function () {
+      if (self.isProcessing()) return;
+      try {
+
+        if (!self.isPolling()) {
+          throw new Error('Please start connetion first');
+        }
+
+        self.isProcessing(true);
+        self.error('');
+        self.status("Exports Subs...");
+        
+        const frequencyResponses = [];
+        const jszip = new JSZip();
+        const zipFilename = `MSO ${self.OCAFileGenerator.model}.zip`;
+        const minFreq = 5;    // minimum frequency in Hz
+        const maxFreq = 400; // maximum frequency in Hz
+        
+        // Helper function to process chunks of measurements
+        async function processMeasurementChunk(measurements) {
+            return Promise.all(measurements.map(async (measurement) => {
+                await measurement.resetAll();
+                const frequencyResponse = await measurement.getFrequencyResponse();
+                const subName = measurement.channelName().replace('SW', 'Sub ');
+                const localFilename = `${subName}_Pos ${measurement.position()}.txt`;
+                
+                const filecontent = frequencyResponse.freqs
+                  .reduce((acc, freq, i) => {
+                    if (freq >= minFreq && freq <= maxFreq) {
+                        const line = `${freq.toFixed(6)}  ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
+                        return acc ? `${acc}\n${line}` : line;
+                    }
+                    return acc;
+                }, '');
+                      
+                if (!filecontent) {
+                    throw new Error(`no file content for ${localFilename}`);
+                }
+                
+                frequencyResponses.push(jszip.file(localFilename, filecontent));
+            }));
+        }
+        
+        // Process measurements in chunks of 4
+        const measurements = self.subsMeasurements();
+        const chunkSize = 5;
+        
+        for (let i = 0; i < measurements.length; i += chunkSize) {
+            const chunk = measurements.slice(i, i + chunkSize);
+            await processMeasurementChunk(chunk);
+        }
+        
+        // Generate the zip file once and save it
+        const zipContent = await jszip.generateAsync({ type: "blob" });
+        saveAs(zipContent, zipFilename);
+        self.status('Exports Subs successful');
+      } catch (error) {
+        self.handleError(`Exports Subs failed: ${error.message}`, error);
+      } finally {
+        self.isProcessing(false);
+      }
+    }
 
     self.buttonMultiSubOptimizer = async function () {
       if (self.isProcessing()) return;
