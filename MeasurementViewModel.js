@@ -168,8 +168,22 @@ class MeasurementViewModel {
         59: 54,
         60: 55,
         62: 56,
-        63: 57
+        63: 57,
+        58: 54,
+        61: 55,
+        64: 56
       };
+
+      if (!data.detectedChannels?.[0]) {
+        self.handleError('No channels detected');
+        return;
+      }
+      
+      // convert directionnal bass to standard
+      data.detectedChannels = data.detectedChannels.map(channel => ({
+        ...channel,
+        enChannelType: StandardChannelMapping[channel.enChannelType] || channel.enChannelType
+      }));
 
       if (data.detectedChannels?.[0].responseData?.[0]) {
 
@@ -178,9 +192,6 @@ class MeasurementViewModel {
 
         // TODO: ampassign can be directionnal must be converted to standard
         for (const [channelIndex, channel] of data.detectedChannels.entries()) {
-
-          // convert directionnal bass to standard
-          channel.enChannelType = StandardChannelMapping[channel.enChannelType] || channel.enChannelType;
 
           const responses = Object.entries(channel.responseData);
           for (const [position, response] of responses) {
