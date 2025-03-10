@@ -1,3 +1,4 @@
+import { CHANNEL_TYPES } from "./audyssey.js";
 
 
 export default class OCAFileGenerator {
@@ -110,17 +111,19 @@ export default class OCAFileGenerator {
       throw new Error(`No REW measurements found`);
     }
 
-    if (this.avrFileContent.detectedChannels.length !== allResponses.length) {
-      const expectedChannels = this.avrFileContent.detectedChannels
-        .map(expected => expected.commandId);
-      const providedChannels = allResponses.map(item => item.channelName())
-      console.debug(`Expected channels: ${JSON.stringify(expectedChannels)}`);
-      console.debug(`Provided channels: ${JSON.stringify(providedChannels)}`);
-      // print channels that are missing
-      const missingChannels = expectedChannels
-        .filter(channel => !providedChannels.includes(channel));
+    const expectedChannels = this.avrFileContent.detectedChannels
+      .map(expected => expected.enChannelType);
+    const providedChannels = allResponses.map(item => item.channelDetails().channelIndex);
+    
+    const missingChannels = expectedChannels
+      .filter(channel => !providedChannels.includes(channel));
+
+    if (missingChannels !== 0) {
+      const codesLabels = missingChannels.map(channel => {
+        return CHANNEL_TYPES.getByChannelIndex(channel).code;
+      });
       throw new Error(`${missingChannels.length} channel(s) are missing or added, please ensure all AVR detected channels are present in REW,
-        missing are: ${missingChannels.join(', ')}`);
+        missing are: ${codesLabels.join(', ')}`);
     }
 
     const channels = [];
