@@ -54,17 +54,11 @@ class Polar {
   }
 
   multiply(other) {
-    return new Polar(
-      this._magnitude * other.magnitude,
-      this._phase + other.phase
-    );
+    return new Polar(this._magnitude * other.magnitude, this._phase + other.phase);
   }
 
   divide(other) {
-    return new Polar(
-      this._magnitude / other.magnitude,
-      this._phase - other.phase
-    );
+    return new Polar(this._magnitude / other.magnitude, this._phase - other.phase);
   }
 
   // Scaling and phase operations
@@ -161,10 +155,9 @@ class Polar {
       magnitudeDb: this.magnitudeDb,
       phaseDegrees: this.phaseDegrees,
       real: complex.re,
-      imaginary: complex.im
+      imaginary: complex.im,
     };
   }
 }
-
 
 export default Polar;

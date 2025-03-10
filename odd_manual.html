@@ -1,5 +1,8 @@
 <h1>Instructions</h1>
-<p>All the credits of this to <a href="https://www.avsforum.com/members/ratneuron.9739054/#about">ratneuron</a></p>
+<p>
+  All the credits of this to
+  <a href="https://www.avsforum.com/members/ratneuron.9739054/#about">ratneuron</a>
+</p>
 <h2>Download suitable from the link:</h2>
 <ol>
   <li><a href="ressources/odd.wtf">Windows</a></li>
@@ -9,8 +12,9 @@
 <h2>Tips for Mac (and Linux also)</h2>
 <ol>
   <li>Start Terminal.app by pressing CMD and space and then typing Terminal.app</li>
-  <li>In the Terminal, run the following commands:
-    <ol style="list-style-type: lower-alpha;">
+  <li>
+    In the Terminal, run the following commands:
+    <ol style="list-style-type: lower-alpha">
       <li>Change Directory to your personal downloads folder:</li>
       <code class="inline-code">cd ~/Downloads</code>
       <li>List the downloaded/renamed file as a quick test:</li>
@@ -23,47 +27,50 @@
       <code class="inline-code">/odd.mac -h</code>
     </ol>
   </li>
-  <li>search for your AVR: </li>
+  <li>search for your AVR:</li>
   <div class="code-block">
-    <code class="code-text">./odd.mac search
-
-                  Searching for AVRs on your network...
-                  Found 1 AVR(s)
-                  1. Denon AVR-X3800H, AVR-X3800H, 192.168.50.225
-                </code>
+    <code class="code-text"
+      >./odd.mac search Searching for AVRs on your network... Found 1 AVR(s) 1. Denon
+      AVR-X3800H, AVR-X3800H, 192.168.50.225
+    </code>
   </div>
-  <li>generate AVR file for your AVR: </li>
+  <li>generate AVR file for your AVR:</li>
   <div class="code-block">
-    <code class="code-text">./odd.mac gen
-
-                  Generating .avr file...
-                  Searching for compatible AVRs...
-                  Found 1 compatible AVR(s)
-                  1. Denon AVR-X3800H, AVR-X3800H
-                  Selected AVR #1 - Denon AVR-X3800H, AVR-X3800H, 192.168.50.225
-                  Using title Denon_AVR-X3800H_AVR-X3800H_25-01-2025_13-49-35
-                  Using path /Users/X/Downloads/OCA/Neuron/Denon_AVR-X3800H_AVR-X3800H_25-
-                  01-2025_13-49-35.avr
-                  Success!
-              </code>
+    <code class="code-text"
+      >./odd.mac gen Generating .avr file... Searching for compatible AVRs... Found 1
+      compatible AVR(s) 1. Denon AVR-X3800H, AVR-X3800H Selected AVR #1 - Denon
+      AVR-X3800H, AVR-X3800H, 192.168.50.225 Using title
+      Denon_AVR-X3800H_AVR-X3800H_25-01-2025_13-49-35 Using path
+      /Users/X/Downloads/OCA/Neuron/Denon_AVR-X3800H_AVR-X3800H_25- 01-2025_13-49-35.avr
+      Success!
+    </code>
   </div>
-  <p>if the receiver is not found then explicitly using its iP address may work.
-    You can get this information by:</p>
-  <ol style="list-style-type: lower-alpha;">
+  <p>
+    if the receiver is not found then explicitly using its iP address may work. You can
+    get this information by:
+  </p>
+  <ol style="list-style-type: lower-alpha">
     <li>installing the free Denon or Marantz app on your smartphone</li>
     <li>powering the AVR on</li>
-    <li>in the app menu, go to Web Control -&gt; Network -&gt; Information and look for IP Address</li>
+    <li>
+      in the app menu, go to Web Control -&gt; Network -&gt; Information and look for IP
+      Address
+    </li>
     <li>Note the IP address, e.g. 192.168.52.225</li>
-    <li>Then use the -i parameter when using odd.mac to guide it into finding/using your AVR</li>
+    <li>
+      Then use the -i parameter when using odd.mac to guide it into finding/using your AVR
+    </li>
 
     <div class="code-block">
-      <code class="code-text">./odd.mac gen -i 192.168.50.2.225
-
-                  Generating .avr file...
-                  Querying 192.168.50.225 for AVR info
-                  </code>
+      <code class="code-text"
+        >./odd.mac gen -i 192.168.50.2.225 Generating .avr file... Querying 192.168.50.225
+        for AVR info
+      </code>
     </div>
   </ol>
-  <li>upload the &ldquo;.oca&rdquo; file generated to your AVR, your filename will be different:</p>
+  <li>
+    upload the &ldquo;.oca&rdquo; file generated to your AVR, your filename will be
+    different:
     <code class="inline-code">./odd.mac load 20250125_1341_Sangoku_custom.oca</code>
+  </li>
 </ol>

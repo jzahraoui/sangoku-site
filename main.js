@@ -19,7 +19,7 @@ class LanguageManager {
     const selector = document.getElementById('languageSelector');
     if (selector) {
       selector.value = this.currentLanguage;
-      selector.addEventListener('change', (e) => {
+      selector.addEventListener('change', e => {
         this.changeLanguage(e.target.value);
       });
     }
@@ -64,7 +64,6 @@ class RewController {
 
   initializeEventListeners() {
     document.addEventListener('DOMContentLoaded', async () => {
-
       window.langManager = new LanguageManager();
 
       const rewApi = new RewApi();
@@ -93,12 +92,15 @@ class RewController {
         link.addEventListener('click', function (e) {
           e.preventDefault();
           const description = this.getAttribute('data-description');
-          fetch(description).then(response => response.text()).then(text => {
-            popupDescription.innerHTML = text;
-          }).catch(error => {
-            console.error('Error fetching description:', error);
-            popupDescription.textContent = 'Failed to load description.';
-          });
+          fetch(description)
+            .then(response => response.text())
+            .then(text => {
+              popupDescription.innerHTML = text;
+            })
+            .catch(error => {
+              console.error('Error fetching description:', error);
+              popupDescription.textContent = 'Failed to load description.';
+            });
           popup.style.display = 'block';
         });
       });
@@ -134,19 +136,18 @@ class RewController {
       });
 
       // Close popup when clicking outside
-      thumbnailPopup.addEventListener('click', (e) => {
+      thumbnailPopup.addEventListener('click', e => {
         if (e.target === thumbnailPopup) {
           thumbnailPopup.style.display = 'none';
         }
       });
 
       // Close on escape key
-      document.addEventListener('keydown', (e) => {
+      document.addEventListener('keydown', e => {
         if (e.key === 'Escape' && thumbnailPopup.style.display === 'block') {
           thumbnailPopup.style.display = 'none';
         }
       });
-
     });
   }
 }
@@ -163,7 +164,6 @@ async function downloadConfig(config, channel) {
 
     // Save file using FileSaver
     await saveAs(blob, `config_${channel}.yml`);
-
   } catch (error) {
     throw new Error('Error downloading config:', error);
   }
@@ -172,7 +172,9 @@ async function downloadConfig(config, channel) {
 const dropzoneAvr = document.getElementById('dropzoneAvr');
 const fileInputAvr = document.getElementById('fileInputAvr');
 
-dropzoneAvr.addEventListener('click', () => { fileInputAvr.click(); });
+dropzoneAvr.addEventListener('click', () => {
+  fileInputAvr.click();
+});
 
 // UI Setup
 const dropzoneMso = document.getElementById('dropzoneMso');
@@ -181,7 +183,7 @@ const results = document.getElementById('results');
 
 dropzoneMso.addEventListener('click', () => fileInputMso.click());
 
-dropzoneMso.addEventListener('dragover', (e) => {
+dropzoneMso.addEventListener('dragover', e => {
   e.preventDefault();
   dropzoneMso.classList.add('dragover');
 });
@@ -190,26 +192,27 @@ dropzoneMso.addEventListener('dragleave', () => {
   dropzoneMso.classList.remove('dragover');
 });
 
-dropzoneMso.addEventListener('drop', (e) => {
+dropzoneMso.addEventListener('drop', e => {
   e.preventDefault();
   dropzoneMso.classList.remove('dragover');
   handleFiles(e.dataTransfer.files);
 });
 
-fileInputMso.addEventListener('change', (e) => {
+fileInputMso.addEventListener('change', e => {
   handleFiles(e.target.files);
 });
 
 function handleFiles(files) {
   if (!files || !files.length) {
-    results.innerHTML = '<div class="error">No files selected or invalid file input.</div>';
+    results.innerHTML =
+      '<div class="error">No files selected or invalid file input.</div>';
     return;
   }
 
   const file = files[0];
   const reader = new FileReader();
 
-  reader.onload = async (e) => {
+  reader.onload = async e => {
     try {
       const content = e.target.result;
       let filterConverter;
@@ -229,7 +232,8 @@ function handleFiles(files) {
       // Show success message
       const successDiv = document.createElement('div');
       successDiv.className = 'success';
-      successDiv.textContent = 'Conversion successful! Click buttons below to download configurations:';
+      successDiv.textContent =
+        'Conversion successful! Click buttons below to download configurations:';
       results.appendChild(successDiv);
 
       // Create download buttons

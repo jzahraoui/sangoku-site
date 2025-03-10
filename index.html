@@ -1,18 +1,16 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <!-- Specify character encoding early -->
+    <meta charset="UTF-8" />
+    <!-- Viewport settings for responsive design -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Compress text content -->
+    <title data-i18n="title">Room Correction Helper</title>
+    <link href="default.css" rel="stylesheet" type="text/css" />
+  </head>
 
-<head>
-  <!-- Specify character encoding early -->
-  <meta charset="UTF-8">
-  <!-- Viewport settings for responsive design -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Compress text content -->
-  <title data-i18n="title">Room Correction Helper</title>
-  <link href="default.css" rel="stylesheet" type="text/css">
-</head>
-
-<body>
-  <main class="container">
+  <body>
     <header>
       <h1 data-i18n="title">Room Correction Helper</h1>
       <!-- Add language selector -->
@@ -22,137 +20,194 @@
       </select>
     </header>
 
-    <!-- REW Controls Section -->
-    <div id="RewCommands" class="controls-section">
-
-      <!-- Add this HTML for the popup -->
-      <div id="descriptionPopup" class="popup">
-        <div class="popup-content">
-          <span class="close-btn">&times;</span>
-          <div id="popupDescription">
-            <!-- Content will be loaded here -->
-          </div>
-        </div>
-      </div>
-
-      <section class="control-group">
-        <h2>Download and install <a href="https://www.avnirvana.com/threads/rew-api-beta-releases.12981/"
-            target="_blank">REW (Room EQ Wizard)</a> latest Beta</h2>
-        <h2>Import your avr file generated from <a data-description="odd_manual.html" href="#" class="code-link">odd</a>
-          executable</h2>
-        <div class="dropzone" id="dropzoneAvr" data-bind="
-          event: { 
-            drop: handleDrop,
-            dragover: handleDragOver,
-            dragenter: handleDragEnter,
-            dragleave: handleDragLeave
-          }, css: { 'dragover': isDragging }">
-          <p data-i18n="drop_avr">Drop .avr or .ady file here or click to select</p>
-          <input type="file" id="fileInputAvr" accept=".avr,.ady" data-bind="event: { change: handleFileSelect }"
-            style="display: none">
-        </div>
-        <div id="resultsAvr" aria-live="polite"></div>
-        <details class="shrinkable-container">
-
-          <summary>Loaded AVR configuration details</summary>
-
-          <!-- File Content Editor -->
-          <div data-bind="if: jsonAvrData">
-            <h3>File Details</h3>
-
-            <!-- Basic Properties -->
-            <div>
-              <label data-bind="text: 'Title: ' + jsonAvrData().title"></label>
-              <label data-bind="text: 'Target Model: ' + jsonAvrData().targetModelName"></label>
-              <label data-bind="text: 'MultEQ Version:' + jsonAvrData().enMultEQType"></label>
-              <label data-bind="text: 'subwooferMode: ' + jsonAvrData().subwooferMode"></label>
-              <label data-bind="text: 'subwooferLayout: ' + jsonAvrData().subwooferLayout"></label>
-              <!-- <label type="text" data-bind="text: 'lpfForLFE:' + OCAFileGenerator.lpfForLFE"></label> -->
+    <main class="container">
+      <!-- REW Controls Section -->
+      <section id="RewCommands" class="controls-section">
+        <!-- Add this HTML for the popup -->
+        <div id="descriptionPopup" class="popup">
+          <div class="popup-content">
+            <span class="close-btn">&times;</span>
+            <div id="popupDescription">
+              <!-- Content will be loaded here -->
             </div>
-
-            <!-- Channels Editor -->
-            <h3>Detected Channels</h3>
-            <table style="width: 150px;" class="measurements-table">
-              <thead>
-                <tr>
-                  <th>Channel Name</th>
-                </tr>
-              </thead>
-              <tbody data-bind="foreach: jsonAvrData().detectedChannels">
-                <tr>
-                  <td data-bind="text: commandId"></td>
-                </tr>
-              </tbody>
-            </table>
-
           </div>
-          <div>
-            <h3>Customisation</h3>
-            <label>Selects Low Pass Filter for the LFE channel:</label>
-            <select class="combo-box" data-bind="
+        </div>
+
+        <div class="control-group">
+          <h2>
+            Download and install
+            <a
+              href="https://www.avnirvana.com/threads/rew-api-beta-releases.12981/"
+              target="_blank"
+              >REW (Room EQ Wizard)</a
+            >
+            latest Beta
+          </h2>
+          <h2>
+            Import your avr file generated from
+            <a data-description="odd_manual.html" href="#" class="code-link">odd</a>
+            executable
+          </h2>
+          <div
+            class="dropzone"
+            id="dropzoneAvr"
+            data-bind="event: { 
+              drop: handleDrop,
+              dragover: handleDragOver,
+              dragenter: handleDragEnter,
+              dragleave: handleDragLeave
+            }, css: { 'dragover': isDragging }"
+          >
+            <p data-i18n="drop_avr">Drop .avr or .ady file here or click to select</p>
+            <input
+              type="file"
+              id="fileInputAvr"
+              accept=".avr,.ady"
+              data-bind="event: { change: handleFileSelect }"
+              style="display: none"
+            />
+          </div>
+          <div id="resultsAvr" aria-live="polite"></div>
+          <details class="shrinkable-container">
+            <summary>Loaded AVR configuration details</summary>
+
+            <!-- File Content Editor -->
+            <div data-bind="if: jsonAvrData">
+              <h3>File Details</h3>
+
+              <!-- Basic Properties -->
+              <div>
+                <label data-bind="text: 'Title: ' + jsonAvrData().title"></label>
+                <label
+                  data-bind="text: 'Target Model: ' + jsonAvrData().targetModelName"
+                ></label>
+                <label
+                  data-bind="text: 'MultEQ Version:' + jsonAvrData().enMultEQType"
+                ></label>
+                <label
+                  data-bind="text: 'subwooferMode: ' + jsonAvrData().subwooferMode"
+                ></label>
+                <label
+                  data-bind="text: 'subwooferLayout: ' + jsonAvrData().subwooferLayout"
+                ></label>
+                <!-- <label type="text" data-bind="text: 'lpfForLFE:' + OCAFileGenerator.lpfForLFE"></label> -->
+              </div>
+
+              <!-- Channels Editor -->
+              <h3>Detected Channels</h3>
+              <table style="width: 150px" class="measurements-table">
+                <thead>
+                  <tr>
+                    <th>Channel Name</th>
+                  </tr>
+                </thead>
+                <tbody data-bind="foreach: jsonAvrData().detectedChannels">
+                  <tr>
+                    <td data-bind="text: commandId"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <h3>Customisation</h3>
+              <label>Selects Low Pass Filter for the LFE channel:</label>
+              <select
+                class="combo-box"
+                data-bind="
               options: LfeFrequencies,
               optionsText: 'text',
               optionsValue: 'value',
               event: { change: $root.saveMeasurements },
-              value: lpfForLFE">
-            </select>
-            <label>Selects which low frequency signals are sent to the subwoofer outputs:</label>
-            <select class="combo-box" data-bind="
+              value: lpfForLFE"
+              ></select>
+              <label
+                >Selects which low frequency signals are sent to the subwoofer
+                outputs:</label
+              >
+              <select
+                class="combo-box"
+                data-bind="
               options: subwooferOutputChoice,
               optionsText: 'text',
               optionsValue: 'value',
               event: { change: $root.saveMeasurements },
-              value: subwooferOutput">
-            </select>
-            <label class="checkbox-container">
-              <input class="checkmark" type="checkbox" data-bind="
+              value: subwooferOutput"
+              ></select>
+              <label class="checkbox-container">
+                <input
+                  class="checkmark"
+                  type="checkbox"
+                  data-bind="
                 checked: enableDynamicEq,
-                enable: true">
-              enableDynamicEq
-              <span class="checkmark"></span>
-            </label>
-            <label class="checkbox-container">
-              <input class="checkmark" type="checkbox" data-bind="
+                enable: true"
+                />
+                enableDynamicEq
+                <span class="checkmark"></span>
+              </label>
+              <label class="checkbox-container">
+                <input
+                  class="checkmark"
+                  type="checkbox"
+                  data-bind="
                 checked: enableDynamicVolume,
-                enable: true">
-              enableDynamicVolume
-              <span class="checkmark"></span>
-            </label>
-            <label class="checkbox-container">
-              <input class="checkmark" type="checkbox" data-bind="
+                enable: true"
+                />
+                enableDynamicVolume
+                <span class="checkmark"></span>
+              </label>
+              <label class="checkbox-container">
+                <input
+                  class="checkmark"
+                  type="checkbox"
+                  data-bind="
                 checked: enableLowFrequencyContainment,
-                enable: true">
-              enableLowFrequencyContainment
-              <span class="checkmark"></span>
-            </label>
-          </div>
-        </details>
-        Perform the <a data-description="measurement.html" href="#" class="code-link">measurements</a>; they must be
-        loaded into
-        REW.
-
+                enable: true"
+                />
+                enableLowFrequencyContainment
+                <span class="checkmark"></span>
+              </label>
+            </div>
+          </details>
+          Perform the
+          <a data-description="measurement.html" href="#" class="code-link"
+            >measurements</a
+          >; they must be loaded into REW.
+        </div>
 
         <div class="control-group">
           <h2>Main commands</h2>
           <div class="polling-indicator" data-bind="css: { active: isPolling }"></div>
-          <button class="button" data-bind="
-        click: buttoncheckREWButton,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }" data-tooltip="Click to connect or disconnect to REW">
+          <button
+            class="button"
+            data-bind="
+            click: buttoncheckREWButton,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+            data-tooltip="Click to connect or disconnect to REW"
+          >
             <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
           </button>
-          <button class="button" data-bind="
-        click: renameMeasurement,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }" data-tooltip="Click to rename the measurements for homogenity">
+          <button
+            class="button"
+            data-bind="
+            click: renameMeasurement,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+            data-tooltip="Click to rename the measurements for homogenity"
+          >
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Rename'"></span>
           </button>
-          <button class="button" data-bind="
-        click: buttonresetREWButton,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }"
-            data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"></span>
+          <button
+            class="button"
+            data-bind="
+            click: buttonresetREWButton,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+            data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)"
+          >
+            <span
+              data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"
+            ></span>
           </button>
         </div>
 
@@ -161,42 +216,64 @@
           <h2>Speakers Tools</h2>
 
           <h3>Averaging between all positions</h3>
-          <p class="warning-text">WARNING: all current inversions and gains will be removed to produce consistent result
+          <p class="warning-text">
+            WARNING: all current inversions and gains will be removed to produce
+            consistent result
           </p>
 
           <label class="checkbox-container">
-            <input class="checkmark" type="checkbox" data-bind="
+            <input
+              class="checkmark"
+              type="checkbox"
+              data-bind="
           checked: keepOriginalForAverage,
-          enable: true">
+          enable: true"
+            />
             Keep original measurements
             <span class="checkmark"></span>
           </label>
-          <select class="combo-box" style="width: 150px;" data-bind="
+          <select
+            class="combo-box"
+            style="width: 150px"
+            data-bind="
           options: averageMethod,
           optionsText: 'text',
           optionsValue: 'value',
           event: { change: $root.saveMeasurements },
-          value: selectedAverageMethod">
-          </select>
-          <button class="button" data-bind="
-          click: buttoncreatesAverages,
-          disable: isProcessing,
-          css: { 'disabled': isProcessing }">
+          value: selectedAverageMethod"
+          ></select>
+          <button
+            class="button"
+            data-bind="
+            click: buttoncreatesAverages,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+          >
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"></span>
           </button>
           <h3>Alignment inside the selected position</h3>
-          <p>SPL alignement makes sense on the averaged measurements, do not forget to selected corresponding position
-            before running the task</p>
-          <button class="button" data-bind="
-        click: buttonAlignPeaks,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"></span>
+          <p>
+            SPL alignement makes sense on the averaged measurements, do not forget to
+            selected corresponding position before running the task
+          </p>
+          <button
+            class="button"
+            data-bind="
+            click: buttonAlignPeaks,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+          >
+            <span
+              data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"
+            ></span>
           </button>
-          <button class="button" data-bind="
-        click: buttonAlignSPL,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }">
+          <button
+            class="button"
+            data-bind="
+            click: buttonAlignSPL,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+          >
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Align SPL'"></span>
           </button>
         </div>
@@ -205,48 +282,71 @@
           <h2>Sub Tools</h2>
 
           <h3>(Optional) Revert AVR low pass filter:</h3>
-          <p>This step is not needed if you used odd to makes the measurements. If your sub measurements was done with
-            REW
-            and you own mic, you can revert the effect of the low pass filter
-            of the AVR. select the frequency filter that was active during measures</p>
+          <p>
+            This step is not needed if you used odd to makes the measurements. If your sub
+            measurements was done with REW and you own mic, you can revert the effect of
+            the low pass filter of the AVR. select the frequency filter that was active
+            during measures
+          </p>
 
           <label class="checkbox-container">
-            <input class="checkmark" type="checkbox" data-bind="
+            <input
+              class="checkmark"
+              type="checkbox"
+              data-bind="
           checked: replaceOriginalForLfeRevert,
-          enable: true">
+          enable: true"
+            />
             Replace original
             <span class="checkmark"></span>
           </label>
-          <select id="filterSelect" class="combo-box" data-bind="
+          <select
+            id="filterSelect"
+            class="combo-box"
+            data-bind="
           options: LfeFrequencies,
           optionsText: 'text',
           optionsValue: 'value',
           event: { change: $root.saveMeasurements },
-          value: selectedLfeFrequency">
-          </select>
-          <button class="button" data-bind="
+          value: selectedLfeFrequency"
+          ></select>
+          <button
+            class="button"
+            data-bind="
           click: buttonrevertLfeFilter,
           disable: isProcessing,
-          css: { 'disabled': isProcessing }">
+          css: { 'disabled': isProcessing }"
+          >
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
           </button>
         </div>
 
-        <div class="control-group" data-bind="visible: uniqueSubsMeasurements().length > 1">
+        <div
+          class="control-group"
+          data-bind="visible: uniqueSubsMeasurements().length > 1"
+        >
           <h2>Multi sub management</h2>
           <h3>Multiple Sub, choose on the 3 possibility to get them ready</h3>
 
           <h4>1. do it by your own in REW</h4>
-          <p>Use REW alignement tool and other functionality to align sub and creates filters</p>
+          <p>
+            Use REW alignement tool and other functionality to align sub and creates
+            filters
+          </p>
 
           <h4>2. Generate automated config</h4>
           <p>will delete actual sub configuration for the current position</p>
 
-          <button class="button" data-bind="
+          <button
+            class="button"
+            data-bind="
             click: buttonMultiSubOptimizer,
             disable: isProcessing,
-            css: { 'disabled': isProcessing }">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Optimize Sub'"></span>
+            css: { 'disabled': isProcessing }"
+          >
+            <span
+              data-bind="text: isProcessing() ? 'Processing...' : 'Optimize Sub'"
+            ></span>
           </button>
 
           <h4>3. Import your config from MSO</h4>
@@ -254,27 +354,40 @@
           <!-- MSO Import Instructions -->
           <details class="shrinkable-container">
             <summary>Details on how to use MSO import</summary>
-            
-            <button class="button" data-bind="
+
+            <button
+              class="button"
+              data-bind="
               click: buttonCreatesMsoExports,
               disable: isProcessing,
-              css: { 'disabled': isProcessing }">
-              <span data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"></span>
+              css: { 'disabled': isProcessing }"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
+              ></span>
             </button>
 
             <div>
-              <p>MSO do not provide exports for REW, this is a trick that using the Equalizer APO to achieve this goal.
-                To make the export from MSO, the related menu is available here:</p>
+              <p>
+                MSO do not provide exports for REW, this is a trick that using the
+                Equalizer APO to achieve this goal. To make the export from MSO, the
+                related menu is available here:
+              </p>
             </div>
             <figure class="thumbnail-container">
-              <img src="img/mso_mini.png" loading="lazy" alt="MSO export menu location" class="thumbnail"
-                data-full="img/mso.png">
+              <img
+                src="img/mso_mini.png"
+                loading="lazy"
+                alt="MSO export menu location"
+                class="thumbnail"
+                data-full="img/mso.png"
+              />
             </figure>
             <p>Then drop the file here:</p>
             <!-- File Upload Area -->
             <div class="dropzone" id="dropzoneMso">
               <p>Drop your Equalizer APO export file here or click to select</p>
-              <input type="file" id="fileInputMso" accept=".txt" style="display: none">
+              <input type="file" id="fileInputMso" accept=".txt" style="display: none" />
             </div>
 
             <div id="results" aria-live="polite"></div>
@@ -285,242 +398,334 @@
               <h4>Requirements:</h4>
               <ul>
                 <li>REW API server must be started</li>
-                <li>Measurement having a name beginning by the name in MSO must be loaded</li>
+                <li>
+                  Measurement having a name beginning by the name in MSO must be loaded
+                </li>
               </ul>
               <h3>Manual:</h3>
-              <p>Download files with buttons. Import can be done through the EQ window with the created file:</p>
+              <p>
+                Download files with buttons. Import can be done through the EQ window with
+                the created file:
+              </p>
             </div>
             <figure class="thumbnail-container">
-              <img src="img/rew_mini.png" loading="lazy" alt="REW import location" class="thumbnail"
-                data-full="img/rew.png">
+              <img
+                src="img/rew_mini.png"
+                loading="lazy"
+                alt="REW import location"
+                class="thumbnail"
+                data-full="img/rew.png"
+              />
             </figure>
             <div id="imagePopup" class="popup">
               <span class="close-btn">&times;</span>
-              <img id="fullImage" src="" loading="lazy" alt="Full size image">
+              <img id="fullImage" src="" loading="lazy" alt="Full size image" />
             </div>
           </details>
           <h3>Create sum result</h3>
           <p>Creates a new measurement named LFE Predicted_{Position}.</p>
-          <button class="button" data-bind="
-        click: buttonproduceSubSum,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }">
+          <button
+            class="button"
+            data-bind="
+            click: buttonproduceSubSum,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+          >
             <span data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"></span>
           </button>
-          <button class="button" data-bind="
-        click: buttonproduceSubSumAllPositions,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }">
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"></span>
+          <button
+            class="button"
+            data-bind="
+            click: buttonproduceSubSumAllPositions,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+          >
+            <span
+              data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
+            ></span>
           </button>
         </div>
 
         <div class="control-group">
           <h2>Tuning</h2>
           <h3>Sub alignment with speaker</h3>
-          <p>align "LFE predicted" and all individual subs measurements with selected channel, the speaker must have
-            a filter computed</p>
+          <p>
+            align "LFE predicted" and all individual subs measurements with selected
+            channel, the speaker must have a filter computed
+          </p>
           <div>
-            <select id="filterSelectproduceAlignedButton" class="combo-box" data-bind="
+            <select
+              id="filterSelectproduceAlignedButton"
+              class="combo-box"
+              data-bind="
           options: alingFrequencies,
           optionsText: 'text',
           optionsValue: 'value',
           event: { change: $root.saveMeasurements },
           optionsCaption: 'Select crossover',
-          value: selectedAlignFrequency">
-            </select>
-            <select id="SpeakerSelect" class="combo-box" data-bind="
+          value: selectedAlignFrequency"
+            ></select>
+            <select
+              id="SpeakerSelect"
+              class="combo-box"
+              data-bind="
           options: uniqueSpeakersMeasurements,
           optionsText: 'title',
           optionsValue: 'uuid',
           event: { change: $root.saveMeasurements },
           optionsCaption: 'Select speaker channel',
-          value: selectedSpeaker">
-            </select>
-            <button class="button" data-bind="
+          value: selectedSpeaker"
+            ></select>
+            <button
+              class="button"
+              data-bind="
           click: buttonproduceAlignedButton,
           disable: isProcessing,
-          css: { 'disabled': isProcessing }">
-              <span data-bind="text: isProcessing() ? 'Processing...' : 'find sub alignement'"></span>
+          css: { 'disabled': isProcessing }"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'find sub alignement'"
+              ></span>
             </button>
           </div>
         </div>
-        <button class="button" data-bind="
+        <button
+          class="button"
+          data-bind="
         click: buttoncreateOCAButton,
         disable: isProcessing,
-        css: { 'disabled': isProcessing }">
-          <span data-bind="text: isProcessing() ? 'Processing...' : 'Creates OCA file'"></span>
+        css: { 'disabled': isProcessing }"
+        >
+          <span
+            data-bind="text: isProcessing() ? 'Processing...' : 'Creates OCA file'"
+          ></span>
         </button>
-    </div>
-    <!-- Result Status -->
-    <div id="status" data-bind="visible: hasStatus()" class="success">
-      <p data-bind="text: status()" class="status-text"></p>
-    </div>
-    <div id="measurements-container">
-      <!-- Error State -->
-      <div data-bind="visible: hasError()" class="error">
-        <p data-bind="text: error()"></p>
-        <button data-bind="click: function() { error('') }">Retry</button>
+      </section>
+      <!-- Result Status -->
+      <div id="status" data-bind="visible: hasStatus()" class="success">
+        <p data-bind="text: status()" class="status-text"></p>
       </div>
-      <!-- Content -->
-      <div class="table-wrapper" data-bind="visible: !hasError()">
-        <table class="measurements-table">
-          <thead>
-            <tr>
-              <th>
-                <select class="combo-box" data-bind="
+      <div id="measurements-container">
+        <!-- Error State -->
+        <div data-bind="visible: hasError()" class="error">
+          <p data-bind="text: error()"></p>
+          <button data-bind="click: function() { error('') }">Retry</button>
+        </div>
+        <!-- Content -->
+        <div class="table-wrapper" data-bind="visible: !hasError()">
+          <table class="measurements-table">
+            <thead>
+              <tr>
+                <th>
+                  <select
+                    class="combo-box"
+                    data-bind="
                     options: selectedMeasurements,
                     optionsText: 'text',
                     optionsValue: 'value',
-                    value: selectedMeasurementsFilter">
-                </select>
-                <select id="filterSelectproduceAlignedButton" class="combo-box" data-bind="
+                    value: selectedMeasurementsFilter"
+                  ></select>
+                  <select
+                    id="filterSelectproduceAlignedButton"
+                    class="combo-box"
+                    data-bind="
                   options: measurementsPositionList,
                   optionsText: function(item) { return 'Pos. ' + item },
                   enable: measurementsPositionList().length > 0
                   event: { change: $root.saveMeasurements },
-                  value: currentSelectedPosition">
-                </select>
-              </th>
-              <th>Channel Name</th>
-              <th>Measurement</th>
-              <th data-bind="text: 'Distance (M) Limit:' + maxDistanceInMetersWarning()"></th>
-              <th>Trim (dB)</th>
-              <th><select id="crossoverSelect" style="width: 110px;" class="combo-box" data-bind="
+                  value: currentSelectedPosition"
+                  ></select>
+                </th>
+                <th>Channel Name</th>
+                <th>Measurement</th>
+                <th
+                  data-bind="text: 'Distance (M) Limit:' + maxDistanceInMetersWarning()"
+                ></th>
+                <th>Trim (dB)</th>
+                <th>
+                  <select
+                    id="crossoverSelect"
+                    style="width: 110px"
+                    class="combo-box"
+                    data-bind="
                     options: alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
                     optionsCaption: 'Crossover',
-                    value: gobalCrossover">
-                </select></th>
-              <th>Speaker Type</th>
-              <th>Inverted</th>
-              <th>
-                <button class="preview-btn" data-bind="
+                    value: gobalCrossover"
+                  ></select>
+                </th>
+                <th>Speaker Type</th>
+                <th>Inverted</th>
+                <th>
+                  <button
+                    class="preview-btn"
+                    data-bind="
                     click: buttongenratesPreview,
                     disable: isProcessing,
-                    css: { 'disabled': isProcessing }">
-                  <span data-bind="text: isProcessing() ? 'Processing...' : 'All previews'"></span>
-                </button>
-              </th>
-              <th>
-                <button class="preview-btn" data-bind="
+                    css: { 'disabled': isProcessing }"
+                  >
+                    <span
+                      data-bind="text: isProcessing() ? 'Processing...' : 'All previews'"
+                    ></span>
+                  </button>
+                </th>
+                <th>
+                  <button
+                    class="preview-btn"
+                    data-bind="
                     click: buttongeneratesFilters,
                     disable: isProcessing,
-                    css: { 'disabled': isProcessing }">
-                  <span data-bind="text: isProcessing() ? 'Processing...' : 'All Filters'"></span>
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody data-bind="foreach: uniqueMeasurementsView">
-            <tr>
-              <td>
-                <label class="checkbox-container">
-                  <input type="checkbox" disabled data-bind="
-                  checked: isSelected">
-                  <span class="checkmark"></span>
-                  <span data-bind="text: displayPositionText()"></span>
-                </label>
-              </td>
-              <td data-bind="text: channelName(), css: { success: isChannelDetected() } "></td>
-              <td data-bind="text: displayMeasurementTitle()"></td>
-              <td data-bind="text: distanceInMeters(), css: exceedsDistance">
-              </td>
-              <td data-bind="text: splForAvr().toFixed(1), css: { error: splIsAboveLimit() }"></td>
-              <td>
-                <select id="crossoverSelect" class="combo-box" data-bind="
+                    css: { 'disabled': isProcessing }"
+                  >
+                    <span
+                      data-bind="text: isProcessing() ? 'Processing...' : 'All Filters'"
+                    ></span>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody data-bind="foreach: uniqueMeasurementsView">
+              <tr>
+                <td>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      disabled
+                      data-bind="
+                  checked: isSelected"
+                    />
+                    <span class="checkmark"></span>
+                    <span data-bind="text: displayPositionText()"></span>
+                  </label>
+                </td>
+                <td
+                  data-bind="text: channelName(), css: { success: isChannelDetected() } "
+                ></td>
+                <td data-bind="text: displayMeasurementTitle()"></td>
+                <td data-bind="text: distanceInMeters(), css: exceedsDistance"></td>
+                <td
+                  data-bind="text: splForAvr().toFixed(1), css: { error: splIsAboveLimit() }"
+                ></td>
+                <td>
+                  <select
+                    id="crossoverSelect"
+                    class="combo-box"
+                    data-bind="
                     options: $parent.alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
                     enable: crossover() !== 0,
-                    value: crossover">
-                </select>
-              </td>
-              <td>
-                <select id="speakerTypeSelect" class="combo-box" data-bind="
+                    value: crossover"
+                  ></select>
+                </td>
+                <td>
+                  <select
+                    id="speakerTypeSelect"
+                    class="combo-box"
+                    data-bind="
                     options: $parent.speakerTypeChoices.filter(function(t) { return !isSub() ? t.value !== 'E' : true; }),
                     optionsText: 'text',
                     optionsValue: 'value',
                     enable: !isSub(),
-                    value: speakerType">
-                </select>
-              </td>
-              <td data-bind="text: inverted() ? 'Yes' : 'No', css: { warning: inverted() }"></td>
-              <td>
-                <!-- ko if: !isSub() && position() !== 0 -->
-                <button class="preview-btn" data-bind="
+                    value: speakerType"
+                  ></select>
+                </td>
+                <td
+                  data-bind="text: inverted() ? 'Yes' : 'No', css: { warning: inverted() }"
+                ></td>
+                <td>
+                  <!-- ko if: !isSub() && position() !== 0 -->
+                  <button
+                    class="preview-btn"
+                    data-bind="
                     click: $parent.previewMeasurement,
                     disable: $parent.isProcessing,
-                    css: { 'disabled': $parent.isProcessing }">
-                  <span data-bind="text: $parent.isProcessing() ? 'Processing...' : 'Preview'"></span>
-                </button>
-                <!-- /ko -->
-              </td>
-              <td data-bind="css: { success: associatedFilterItem() }">
-                <!-- ko if: !isSub() && position() !== 0 -->
-                <button class="preview-btn" data-bind="
+                    css: { 'disabled': $parent.isProcessing }"
+                  >
+                    <span
+                      data-bind="text: $parent.isProcessing() ? 'Processing...' : 'Preview'"
+                    ></span>
+                  </button>
+                  <!-- /ko -->
+                </td>
+                <td data-bind="css: { success: associatedFilterItem() }">
+                  <!-- ko if: !isSub() && position() !== 0 -->
+                  <button
+                    class="preview-btn"
+                    data-bind="
                     click: $parent.buttonCreateFilter,
                     disable: $parent.isProcessing,
-                    css: { 'disabled': $parent.isProcessing }">
-                  <span data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"></span>
-                </button>
-                <!-- /ko -->
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <!-- Results count -->
-        <div class="filter-results" data-bind="visible: uniqueMeasurementsView().length !== measurements().length">
-          Showing <span data-bind="text: uniqueMeasurementsView().length"></span>
-          of <span data-bind="text: measurements().length"></span> measurements
+                    css: { 'disabled': $parent.isProcessing }"
+                  >
+                    <span
+                      data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"
+                    ></span>
+                  </button>
+                  <!-- /ko -->
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <!-- Results count -->
+          <div
+            class="filter-results"
+            data-bind="visible: uniqueMeasurementsView().length !== measurements().length"
+          >
+            Showing <span data-bind="text: uniqueMeasurementsView().length"></span> of
+            <span data-bind="text: measurements().length"></span> measurements
+          </div>
         </div>
       </div>
-    </div>
-  </main>
+      <!-- Scripts -->
+      <script src="lib/js-yaml.min.js"></script>
+      <script src="lib/knockout-latest.min.js"></script>
+      <script src="lib/jszip.min.js"></script>
+      <script src="lib/FileSaver.min.js"></script>
+      <script src="lib/math.min.js"></script>
+      <script type="module" src="main.js"></script>
+      <link
+        rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      />
+    </main>
 
-  <!-- Scripts -->
-  <script src="lib/js-yaml.min.js"></script>
-  <script src="lib/knockout-latest.min.js"></script>
-  <script src="lib/jszip.min.js"></script>
-  <script src="lib/FileSaver.min.js"></script>
-  <script src="lib/math.min.js"></script>
-  <script type="module" src="main.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-</body>
+    <footer>
+      <div>
+        <div class="credits-content">
+          <p class="copyright">&copy; 2025 Sangoku</p>
+          <p class="credits-text">Designed & Developed by Sangoku</p>
+          <p class="version">Version 1.0.6</p>
 
-<footer>
-  <div>
-    <div class="credits-content">
-      <p class="copyright">
-        &copy; 2025 Sangoku
-      </p>
-      <p class="credits-text">Designed & Developed by Sangoku</p>
-      <p class="version">Version 1.0.6</p>
+          <!-- Donation Section -->
+          <div class="donation-section">
+            <div class="donation-buttons">
+              <a
+                href="https://www.paypal.com/donate/?hosted_button_id=V53J7XLBD3A2C"
+                class="donate-button paypal"
+                data-tooltip="Support via PayPal"
+              >
+                <i class="fab fa-paypal"></i>
+                PayPal
+              </a>
+              <a
+                href="https://www.patreon.com/Sangoku"
+                class="donate-button patreon"
+                data-tooltip="Support via Patreon"
+              >
+                <i class="fab fa-patreon"></i>
+                Patreon
+              </a>
+            </div>
+          </div>
 
-      <!-- Donation Section -->
-      <div class="donation-section">
-        <div class="donation-buttons">
-
-          <a href="https://www.paypal.com/donate/?hosted_button_id=V53J7XLBD3A2C" class="donate-button paypal"
-            data-tooltip="Support via PayPal">
-            <i class="fab fa-paypal"></i>
-            PayPal
-          </a>
-          <a href="https://www.patreon.com/Sangoku" class="donate-button patreon" data-tooltip="Support via Patreon">
-            <i class="fab fa-patreon"></i>
-            Patreon
-          </a>
+          <div class="social-credits">
+            <a href="https://github.com/jzahraoui/sangoku-site" title="GitHub">
+              <i class="fab fa-github"></i>
+            </a>
+          </div>
         </div>
       </div>
-
-      <div class="social-credits">
-        <a href="https://github.com/jzahraoui/sangoku-site" title="GitHub">
-          <i class="fab fa-github"></i>
-        </a>
-      </div>
-    </div>
-  </div>
-</footer>
-
+    </footer>
+  </body>
 </html>

@@ -11,18 +11,20 @@ const store = new PersistentStore('myAppData');
 class MeasurementViewModel {
   constructor(apiService) {
     const self = this;
-    self.DEFAULT_LFE_PREDICTED = "LFE predicted_P";
-    self.UNKNOWN_GROUP_NAME = "UNKNOWN";
+    self.DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
+    self.UNKNOWN_GROUP_NAME = 'UNKNOWN';
     self.DEFAULT_CROSSOVER_VALUE = 80;
     self.EQ_SETTINGS = {
-      MANUFACTURER: "Generic",
-      MODEL: "Generic"
+      MANUFACTURER: 'Generic',
+      MODEL: 'Generic',
     };
     self.pollingInterval = 1000; // 1 seconds
     self.isPolling = ko.observable(false);
     self.pollerId = null;
     // Add translation support
-    self.translations = ko.observable(translations[localStorage.getItem('userLanguage') || 'en']);
+    self.translations = ko.observable(
+      translations[localStorage.getItem('userLanguage') || 'en']
+    );
 
     // API Service
     self.apiService = apiService;
@@ -69,7 +71,7 @@ class MeasurementViewModel {
       { value: '150', text: '150Hz' },
       { value: '180', text: '180Hz' },
       { value: '200', text: '200Hz' },
-      { value: '250', text: '250Hz' }
+      { value: '250', text: '250Hz' },
     ];
 
     // Observable for the selected value
@@ -91,14 +93,14 @@ class MeasurementViewModel {
       { value: 150, text: '150Hz' },
       { value: 180, text: '180Hz' },
       { value: 200, text: '200Hz' },
-      { value: 250, text: '250Hz' }
+      { value: 250, text: '250Hz' },
     ];
 
     // Array of frequency options
     self.speakerTypeChoices = [
       { value: 'S', text: 'Small' },
       { value: 'L', text: 'Large' },
-      { value: 'E', text: 'Sub' }
+      { value: 'E', text: 'Sub' },
     ];
 
     // Filter observables
@@ -107,19 +109,19 @@ class MeasurementViewModel {
     // Available filter options
     self.selectedMeasurements = [
       { value: true, text: 'Selected' },
-      { value: false, text: 'All' }
+      { value: false, text: 'All' },
     ];
 
     self.selectedAverageMethod = ko.observable('');
 
     // Array of frequency options
     self.averageMethod = [
-      { value: "Vector average", text: "Vector average" },
-      { value: "RMS average", text: "RMS average" },
-      { value: "Magn plus phase average", text: "RMS + phase avg." },
-      { value: "dB average", text: "dB average" },
-      { value: "dB plus phase average", text: "dB + phase avg." },
-      { value: "Vector sum", text: "Vector sum" }
+      { value: 'Vector average', text: 'Vector average' },
+      { value: 'RMS average', text: 'RMS average' },
+      { value: 'Magn plus phase average', text: 'RMS + phase avg.' },
+      { value: 'dB average', text: 'dB average' },
+      { value: 'dB plus phase average', text: 'dB + phase avg.' },
+      { value: 'Vector sum', text: 'Vector sum' },
     ];
 
     // Subscribe to changes in global crossover
@@ -171,28 +173,27 @@ class MeasurementViewModel {
         63: 57,
         58: 54,
         61: 55,
-        64: 56
+        64: 56,
       };
 
       if (!data.detectedChannels?.[0]) {
         self.handleError('No channels detected');
         return;
       }
-      
+
       // convert directionnal bass to standard
       data.detectedChannels = data.detectedChannels.map(channel => ({
         ...channel,
-        enChannelType: StandardChannelMapping[channel.enChannelType] || channel.enChannelType
+        enChannelType:
+          StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
       }));
 
       if (data.detectedChannels?.[0].responseData?.[0]) {
-
         const adyTools = new AdyTools(data);
         const content = await adyTools.parse();
 
         // TODO: ampassign can be directionnal must be converted to standard
         for (const [channelIndex, channel] of data.detectedChannels.entries()) {
-
           const responses = Object.entries(channel.responseData);
           for (const [position, response] of responses) {
             const encodedData = MeasurementItem.encodeRewToBase64(response);
@@ -201,12 +202,12 @@ class MeasurementViewModel {
               return;
             }
             const options = {
-              "identifier": `${channel.commandId}_P${Number(position) + 1}`,
-              "startTime": 0,
-              "sampleRate": 48000,
-              "splOffset": AdyTools.SPL_OFFSET,
-              "applyCal": false,
-              "data": encodedData
+              identifier: `${channel.commandId}_P${Number(position) + 1}`,
+              startTime: 0,
+              sampleRate: 48000,
+              splOffset: AdyTools.SPL_OFFSET,
+              applyCal: false,
+              data: encodedData,
             };
             await self.apiService.postSafe('import/impulse-response-data', options);
           }
@@ -215,15 +216,14 @@ class MeasurementViewModel {
         // remove all responseData elements from data
         data.detectedChannels = data.detectedChannels.map(channel => ({
           ...channel,
-          responseData: []
+          responseData: [],
         }));
 
         // Create download buttons
         const button = document.createElement('button');
         button.textContent = `Download measurements zip`;
-        button.onclick = () => saveAs(content, `${data.title}.zip`);;
+        button.onclick = () => saveAs(content, `${data.title}.zip`);
         results.appendChild(button);
-
       }
 
       self.jsonAvrData(data);
@@ -293,7 +293,6 @@ class MeasurementViewModel {
       self.readFile(file);
     };
 
-
     self.keepOriginalForAverage = ko.observable(true);
 
     self.replaceOriginalForLfeRevert = ko.observable(true);
@@ -314,24 +313,27 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Importing MSO config...");
+        self.status('Importing MSO config...');
 
-        for (const [position, subResponses] of Object.entries(self.byPositionsGroupedSubsMeasurements())) {
+        for (const [position, subResponses] of Object.entries(
+          self.byPositionsGroupedSubsMeasurements()
+        )) {
           if (!subResponses?.length) continue;
 
-          const subResponsesTitles = subResponses.map(response => response.displayMeasurementTitle());
-          self.status(`${self.status()} \nImporting to position: ${position}\n${subResponsesTitles.join('\r\n')}`);
-
-          await self.businessTools.importFilterInREW(
-            REWconfigs,
-            subResponses
+          const subResponsesTitles = subResponses.map(response =>
+            response.displayMeasurementTitle()
           );
-          self.status(`${self.status()} \nREW import successful for position: ${position}`);
+          self.status(
+            `${self.status()} \nImporting to position: ${position}\n${subResponsesTitles.join('\r\n')}`
+          );
 
+          await self.businessTools.importFilterInREW(REWconfigs, subResponses);
+          self.status(
+            `${self.status()} \nREW import successful for position: ${position}`
+          );
         }
 
         self.status(`${self.status()} Importing finished`);
-
       } catch (error) {
         self.handleError(`REW import failed: ${error.message}`, error);
       } finally {
@@ -360,7 +362,7 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Renaming started");
+        self.status('Renaming started');
         for (const item of self.measurements()) {
           if (item.position() === 0) {
             continue;
@@ -377,9 +379,8 @@ class MeasurementViewModel {
           const newName = `${item.channelName()}_P${item.position().toString().padStart(2, '0')}`;
 
           item.setTitle(newName);
-
         }
-        self.status("Renaming succeful");
+        self.status('Renaming succeful');
       } catch (error) {
         self.handleError(`Rename failed: ${error.message}`, error);
       } finally {
@@ -392,16 +393,13 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Reseting...");
+        self.status('Reseting...');
         const defaultSettings = {
           manufacturer: self.EQ_SETTINGS.MANUFACTURER,
-          model: self.EQ_SETTINGS.MODEL
+          model: self.EQ_SETTINGS.MODEL,
         };
         self.status(`${self.status()}\nSet Generic EQ`);
-        await self.apiService.postSafe(
-          `eq/default-equaliser`,
-          defaultSettings
-        );
+        await self.apiService.postSafe(`eq/default-equaliser`, defaultSettings);
         self.status(`${self.status()}\nClear commands`);
         await self.apiService.clearCommands();
         const firstMeasurementLevel = await self.mainTargetLevel();
@@ -423,14 +421,16 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Average is runing...");
+        self.status('Average is runing...');
 
         await self.apiService.updateAPI('inhibit-graph-updates', true);
 
         const allOffset = self.measurements().map(item => item.splOffsetdB());
         const uniqueOffsets = new Set(allOffset);
         if (uniqueOffsets.size !== 1) {
-          throw new Error(`Some measurements do not have the same SPL offset, please load not altered measurements`);
+          throw new Error(
+            `Some measurements do not have the same SPL offset, please load not altered measurements`
+          );
         }
 
         const allAlignOffset = self.measurements().map(item => item.alignSPLOffsetdB());
@@ -439,10 +439,14 @@ class MeasurementViewModel {
           throw new Error(`Some measurements have SPL offset, please undo SPL alignment`);
         }
 
-        const allcumulativeIRShiftSeconds = self.measurements().map(item => item.cumulativeIRShiftSeconds().toFixed(7));
+        const allcumulativeIRShiftSeconds = self
+          .measurements()
+          .map(item => item.cumulativeIRShiftSeconds().toFixed(7));
         const uniquecumulativeIRShiftSeconds = new Set(allcumulativeIRShiftSeconds);
         if (uniquecumulativeIRShiftSeconds.size !== 1) {
-          throw new Error(`Some measurements have timing offset, please undo t=0 changes`);
+          throw new Error(
+            `Some measurements have timing offset, please undo t=0 changes`
+          );
         }
 
         // creates array of uuid attributes for each code into groupedResponse
@@ -465,10 +469,11 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Reverting LFE filter...");
+        self.status('Reverting LFE filter...');
 
         await self.apiService.updateAPI('inhibit-graph-updates', true);
-        await self.businessTools.revertLfeFilterProccess(true,
+        await self.businessTools.revertLfeFilterProccess(
+          true,
           self.selectedLfeFrequency(),
           self.replaceOriginalForLfeRevert()
         );
@@ -487,7 +492,7 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Computing sum...");
+        self.status('Computing sum...');
         await self.apiService.updateAPI('inhibit-graph-updates', true);
 
         const firstMeasurementLevel = await self.mainTargetLevel();
@@ -495,7 +500,9 @@ class MeasurementViewModel {
           await subItem.setTargetLevel(firstMeasurementLevel);
         }
 
-        for (const [position, subResponses] of Object.entries(self.byPositionsGroupedSubsMeasurements())) {
+        for (const [position, subResponses] of Object.entries(
+          self.byPositionsGroupedSubsMeasurements()
+        )) {
           await self.produceSumProcess(self, subResponses);
         }
       } catch (error) {
@@ -511,24 +518,27 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Align peaks...");
+        self.status('Align peaks...');
 
         const firstMeasurement = self.uniqueSpeakersMeasurements()[0];
         const firstMeasurementPeak = firstMeasurement.timeOfIRPeakSeconds;
-        console.debug(`peak time target ${firstMeasurement.displayMeasurementTitle()}: ${(firstMeasurementPeak * 1000).toFixed(2)}ms`);
+        console.debug(
+          `peak time target ${firstMeasurement.displayMeasurementTitle()}: ${(firstMeasurementPeak * 1000).toFixed(2)}ms`
+        );
 
         for (const measurement of self.uniqueSpeakersMeasurements()) {
           // skip first measurement
           if (measurement.uuid === firstMeasurement.uuid) continue;
           const offset = -firstMeasurementPeak + measurement.timeOfIRPeakSeconds;
-          console.debug(`${measurement.displayMeasurementTitle()} -> ${(offset * 1000).toFixed(2)}ms`);
+          console.debug(
+            `${measurement.displayMeasurementTitle()} -> ${(offset * 1000).toFixed(2)}ms`
+          );
           await measurement.addIROffsetSeconds(offset);
           // apply SPLoffset to other measurement positions
           await measurement.copyCumulativeIRShiftToOther();
         }
 
         self.status('Align peaks successful');
-
       } catch (error) {
         self.handleError(`Sum failed: ${error.message}`, error);
       } finally {
@@ -536,13 +546,12 @@ class MeasurementViewModel {
       }
     };
 
-
     self.buttonAlignSPL = async function () {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Computing SPL alignment...");
+        self.status('Computing SPL alignment...');
 
         console.debug(`Computing SPL alignment`);
         const firstMeasurementLevel = await self.mainTargetLevel();
@@ -550,23 +559,21 @@ class MeasurementViewModel {
         for (const measurement of self.uniqueSpeakersMeasurements()) {
           await measurement.applyWorkingSettings();
           await measurement.resetTargetSettings();
-          await measurement.eqCommands("Calculate target level");
+          await measurement.eqCommands('Calculate target level');
           const targetLevel = await measurement.getTargetLevel();
           await measurement.addSPLOffsetDB(firstMeasurementLevel - targetLevel);
-          await measurement.setTargetLevel(firstMeasurementLevel);          
+          await measurement.setTargetLevel(firstMeasurementLevel);
           await measurement.copySplOffsetDeltadBToOther();
           await measurement.removeWorkingSettings();
         }
 
-        self.status("SPL alignment successful");
-
+        self.status('SPL alignment successful');
       } catch (error) {
         self.handleError(`SPL alignment: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
       }
     };
-
 
     self.buttonCreateFilter = async function (measurement) {
       if (self.isProcessing()) return;
@@ -576,7 +583,6 @@ class MeasurementViewModel {
 
         await measurement.createStandardFilter();
         await measurement.copyFiltersToOther();
-
       } catch (error) {
         self.handleError(`Filter compute failed: ${error.message}`, error);
       } finally {
@@ -589,12 +595,11 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Computing sum...");
+        self.status('Computing sum...');
 
         // await this.createsSumFromFR(self.uniqueSubsMeasurements());
 
         await self.produceSumProcess(self, self.uniqueSubsMeasurements());
-
       } catch (error) {
         self.handleError(`Sum failed: ${error.message}`, error);
       } finally {
@@ -607,7 +612,7 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Searching for alignement...");
+        self.status('Searching for alignement...');
 
         await self.loadData();
 
@@ -632,7 +637,9 @@ class MeasurementViewModel {
         for (const predictedLfe of self.allPredictedLfeMeasurement()) {
           // skip selected lfe
           if (predictedLfe.uuid === selectedLfe.uuid) continue;
-          await predictedLfe.setcumulativeIRShiftSeconds(selectedLfe.cumulativeIRShiftSeconds());
+          await predictedLfe.setcumulativeIRShiftSeconds(
+            selectedLfe.cumulativeIRShiftSeconds()
+          );
           await predictedLfe.setInverted(selectedLfe.inverted());
         }
 
@@ -644,7 +651,6 @@ class MeasurementViewModel {
         await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
-
 
     self.buttongenratesPreview = async function () {
       if (self.isProcessing()) return;
@@ -705,20 +711,23 @@ class MeasurementViewModel {
     // Available filter options
     self.subwooferOutputChoice = [
       { value: 'LFE', text: 'LFE' },
-      { value: 'L+M', text: 'L+M' }
+      { value: 'L+M', text: 'L+M' },
     ];
-
 
     self.buttoncreateOCAButton = async function () {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("OCA file generation...");
-        const measurementsinError = self.uniqueMeasurements().filter(item => item.hasErrors());
+        self.status('OCA file generation...');
+        const measurementsinError = self
+          .uniqueMeasurements()
+          .filter(item => item.hasErrors());
 
         if (measurementsinError.length > 0) {
-          console.warn(`There are ${measurementsinError.length} measurements with errors. Please fix them before generating the OCA file.`);
+          console.warn(
+            `There are ${measurementsinError.length} measurements with errors. Please fix them before generating the OCA file.`
+          );
         }
         if (!self.OCAFileGenerator) {
           throw new Error(`Please load avr file first`);
@@ -730,15 +739,19 @@ class MeasurementViewModel {
         self.OCAFileGenerator.dynamicEqRefLevel = self.dynamicEqRefLevel();
         self.OCAFileGenerator.enableDynamicVolume = self.enableDynamicVolume();
         self.OCAFileGenerator.dynamicVolumeSetting = self.dynamicVolumeSetting();
-        self.OCAFileGenerator.enableLowFrequencyContainment = self.enableLowFrequencyContainment();
-        self.OCAFileGenerator.lowFrequencyContainmentLevel = self.lowFrequencyContainmentLevel();
+        self.OCAFileGenerator.enableLowFrequencyContainment =
+          self.enableLowFrequencyContainment();
+        self.OCAFileGenerator.lowFrequencyContainmentLevel =
+          self.lowFrequencyContainmentLevel();
         self.OCAFileGenerator.subwooferOutput = self.subwooferOutput();
         self.OCAFileGenerator.lpfForLFE = self.lpfForLFE();
         self.OCAFileGenerator.numberOfSubwoofers = self.uniqueSubsMeasurements().length;
         self.OCAFileGenerator.versionEvo = 'Sangoku_custom';
 
         await self.apiService.updateAPI('inhibit-graph-updates', true);
-        const jsonData = await self.OCAFileGenerator.createOCAFile(self.uniqueMeasurements());
+        const jsonData = await self.OCAFileGenerator.createOCAFile(
+          self.uniqueMeasurements()
+        );
 
         // Validate input
         if (!jsonData) {
@@ -751,7 +764,7 @@ class MeasurementViewModel {
 
         // Create blob
         const blob = new Blob([jsonData], {
-          type: 'application/json'
+          type: 'application/json',
         });
 
         // Save file
@@ -769,57 +782,57 @@ class MeasurementViewModel {
     self.buttonCreatesMsoExports = async function () {
       if (self.isProcessing()) return;
       try {
-
         if (!self.isPolling()) {
           throw new Error('Please start connetion first');
         }
 
         self.isProcessing(true);
         self.error('');
-        self.status("Exports Subs...");
-        
+        self.status('Exports Subs...');
+
         const frequencyResponses = [];
         const jszip = new JSZip();
         const zipFilename = `MSO ${self.OCAFileGenerator.model}.zip`;
-        const minFreq = 5;    // minimum frequency in Hz
+        const minFreq = 5; // minimum frequency in Hz
         const maxFreq = 400; // maximum frequency in Hz
-        
+
         // Helper function to process chunks of measurements
         async function processMeasurementChunk(measurements) {
-            return Promise.all(measurements.map(async (measurement) => {
-                await measurement.resetAll();
-                const frequencyResponse = await measurement.getFrequencyResponse();
-                const subName = measurement.channelName().replace('SW', 'Sub ');
-                const localFilename = `${subName}_Pos ${measurement.position()}.txt`;
-                
-                const filecontent = frequencyResponse.freqs
-                  .reduce((acc, freq, i) => {
-                    if (freq >= minFreq && freq <= maxFreq) {
-                        const line = `${freq.toFixed(6)}  ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
-                        return acc ? `${acc}\n${line}` : line;
-                    }
-                    return acc;
-                }, '');
-                      
-                if (!filecontent) {
-                    throw new Error(`no file content for ${localFilename}`);
+          return Promise.all(
+            measurements.map(async measurement => {
+              await measurement.resetAll();
+              const frequencyResponse = await measurement.getFrequencyResponse();
+              const subName = measurement.channelName().replace('SW', 'Sub ');
+              const localFilename = `${subName}_Pos ${measurement.position()}.txt`;
+
+              const filecontent = frequencyResponse.freqs.reduce((acc, freq, i) => {
+                if (freq >= minFreq && freq <= maxFreq) {
+                  const line = `${freq.toFixed(6)}  ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
+                  return acc ? `${acc}\n${line}` : line;
                 }
-                
-                frequencyResponses.push(jszip.file(localFilename, filecontent));
-            }));
+                return acc;
+              }, '');
+
+              if (!filecontent) {
+                throw new Error(`no file content for ${localFilename}`);
+              }
+
+              frequencyResponses.push(jszip.file(localFilename, filecontent));
+            })
+          );
         }
-        
+
         // Process measurements in chunks of 4
         const measurements = self.subsMeasurements();
         const chunkSize = 5;
-        
+
         for (let i = 0; i < measurements.length; i += chunkSize) {
-            const chunk = measurements.slice(i, i + chunkSize);
-            await processMeasurementChunk(chunk);
+          const chunk = measurements.slice(i, i + chunkSize);
+          await processMeasurementChunk(chunk);
         }
-        
+
         // Generate the zip file once and save it
-        const zipContent = await jszip.generateAsync({ type: "blob" });
+        const zipContent = await jszip.generateAsync({ type: 'blob' });
         saveAs(zipContent, zipFilename);
         self.status('Exports Subs successful');
       } catch (error) {
@@ -827,33 +840,33 @@ class MeasurementViewModel {
       } finally {
         self.isProcessing(false);
       }
-    }
+    };
 
     self.buttonMultiSubOptimizer = async function () {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("MultiSubOptimizer...");
+        self.status('MultiSubOptimizer...');
 
         await self.loadData();
 
         // TODO: Detect low and high rolloff to set right parameters
         const optimizerConfig = {
           frequency: {
-            min: 20,    // Hz
-            max: 250    // Hz
+            min: 20, // Hz
+            max: 250, // Hz
           },
           gain: {
-            min: 0,     // dB
-            max: 0,     // dB
-            step: 0.1   // dB
+            min: 0, // dB
+            max: 0, // dB
+            step: 0.1, // dB
           },
           delay: {
-            min: -0.005,    // 5ms
-            max: 0.005,     // 5ms
-            step: 0.00001   // 0.01ms
-          }
+            min: -0.005, // 5ms
+            max: 0.005, // 5ms
+            step: 0.00001, // 0.01ms
+          },
         };
         const maximisedSumTitle = 'LFE Max Sum';
         const subsMeasurements = self.uniqueSubsMeasurements();
@@ -867,17 +880,21 @@ class MeasurementViewModel {
 
         self.status(`${self.status()} \nusing: ${JSON.stringify(optimizerConfig)}`);
 
-        self.status(`${self.status()} \nAdjust SPL levels to ${targetLevel.toFixed(1)}dB`);
+        self.status(
+          `${self.status()} \nAdjust SPL levels to ${targetLevel.toFixed(1)}dB`
+        );
         // TODO: find the center by detecting low and high rolloff
         await this.processCommands('Align SPL', uuids, {
-          "frequencyHz": 80,
-          "spanOctaves": 2,
-          "targetdB": targetLevel
+          frequencyHz: 80,
+          spanOctaves: 2,
+          targetdB: targetLevel,
         });
 
         self.status(`${self.status()} \nDeleting previous settings...`);
 
-        const previousMaxSum = self.measurements().filter(item => item.title() === maximisedSumTitle);
+        const previousMaxSum = self
+          .measurements()
+          .filter(item => item.title() === maximisedSumTitle);
         for (const item of previousMaxSum) {
           await item.delete();
         }
@@ -891,15 +908,17 @@ class MeasurementViewModel {
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
           frequencyResponse.position = measurement.position();
-          const detect = this.detectSubwooferCutoff(frequencyResponse.freqs, frequencyResponse.magnitude, -15);
+          const detect = this.detectSubwooferCutoff(
+            frequencyResponse.freqs,
+            frequencyResponse.magnitude,
+            -15
+          );
           frequencyResponses.push(frequencyResponse);
-
         }
 
         self.status(`${self.status()} \nSarting lookup...`);
         const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
-        const optimizerResults = await optimizer
-          .optimizeSubwoofers();
+        const optimizerResults = await optimizer.optimizeSubwoofers();
 
         const optimizedSubs = optimizerResults.optimizedSubs;
 
@@ -910,23 +929,24 @@ class MeasurementViewModel {
             throw new Error(`Measurement not found for ${sub.measurement}`);
           }
           try {
-
             // invert
             if (sub.param.polarity === -1) {
               await subMeasurement.setInverted(true);
             } else if (sub.param.polarity === 1) {
               await subMeasurement.setInverted(false);
             } else {
-              throw new Error(`Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`);
-            }            
+              throw new Error(
+                `Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`
+              );
+            }
             // reverse delay if previous iteration and apply specified delay
             await subMeasurement.addIROffsetSeconds(sub.param.delay);
 
             await subMeasurement.addSPLOffsetDB(sub.param.gain);
-
-
           } catch (error) {
-            throw new Error(`Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`);
+            throw new Error(
+              `Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`
+            );
           }
           const delayMs = (sub.param.delay * 1000).toFixed(2);
           const infoMessage = `${subMeasurement.displayMeasurementTitle()} inverted: ${sub.param.polarity === -1} delay: ${delayMs}ms`;
@@ -941,23 +961,22 @@ class MeasurementViewModel {
         const optimizedSubsSum = await optimizer.getFinalSubSum();
 
         const maximisedSum = await this.sendToREW(optimizedSubsSum, maximisedSumTitle);
-        // DEBUG to check it this is the same 
+        // DEBUG to check it this is the same
         // await this.sendToREW(optimizerResults.bestSum, 'test');
 
         self.status(`${self.status()} \nCreating EQ filters...`);
 
-        await this.apiService.postSafe(`eq/match-target-settings`,
-          {
-            startFrequency: 10,
-            endFrequency: 500,
-            individualMaxBoostdB: 0,
-            overallMaxBoostdB: 0,
-            flatnessTargetdB: 1,
-            allowNarrowFiltersBelow200Hz: false,
-            varyQAbove200Hz: false,
-            allowLowShelf: false,
-            allowHighShelf: false
-          });
+        await this.apiService.postSafe(`eq/match-target-settings`, {
+          startFrequency: 10,
+          endFrequency: 500,
+          individualMaxBoostdB: 0,
+          overallMaxBoostdB: 0,
+          flatnessTargetdB: 1,
+          allowNarrowFiltersBelow200Hz: false,
+          varyQAbove200Hz: false,
+          allowLowShelf: false,
+          allowHighShelf: false,
+        });
 
         await maximisedSum.setTargetLevel(firstMeasurementLevel);
         await maximisedSum.eqCommands('Match target');
@@ -988,9 +1007,9 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.error('');
-        self.status("Copy started");
+        self.status('Copy started');
         await self.copyMeasurementCommonAttributes();
-        self.status("Copy succeful");
+        self.status('Copy succeful');
       } catch (error) {
         self.handleError(`Copy failed: ${error.message}`, error);
       } finally {
@@ -1022,7 +1041,6 @@ class MeasurementViewModel {
     self.groupedMeasurements = ko.computed(() => {
       // group data by channelName attribute and set isSelected to true for the first occurrence
       return self.measurements().reduce((acc, item) => {
-
         const channelName = item.channelName();
 
         if (channelName === self.UNKNOWN_GROUP_NAME) {
@@ -1032,7 +1050,7 @@ class MeasurementViewModel {
         if (!acc[channelName]) {
           acc[channelName] = {
             items: [],
-            count: 0
+            count: 0,
           };
         }
         // Add item to group
@@ -1043,24 +1061,26 @@ class MeasurementViewModel {
     });
     // creates a map from groupedMeasurements with items grouped by the same position attribute
     self.byPositionsGroupedSubsMeasurements = ko.computed(() => {
-      return self.subsMeasurements()
-        .reduce((acc, item) => {
-          const key = item.position();
-          if (!acc[key]) {
-            acc[key] = [];
-          }
-          acc[key].push(item);
-          return acc;
-        }, {});
+      return self.subsMeasurements().reduce((acc, item) => {
+        const key = item.position();
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(item);
+        return acc;
+      }, {});
     });
 
     self.measurementsPositionList = ko.computed(() => {
       try {
-        return [...new Set(
-          self.measurements()
-            .map(item => item.position())
-            .filter(Boolean)
-        )];
+        return [
+          ...new Set(
+            self
+              .measurements()
+              .map(item => item.position())
+              .filter(Boolean)
+          ),
+        ];
       } catch (error) {
         self.handleError('Error computing measurements position list:', error);
         return [];
@@ -1088,23 +1108,19 @@ class MeasurementViewModel {
     });
 
     self.minDistanceInMeters = ko.computed(() => {
-      return Math.min(...self.uniqueMeasurements()
-        .map(item => item.distanceInMeters()));
+      return Math.min(...self.uniqueMeasurements().map(item => item.distanceInMeters()));
     });
 
     self.maxDistanceInMetersWarning = ko.computed(() => {
-      return self.minDistanceInMeters()
-        + MeasurementItem.MODEL_DISTANCE_LIMIT;
+      return self.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_LIMIT;
     });
 
     self.maxDistanceInMetersError = ko.computed(() => {
-      return self.minDistanceInMeters()
-        + MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT;
+      return self.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT;
     });
 
     self.maxDdistanceInMeters = ko.computed(() => {
-      return Math.max(...self.uniqueMeasurements()
-        .map(item => item.distanceInMeters()));
+      return Math.max(...self.uniqueMeasurements().map(item => item.distanceInMeters()));
     });
 
     self.uniqueSubsMeasurements = ko.computed(() => {
@@ -1141,14 +1157,16 @@ class MeasurementViewModel {
       if (uniqueSubs.length === 1) {
         return self.subsMeasurements();
       } else {
-        return self.measurements().filter(response =>
-          response?.title().startsWith(self.DEFAULT_LFE_PREDICTED));
+        return self
+          .measurements()
+          .filter(response => response?.title().startsWith(self.DEFAULT_LFE_PREDICTED));
       }
     });
 
     self.predictedLfeMeasurement = ko.computed(() => {
-      return self.allPredictedLfeMeasurement().find(response =>
-        response?.title() === self.predictedLfeMeasurementTitle());
+      return self
+        .allPredictedLfeMeasurement()
+        .find(response => response?.title() === self.predictedLfeMeasurementTitle());
     });
 
     self.uniqueSpeakersMeasurements = ko.computed(() => {
@@ -1199,8 +1217,10 @@ class MeasurementViewModel {
         if (i > 0) {
           // Interpolate for more accurate result
           lowCutoff = this.interpolateFrequency(
-            frequencies[i - 1], frequencies[i],
-            magnitude[i - 1], magnitude[i],
+            frequencies[i - 1],
+            frequencies[i],
+            magnitude[i - 1],
+            magnitude[i],
             thresholdLevel
           );
         } else {
@@ -1217,8 +1237,10 @@ class MeasurementViewModel {
         if (i < frequencies.length - 1) {
           // Interpolate for more accurate result
           highCutoff = this.interpolateFrequency(
-            frequencies[i], frequencies[i + 1],
-            magnitude[i], magnitude[i + 1],
+            frequencies[i],
+            frequencies[i + 1],
+            magnitude[i],
+            magnitude[i + 1],
             thresholdLevel
           );
         } else {
@@ -1231,42 +1253,40 @@ class MeasurementViewModel {
     return {
       lowCutoff,
       highCutoff,
-      peakMagnitude
+      peakMagnitude,
     };
   }
 
   /**
-  * Linear interpolation for frequency
-  */
+   * Linear interpolation for frequency
+   */
   interpolateFrequency(freq1, freq2, mag1, mag2, targetMag) {
     const ratio = (targetMag - mag1) / (mag2 - mag1);
     return freq1 + (freq2 - freq1) * ratio;
   }
 
   /**
-  * Round number to specified decimal places
-  */
+   * Round number to specified decimal places
+   */
   roundToPrecision(number, precision = 1) {
     return Number(Math.round(number + 'e' + precision) + 'e-' + precision);
   }
 
   async createsSumFromFR(measurementList) {
-
     try {
       if (!Array.isArray(measurementList) || measurementList.length === 0) {
         throw new Error('Invalid measurement list');
       }
       const frequencyResponses = [];
       for (const measurement of measurementList) {
-
         const frequencyResponse = await measurement.getFrequencyResponse();
         frequencyResponse.uuid = measurement.uuid;
         frequencyResponses.push(frequencyResponse);
       }
 
       const optimizer = await new MultiSubOptimizer(frequencyResponses);
-      const optimizedSubsSum = await optimizer
-        .calculateCombinedResponse(frequencyResponses);
+      const optimizedSubsSum =
+        await optimizer.calculateCombinedResponse(frequencyResponses);
       const data = await optimizer.displayResponse(optimizedSubsSum);
 
       // Create blob with data content
@@ -1274,36 +1294,38 @@ class MeasurementViewModel {
 
       // Save file using FileSaver
       await saveAs(blob, `sum.txt`);
-
     } catch (error) {
-      throw new Error(`Failed to create sum: ${error.message}`, { cause: error });
+      throw new Error(`Failed to create sum: ${error.message}`, {
+        cause: error,
+      });
     }
-
   }
 
   async sendToREW(optimizedSubsSum, maximisedSumTitle) {
-
-    const encodedMagnitudeData = MeasurementItem.encodeRewToBase64(optimizedSubsSum.magnitude);
+    const encodedMagnitudeData = MeasurementItem.encodeRewToBase64(
+      optimizedSubsSum.magnitude
+    );
     const encodedPhaseData = MeasurementItem.encodeRewToBase64(optimizedSubsSum.phase);
 
     if (!encodedMagnitudeData || !encodedPhaseData) {
       this.handleError('Error encoding array');
       return;
     }
-    const options =
-    {
-      "identifier": maximisedSumTitle,
-      "isImpedance": false,
-      "startFreq": optimizedSubsSum.freqs[0],
-      "freqStep": optimizedSubsSum.freqStep,
-      "magnitude": encodedMagnitudeData,
-      "phase": encodedPhaseData
+    const options = {
+      identifier: maximisedSumTitle,
+      isImpedance: false,
+      startFreq: optimizedSubsSum.freqs[0],
+      freqStep: optimizedSubsSum.freqStep,
+      magnitude: encodedMagnitudeData,
+      phase: encodedPhaseData,
     };
     await this.apiService.postSafe('import/frequency-response-data', options);
 
     // trick to retreive the imported measurement
     await this.loadData();
-    const maximisedSum = this.measurements().find(item => item.title() === options.identifier);
+    const maximisedSum = this.measurements().find(
+      item => item.title() === options.identifier
+    );
 
     if (!maximisedSum) {
       throw new Error('Error creating maximised sum');
@@ -1314,7 +1336,6 @@ class MeasurementViewModel {
 
   async copyMeasurementCommonAttributes() {
     console.time('copyMeasurements');
-
 
     for (const item of this.uniqueMeasurements()) {
       await item.copyAllToOther();
@@ -1337,7 +1358,9 @@ class MeasurementViewModel {
     if (subsList.length < 2) {
       throw new Error(`Not enough subs found to compute sum`);
     }
-    const subResponsesTitles = subsList.map(response => response.displayMeasurementTitle());
+    const subResponsesTitles = subsList.map(response =>
+      response.displayMeasurementTitle()
+    );
     self.status(`${self.status()} \nUsing: \n${subResponsesTitles.join('\r\n')}`);
     // get first subsList element position
     const position = subsList[0].position();
@@ -1349,9 +1372,15 @@ class MeasurementViewModel {
       await self.removeMeasurement(previousSubSum);
     }
     // create sum of all subwoofer measurements
-    const newDefaultLfePredicted = await self.businessTools.createsSum(subsList, true, resultTitle);
+    const newDefaultLfePredicted = await self.businessTools.createsSum(
+      subsList,
+      true,
+      resultTitle
+    );
 
-    self.status(`${self.status()} \nSubwoofer sum created successfully: ${newDefaultLfePredicted.title()}`);
+    self.status(
+      `${self.status()} \nSubwoofer sum created successfully: ${newDefaultLfePredicted.title()}`
+    );
     return newDefaultLfePredicted;
   }
 
@@ -1362,9 +1391,10 @@ class MeasurementViewModel {
       const data = await this.apiService.fetchREW();
 
       this.mergeMeasurements(data);
-
     } catch (error) {
-      throw new Error(`Failed to load data: ${error.message}`, { cause: error });
+      throw new Error(`Failed to load data: ${error.message}`, {
+        cause: error,
+      });
     } finally {
       this.isLoading(false);
     }
@@ -1392,14 +1422,17 @@ class MeasurementViewModel {
     const deletedKeys = [...existingKeys].filter(uuid => !newKeys.has(uuid));
     if (deletedKeys.length > 0) {
       for (const uuid of deletedKeys) {
-        const isDeleted = this.measurements.remove(function (item) { return item.uuid === uuid; });
+        const isDeleted = this.measurements.remove(function (item) {
+          return item.uuid === uuid;
+        });
         if (isDeleted) console.debug(`removed: ${uuid}`);
       }
     }
 
-    // update associated filters   
+    // update associated filters
     const unlikedFilter = mergedMeasurements.filter(
-      item => item.associatedFilter && !newKeys.has(item.associatedFilter));
+      item => item.associatedFilter && !newKeys.has(item.associatedFilter)
+    );
 
     if (unlikedFilter.length > 0) {
       for (const item of unlikedFilter) {
@@ -1407,7 +1440,6 @@ class MeasurementViewModel {
         console.debug(`Removing filter: ${item.displayMeasurementTitle()}`);
       }
     }
-
   }
 
   // Helper function to handle observable properties
@@ -1465,14 +1497,15 @@ class MeasurementViewModel {
       const existingItem = this.findMeasurementByUuid(item.uuid);
 
       if (existingItem) {
-        console.warn(`measurement ${item.measurementIndex()}: ${item.title()} already exists, not added`);
+        console.warn(
+          `measurement ${item.measurementIndex()}: ${item.title()} already exists, not added`
+        );
         return false;
       } else {
         this.measurements.push(item);
       }
 
       return true; // Indicate successful addition
-
     } catch (error) {
       this.handleError(`Failed to add measurement: ${error.message}`, error);
     }
@@ -1487,7 +1520,9 @@ class MeasurementViewModel {
     // remove associatedFilter
     await this.removeMeasurementUuid(item.associatedFilter);
 
-    this.status(`${this.status()} \nmeasurement ${item.displayMeasurementTitle()} removed`);
+    this.status(
+      `${this.status()} \nmeasurement ${item.displayMeasurementTitle()} removed`
+    );
 
     return true;
   }
@@ -1498,7 +1533,7 @@ class MeasurementViewModel {
     }
 
     if (!this.findMeasurementByUuid(itemUuid)) {
-      console.debug("nothing to delete");
+      console.debug('nothing to delete');
       return false;
     }
 
@@ -1506,12 +1541,13 @@ class MeasurementViewModel {
       // First attempt to delete from API to ensure consistency
       await this.apiService.postDelete(itemUuid, 0);
 
-      this.measurements.remove(function (item) { return item.uuid === itemUuid });
+      this.measurements.remove(function (item) {
+        return item.uuid === itemUuid;
+      });
 
       console.debug(`measurement ${itemUuid} removed`);
 
       return true; // Indicate successful deletion
-
     } catch (error) {
       if (error.message.includes('There is no measurement')) {
         console.warn(`measurement ${itemUuid} not found, not removed`);
@@ -1528,20 +1564,20 @@ class MeasurementViewModel {
     }
 
     const allowedCommands = [
-      "A + B",
-      "A - B",
-      "A * B",
-      "A * B conjugate",
-      "A / B",
-      "|A| / |B|",
-      "(A + B) / 2",
-      "Merge B to A",
-      "1 / A",
-      "1 / B",
-      "1 / |A|",
-      "1 / |B|",
-      "Invert A phase",
-      "Invert B phase"
+      'A + B',
+      'A - B',
+      'A * B',
+      'A * B conjugate',
+      'A / B',
+      '|A| / |B|',
+      '(A + B) / 2',
+      'Merge B to A',
+      '1 / A',
+      '1 / B',
+      '1 / |A|',
+      '1 / |B|',
+      'Invert A phase',
+      'Invert B phase',
     ];
 
     if (allowedCommands.indexOf(operationObject.function) === -1) {
@@ -1565,22 +1601,23 @@ class MeasurementViewModel {
     }
 
     const withoutResultCommands = [
-      "Align SPL",
-      "Time align",
-      "Align IR start",
-      "Cross corr align",
-      "Smooth",
-      "Remove IR delays"];
+      'Align SPL',
+      'Time align',
+      'Align IR start',
+      'Cross corr align',
+      'Smooth',
+      'Remove IR delays',
+    ];
 
     const allowedCommands = [
       ...withoutResultCommands,
-      "Vector average",
-      "RMS average",
-      "dB average",
-      "Magn plus phase average",
-      "dB plus phase average",
-      "Vector sum",
-      "Arithmetic"
+      'Vector average',
+      'RMS average',
+      'dB average',
+      'Magn plus phase average',
+      'dB plus phase average',
+      'Vector sum',
+      'Arithmetic',
     ];
 
     if (allowedCommands.indexOf(commandName) === -1) {
@@ -1588,7 +1625,6 @@ class MeasurementViewModel {
     }
 
     try {
-
       const operationResult = await this.apiService.postNext(
         commandName,
         uuids,
@@ -1604,12 +1640,20 @@ class MeasurementViewModel {
         return await this.addMeasurementApi(operationResultUuid);
       }
     } catch (error) {
-      throw new Error(`Failed to create ${commandName} operation: ${error.message}`, { cause: error });
+      throw new Error(`Failed to create ${commandName} operation: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
-  async findAligment(channelAUuid, channelBUuid, frequency, limitRange = 3, createSum = false, sumTitle = null) {
-
+  async findAligment(
+    channelAUuid,
+    channelBUuid,
+    frequency,
+    limitRange = 3,
+    createSum = false,
+    sumTitle = null
+  ) {
     if (createSum && !sumTitle) {
       throw new Error('sumTitle is required when createSum is true');
     }
@@ -1619,11 +1663,11 @@ class MeasurementViewModel {
       await this.apiService.postAlign('Reset all');
       await this.apiService.postSafe(`alignment-tool/max-negative-delay`, 0);
       await this.apiService.postSafe(`alignment-tool/max-positive-delay`, limitRange);
-      await this.apiService.postSafe("alignment-tool/uuid-a", channelAUuid);
-      await this.apiService.postSafe("alignment-tool/uuid-b", channelBUuid);
+      await this.apiService.postSafe('alignment-tool/uuid-a', channelAUuid);
+      await this.apiService.postSafe('alignment-tool/uuid-b', channelBUuid);
       // await this.apiService.postSafe(`alignment-tool/mode`, "Phase");
       // const AlignResults = await postAlign('Align phase', frequency);
-      await this.apiService.postSafe(`alignment-tool/mode`, "Impulse");
+      await this.apiService.postSafe(`alignment-tool/mode`, 'Impulse');
       const AlignResults = await this.apiService.postAlign('Align IRs', frequency);
 
       const AlignResultsDetails = AlignResults.results[0];
@@ -1632,14 +1676,16 @@ class MeasurementViewModel {
         throw new Error(AlignResultsDetails.Error);
       }
 
-      const shiftDelayMs = Number(AlignResultsDetails["Delay B ms"]);
+      const shiftDelayMs = Number(AlignResultsDetails['Delay B ms']);
       if (shiftDelayMs === undefined) {
-        throw new Error('alignment-tool: Invalid AlignResults object or missing Delay B ms');
+        throw new Error(
+          'alignment-tool: Invalid AlignResults object or missing Delay B ms'
+        );
       }
       if (Math.abs(shiftDelayMs) === limitRange) {
         console.warn('alignment-tool: Shift is maxed out to the limit: ' + shiftDelayMs);
       }
-      const isBInverted = AlignResultsDetails["Invert B"] === 'true';
+      const isBInverted = AlignResultsDetails['Invert B'] === 'true';
 
       if (isBInverted) {
         console.warn('alignment-tool: results provided were with channel B inverted');
@@ -1652,7 +1698,6 @@ class MeasurementViewModel {
       }
       const shiftDelay = shiftDelayMs / 1000;
       return { shiftDelay, isBInverted };
-
     } catch (error) {
       throw new Error(error.message, { cause: error });
     }
@@ -1662,8 +1707,8 @@ class MeasurementViewModel {
     const data = store.load();
     if (data) {
       // Transform data using the MeasurementItem class
-      const enhancedMeasurements = Object.values(data.measurements).map(item =>
-        new MeasurementItem(item, this)
+      const enhancedMeasurements = Object.values(data.measurements).map(
+        item => new MeasurementItem(item, this)
       );
       this.measurements(enhancedMeasurements);
       // this.mergeMeasurements(data.measurements);
@@ -1675,15 +1720,15 @@ class MeasurementViewModel {
       this.selectedAverageMethod(data.selectedAverageMethod);
       this.jsonAvrData(data.avrFileContent);
       this.lpfForLFE(data.selectedAlignFrequency);
-      this.OCAFileGenerator = data.avrFileContent ? new OCAFileGenerator(data.avrFileContent) : null;
+      this.OCAFileGenerator = data.avrFileContent
+        ? new OCAFileGenerator(data.avrFileContent)
+        : null;
     }
   }
 
   saveMeasurements() {
     // Save to persistent store
-    const reducedMeasurements = this.measurements().map(item =>
-      item.toJSON()
-    );
+    const reducedMeasurements = this.measurements().map(item => item.toJSON());
     const data = {
       measurements: reducedMeasurements,
       selectedSpeaker: this.selectedSpeaker(),
@@ -1692,7 +1737,9 @@ class MeasurementViewModel {
       selectedLfeFrequency: this.selectedLfeFrequency(),
       selectedAlignFrequency: this.selectedAlignFrequency(),
       selectedAverageMethod: this.selectedAverageMethod(),
-      ...(this.OCAFileGenerator && { avrFileContent: this.OCAFileGenerator.avrFileContent })
+      ...(this.OCAFileGenerator && {
+        avrFileContent: this.OCAFileGenerator.avrFileContent,
+      }),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
@@ -1704,7 +1751,6 @@ class MeasurementViewModel {
     if (this.isProcessing()) return;
     if (this.isLoading()) return;
     if (this.hasError()) return;
-
 
     try {
       // Initial load
@@ -1727,7 +1773,6 @@ class MeasurementViewModel {
           }
         }
       }, this.pollingInterval);
-
     } catch (error) {
       this.handleError(`Failed to start background polling: ${error.message}`);
       this.stopBackgroundPolling();
@@ -1749,7 +1794,6 @@ class MeasurementViewModel {
       this.startBackgroundPolling();
     }
   }
-
 }
 
 export default MeasurementViewModel;

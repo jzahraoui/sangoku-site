@@ -5,24 +5,15 @@ class Complex {
   }
 
   static fromPolar(magnitude, phase) {
-    return new Complex(
-      magnitude * Math.cos(phase),
-      magnitude * Math.sin(phase)
-    );
+    return new Complex(magnitude * Math.cos(phase), magnitude * Math.sin(phase));
   }
 
   add(other) {
-    return new Complex(
-      this.re + other.re,
-      this.im + other.im
-    );
+    return new Complex(this.re + other.re, this.im + other.im);
   }
 
   sub(other) {
-    return new Complex(
-      this.re - other.re,
-      this.im - other.im
-    );
+    return new Complex(this.re - other.re, this.im - other.im);
   }
 
   mul(other) {

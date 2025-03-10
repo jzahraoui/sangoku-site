@@ -1,5 +1,3 @@
-
-
 class FilterConverter {
   static MIN_FREQ = 10;
   static MAX_FREQ = 22000;
@@ -12,7 +10,6 @@ class FilterConverter {
     this.content = content;
     this.filters = this.parseEqualizerApo();
   }
-
 
   parseEqualizerApo() {
     const lines = this.content.split('\n');
@@ -27,12 +24,12 @@ class FilterConverter {
         continue;
       }
       if (trimmedLine.startsWith('# MSO channel name ')) {
-
         // Remove the leading '# MSO channel name = ' and split by comma
-        const MsoToApoChannel = line.replace('# MSO channel name = ', '')
+        const MsoToApoChannel = line
+          .replace('# MSO channel name = ', '')
           .replace(' Equalizer APO channel name = ', '')
           .trim()
-          .replace(/"/g, '') // Remove quotes  
+          .replace(/"/g, '') // Remove quotes
           .split(',');
 
         // insert MsoToApoChannel array into key value map
@@ -41,7 +38,6 @@ class FilterConverter {
         if (msoChannel && apoChannel) {
           channelMap[apoChannel] = msoChannel;
         }
-
       }
       // skip comments lines
       if (trimmedLine.startsWith('#')) {
@@ -60,7 +56,7 @@ class FilterConverter {
               invertFactor: 1,
               gainDb: 0,
               delayMs: 0,
-              filters: []
+              filters: [],
             };
             filters.push(currentChannel);
           } else {
@@ -71,8 +67,7 @@ class FilterConverter {
       }
       if (trimmedLine.toLowerCase().startsWith('copy:')) {
         // Remove "Copy: " prefix and split by '='
-        const [channel, equation] = line.replace('Copy: ', '')
-          .split('=');
+        const [channel, equation] = line.replace('Copy: ', '').split('=');
         // Extract coefficient from equation (e.g., "-1.0*C" -> -1.0)
         const invertFactor = parseFloat(equation);
         // if the invert factor is related to the current channel, then is affected
@@ -80,7 +75,8 @@ class FilterConverter {
           currentChannel.invertFactor = invertFactor;
         } else {
           if (filters.some(filter => filter.apoChannel === channel)) {
-            filters.find(filter => filter.apoChannel === channel).invertFactor = invertFactor;
+            filters.find(filter => filter.apoChannel === channel).invertFactor =
+              invertFactor;
           } else {
             const apoChannel = channel;
             const msoChannel = channelMap[apoChannel];
@@ -91,7 +87,7 @@ class FilterConverter {
                 invertFactor: invertFactor,
                 gainDb: 0,
                 delayMs: 0,
-                filters: []
+                filters: [],
               };
               filters.push(currentChannel);
             }
@@ -121,8 +117,8 @@ class FilterConverter {
               type: 'Peaking',
               freq: roundedFreq,
               gain: Number(gain.toFixed(1)),
-              q: Number(qValue.toFixed(3))
-            }
+              q: Number(qValue.toFixed(3)),
+            },
           });
         } else if (filterType === 'AP') {
           const qValue = parseFloat(parts[7]);
@@ -133,8 +129,8 @@ class FilterConverter {
             parameters: {
               type: 'Allpass',
               freq: roundedFreq,
-              q: Number(qValue.toFixed(2))
-            }
+              q: Number(qValue.toFixed(2)),
+            },
           });
         }
         continue;
@@ -158,11 +154,13 @@ class FilterConverter {
     return this.filters.map((channel, index) => {
       const config = {
         filters: {},
-        pipeline: [{
-          type: 'Filter',
-          channel: index,
-          names: []
-        }]
+        pipeline: [
+          {
+            type: 'Filter',
+            channel: index,
+            names: [],
+          },
+        ],
       };
 
       channel.filters.forEach((filterData, filterIndex) => {
@@ -173,8 +171,8 @@ class FilterConverter {
           type: 'Biquad',
           parameters: {
             type: filterData.parameters.type,
-            freq: filterData.parameters.freq
-          }
+            freq: filterData.parameters.freq,
+          },
         };
 
         if (filterData.parameters.type === 'Peaking') {
@@ -189,7 +187,7 @@ class FilterConverter {
 
       return {
         config: config,
-        channel: channel.Channel
+        channel: channel.Channel,
       };
     });
   }
@@ -201,7 +199,7 @@ class FilterConverter {
       throw new Error(`filters length ${this.filters.length} do not fit in REW`);
     }
 
-    return this.filters.map((channel) => {
+    return this.filters.map(channel => {
       // Initialize an filters array of 22 size
       const channelConfig = new Array(22);
 
@@ -214,7 +212,7 @@ class FilterConverter {
       for (let i = channel.filters.length; i < 22; i++) {
         const emptyFilter = {
           index: i + 1,
-          type: "None",
+          type: 'None',
           enabled: true,
           isAuto: false,
         };
@@ -227,7 +225,7 @@ class FilterConverter {
         channel: channel.Channel,
         gain: channel.gainDb,
         delay: channel.delayMs,
-        invert: channel.invertFactor
+        invert: channel.invertFactor,
       };
     });
   }
@@ -244,7 +242,7 @@ function createFilterConfig(filter, index) {
     isAuto: false,
     frequency: freq,
     q: q,
-    index: index + 1
+    index: index + 1,
   };
 
   // Set filter type and gain based on filter type
@@ -265,13 +263,22 @@ function roundFrequency(freq) {
 
 function validateFilterParams(freq, q, gain = null) {
   if (!(FilterConverter.MIN_FREQ <= freq && freq <= FilterConverter.MAX_FREQ)) {
-    throw new Error(`Frequency must be between ${FilterConverter.MIN_FREQ}Hz and ${FilterConverter.MAX_FREQ}Hz`);
+    throw new Error(
+      `Frequency must be between ${FilterConverter.MIN_FREQ}Hz and ${FilterConverter.MAX_FREQ}Hz`
+    );
   }
   if (!(FilterConverter.MIN_Q <= q && q <= FilterConverter.MAX_Q)) {
-    throw new Error(`Q must be between ${FilterConverter.MIN_Q} and ${FilterConverter.MAX_Q}`);
+    throw new Error(
+      `Q must be between ${FilterConverter.MIN_Q} and ${FilterConverter.MAX_Q}`
+    );
   }
-  if (gain !== null && !(FilterConverter.MIN_GAIN <= gain && gain <= FilterConverter.MAX_GAIN)) {
-    throw new Error(`Gain must be between ${FilterConverter.MIN_GAIN}dB and ${FilterConverter.MAX_GAIN}dB`);
+  if (
+    gain !== null &&
+    !(FilterConverter.MIN_GAIN <= gain && gain <= FilterConverter.MAX_GAIN)
+  ) {
+    throw new Error(
+      `Gain must be between ${FilterConverter.MIN_GAIN}dB and ${FilterConverter.MAX_GAIN}dB`
+    );
   }
 }
 

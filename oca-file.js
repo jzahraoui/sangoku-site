@@ -1,8 +1,6 @@
-import { CHANNEL_TYPES } from "./audyssey.js";
-
+import { CHANNEL_TYPES } from './audyssey.js';
 
 export default class OCAFileGenerator {
-
   static SPEAKERS_LENGTH_BASIC = 128; // 128 taps
   static SUB_LENGTH_BASIC = 512; // 512 taps
 
@@ -21,9 +19,9 @@ export default class OCAFileGenerator {
   static SPEAKERS_FILTER_TAPS_XT32 = 1024;
   static SUB_FILTER_TAPS_XT32 = 704;
 
-  static EQType_MultEQ = 0
-  static EQType_MultEQXT = 1
-  static EQType_MultEQXT32 = 2
+  static EQType_MultEQ = 0;
+  static EQType_MultEQXT = 1;
+  static EQType_MultEQXT32 = 2;
 
   static FREQUENCY_48_KHZ = 48000;
   static FREQUENCY_6_KHZ = 6000;
@@ -42,7 +40,7 @@ export default class OCAFileGenerator {
     this.tcName = '';
     this.bassFill = 0;
     this.softRoll = false;
-    this.ocaTypeId = "OCAFILE";
+    this.ocaTypeId = 'OCAFILE';
     this.ocaVersion = 1;
     this.title = avrFileContent.title;
     this.model = avrFileContent.targetModelName;
@@ -59,7 +57,7 @@ export default class OCAFileGenerator {
     this.enableLowFrequencyContainment = false;
     this.lowFrequencyContainmentLevel = 3;
     this.numberOfSubwoofers = 1;
-    this.subwooferOutput = "LFE";
+    this.subwooferOutput = 'LFE';
     this.lpfForLFE = 250;
   }
 
@@ -88,21 +86,17 @@ export default class OCAFileGenerator {
       lowFrequencyContainmentLevel: this.lowFrequencyContainmentLevel,
       numberOfSubwoofers: this.numberOfSubwoofers,
       subwooferOutput: this.subwooferOutput,
-      lpfForLFE: this.lpfForLFE
+      lpfForLFE: this.lpfForLFE,
     };
   }
 
-
   async createOCAFile(allResponses) {
-
     this.channels = await this.createsFilters(allResponses);
     const jsonData = JSON.stringify(this.toJSON(), null, 2);
     return jsonData;
-
   }
 
   async createsFilters(allResponses) {
-
     if (!allResponses) {
       throw new Error(`Cannot retreive REW measurements`);
     }
@@ -111,12 +105,14 @@ export default class OCAFileGenerator {
       throw new Error(`No REW measurements found`);
     }
 
-    const expectedChannels = this.avrFileContent.detectedChannels
-      .map(expected => expected.enChannelType);
+    const expectedChannels = this.avrFileContent.detectedChannels.map(
+      expected => expected.enChannelType
+    );
     const providedChannels = allResponses.map(item => item.channelDetails().channelIndex);
-    
-    const missingChannels = expectedChannels
-      .filter(channel => !providedChannels.includes(channel));
+
+    const missingChannels = expectedChannels.filter(
+      channel => !providedChannels.includes(channel)
+    );
 
     if (missingChannels !== 0) {
       const codesLabels = missingChannels.map(channel => {
@@ -130,20 +126,25 @@ export default class OCAFileGenerator {
 
     // creates a for loop on dataArray
     for (const item of Object.values(allResponses)) {
-
       // skip if item is not an object and not have timeOfIRStartSeconds attribute
-      if (!item ||
+      if (
+        !item ||
         typeof item !== 'object' ||
-        !Object.prototype.hasOwnProperty.call(item, 'distanceInMeters')) {
-        throw new Error("rensponses must contains extended values");
+        !Object.prototype.hasOwnProperty.call(item, 'distanceInMeters')
+      ) {
+        throw new Error('rensponses must contains extended values');
       }
 
       if (item.splIsAboveLimit()) {
-        throw new Error(`${item.displayMeasurementTitle()} spl ${item.splForAvr()}dB is above limit`);
+        throw new Error(
+          `${item.displayMeasurementTitle()} spl ${item.splForAvr()}dB is above limit`
+        );
       }
 
       if (item.exceedsDistance() === 'error') {
-        throw new Error(`${item.displayMeasurementTitle()} distance ${item.distanceInMeters()}M is above limit`);
+        throw new Error(
+          `${item.displayMeasurementTitle()} distance ${item.distanceInMeters()}M is above limit`
+        );
       }
 
       let itemFilter;
@@ -152,7 +153,12 @@ export default class OCAFileGenerator {
         itemFilter = await item.generateFilterMeasurement();
         const filterLength = this.getFilterLength(item);
         const getFilterFrequency = this.getFilterFreq(item);
-        const filter = await this.computeFilterGeneration(itemFilter, filterLength, getFilterFrequency, item.inverted());
+        const filter = await this.computeFilterGeneration(
+          itemFilter,
+          filterLength,
+          getFilterFrequency,
+          item.inverted()
+        );
 
         const channelItem = {
           channelType: item.channelDetails().channelIndex,
@@ -160,11 +166,10 @@ export default class OCAFileGenerator {
           distanceInMeters: item.distanceInMeters(),
           trimAdjustmentInDbs: item.splForAvr(),
           filter: filter,
-          ...(item.crossover() !== 0 && { xover: item.crossover() })
+          ...(item.crossover() !== 0 && { xover: item.crossover() }),
         };
 
         channels.push(channelItem);
-
       } catch (error) {
         throw new Error(error.message);
       } finally {
@@ -175,7 +180,6 @@ export default class OCAFileGenerator {
   }
 
   async computeFilterGeneration(filterItem, sampleCount, freq, invert) {
-
     try {
       if (!filterItem.isFilter) {
         throw new Error(`${filterItem.displayMeasurementTitle()} is not a filter`);
@@ -191,19 +195,18 @@ export default class OCAFileGenerator {
       if (!freq || !Number.isFinite(freq)) {
         throw new Error(`Invalid frequency: ${freq}`);
       }
-      const rightWindowWidthRaw = (sampleCount - 1) * 1000 / freq;
+      const rightWindowWidthRaw = ((sampleCount - 1) * 1000) / freq;
       const rightWindowWidth = this.cleanFloat32Value(rightWindowWidthRaw);
 
-      await filterItem.setIrWindows(
-        {
-          leftWindowType: "Rectangular",
-          rightWindowType: "Rectangular",
-          leftWindowWidthms: "0",
-          rightWindowWidthms: rightWindowWidth,
-          refTimems: "0",
-          addFDW: false,
-          addMTW: false
-        });
+      await filterItem.setIrWindows({
+        leftWindowType: 'Rectangular',
+        rightWindowType: 'Rectangular',
+        leftWindowWidthms: '0',
+        rightWindowWidthms: rightWindowWidth,
+        refTimems: '0',
+        addFDW: false,
+        addMTW: false,
+      });
 
       // makes sure the filter was not inverted by user
       await filterItem.setInverted(false);
@@ -212,7 +215,7 @@ export default class OCAFileGenerator {
       let filter = null;
 
       try {
-        trimmedFilter = await filterItem.genericCommand("Trim IR to windows");
+        trimmedFilter = await filterItem.genericCommand('Trim IR to windows');
         filterImpulseResponse = await trimmedFilter.getImpulseResponse(freq);
 
         filter = this.transformIR(filterImpulseResponse, sampleCount, invert);
@@ -229,22 +232,23 @@ export default class OCAFileGenerator {
   }
 
   transformIR(filterImpulseResponse, sampleCount, invert = false) {
-
     if (!filterImpulseResponse?.length || !Array.isArray(filterImpulseResponse)) {
       throw new Error('Invalid impulse response data');
     }
     if (!Number.isFinite(sampleCount) || sampleCount !== filterImpulseResponse.length) {
-      throw new Error(`Sample count mismatch: expected ${sampleCount}, got ${filterImpulseResponse.length}`);
+      throw new Error(
+        `Sample count mismatch: expected ${sampleCount}, got ${filterImpulseResponse.length}`
+      );
     }
 
     const operands = new Float32Array([
       OCAFileGenerator.GAIN_ADJUSTMENT,
       invert ? -1 : 1,
-      0
+      0,
     ]);
 
     // multiply each impulse response value by gain adjustment and inversion factor
-    return filterImpulseResponse.map((value) => {
+    return filterImpulseResponse.map(value => {
       operands[2] = value;
       return this.cleanFloat32Value(operands[0] * operands[1] * operands[2]);
     });
@@ -270,11 +274,17 @@ export default class OCAFileGenerator {
 
     switch (this.eqType) {
       case OCAFileGenerator.EQType_MultEQ:
-        return item.isSub() ? OCAFileGenerator.SUB_LENGTH_BASIC : OCAFileGenerator.SPEAKERS_LENGTH_BASIC;
+        return item.isSub()
+          ? OCAFileGenerator.SUB_LENGTH_BASIC
+          : OCAFileGenerator.SPEAKERS_LENGTH_BASIC;
       case OCAFileGenerator.EQType_MultEQXT:
-        return item.isSub() ? OCAFileGenerator.SUB_LENGTH_XT : OCAFileGenerator.SPEAKERS_LENGTH_XT;
+        return item.isSub()
+          ? OCAFileGenerator.SUB_LENGTH_XT
+          : OCAFileGenerator.SPEAKERS_LENGTH_XT;
       case OCAFileGenerator.EQType_MultEQXT32:
-        return item.isSub() ? OCAFileGenerator.SUB_LENGTH_XT32 : OCAFileGenerator.SPEAKERS_LENGTH_XT32;
+        return item.isSub()
+          ? OCAFileGenerator.SUB_LENGTH_XT32
+          : OCAFileGenerator.SPEAKERS_LENGTH_XT32;
       default:
         throw new Error(`Invalid EQ type: ${this.eqType}`);
     }
@@ -290,9 +300,13 @@ export default class OCAFileGenerator {
 
     switch (this.eqType) {
       case OCAFileGenerator.EQType_MultEQ:
-        return item.isSub() ? OCAFileGenerator.FREQUENCY_48_KHZ : OCAFileGenerator.FREQUENCY_6_KHZ;
+        return item.isSub()
+          ? OCAFileGenerator.FREQUENCY_48_KHZ
+          : OCAFileGenerator.FREQUENCY_6_KHZ;
       case OCAFileGenerator.EQType_MultEQXT:
-        return item.isSub() ? OCAFileGenerator.FREQUENCY_48_KHZ : OCAFileGenerator.FREQUENCY_6_KHZ;
+        return item.isSub()
+          ? OCAFileGenerator.FREQUENCY_48_KHZ
+          : OCAFileGenerator.FREQUENCY_6_KHZ;
       case OCAFileGenerator.EQType_MultEQXT32:
         return OCAFileGenerator.FREQUENCY_48_KHZ;
       default:

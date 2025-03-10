@@ -1,4 +1,3 @@
-
 class PersistentStore {
   constructor(storageKey) {
     if (!storageKey || typeof storageKey !== 'string') {
@@ -7,7 +6,6 @@ class PersistentStore {
     this.storageKey = storageKey;
     // Bind the save method to this instance
     this.save = this.save.bind(this);
-
   }
 
   // Save data

@@ -378,16 +378,16 @@ button:disabled {
 }
 
 /* Checkbox States */
-.checkbox-container:hover input~.checkmark {
+.checkbox-container:hover input ~ .checkmark {
   background-color: #e3f2fd;
 }
 
-.checkbox-container input:checked~.checkmark {
+.checkbox-container input:checked ~ .checkmark {
   background-color: var(--primary-color);
 }
 
 .checkmark:after {
-  content: "";
+  content: '';
   position: absolute;
   display: none;
   left: 6px;
@@ -399,7 +399,7 @@ button:disabled {
   transform: rotate(45deg);
 }
 
-.checkbox-container input:checked~.checkmark:after {
+.checkbox-container input:checked ~ .checkmark:after {
   display: block;
   animation: checkmark 0.2s ease-in-out;
 }
@@ -468,7 +468,7 @@ button:disabled {
 
 /* Basic code text styling */
 .code-text {
-  font-family: "Lucida Console", Monaco, "Courier New", monospace;
+  font-family: 'Lucida Console', Monaco, 'Courier New', monospace;
   font-size: 10px;
   line-height: 1.5;
   color: #d4d4d4;
@@ -478,7 +478,7 @@ button:disabled {
 
 /* Inline code */
 .inline-code {
-  font-family: "Lucida Console", Monaco, "Courier New", monospace;
+  font-family: 'Lucida Console', Monaco, 'Courier New', monospace;
   font-size: 10px;
   line-height: 1.5;
   background-color: #2d2d2d;
@@ -487,7 +487,6 @@ button:disabled {
   border-radius: 3px;
   border: 1px solid #404040;
 }
-
 
 .copyright {
   font-size: 14px;
@@ -530,14 +529,11 @@ button:disabled {
   color: #007bff;
 }
 
-
-
 /* Donation Section Styles */
 .donation-section {
   margin: 15px 0;
   text-align: center;
 }
-
 
 .donation-buttons {
   display: flex;
@@ -736,7 +732,6 @@ button:disabled {
   visibility: hidden;
   transition: opacity 0.3s;
 }
-
 
 /* Show tooltip on hover */
 .button:hover::after,

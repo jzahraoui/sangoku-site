@@ -1,6 +1,4 @@
-
 class AdyTools {
-
   static SPL_OFFSET = 82.0;
 
   constructor(fileContent) {
@@ -10,10 +8,9 @@ class AdyTools {
     this.fileContent = fileContent;
     this.currentDate = new Date();
     this.samplingRate = 48000;
-    this.MIC_CALIBRATION_URL = "ressources/mic-cal-imp.txt";
+    this.MIC_CALIBRATION_URL = 'ressources/mic-cal-imp.txt';
     this.micCalData = this.getMicCalData(this.MIC_CALIBRATION_URL);
   }
-
 
   async parse() {
     const SAMPLE_INTERVAL = 1 / this.samplingRate;
@@ -26,7 +23,7 @@ class AdyTools {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: false
+      hour12: false,
     };
     const formattedDate = this.currentDate.toLocaleString('fr-FR', options);
     const jszip = new JSZip();
@@ -35,7 +32,6 @@ class AdyTools {
     // Convert map to Promise.all for parallel processing
     const zipPromises = this.fileContent.detectedChannels.flatMap(channel =>
       Object.entries(channel.responseData).map(async ([position, measurementData]) => {
-
         const positionName = `P${Number(position) + 1}`;
         // must start with the channel name to mach
         const measurementName = `${channel.commandId}_${positionName}`;
@@ -69,7 +65,7 @@ class AdyTools {
           `${SAMPLE_INTERVAL.toExponential(16).replace('e', 'E')} // Sample interval (seconds)`,
           `${START_TIME} // Start time (seconds)`,
           `${AdyTools.SPL_OFFSET.toFixed(1)} // Data offset (dB)`,
-          '* Data start'
+          '* Data start',
         ];
 
         if (isCirrusLogic) {
@@ -78,10 +74,9 @@ class AdyTools {
           const inv_micCal = this.vectorDivision(perfectResponse, caldata);
           measurementData = await this.fastConvolution(measurementDataNumber, inv_micCal);
         }
-        const filecontent = `${[
-          ...fileHeader,
-          ...measurementData
-        ].join(windowsEndOfLine)}`;
+        const filecontent = `${[...fileHeader, ...measurementData].join(
+          windowsEndOfLine
+        )}`;
         if (!filecontent) {
           throw new Error(`no file content for ${filename}`);
         }
@@ -94,7 +89,7 @@ class AdyTools {
     try {
       const content = await jszip.generateAsync({
         type: 'blob',
-        encoding: 'binary'
+        encoding: 'binary',
       });
       return content;
     } catch (error) {
@@ -122,7 +117,6 @@ class AdyTools {
     // Convert back to time domain and return real parts
     return math.ifft(result).map(x => x.re);
   }
-
 
   async fastConvolution(audioData, calibrationData) {
     // Create offline audio context
@@ -159,7 +153,6 @@ class AdyTools {
     }
   }
 
-
   async getMicCalData(micCalUrl) {
     // creates a singleton for this.micCalData
     if (this.micCalData) return this.micCalData;
@@ -168,10 +161,14 @@ class AdyTools {
       this.micCalData = await this.readTextToFloatArray(micCalUrl);
       // resize this.micCalData to 16384 if it's smaller
       if (this.micCalData.length < 16384) {
-        this.micCalData = this.micCalData.concat(new Array(16384 - this.micCalData.length).fill(0));
+        this.micCalData = this.micCalData.concat(
+          new Array(16384 - this.micCalData.length).fill(0)
+        );
       }
     } catch (error) {
-      throw new Error(`Error fetching or processing mic calibration data: ${error}`, { cause: error });
+      throw new Error(`Error fetching or processing mic calibration data: ${error}`, {
+        cause: error,
+      });
     }
     return this.micCalData;
   }
@@ -184,12 +181,12 @@ class AdyTools {
 
       const response = await fetch(url, {
         headers: {
-          'Accept': 'text/plain',
-          'Cache-Control': 'no-cache'
+          Accept: 'text/plain',
+          'Cache-Control': 'no-cache',
         },
         // Add these options to help prevent fetch errors
         mode: 'cors',
-        credentials: 'same-origin'
+        credentials: 'same-origin',
       });
 
       if (!response.ok) {
@@ -205,9 +202,9 @@ class AdyTools {
 
       // Split the text into lines and convert to floats
       const floatArray = text
-        .trim()                    // Remove leading/trailing whitespace
-        .split(/\s+/)             // Split on whitespace (space, tab, newline)
-        .filter(line => line)     // Remove empty lines
+        .trim() // Remove leading/trailing whitespace
+        .split(/\s+/) // Split on whitespace (space, tab, newline)
+        .filter(line => line) // Remove empty lines
         .map(num => parseFloat(num)); // Convert strings to floats
       // Validate the parsed data
       if (floatArray.length === 0 || floatArray.some(isNaN)) {
@@ -215,9 +212,10 @@ class AdyTools {
       }
 
       return floatArray;
-
     } catch (error) {
-      throw new Error(`Failed to fetch or process data: ${error.message}`, { cause: error });
+      throw new Error(`Failed to fetch or process data: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 }

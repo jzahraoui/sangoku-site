@@ -1,23 +1,22 @@
 import Polar from './Polar.js';
 
 class MultiSubOptimizer {
-
   // Define constant configurations as static properties
   static DEFAULT_CONFIG = {
     frequency: {
-      min: 20,    // Hz
-      max: 200    // Hz
+      min: 20, // Hz
+      max: 200, // Hz
     },
     gain: {
-      min: 0,     // dB
-      max: 0,     // dB
-      step: 0.1   // dB
+      min: 0, // dB
+      max: 0, // dB
+      step: 0.1, // dB
     },
     delay: {
-      min: -0.005,    // seconds
-      max: 0.005,     // seconds
-      step: 0.00001   // seconds
-    }
+      min: -0.005, // seconds
+      max: 0.005, // seconds
+      step: 0.00001, // seconds
+    },
   };
 
   constructor(subMeasurements, config = MultiSubOptimizer.DEFAULT_CONFIG) {
@@ -27,7 +26,7 @@ class MultiSubOptimizer {
     this.subMeasurements = subMeasurements;
     this.optimizedSubs = [];
     this.FREQ_RANGE_START = config.frequency.min; // Starting frequency for optimization (Hz)
-    this.FREQ_RANGE_END = config.frequency.max;  // Ending frequency for optimization (Hz)
+    this.FREQ_RANGE_END = config.frequency.max; // Ending frequency for optimization (Hz)
     this.GAIN_RESOLUTION = config.gain.step; // dB
     this.GAIN_RANGE_START = config.gain.min; // dB
     this.GAIN_RANGE_END = config.gain.max; // dB
@@ -42,9 +41,10 @@ class MultiSubOptimizer {
       throw new Error('Invalid delay range parameters');
     }
     // Pre-calculate parameter ranges
-    const delayCount = Math.floor(
-      ((this.DELAY_RANGE_END - this.DELAY_RANGE_START) / this.DELAY_RESOLUTION) + 0.5
-    ) + 1;
+    const delayCount =
+      Math.floor(
+        (this.DELAY_RANGE_END - this.DELAY_RANGE_START) / this.DELAY_RESOLUTION + 0.5
+      ) + 1;
 
     const delays = new Array(delayCount);
     // Helper function to round to specific decimal places
@@ -58,13 +58,16 @@ class MultiSubOptimizer {
       delays[i] = rounded;
     }
 
-
-    const gainCount = Math.floor(
-      ((this.GAIN_RANGE_END - this.GAIN_RANGE_START) / this.GAIN_RESOLUTION) + 0.5
-    ) + 1;
+    const gainCount =
+      Math.floor(
+        (this.GAIN_RANGE_END - this.GAIN_RANGE_START) / this.GAIN_RESOLUTION + 0.5
+      ) + 1;
     const gains = new Array(gainCount);
     for (let i = 0; i < gainCount; i++) {
-      gains[i] = round(this.GAIN_RANGE_START + i * this.GAIN_RESOLUTION, this.GAIN_RESOLUTION);
+      gains[i] = round(
+        this.GAIN_RANGE_START + i * this.GAIN_RESOLUTION,
+        this.GAIN_RESOLUTION
+      );
     }
 
     const testParamsList = [];
@@ -80,7 +83,6 @@ class MultiSubOptimizer {
 
   async optimizeSubwoofers() {
     try {
-
       // 1. Initial measurements preparation
       const preparedSubs = await this.prepareMeasurements();
 
@@ -89,7 +91,6 @@ class MultiSubOptimizer {
 
       // 3. Optimize parameters for each sub
       const optimizedParams = await this.findOptimalParameters(preparedSubs);
-
 
       return optimizedParams;
     } catch (error) {
@@ -100,37 +101,38 @@ class MultiSubOptimizer {
   async prepareMeasurements() {
     console.debug('Preparing measurements for optimization');
     // Normalize measurements and prepare for processing
-    return await Promise.all(this.subMeasurements.map(async (frequencyResponse) => {
+    return await Promise.all(
+      this.subMeasurements.map(async frequencyResponse => {
+        // remove outside frequency range
+        const scale = 1e7;
+        const freqRangeStart = Math.fround(this.FREQ_RANGE_START);
+        const freqRangeEnd = Math.fround(this.FREQ_RANGE_END);
 
-      // remove outside frequency range
-      const scale = 1e7;
-      const freqRangeStart = Math.fround(this.FREQ_RANGE_START);
-      const freqRangeEnd = Math.fround(this.FREQ_RANGE_END);
+        // Create new arrays to store filtered values
+        const filteredFreqs = [];
+        const filteredMagnitude = [];
+        const filteredPhase = [];
 
-      // Create new arrays to store filtered values
-      const filteredFreqs = [];
-      const filteredMagnitude = [];
-      const filteredPhase = [];
+        // Iterate through frequencies and keep only those within range
+        frequencyResponse.freqs.forEach((freq, index) => {
+          // Round down to 7 digits for consistent comparison
+          const roundedFreq = Math.floor(freq * scale) / scale;
 
-      // Iterate through frequencies and keep only those within range
-      frequencyResponse.freqs.forEach((freq, index) => {
-        // Round down to 7 digits for consistent comparison
-        const roundedFreq = Math.floor(freq * scale) / scale;
-
-        if (roundedFreq >= freqRangeStart && roundedFreq <= freqRangeEnd) {
-          filteredFreqs.push(freq);
-          filteredMagnitude.push(frequencyResponse.magnitude[index]);
-          filteredPhase.push(frequencyResponse.phase[index]);
-        }
-      });
-      return {
-        measurement: frequencyResponse.measurement,
-        freqs: filteredFreqs,
-        magnitude: filteredMagnitude,
-        phase: filteredPhase,
-        freqStep: frequencyResponse.freqStep
-      };
-    }));
+          if (roundedFreq >= freqRangeStart && roundedFreq <= freqRangeEnd) {
+            filteredFreqs.push(freq);
+            filteredMagnitude.push(frequencyResponse.magnitude[index]);
+            filteredPhase.push(frequencyResponse.phase[index]);
+          }
+        });
+        return {
+          measurement: frequencyResponse.measurement,
+          freqs: filteredFreqs,
+          magnitude: filteredMagnitude,
+          phase: filteredPhase,
+          freqStep: frequencyResponse.freqStep,
+        };
+      })
+    );
   }
 
   async findOptimalParameters(preparedSubs) {
@@ -142,7 +144,7 @@ class MultiSubOptimizer {
     // Initialize reference sub
     const referenceSub = {
       ...preparedSubs[0],
-      param: Object.freeze({ delay: 0, gain: 0, polarity: 1 })
+      param: Object.freeze({ delay: 0, gain: 0, polarity: 1 }),
     };
 
     const subsWithoutFirst = preparedSubs.slice(1);
@@ -166,14 +168,14 @@ class MultiSubOptimizer {
       this.optimizedSubs.push({
         ...subToOptimize,
         param: bestParams,
-        score: bestScore
+        score: bestScore,
       });
     }
 
     const result = {
       optimizedSubs: this.optimizedSubs,
-      bestSum: previousValidSum
-    }
+      bestSum: previousValidSum,
+    };
 
     return result;
   }
@@ -188,12 +190,12 @@ class MultiSubOptimizer {
       testParamsList.map(async testParams => {
         const subModified = await this.calculateResponseWithParams({
           ...subToOptimize,
-          param: testParams
+          param: testParams,
         });
 
         const combinedResponse = await this.calculateCombinedResponse([
           subModified,
-          previousValidSum
+          previousValidSum,
         ]);
 
         const magnitudeScore = await this.calculateAverageLevelScore(combinedResponse);
@@ -201,7 +203,7 @@ class MultiSubOptimizer {
         return {
           score: magnitudeScore,
           params: { ...testParams },
-          response: combinedResponse
+          response: combinedResponse,
         };
       })
     );
@@ -220,28 +222,31 @@ class MultiSubOptimizer {
   }
 
   async getFinalSubSum() {
-
     const optimizedSubArray = [];
     const defaultParams = Object.freeze({ delay: 0, gain: 0, polarity: 1 });
     for (const originalSub of this.subMeasurements) {
-      const found = this.optimizedSubs.find(sub => sub.measurement === originalSub.measurement);
+      const found = this.optimizedSubs.find(
+        sub => sub.measurement === originalSub.measurement
+      );
       originalSub.param = found?.param ? found.param : defaultParams;
       const response = await this.calculateResponseWithParams(originalSub);
       optimizedSubArray.push(response);
     }
 
-    const optimizedSubsSum = await this
-      .calculateCombinedResponse(optimizedSubArray);
+    const optimizedSubsSum = await this.calculateCombinedResponse(optimizedSubArray);
 
     return optimizedSubsSum;
-
   }
 
   // Helper method to check delay boundaries
   async checkDelayBoundaries(sub, params) {
-    if (params.delay === this.DELAY_RANGE_END || params.delay === this.DELAY_RANGE_START) {
+    if (
+      params.delay === this.DELAY_RANGE_END ||
+      params.delay === this.DELAY_RANGE_START
+    ) {
       console.warn(
-        `Optimal delay for ${sub.measurement} is at the edge: ${params.delay * 1000
+        `Optimal delay for ${sub.measurement} is at the edge: ${
+          params.delay * 1000
         }ms. This may indicate that the delay range is too narrow.`
       );
     }
@@ -256,8 +261,7 @@ class MultiSubOptimizer {
     const weights = await this.calculateFrequencyWeights(response.freqs);
 
     for (let i = 0; i < response.magnitude.length; i++) {
-
-      // Phase coherence: prefer phases closer to 0° or 180° 
+      // Phase coherence: prefer phases closer to 0° or 180°
       const phase = response.phase[i] % 360;
 
       const phaseRadians = Polar.degreesToRadians(phase);
@@ -268,8 +272,10 @@ class MultiSubOptimizer {
     }
 
     // Normalize the final score
-    const totalWeight = weights.reduce((sum, weight, i) =>
-      sum + (weight * Math.abs(response.magnitude[i])), 0);
+    const totalWeight = weights.reduce(
+      (sum, weight, i) => sum + weight * Math.abs(response.magnitude[i]),
+      0
+    );
 
     return totalWeight > 0 ? coherenceScore / totalWeight : 0;
   }
@@ -277,15 +283,17 @@ class MultiSubOptimizer {
   async calculateFrequencyWeights(frequencies) {
     // Give more weight to lower frequencies
     const minFreq = Math.min(...frequencies);
-    return frequencies.map(freq =>
-      1 / Math.sqrt(freq / minFreq)
-    );
+    return frequencies.map(freq => 1 / Math.sqrt(freq / minFreq));
   }
 
   async calculateAverageLevelScore(response) {
     // Input validation
-    if (!response || !response.freqs || !response.magnitude ||
-      response.freqs.length !== response.magnitude.length) {
+    if (
+      !response ||
+      !response.freqs ||
+      !response.magnitude ||
+      response.freqs.length !== response.magnitude.length
+    ) {
       return -Infinity;
     }
 
@@ -304,7 +312,8 @@ class MultiSubOptimizer {
 
       // Penalize rapid changes in magnitude (potential destructive interference)
       const diff = level - previousLevel;
-      if (diff < -peakThreshold) { // More than 3dB change between adjacent frequencies
+      if (diff < -peakThreshold) {
+        // More than 3dB change between adjacent frequencies
         dipSum += Math.abs(diff);
       }
       levelSum += level;
@@ -342,15 +351,15 @@ class MultiSubOptimizer {
 
     // Use a single loop to build all lines
     for (let i = 0; i < response.freqs.length; i++) {
-      lines[i] = `${response.freqs[i].toFixed(6)}  ${response.magnitude[i].toFixed(3)} ${response.phase[i].toFixed(4)}`;
+      lines[i] =
+        `${response.freqs[i].toFixed(6)}  ${response.magnitude[i].toFixed(3)} ${response.phase[i].toFixed(4)}`;
     }
 
     // Join all lines at once instead of concatenating strings
     return lines.join('\n');
   }
 
-
-  // function to calculate combined response resulting of arthemetic sum operation on magnitude and phase of two responses 
+  // function to calculate combined response resulting of arthemetic sum operation on magnitude and phase of two responses
   async calculateCombinedResponse(subs) {
     if (!subs || subs.length === 0) {
       throw new Error('No measurements provided');
@@ -387,7 +396,7 @@ class MultiSubOptimizer {
       freqs: freqs,
       magnitude: combinedMagnitude,
       phase: combinedPhase,
-      freqStep: freqStep
+      freqStep: freqStep,
     };
   }
 
@@ -398,15 +407,13 @@ class MultiSubOptimizer {
       freqs: sub.freqs,
       magnitude: [],
       phase: [],
-      freqStep: sub.freqStep
+      freqStep: sub.freqStep,
     };
     const { gain, delay, polarity } = sub.param;
 
-
     for (let freqIndex = 0; freqIndex < size; freqIndex++) {
       // Calculate magnitude
-      let polar = Polar
-        .fromDb(sub.magnitude[freqIndex], sub.phase[freqIndex])
+      let polar = Polar.fromDb(sub.magnitude[freqIndex], sub.phase[freqIndex])
         .addGainDb(gain)
         .delay(delay, sub.freqs[freqIndex]);
 
@@ -417,12 +424,10 @@ class MultiSubOptimizer {
       // Store results
       response.magnitude.push(polar.magnitudeDb);
       response.phase.push(polar.phaseDegrees);
-
     }
 
     return response;
   }
-
 
   async calculateSeatVariation(response) {
     const magnitudes = response.magnitude;
@@ -432,14 +437,17 @@ class MultiSubOptimizer {
     if (len === 1) return 0;
 
     // Use reduce for a single pass calculation
-    const { sum, sumSquares } = magnitudes.reduce((acc, mag) => ({
-      sum: acc.sum + mag,
-      sumSquares: acc.sumSquares + mag * mag
-    }), { sum: 0, sumSquares: 0 });
+    const { sum, sumSquares } = magnitudes.reduce(
+      (acc, mag) => ({
+        sum: acc.sum + mag,
+        sumSquares: acc.sumSquares + mag * mag,
+      }),
+      { sum: 0, sumSquares: 0 }
+    );
 
     const mean = sum / len;
     // Avoid potential floating point precision issues
-    const variance = Math.max(0, (sumSquares / len) - (mean * mean));
+    const variance = Math.max(0, sumSquares / len - mean * mean);
 
     return Math.sqrt(variance);
   }
@@ -448,7 +456,7 @@ class MultiSubOptimizer {
     const magnitudes = response.magnitude;
     const len = magnitudes.length;
 
-    if (len <= 1) return 0;  // Handle edge cases
+    if (len <= 1) return 0; // Handle edge cases
 
     let totalVariation = 0;
     let min = magnitudes[0];
@@ -468,11 +476,9 @@ class MultiSubOptimizer {
     if (range === 0) return 0; // Avoid division by zero
 
     // Normalize the variation score by the range and length
-    const normalizedVariation = (totalVariation) / (len - 1);
+    const normalizedVariation = totalVariation / (len - 1);
     return normalizedVariation;
   }
-
 }
-
 
 export default MultiSubOptimizer;

@@ -14,25 +14,25 @@ Room Correction Helper is a specialized tool designed to assist in:
 ## Features
 
 - **Multi-Language Support**
+
   - English
   - French
 
 - **REW Integration**
+
   - Direct connection to REW API
   - Automated measurement renaming
 
-- **Measurement Import:**  
+- **Measurement Import:**
   - Drag-and-drop support for AVR/ADY files exported from mobile app or similar odd.wtf software.
   - Automatic channel detection
   - Configuration visualization
   - Automatic measurement import into REW
-  
 - **SPL and Multi-Subwoofer Optimization:**  
   Tools to adjust measurements gain, align subwoofer, and generate optimized configurations. Includes automatic alignment tools to ensure proper synchronization between different speakers. Uses impulse response analysis to determine peak alignment points.
 
 - **Preview**  
   Apply AVR filters processing on the current work to generates accurates preview of the signal.
-  
 - **Configuration Export:**  
   Generate OCA file that can be used to program your audio processing hardware.
 

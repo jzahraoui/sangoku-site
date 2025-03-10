@@ -1,19 +1,14 @@
-
-
-
 class BusinessTools {
-
   constructor(parentViewModel) {
-
     this.viewModel = parentViewModel;
-    this.LPF_REVERTED_SUFFIX = " w/o LPF";
-    this.RESULT_PREFIX = "final ";
+    this.LPF_REVERTED_SUFFIX = ' w/o LPF';
+    this.RESULT_PREFIX = 'final ';
   }
 
   async revertLfeFilterProccess(deletePrevious = true, freq, replaceOriginal = false) {
     try {
-
-      const previousSubResponses = this.viewModel.subsMeasurements()
+      const previousSubResponses = this.viewModel
+        .subsMeasurements()
         .filter(response => response.title().includes(this.LPF_REVERTED_SUFFIX));
       if (deletePrevious) {
         for (const subResponse of previousSubResponses) {
@@ -21,11 +16,13 @@ class BusinessTools {
         }
       }
 
-      await this.revertLfeFilterProccessList(this.viewModel.subsMeasurements(), freq, replaceOriginal);
-
+      await this.revertLfeFilterProccessList(
+        this.viewModel.subsMeasurements(),
+        freq,
+        replaceOriginal
+      );
     } catch (error) {
       throw new Error(`Error: ${error.message}`, { cause: error });
-
     }
   }
 
@@ -34,7 +31,7 @@ class BusinessTools {
     try {
       if (!subResponses || subResponses.length === 0) {
         throw new Error('No subwoofer measurements found');
-      };
+      }
       const resultsUuids = [];
       // use the fist measurement to creates the filter to ensure the same Frequency is used
       const measurement = subResponses[0];
@@ -42,34 +39,29 @@ class BusinessTools {
       const LowPassFilterSet = [];
       // clear all filters
       for (let i = 1; i < 21; i++) {
-        LowPassFilterSet.push(
-          {
-            index: i,
-            type: "None",
-            enabled: true,
-            isAuto: false,
-          });
+        LowPassFilterSet.push({
+          index: i,
+          type: 'None',
+          enabled: true,
+          isAuto: false,
+        });
       }
       // set the low pass
-      LowPassFilterSet.push(
-        {
-          index: 21,
-          type: "Low pass",
-          enabled: true,
-          isAuto: false,
-          frequency: freq,
-          shape: "L-R",
-          slopedBPerOctave: 24,
-        }
-      );
-      LowPassFilterSet.push(
-        {
-          index: 22,
-          type: "None",
-          enabled: true,
-          isAuto: false,
-        }
-      );
+      LowPassFilterSet.push({
+        index: 21,
+        type: 'Low pass',
+        enabled: true,
+        isAuto: false,
+        frequency: freq,
+        shape: 'L-R',
+        slopedBPerOctave: 24,
+      });
+      LowPassFilterSet.push({
+        index: 22,
+        type: 'None',
+        enabled: true,
+        isAuto: false,
+      });
 
       // push the low pass filter on the first measurement
       await measurement.setFilters(LowPassFilterSet);
@@ -96,8 +88,8 @@ class BusinessTools {
           subResponse.uuid,
           lowPassFilter.uuid,
           {
-            function: "A / B",
-            "upperLimit": "500"
+            function: 'A / B',
+            upperLimit: '500',
           }
         );
         if (replaceOriginal) {
@@ -110,7 +102,9 @@ class BusinessTools {
           await subResponse.setcumulativeIRShiftSeconds(subResponseDelay);
         }
         // update the title
-        const subResponseTitle = replaceOriginal ? subResponse.title() : subResponse.title() + this.LPF_REVERTED_SUFFIX;
+        const subResponseTitle = replaceOriginal
+          ? subResponse.title()
+          : subResponse.title() + this.LPF_REVERTED_SUFFIX;
         await division.setTitle(subResponseTitle);
 
         // apply inversion
@@ -139,7 +133,7 @@ class BusinessTools {
         throw new Error('Invalid groupedResponse input');
       }
       if (groupedResponse.length < 2) {
-        throw new Error("Parameter must contains at least 2 elements")
+        throw new Error('Parameter must contains at least 2 elements');
       }
 
       // Process each code group sequentially
@@ -155,8 +149,10 @@ class BusinessTools {
         }
 
         // exclude previous results and create array of UUIDs for the current code group
-        const usableItems = groupedResponse[code].items
-          .filter(item => !item.title().endsWith('avg') && !item.title().startsWith(this.RESULT_PREFIX))
+        const usableItems = groupedResponse[code].items.filter(
+          item =>
+            !item.title().endsWith('avg') && !item.title().startsWith(this.RESULT_PREFIX)
+        );
 
         // Process the collected indices
         if (!usableItems || usableItems.length < 2) {
@@ -176,13 +172,14 @@ class BusinessTools {
         await this.viewModel.processCommands('Cross corr align', uuids);
 
         let vectorAverage;
-        if (code.startsWith("SW")) {
+        if (code.startsWith('SW')) {
           // average method suited for subs
           console.debug(`${code}: ${uuids.length} measures Magn plus phase average...`);
-          vectorAverage = await this.viewModel.processCommands("Magn plus phase average", uuids);
-
+          vectorAverage = await this.viewModel.processCommands(
+            'Magn plus phase average',
+            uuids
+          );
         } else {
-
           // Vector average processing
           console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
           vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
@@ -191,7 +188,7 @@ class BusinessTools {
         // Update title
         if (vectorAverage) {
           console.debug(`${code}: measurements average title renaming...`);
-          await vectorAverage.setTitle(code + "avg");
+          await vectorAverage.setTitle(code + 'avg');
         } else {
           throw new Error(`${code}: can not rename the average...`);
         }
@@ -209,7 +206,6 @@ class BusinessTools {
     } catch (error) {
       throw new Error(`${error.message}`, { cause: error });
     }
-
   }
 
   /**
@@ -220,13 +216,14 @@ class BusinessTools {
    * @returns {Array} Matching JSON objects
    */
   filterResponses(jsonData, searchCriteria, options = {}) {
-    const {
-      caseSensitive = false,
-      matchAll = true,
-      partialMatch = true
-    } = options;
+    const { caseSensitive = false, matchAll = true, partialMatch = true } = options;
 
-    if (!jsonData || typeof jsonData !== 'object' || !searchCriteria || typeof searchCriteria !== 'object') {
+    if (
+      !jsonData ||
+      typeof jsonData !== 'object' ||
+      !searchCriteria ||
+      typeof searchCriteria !== 'object'
+    ) {
       return [];
     }
 
@@ -261,15 +258,11 @@ class BusinessTools {
       });
 
       // Return true if all criteria match (AND) or any criteria matches (OR)
-      return matchAll
-        ? matches.every(match => match)
-        : matches.some(match => match);
+      return matchAll ? matches.every(match => match) : matches.some(match => match);
     });
   }
 
-
   async importFilterInREW(REWconfigs, subResponses) {
-
     // Process each REW configuration sequentially
     for (const { filters, channel, invert, gain, delay } of REWconfigs) {
       try {
@@ -281,7 +274,7 @@ class BusinessTools {
         if (!foundItem) {
           throw new Error(`Cannot find measurement name matching ${channel}`);
         }
-        // TODO: check 
+        // TODO: check
         // Apply filters
         await foundItem.setFilters(filters);
         // invert
@@ -297,7 +290,6 @@ class BusinessTools {
 
         const splToAdd = gain - foundItem.splOffsetDeltadB();
         await foundItem.addSPLOffsetDB(splToAdd);
-
       } catch (error) {
         throw new Error(`Error processing channel ${channel}: ${error.message}`, error);
       }
@@ -313,38 +305,42 @@ class BusinessTools {
         throw new Error(`Cannot find predicted LFE`);
       }
       if (cuttOffFrequency === 0) {
-        throw new Error("no cuttoff frequency");
+        throw new Error('no cuttoff frequency');
       }
       if (!PredictedLfe.haveImpulseResponse) {
-        throw new Error('Invalid PredictedLfe object or missing cumulativeIRShiftSeconds');
+        throw new Error(
+          'Invalid PredictedLfe object or missing cumulativeIRShiftSeconds'
+        );
       }
 
       // Front Left predicted equalized measurement
       const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
+      // TODO: manage the case of only one sub
 
-      const { PredictedLfeFiltered, predictedSpeakerFiltered } = await this.applyCuttOffFilter(
-        PredictedLfe,
-        predictedFrontLeft,
-        cuttOffFrequency);
+      const { PredictedLfeFiltered, predictedSpeakerFiltered } =
+        await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
 
-      const cxText = cuttOffFrequency ? `X@${cuttOffFrequency}Hz` : 'FB'
+      const cxText = cuttOffFrequency ? `X@${cuttOffFrequency}Hz` : 'FB';
       let totalOffset = 0;
       let mustBeInverted = false;
 
       try {
         // get the sub impulse closer to the front left, better method than cros corr align
-        const distanceToSpeakerPeak = PredictedLfeFiltered.timeOfIRPeakSeconds - predictedSpeakerFiltered.timeOfIRPeakSeconds;
+        const distanceToSpeakerPeak =
+          PredictedLfeFiltered.timeOfIRPeakSeconds -
+          predictedSpeakerFiltered.timeOfIRPeakSeconds;
         await PredictedLfeFiltered.addIROffsetSeconds(distanceToSpeakerPeak);
         totalOffset = distanceToSpeakerPeak;
 
         // compute subwoofer aligment
-        const { shiftDelay, isBInverted } = await this.viewModel.findAligment(predictedSpeakerFiltered.uuid,
+        const { shiftDelay, isBInverted } = await this.viewModel.findAligment(
+          predictedSpeakerFiltered.uuid,
           PredictedLfeFiltered.uuid,
           cuttOffFrequency,
           2,
           false,
-          `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()}`);
-
+          `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()}`
+        );
 
         if (isBInverted) {
           await PredictedLfe.toggleInversion();
@@ -359,20 +355,21 @@ class BusinessTools {
           const finalPredcitionCompare = await this.viewModel.doArithmeticOperation(
             PredictedLfeFiltered.uuid,
             predictedSpeakerFiltered.uuid,
-            { function: "A + B" }
+            { function: 'A + B' }
           );
 
           // set title
           await finalPredcitionCompare.setTitle(
-            `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()} cmp`);
+            `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()} cmp`
+          );
         }
 
         totalOffset = totalOffset - shiftDelay;
-        const resultMessage =
-          `Subwoofer aligment: ${(totalOffset * 1000)
-            .toFixed(2)}ms (from previous position ${(distanceToSpeakerPeak * 1000)
-              .toFixed(2)}ms - alignment tool result ${(shiftDelay * 1000)
-                .toFixed(2)}ms)`;
+        const resultMessage = `Subwoofer aligment: ${(totalOffset * 1000).toFixed(
+          2
+        )}ms (from previous position ${(distanceToSpeakerPeak * 1000).toFixed(
+          2
+        )}ms - alignment tool result ${(shiftDelay * 1000).toFixed(2)}ms)`;
 
         return resultMessage;
       } catch (error) {
@@ -397,42 +394,45 @@ class BusinessTools {
       return { PredictedLfeFiltered, predictedSpeakerFiltered };
     }
     try {
-
       // apply low pass filter to LFE at cuttOffFrequency
-      const subFilter = [{
-        "index": 21,
-        "enabled": true,
-        "isAuto": false,
-        "frequency": cuttOffFrequency,
-        "shape": "L-R",
-        "slopedBPerOctave": 24,
-        "type": "Low pass"
-      },
-      {
-        "index": 22,
-        "type": "None",
-        "enabled": true,
-        "isAuto": false,
-      }];
+      const subFilter = [
+        {
+          index: 21,
+          enabled: true,
+          isAuto: false,
+          frequency: cuttOffFrequency,
+          shape: 'L-R',
+          slopedBPerOctave: 24,
+          type: 'Low pass',
+        },
+        {
+          index: 22,
+          type: 'None',
+          enabled: true,
+          isAuto: false,
+        },
+      ];
       await sub.setFilters(subFilter);
       const PredictedLfeFiltered = await sub.producePredictedMeasurement();
 
       // apply high pass filter at cuttOffFrequency
-      const speakerFilter = [{
-        "index": 21,
-        "enabled": true,
-        "isAuto": false,
-        "frequency": cuttOffFrequency,
-        "shape": "BU",
-        "slopedBPerOctave": 12,
-        "type": "High pass"
-      },
-      {
-        "index": 22,
-        "type": "None",
-        "enabled": true,
-        "isAuto": false,
-      }];
+      const speakerFilter = [
+        {
+          index: 21,
+          enabled: true,
+          isAuto: false,
+          frequency: cuttOffFrequency,
+          shape: 'BU',
+          slopedBPerOctave: 12,
+          type: 'High pass',
+        },
+        {
+          index: 22,
+          type: 'None',
+          enabled: true,
+          isAuto: false,
+        },
+      ];
       await speaker.setFilters(speakerFilter);
       // generate predicted filtered measurement for speaker
       const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
@@ -444,7 +444,6 @@ class BusinessTools {
   }
 
   async createMeasurementPreview(item) {
-
     // skip subs
     if (item.isSub()) {
       return true;
@@ -462,32 +461,33 @@ class BusinessTools {
     if (item.crossover() === 0) {
       finalPredcition = predictedChannel;
     } else {
-
       if (!item.relatedLfeMeasurement()) {
         // TODO use createssum to get it
         throw new Error(`Cannot find predicted LFE for position ${item.position()}`);
       }
-      const { PredictedLfeFiltered, predictedSpeakerFiltered } = await this.applyCuttOffFilter(
-        item.relatedLfeMeasurement(),
-        predictedChannel,
-        item.crossover());
+      const { PredictedLfeFiltered, predictedSpeakerFiltered } =
+        await this.applyCuttOffFilter(
+          item.relatedLfeMeasurement(),
+          predictedChannel,
+          item.crossover()
+        );
 
       await this.viewModel.removeMeasurement(predictedChannel);
 
       finalPredcition = await this.viewModel.doArithmeticOperation(
         PredictedLfeFiltered.uuid,
         predictedSpeakerFiltered.uuid,
-        { function: "A + B" }
+        { function: 'A + B' }
       );
       // cleanup of predicted measurements
       await this.viewModel.removeMeasurement(PredictedLfeFiltered);
       await this.viewModel.removeMeasurement(predictedSpeakerFiltered);
     }
     // set title
-    const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB'
+    const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB';
     const finalTitle = `${this.RESULT_PREFIX}${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
-    await finalPredcition.genericCommand('Smooth', { smoothing: "Psy" });
+    await finalPredcition.genericCommand('Smooth', { smoothing: 'Psy' });
     return true;
   }
 
@@ -503,7 +503,6 @@ class BusinessTools {
           await subResponse.toggleInversion();
         }
       }
-
     } catch (error) {
       throw new Error(`${error.message}`, { cause: error });
     }
@@ -512,10 +511,10 @@ class BusinessTools {
   async createsSum(itemList, deletePredicted = true, title) {
     try {
       if (!Array.isArray(itemList)) {
-        throw new Error("Parameter must be an array")
+        throw new Error('Parameter must be an array');
       }
       if (itemList.length < 2) {
-        throw new Error("Parameter must contains at least 2 elements")
+        throw new Error('Parameter must contains at least 2 elements');
       }
 
       const generatedPredictedUuids = [];
@@ -531,7 +530,7 @@ class BusinessTools {
       let lastAlignedSum = await this.viewModel.doArithmeticOperation(
         generatedPredictedUuids[0],
         generatedPredictedUuids[1],
-        { function: "A + B" }
+        { function: 'A + B' }
       );
 
       // Loop through each UUID and process
@@ -539,7 +538,7 @@ class BusinessTools {
         const newAlignedSum = await this.viewModel.doArithmeticOperation(
           generatedPredictedUuids[i],
           lastAlignedSum.uuid,
-          { function: "A + B" }
+          { function: 'A + B' }
         );
         await this.viewModel.removeMeasurement(lastAlignedSum);
         lastAlignedSum = newAlignedSum;
@@ -548,7 +547,6 @@ class BusinessTools {
       await lastAlignedSum.setTitle(title, `sum from:\n${titles.join('\n')}`);
 
       if (deletePredicted) {
-
         // cleanup of equalised sub measurements usded to create the sum
         for (const uuid of generatedPredictedUuids) {
           try {
@@ -564,7 +562,6 @@ class BusinessTools {
       throw new Error(`Error creating sum:${error.message}`, { cause: error });
     }
   }
-
 }
 
 export default BusinessTools;

@@ -1,23 +1,33 @@
 <div>
   <h1>Measurements from the REW</h1>
-  <p>Measure each channel with the played sweeps (preferably multiple times and at multiple locations),
-    measure LP last and leave the mic at this position. Will be easyer for further tests after calibration</p>
+  <p>
+    Measure each channel with the played sweeps (preferably multiple times and at multiple
+    locations), measure LP last and leave the mic at this position. Will be easyer for
+    further tests after calibration
+  </p>
   <h2>AVR settings</h2>
   <ol>
-    <li>Use one way to clear actuals settings:
+    <li>
+      Use one way to clear actuals settings:
       <ol>
         <li>use odd program</li>
         <li>import flat correction curves with MQX saved flat file</li>
       </ol>
     </li>
-    <li>Adjust volume level to 0,62 or -18dB (should gives around 75db at Front Right)</li>
-    <li>(Optionnal, depends on you preference) If you want to use Dynamic EQ. Set Audyssey Dynamic EQ ON, Set the
-      strength of DEQ to
-      5dB, all other Audyssey settings off.</li>
+    <li>
+      Adjust volume level to 0,62 or -18dB (should gives around 75db at Front Right)
+    </li>
+    <li>
+      (Optionnal, depends on you preference) If you want to use Dynamic EQ. Set Audyssey
+      Dynamic EQ ON, Set the strength of DEQ to 5dB, all other Audyssey settings off.
+    </li>
     <li>Disable loudnees management</li>
-    <li>Sub Measurements:
+    <li>
+      Sub Measurements:
       <ol>
-        <li>set LFE LPF to 250hz, then use "revert AVR LPF" to cancel the filter effect</li>
+        <li>
+          set LFE LPF to 250hz, then use "revert AVR LPF" to cancel the filter effect
+        </li>
         <li>Assign XLR sub output to center to bypass LFE Low Pass filter</li>
       </ol>
     </li>
@@ -31,13 +41,16 @@
   <h2>REW settings</h2>
   <ol>
     <li>Select java EXCL</li>
-    <li>Sampling rate 48kHz, frequency range 0-24000Hz, uses dolby atmos truehd files with <a
-        href="https://www.videolan.org/vlc/" target="_blank">VLC</a> :
+    <li>
+      Sampling rate 48kHz, frequency range 0-24000Hz, uses dolby atmos truehd files with
+      <a href="https://www.videolan.org/vlc/" target="_blank">VLC</a> :
       <details class="shrinkable-container">
-        <summary>Lossless Audio Files </summary>
+        <summary>Lossless Audio Files</summary>
         <ul>
-          <li><a
-              href="ressources/256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav">256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav</a>
+          <li>
+            <a href="ressources/256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav"
+              >256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav</a
+            >
           </li>
           <li><a href="ressources/lossless/C.mlp">C.mlp</a></li>
           <li><a href="ressources/lossless/FL.mlp">FL.mlp</a></li>
@@ -67,12 +80,17 @@
           <li><a href="ressources/lossless/TML.mlp">TML.mlp</a></li>
           <li><a href="ressources/lossless/TMR.mlp">TMR.mlp</a></li>
           <li><a href="ressources/lossless/SWx.mlp">SWx.mlp</a></li>
-          <li><a href="ressources/lossless/SWx_10dB_louder.mlp">SWx_10dB_louder.mlp</a></li>
+          <li>
+            <a href="ressources/lossless/SWx_10dB_louder.mlp">SWx_10dB_louder.mlp</a>
+          </li>
         </ul>
       </details>
     </li>
     <li>Acoustic Timing reference to Front Left channel (same as atmos files)</li>
-    <li>Measurement loudness to -12dBFS (important for Atmos channels to play at the correct volumes)</li>
+    <li>
+      Measurement loudness to -12dBFS (important for Atmos channels to play at the correct
+      volumes)
+    </li>
   </ol>
   <h2>Measurements</h2>
   <p>measure multiples positions</p>
