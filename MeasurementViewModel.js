@@ -1195,64 +1195,69 @@ class MeasurementViewModel {
    * Detect subwoofer frequency cutoff points
    * @param {number[]} frequencies - Array of frequency points
    * @param {number[]} magnitude - Array of magnitude values in dB
-   * @param {number} thresholdDb - Cutoff threshold in dB (default -3dB)
-   * @returns {Object} Object containing low and high cutoff frequencies
+   * @param {number} thresholdDb - Cutoff threshold in dB (default -6dB)
+   * @param {number} low - Lower frequency bound (default 10Hz)
+   * @param {number} high - Upper frequency bound (default 500Hz)
+   * @returns {Object} Object containing low and high cutoff frequencies and peak magnitude
    */
   detectSubwooferCutoff(frequencies, magnitude, thresholdDb = -6, low = 10, high = 500) {
-    // Find peak magnitude in typical subwoofer passband (20-200Hz)
-    let peakMagnitude = -Infinity;
-    for (let i = 0; i < frequencies.length; i++) {
-      if (frequencies[i] >= low && frequencies[i] <= high) {
-        peakMagnitude = Math.max(peakMagnitude, magnitude[i]);
-      }
+    // Input validation
+    if (
+      !frequencies?.length ||
+      !magnitude?.length ||
+      frequencies.length !== magnitude.length
+    ) {
+      throw new Error('Invalid input arrays');
     }
 
-    // Calculate threshold level
+    // Find peak magnitude using array methods instead of loop
+    const peakMagnitude = Math.max(
+      ...magnitude.filter((_, i) => frequencies[i] >= low && frequencies[i] <= high)
+    );
+
+    // Calculate threshold level once
     const thresholdLevel = peakMagnitude + thresholdDb;
 
-    // Find low frequency cutoff
-    let lowCutoff = null;
-    for (let i = 0; i < frequencies.length - 1; i++) {
-      if (magnitude[i] >= thresholdLevel) {
-        if (i > 0) {
-          // Interpolate for more accurate result
-          lowCutoff = this.interpolateFrequency(
-            frequencies[i - 1],
-            frequencies[i],
-            magnitude[i - 1],
-            magnitude[i],
-            thresholdLevel
-          );
-        } else {
-          lowCutoff = frequencies[i];
-        }
-        break;
-      }
-    }
+    // Find low frequency cutoff using find method
+    const lowIndex = frequencies.findIndex((_, i) => magnitude[i] >= thresholdLevel);
 
-    // Find high frequency cutoff
-    let highCutoff = null;
-    for (let i = frequencies.length - 1; i > 0; i--) {
-      if (magnitude[i] >= thresholdLevel) {
-        if (i < frequencies.length - 1) {
-          // Interpolate for more accurate result
-          highCutoff = this.interpolateFrequency(
-            frequencies[i],
-            frequencies[i + 1],
-            magnitude[i],
-            magnitude[i + 1],
+    // Find high frequency cutoff using findLast method
+    const highIndex = frequencies.findLastIndex((_, i) => magnitude[i] >= thresholdLevel);
+
+    // Calculate cutoff frequencies with interpolation
+    const lowCutoff =
+      lowIndex > 0
+        ? this.interpolateFrequency(
+            frequencies[lowIndex - 1],
+            frequencies[lowIndex],
+            magnitude[lowIndex - 1],
+            magnitude[lowIndex],
             thresholdLevel
-          );
-        } else {
-          highCutoff = frequencies[i];
-        }
-        break;
-      }
-    }
+          )
+        : frequencies[lowIndex];
+
+    const highCutoff =
+      highIndex < frequencies.length - 1
+        ? this.interpolateFrequency(
+            frequencies[highIndex],
+            frequencies[highIndex + 1],
+            magnitude[highIndex],
+            magnitude[highIndex + 1],
+            thresholdLevel
+          )
+        : frequencies[highIndex];
+
+    // find the center frequency by octaves bettween lowCutoff and highCutoff
+    const centerFrequency = this.roundToPrecision(Math.sqrt(lowCutoff * highCutoff), 1);
+
+    // count the number of octaves between low and high cutoff from center frequency
+    const octaves = this.roundToPrecision(Math.log2(highCutoff / centerFrequency) * 2, 1);
 
     return {
       lowCutoff,
       highCutoff,
+      centerFrequency,
+      octaves,
       peakMagnitude,
     };
   }
