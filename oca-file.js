@@ -114,7 +114,7 @@ export default class OCAFileGenerator {
       channel => !providedChannels.includes(channel)
     );
 
-    if (missingChannels !== 0) {
+    if (missingChannels.length !== 0) {
       const codesLabels = missingChannels.map(channel => {
         return CHANNEL_TYPES.getByChannelIndex(channel).code;
       });
