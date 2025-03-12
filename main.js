@@ -219,7 +219,7 @@ function handleFiles(files) {
       try {
         filterConverter = new apo2camilla(content);
       } catch (error) {
-        console.error('Error initializing FilterConverter:', error);
+        console.error(`Error initializing FilterConverter: ${error.message}`, error);
         results.innerHTML = `<div class="error">Error initializing FilterConverter: ${error.message}</div>`;
         return;
       }

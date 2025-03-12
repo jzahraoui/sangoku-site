@@ -1622,7 +1622,7 @@ class MeasurementViewModel {
         console.warn(`measurement ${itemUuid} not found, not removed`);
         return false;
       }
-      throw new Error(`Failed to remove measurement: ${error.message}`, error);
+      throw new Error(`Failed to remove measurement: ${error.message}`, { cause: error });
     }
   }
 

@@ -291,7 +291,9 @@ class BusinessTools {
         const splToAdd = gain - foundItem.splOffsetDeltadB();
         await foundItem.addSPLOffsetDB(splToAdd);
       } catch (error) {
-        throw new Error(`Error processing channel ${channel}: ${error.message}`, error);
+        throw new Error(`Error processing channel ${channel}: ${error.message}`, {
+          cause: error,
+        });
       }
     }
   }

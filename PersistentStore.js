@@ -19,7 +19,8 @@ class PersistentStore {
       console.debug('Saved data');
       return true;
     } catch (error) {
-      console.error('Error saving data:' + error.message, error);
+      console.error(`Error saving data: ${error.message}`);
+      return false;
     }
   }
 
@@ -49,7 +50,7 @@ class PersistentStore {
       console.debug('Loaded data');
       return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error('Error loading data:', error);
+      console.error(`Error loading data: ${error.message}`);
       return null;
     }
   }
@@ -61,7 +62,7 @@ class PersistentStore {
       localStorage.removeItem(this.storageKey);
       return true;
     } catch (error) {
-      console.error('Error clearing data:', error);
+      console.error(`Error clearing data: ${error.message}`);
       return false;
     }
   }

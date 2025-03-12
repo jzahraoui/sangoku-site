@@ -171,7 +171,7 @@ export default class OCAFileGenerator {
 
         channels.push(channelItem);
       } catch (error) {
-        throw new Error(error.message);
+        throw new Error(`Creates filters failed: ${error.message}`, { cause: error });
       } finally {
         await itemFilter.delete();
       }
@@ -227,7 +227,7 @@ export default class OCAFileGenerator {
 
       return filter;
     } catch (error) {
-      throw new Error(`Filter generation failed: ${error.message}`);
+      throw new Error(`Filter generation failed: ${error.message}`, { cause: error });
     }
   }
 
