@@ -1006,7 +1006,7 @@ class MeasurementViewModel {
 
         const optimizedSubsSum = await optimizer.getFinalSubSum();
 
-        const optimizedSubsSumPeak = Math.max(...optimizedSubsSum.magnitude);
+        const optimizedSubsSumPeak = self.getMaxFromArray(optimizedSubsSum.magnitude);
 
         const detectOptimizedSubs = this.detectSubwooferCutoff(
           optimizedSubsSum.freqs,
@@ -1247,6 +1247,20 @@ class MeasurementViewModel {
     return firstMeasurementLevel;
   }
 
+  getMaxFromArray(array) {
+    if (!Array.isArray(array)) {
+      throw new Error('Input is not an array');
+    }
+
+    let maxPeak = -Infinity;
+    for (const value of array) {
+      if (value > maxPeak) {
+        maxPeak = value;
+      }
+    }
+    return maxPeak;
+  }
+
   /**
    * Detect subwoofer frequency cutoff points
    * @param {number[]} frequencies - Array of frequency points
@@ -1271,8 +1285,8 @@ class MeasurementViewModel {
     }
 
     // Find peak magnitude using array methods instead of loop
-    const peakMagnitude = Math.max(
-      ...magnitude.filter((_, i) => frequencies[i] >= low && frequencies[i] <= high)
+    const peakMagnitude = this.getMaxFromArray(
+      magnitude.filter((_, i) => frequencies[i] >= low && frequencies[i] <= high)
     );
 
     // Calculate threshold level once
