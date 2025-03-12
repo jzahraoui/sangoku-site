@@ -472,12 +472,49 @@ class MeasurementItem {
     const freqStep = commandResult.freqStep;
     const magnitude = MeasurementItem.decodeRewBase64(commandResult.magnitude);
     const phase = MeasurementItem.decodeRewBase64(commandResult.phase);
-    const endFreq = startFreq + (magnitude.length - 1) * freqStep;
-    const freqs = Array.from({ length: magnitude.length }, (_, i) =>
-      Number((startFreq + i * freqStep).toFixed(7))
-    );
+
+    let freqs;
+    if (freqStep) {
+      freqs = Array.from({ length: magnitude.length }, (_, i) =>
+        MeasurementItem.cleanFloat32Value(startFreq + i * freqStep)
+      );
+    } else if (ppo) {
+      freqs = Array.from({ length: magnitude.length }, (_, i) =>
+        MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
+      );
+    }
+
+    const endFreq = freqs[freqs.length - 1];
 
     return { freqs, magnitude, phase, startFreq, endFreq, freqStep };
+  }
+
+  async getTargetResponse(unit = 'SPL', ppo = null) {
+    let url = `target-response?unit=${unit}`;
+    if (ppo) {
+      // default is 96 PPO
+      url += `&ppo=${ppo}`;
+    }
+    const commandResult = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
+
+    const startFreq = commandResult.startFreq;
+    const freqStep = commandResult.freqStep;
+    const magnitude = MeasurementItem.decodeRewBase64(commandResult.magnitude);
+
+    let freqs;
+    if (freqStep) {
+      freqs = Array.from({ length: magnitude.length }, (_, i) =>
+        MeasurementItem.cleanFloat32Value(startFreq + i * freqStep)
+      );
+    } else if (ppo) {
+      freqs = Array.from({ length: magnitude.length }, (_, i) =>
+        MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
+      );
+    }
+
+    const endFreq = freqs[freqs.length - 1];
+
+    return { freqs, magnitude, startFreq, endFreq };
   }
 
   async delete() {
