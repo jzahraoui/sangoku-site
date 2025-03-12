@@ -1733,9 +1733,10 @@ class MeasurementViewModel {
     channelAUuid,
     channelBUuid,
     frequency,
-    limitRange = 3,
+    maxSearchRange = 3,
     createSum = false,
-    sumTitle = null
+    sumTitle = null,
+    minSearchRange = -0.5
   ) {
     if (createSum && !sumTitle) {
       throw new Error('sumTitle is required when createSum is true');
@@ -1744,8 +1745,8 @@ class MeasurementViewModel {
     try {
       await this.apiService.postSafe(`alignment-tool/remove-time-delay`, false);
       await this.apiService.postAlign('Reset all');
-      await this.apiService.postSafe(`alignment-tool/max-negative-delay`, 0);
-      await this.apiService.postSafe(`alignment-tool/max-positive-delay`, limitRange);
+      await this.apiService.postSafe(`alignment-tool/max-negative-delay`, minSearchRange);
+      await this.apiService.postSafe(`alignment-tool/max-positive-delay`, maxSearchRange);
       await this.apiService.postSafe('alignment-tool/uuid-a', channelAUuid);
       await this.apiService.postSafe('alignment-tool/uuid-b', channelBUuid);
       // await this.apiService.postSafe(`alignment-tool/mode`, "Phase");
@@ -1765,7 +1766,7 @@ class MeasurementViewModel {
           'alignment-tool: Invalid AlignResults object or missing Delay B ms'
         );
       }
-      if (Math.abs(shiftDelayMs) === limitRange) {
+      if (shiftDelayMs === maxSearchRange || shiftDelayMs === minSearchRange) {
         console.warn('alignment-tool: Shift is maxed out to the limit: ' + shiftDelayMs);
       }
       const isBInverted = AlignResultsDetails['Invert B'] === 'true';
