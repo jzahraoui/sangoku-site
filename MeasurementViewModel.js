@@ -851,11 +851,81 @@ class MeasurementViewModel {
 
         await self.loadData();
 
-        // TODO: Detect low and high rolloff to set right parameters
+        const maximisedSumTitle = 'LFE Max Sum';
+        const subsMeasurements = self.uniqueSubsMeasurements();
+        const firstMeasurement = subsMeasurements[0];
+        // align the others sub to first measurement delay
+        const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
+        const firstMeasurementLevel = await self.mainTargetLevel();
+        const frequencyResponses = [];
+        // Find the level of target curve at 40Hz
+        const targetCurveResponse = await firstMeasurement.getTargetResponse('SPL', 6);
+        if (!targetCurveResponse) {
+          throw new Error('Failed to get target curve response');
+        }
+        const targetFreq = 40;
+        const targetLevelAtFreq = (() => {
+          const freqIndex = targetCurveResponse.freqs.reduce((closestIdx, curr, idx) => {
+            const closestFreq = targetCurveResponse.freqs[closestIdx];
+            return Math.abs(curr - targetFreq) < Math.abs(closestFreq - targetFreq)
+              ? idx
+              : closestIdx;
+          }, 0);
+          return targetCurveResponse.magnitude[freqIndex];
+        })();
+        // adjut target level according to the number of subs
+        const numbersOfSubs = subsMeasurements.length;
+        const overhead = 10 * Math.log10(numbersOfSubs);
+        const targetLevel = targetLevelAtFreq - overhead;
+
+        let lowFrequency = Infinity;
+        let highFrequency = 0;
+
+        for (const measurement of subsMeasurements) {
+          // await measurement.resetcumulativeIRShiftSeconds();
+          await measurement.setInverted(false);
+          await measurement.resetFilters();
+          await measurement.resetSmoothing();
+          await measurement.setcumulativeIRShiftSeconds(mainDelay);
+
+          const frequencyResponse = await measurement.getFrequencyResponse(
+            'SPL',
+            '1/2',
+            6
+          );
+          frequencyResponse.measurement = measurement.uuid;
+          frequencyResponse.position = measurement.position();
+          const detect = this.detectSubwooferCutoff(
+            frequencyResponse.freqs,
+            frequencyResponse.magnitude,
+            -18
+          );
+
+          // if detect low frequency is lower than previous lowFrequency
+          if (detect.lowCutoff < lowFrequency) {
+            lowFrequency = Math.round(detect.lowCutoff);
+          }
+          if (detect.highCutoff > highFrequency) {
+            highFrequency = Math.round(detect.highCutoff);
+          }
+
+          self.status(
+            `${self.status()} \nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(1)}dB`
+          );
+          self.status(
+            `${self.status()} (center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`
+          );
+          await this.processCommands('Align SPL', [measurement.uuid], {
+            frequencyHz: detect.centerFrequency,
+            spanOctaves: detect.octaves,
+            targetdB: targetLevel,
+          });
+        }
+
         const optimizerConfig = {
           frequency: {
-            min: 20, // Hz
-            max: 250, // Hz
+            min: lowFrequency, // Hz
+            max: highFrequency, // Hz
           },
           gain: {
             min: 0, // dB
@@ -868,27 +938,13 @@ class MeasurementViewModel {
             step: 0.00001, // 0.01ms
           },
         };
-        const maximisedSumTitle = 'LFE Max Sum';
-        const subsMeasurements = self.uniqueSubsMeasurements();
-        const uuids = subsMeasurements.map(item => item.uuid);
-        const firstMeasurement = subsMeasurements[0];
-        // to first measurement delay the others sub must align to
-        const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
-        const firstMeasurementLevel = await self.mainTargetLevel();
-        const targetLevel = firstMeasurementLevel + 3;
-        const frequencyResponses = [];
-
-        self.status(`${self.status()} \nusing: ${JSON.stringify(optimizerConfig)}`);
 
         self.status(
-          `${self.status()} \nAdjust SPL levels to ${targetLevel.toFixed(1)}dB`
+          `${self.status()} \nfrequency range: ${optimizerConfig.frequency.min}Hz - ${optimizerConfig.frequency.max}Hz`
         );
-        // TODO: find the center by detecting low and high rolloff
-        await this.processCommands('Align SPL', uuids, {
-          frequencyHz: 80,
-          spanOctaves: 2,
-          targetdB: targetLevel,
-        });
+        self.status(
+          `${self.status()} delay range: ${optimizerConfig.delay.min * 1000}ms - ${optimizerConfig.delay.max * 1000}ms`
+        );
 
         self.status(`${self.status()} \nDeleting previous settings...`);
 
@@ -900,19 +956,9 @@ class MeasurementViewModel {
         }
 
         for (const measurement of subsMeasurements) {
-          // await measurement.resetcumulativeIRShiftSeconds();
-          await measurement.setInverted(false);
-          await measurement.resetFilters();
-          await measurement.setcumulativeIRShiftSeconds(mainDelay);
-
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
           frequencyResponse.position = measurement.position();
-          const detect = this.detectSubwooferCutoff(
-            frequencyResponse.freqs,
-            frequencyResponse.magnitude,
-            -15
-          );
           frequencyResponses.push(frequencyResponse);
         }
 
@@ -922,7 +968,7 @@ class MeasurementViewModel {
 
         const optimizedSubs = optimizerResults.optimizedSubs;
 
-        // Process each REW configuration sequentially
+        // Apply each configuration sequentially
         for (const sub of optimizedSubs) {
           const subMeasurement = self.findMeasurementByUuid(sub.measurement);
           if (!subMeasurement) {
@@ -960,16 +1006,26 @@ class MeasurementViewModel {
 
         const optimizedSubsSum = await optimizer.getFinalSubSum();
 
+        const optimizedSubsSumPeak = Math.max(...optimizedSubsSum.magnitude);
+
+        const detectOptimizedSubs = this.detectSubwooferCutoff(
+          optimizedSubsSum.freqs,
+          optimizedSubsSum.magnitude,
+          targetLevelAtFreq - optimizedSubsSumPeak
+        );
+
         const maximisedSum = await this.sendToREW(optimizedSubsSum, maximisedSumTitle);
         // DEBUG to check it this is the same
         // await this.sendToREW(optimizerResults.bestSum, 'test');
 
-        self.status(`${self.status()} \nCreating EQ filters...`);
+        self.status(
+          `${self.status()} \nCreating EQ filters for sub sumation ${detectOptimizedSubs.lowCutoff}Hz - ${detectOptimizedSubs.highCutoff}Hz`
+        );
 
         await this.apiService.postSafe(`eq/match-target-settings`, {
-          startFrequency: 10,
-          endFrequency: 500,
-          individualMaxBoostdB: 0,
+          startFrequency: detectOptimizedSubs.lowCutoff,
+          endFrequency: detectOptimizedSubs.highCutoff,
+          individualMaxBoostdB: 3,
           overallMaxBoostdB: 0,
           flatnessTargetdB: 1,
           allowNarrowFiltersBelow200Hz: false,
@@ -1210,6 +1266,10 @@ class MeasurementViewModel {
       throw new Error('Invalid input arrays');
     }
 
+    if (thresholdDb >= 0) {
+      throw new Error('Threshold must be negative');
+    }
+
     // Find peak magnitude using array methods instead of loop
     const peakMagnitude = Math.max(
       ...magnitude.filter((_, i) => frequencies[i] >= low && frequencies[i] <= high)
@@ -1225,7 +1285,7 @@ class MeasurementViewModel {
     const highIndex = frequencies.findLastIndex((_, i) => magnitude[i] >= thresholdLevel);
 
     // Calculate cutoff frequencies with interpolation
-    const lowCutoff =
+    let lowCutoff =
       lowIndex > 0
         ? this.interpolateFrequency(
             frequencies[lowIndex - 1],
@@ -1236,7 +1296,7 @@ class MeasurementViewModel {
           )
         : frequencies[lowIndex];
 
-    const highCutoff =
+    let highCutoff =
       highIndex < frequencies.length - 1
         ? this.interpolateFrequency(
             frequencies[highIndex],
@@ -1250,8 +1310,12 @@ class MeasurementViewModel {
     // find the center frequency by octaves bettween lowCutoff and highCutoff
     const centerFrequency = this.roundToPrecision(Math.sqrt(lowCutoff * highCutoff), 1);
 
-    // count the number of octaves between low and high cutoff from center frequency
-    const octaves = this.roundToPrecision(Math.log2(highCutoff / centerFrequency) * 2, 1);
+    // count the number of octaves between low and high cutoff from center frequency and round to lowest integer
+    const octaves = Math.floor(Math.log2(highCutoff / centerFrequency) * 2);
+
+    // Round to nearest integer
+    highCutoff = Math.round(highCutoff);
+    lowCutoff = Math.round(lowCutoff);
 
     return {
       lowCutoff,
