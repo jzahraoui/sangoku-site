@@ -18,6 +18,11 @@
         <option value="en">English</option>
         <option value="fr">Français</option>
       </select>
+      <!-- help  -->
+      <a href="documentation.html" class="help-link">
+        <i class="fas fa-book"></i>
+        Documentation
+      </a>
     </header>
 
     <main class="container">
@@ -168,10 +173,6 @@
               </label>
             </div>
           </details>
-          Perform the
-          <a data-description="measurement.html" href="#" class="code-link"
-            >measurements</a
-          >; they must be loaded into REW.
         </div>
 
         <div class="control-group">
@@ -353,7 +354,7 @@
 
           <!-- MSO Import Instructions -->
           <details class="shrinkable-container">
-            <summary>Details on how to use MSO import</summary>
+            <summary>MSO import</summary>
 
             <button
               class="button"
@@ -367,23 +368,6 @@
               ></span>
             </button>
 
-            <div>
-              <p>
-                MSO do not provide exports for REW, this is a trick that using the
-                Equalizer APO to achieve this goal. To make the export from MSO, the
-                related menu is available here:
-              </p>
-            </div>
-            <figure class="thumbnail-container">
-              <img
-                src="img/mso_mini.png"
-                loading="lazy"
-                alt="MSO export menu location"
-                class="thumbnail"
-                data-full="img/mso.png"
-              />
-            </figure>
-            <p>Then drop the file here:</p>
             <!-- File Upload Area -->
             <div class="dropzone" id="dropzoneMso">
               <p>Drop your Equalizer APO export file here or click to select</p>
@@ -391,36 +375,6 @@
             </div>
 
             <div id="results" aria-live="polite"></div>
-
-            <div>
-              <h3>Auto:</h3>
-              <p>Nothing to do, the import inside REW is done automatically.</p>
-              <h4>Requirements:</h4>
-              <ul>
-                <li>REW API server must be started</li>
-                <li>
-                  Measurement having a name beginning by the name in MSO must be loaded
-                </li>
-              </ul>
-              <h3>Manual:</h3>
-              <p>
-                Download files with buttons. Import can be done through the EQ window with
-                the created file:
-              </p>
-            </div>
-            <figure class="thumbnail-container">
-              <img
-                src="img/rew_mini.png"
-                loading="lazy"
-                alt="REW import location"
-                class="thumbnail"
-                data-full="img/rew.png"
-              />
-            </figure>
-            <div id="imagePopup" class="popup">
-              <span class="close-btn">&times;</span>
-              <img id="fullImage" src="" loading="lazy" alt="Full size image" />
-            </div>
           </details>
           <h3>Create sum result</h3>
           <p>Creates a new measurement named LFE Predicted_{Position}.</p>
