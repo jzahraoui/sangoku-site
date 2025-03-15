@@ -516,6 +516,58 @@
     </div>
 
     <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        // thumnail mamangement
+        const thumbnails = document.querySelectorAll('.thumbnail');
+        const thumbnailPopup = document.getElementById('imagePopup');
+        const fullImage = document.getElementById('fullImage');
+        const thumbnailCloseBtn = document.querySelector('.close-btn');
+
+        // Function to handle popup visibility - DRY principle
+        const togglePopup = show => {
+          thumbnailPopup.style.display = show ? 'block' : 'none';
+        };
+        thumbnails.forEach(thumb => {
+          thumb.addEventListener('click', function () {
+            // Preload image before showing popup
+            const img = new Image();
+            img.onload = () => {
+              fullImage.src = this.dataset.full;
+              togglePopup(true);
+            };
+            img.src = this.dataset.full;
+            thumbnailPopup.style.display = 'block';
+          });
+        });
+
+        // Close thumbnailPopup when clicking the close button
+        thumbnailCloseBtn.addEventListener('click', () => {
+          thumbnailPopup.style.display = 'none';
+        });
+
+        // Close popup when clicking outside
+        thumbnailPopup.addEventListener('click', e => {
+          if (e.target === thumbnailPopup) {
+            thumbnailPopup.style.display = 'none';
+          }
+        });
+        thumbnailPopup.addEventListener(
+          'touchstart',
+          e => {
+            if (e.target === thumbnailPopup) {
+              closePopup();
+            }
+          },
+          { passive: true }
+        );
+
+        // Close on escape key
+        document.addEventListener('keydown', e => {
+          if (e.key === 'Escape' && thumbnailPopup.style.display === 'block') {
+            thumbnailPopup.style.display = 'none';
+          }
+        });
+      });
       // Add smooth scrolling for anchor links
       document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function (e) {
