@@ -18,664 +18,1131 @@
         <option value="en">English</option>
         <option value="fr">Français</option>
       </select>
+      <!-- Navigation buttons -->
+      <div class="nav-buttons">
+        <button class="nav-button" data-page="application">
+          <i class="fas fa-home"></i>
+          Application
+        </button>
+        <button class="nav-button" data-page="documentation">
+          <i class="fas fa-book"></i>
+          Documentation
+        </button>
+      </div>
     </header>
 
     <main class="container">
-      <!-- REW Controls Section -->
-      <section id="RewCommands" class="controls-section">
-        <!-- Add this HTML for the popup -->
-        <div id="descriptionPopup" class="popup">
-          <div class="popup-content">
-            <span class="close-btn">&times;</span>
-            <div id="popupDescription">
-              <!-- Content will be loaded here -->
-            </div>
-          </div>
-        </div>
-
-        <div class="control-group">
-          <h2>
-            Download and install
-            <a
-              href="https://www.avnirvana.com/threads/rew-api-beta-releases.12981/"
-              target="_blank"
-              >REW (Room EQ Wizard)</a
-            >
-            latest Beta
-          </h2>
-          <h2>
-            Import your avr file generated from
-            <a data-description="odd_manual.html" href="#" class="code-link">odd</a>
-            executable
-          </h2>
-          <div
-            class="dropzone"
-            id="dropzoneAvr"
-            data-bind="event: { 
-              drop: handleDrop,
-              dragover: handleDragOver,
-              dragenter: handleDragEnter,
-              dragleave: handleDragLeave
-            }, css: { 'dragover': isDragging }"
-          >
-            <p data-i18n="drop_avr">Drop .avr or .ady file here or click to select</p>
-            <input
-              type="file"
-              id="fileInputAvr"
-              accept=".avr,.ady"
-              data-bind="event: { change: handleFileSelect }"
-              style="display: none"
-            />
-          </div>
-          <div id="resultsAvr" aria-live="polite"></div>
-          <details class="shrinkable-container">
-            <summary>Loaded AVR configuration details</summary>
-
-            <!-- File Content Editor -->
-            <div data-bind="if: jsonAvrData">
-              <h3>File Details</h3>
-
-              <!-- Basic Properties -->
-              <div>
-                <label data-bind="text: 'Title: ' + jsonAvrData().title"></label>
-                <label
-                  data-bind="text: 'Target Model: ' + jsonAvrData().targetModelName"
-                ></label>
-                <label
-                  data-bind="text: 'MultEQ Version:' + jsonAvrData().enMultEQType"
-                ></label>
-                <label
-                  data-bind="text: 'subwooferMode: ' + jsonAvrData().subwooferMode"
-                ></label>
-                <label
-                  data-bind="text: 'subwooferLayout: ' + jsonAvrData().subwooferLayout"
-                ></label>
-                <!-- <label type="text" data-bind="text: 'lpfForLFE:' + OCAFileGenerator.lpfForLFE"></label> -->
+      <!-- App Content Container -->
+      <div id="appContent">
+        <!-- REW Controls Section -->
+        <section id="RewCommands" class="controls-section">
+          <!-- Add this HTML for the popup -->
+          <div id="descriptionPopup" class="popup">
+            <div class="popup-content">
+              <span class="close-btn">&times;</span>
+              <div id="popupDescription">
+                <!-- Content will be loaded here -->
               </div>
-
-              <!-- Channels Editor -->
-              <h3>Detected Channels</h3>
-              <table style="width: 150px" class="measurements-table">
-                <thead>
-                  <tr>
-                    <th>Channel Name</th>
-                  </tr>
-                </thead>
-                <tbody data-bind="foreach: jsonAvrData().detectedChannels">
-                  <tr>
-                    <td data-bind="text: commandId"></td>
-                  </tr>
-                </tbody>
-              </table>
             </div>
-            <div>
-              <h3>Customisation</h3>
-              <label>Selects Low Pass Filter for the LFE channel:</label>
-              <select
-                class="combo-box"
-                data-bind="
-              options: LfeFrequencies,
-              optionsText: 'text',
-              optionsValue: 'value',
-              event: { change: $root.saveMeasurements },
-              value: lpfForLFE"
-              ></select>
-              <label
-                >Selects which low frequency signals are sent to the subwoofer
-                outputs:</label
+          </div>
+
+          <div class="control-group">
+            <h2>
+              <span data-i18n="download_rew"> </span>
+              <a
+                href="https://www.avnirvana.com/threads/rew-api-beta-releases.12981/"
+                target="_blank"
+                >website</a
               >
-              <select
-                class="combo-box"
-                data-bind="
-              options: subwooferOutputChoice,
-              optionsText: 'text',
-              optionsValue: 'value',
-              event: { change: $root.saveMeasurements },
-              value: subwooferOutput"
-              ></select>
-              <label class="checkbox-container">
-                <input
-                  class="checkmark"
-                  type="checkbox"
-                  data-bind="
-                checked: enableDynamicEq,
-                enable: true"
-                />
-                enableDynamicEq
-                <span class="checkmark"></span>
-              </label>
-              <label class="checkbox-container">
-                <input
-                  class="checkmark"
-                  type="checkbox"
-                  data-bind="
-                checked: enableDynamicVolume,
-                enable: true"
-                />
-                enableDynamicVolume
-                <span class="checkmark"></span>
-              </label>
-              <label class="checkbox-container">
-                <input
-                  class="checkmark"
-                  type="checkbox"
-                  data-bind="
-                checked: enableLowFrequencyContainment,
-                enable: true"
-                />
-                enableLowFrequencyContainment
-                <span class="checkmark"></span>
-              </label>
+            </h2>
+            <h2>
+              <span data-i18n="import_avr"> </span>
+              <a data-description="odd_manual.html" href="#" class="code-link"
+                >download</a
+              >
+            </h2>
+            <div
+              class="dropzone"
+              id="dropzoneAvr"
+              data-bind="event: { 
+                drop: handleDrop,
+                dragover: handleDragOver,
+                dragenter: handleDragEnter,
+                dragleave: handleDragLeave
+              }, css: { 'dragover': isDragging }"
+            >
+              <p data-i18n="drop_avr">Drop .avr or .ady file here or click to select</p>
+              <input
+                type="file"
+                id="fileInputAvr"
+                accept=".avr,.ady"
+                data-bind="event: { change: handleFileSelect }"
+                style="display: none"
+              />
             </div>
-          </details>
-          Perform the
-          <a data-description="measurement.html" href="#" class="code-link"
-            >measurements</a
-          >; they must be loaded into REW.
-        </div>
+            <div id="resultsAvr" aria-live="polite"></div>
+            <details class="shrinkable-container">
+              <summary data-i18n="avr_config"></summary>
 
-        <div class="control-group">
-          <h2>Main commands</h2>
-          <div class="polling-indicator" data-bind="css: { active: isPolling }"></div>
-          <button
-            class="button"
-            data-bind="
-            click: buttoncheckREWButton,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-            data-tooltip="Click to connect or disconnect to REW"
-          >
-            <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
-          </button>
-          <button
-            class="button"
-            data-bind="
-            click: renameMeasurement,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-            data-tooltip="Click to rename the measurements for homogenity"
-          >
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Rename'"></span>
-          </button>
-          <button
-            class="button"
-            data-bind="
-            click: buttonresetREWButton,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-            data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)"
-          >
-            <span
-              data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"
-            ></span>
-          </button>
-        </div>
+              <!-- File Content Editor -->
+              <div data-bind="if: jsonAvrData">
+                <h3 data-i18n="file_details"></h3>
 
-        <!-- Speakers Controls -->
-        <div class="control-group">
-          <h2>Speakers Tools</h2>
+                <!-- Basic Properties -->
+                <div>
+                  <label data-bind="text: 'Title: ' + jsonAvrData().title"></label>
+                  <label
+                    data-bind="text: 'Target Model: ' + jsonAvrData().targetModelName"
+                  ></label>
+                  <label
+                    data-bind="text: 'MultEQ Version:' + jsonAvrData().enMultEQType"
+                  ></label>
+                  <label
+                    data-bind="text: 'subwooferMode: ' + jsonAvrData().subwooferMode"
+                  ></label>
+                  <label
+                    data-bind="text: 'subwooferLayout: ' + jsonAvrData().subwooferLayout"
+                  ></label>
+                  <!-- <label type="text" data-bind="text: 'lpfForLFE:' + OCAFileGenerator.lpfForLFE"></label> -->
+                </div>
 
-          <h3>Averaging between all positions</h3>
-          <p class="warning-text">
-            WARNING: all current inversions and gains will be removed to produce
-            consistent result
-          </p>
+                <!-- Channels Editor -->
+                <h3 data-i18n="detected_channels"></h3>
+                <table style="width: 150px" class="measurements-table">
+                  <thead>
+                    <tr>
+                      <th>Channel Name</th>
+                    </tr>
+                  </thead>
+                  <tbody data-bind="foreach: jsonAvrData().detectedChannels">
+                    <tr>
+                      <td data-bind="text: commandId"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <h3 data-i18n="customisation"></h3>
+                <label data-i18n="lfe_crossover"></label>
+                <select
+                  class="combo-box"
+                  data-bind="
+                options: LfeFrequencies,
+                optionsText: 'text',
+                optionsValue: 'value',
+                event: { change: $root.saveMeasurements },
+                value: lpfForLFE"
+                ></select>
+                <label data-i18n="subwoofer_output_label"
+                  >Selects which low frequency signals are sent to the subwoofer
+                  outputs:</label
+                >
+                <select
+                  class="combo-box"
+                  data-bind="
+                options: subwooferOutputChoice,
+                optionsText: 'text',
+                optionsValue: 'value',
+                event: { change: $root.saveMeasurements },
+                value: subwooferOutput"
+                ></select>
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-bind="
+                  checked: enableDynamicEq,
+                  enable: true"
+                  />
+                  <span data-i18n="enable_dynamic_eq">enableDynamicEq</span>
+                  <span class="checkmark"></span>
+                </label>
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-bind="
+                  checked: enableDynamicVolume,
+                  enable: true"
+                  />
+                  <span data-i18n="enable_dynamic_volume">enableDynamicVolume</span>
+                  <span class="checkmark"></span>
+                </label>
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-bind="
+                  checked: enableLowFrequencyContainment,
+                  enable: true"
+                  />
+                  <span data-i18n="enable_lfc">enableLowFrequencyContainment</span>
+                  <span class="checkmark"></span>
+                </label>
+              </div>
+            </details>
+          </div>
 
-          <label class="checkbox-container">
-            <input
-              class="checkmark"
-              type="checkbox"
-              data-bind="
-          checked: keepOriginalForAverage,
-          enable: true"
-            />
-            Keep original measurements
-            <span class="checkmark"></span>
-          </label>
-          <select
-            class="combo-box"
-            style="width: 150px"
-            data-bind="
-          options: averageMethod,
-          optionsText: 'text',
-          optionsValue: 'value',
-          event: { change: $root.saveMeasurements },
-          value: selectedAverageMethod"
-          ></select>
-          <button
-            class="button"
-            data-bind="
-            click: buttoncreatesAverages,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-          >
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"></span>
-          </button>
-          <h3>Alignment inside the selected position</h3>
-          <p>
-            SPL alignement makes sense on the averaged measurements, do not forget to
-            selected corresponding position before running the task
-          </p>
-          <button
-            class="button"
-            data-bind="
-            click: buttonAlignPeaks,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-          >
-            <span
-              data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"
-            ></span>
-          </button>
-          <button
-            class="button"
-            data-bind="
-            click: buttonAlignSPL,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-          >
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Align SPL'"></span>
-          </button>
-        </div>
-        <!-- MSO Config Import Section -->
-        <div class="control-group">
-          <h2>Sub Tools</h2>
-
-          <h3>(Optional) Revert AVR low pass filter:</h3>
-          <p>
-            This step is not needed if you used odd to makes the measurements. If your sub
-            measurements was done with REW and you own mic, you can revert the effect of
-            the low pass filter of the AVR. select the frequency filter that was active
-            during measures
-          </p>
-
-          <label class="checkbox-container">
-            <input
-              class="checkmark"
-              type="checkbox"
-              data-bind="
-          checked: replaceOriginalForLfeRevert,
-          enable: true"
-            />
-            Replace original
-            <span class="checkmark"></span>
-          </label>
-          <select
-            id="filterSelect"
-            class="combo-box"
-            data-bind="
-          options: LfeFrequencies,
-          optionsText: 'text',
-          optionsValue: 'value',
-          event: { change: $root.saveMeasurements },
-          value: selectedLfeFrequency"
-          ></select>
-          <button
-            class="button"
-            data-bind="
-          click: buttonrevertLfeFilter,
-          disable: isProcessing,
-          css: { 'disabled': isProcessing }"
-          >
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
-          </button>
-        </div>
-
-        <div
-          class="control-group"
-          data-bind="visible: uniqueSubsMeasurements().length > 1"
-        >
-          <h2>Multi sub management</h2>
-          <h3>Multiple Sub, choose on the 3 possibility to get them ready</h3>
-
-          <h4>1. do it by your own in REW</h4>
-          <p>
-            Use REW alignement tool and other functionality to align sub and creates
-            filters
-          </p>
-
-          <h4>2. Generate automated config</h4>
-          <p>will delete actual sub configuration for the current position</p>
-
-          <button
-            class="button"
-            data-bind="
-            click: buttonMultiSubOptimizer,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-          >
-            <span
-              data-bind="text: isProcessing() ? 'Processing...' : 'Optimize Sub'"
-            ></span>
-          </button>
-
-          <h4>3. Import your config from MSO</h4>
-
-          <!-- MSO Import Instructions -->
-          <details class="shrinkable-container">
-            <summary>Details on how to use MSO import</summary>
-
+          <div class="control-group">
+            <h2 data-i18n="main_commands">Main commands</h2>
+            <div class="polling-indicator" data-bind="css: { active: isPolling }"></div>
             <button
               class="button"
               data-bind="
-              click: buttonCreatesMsoExports,
+              click: buttoncheckREWButton,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+              data-tooltip="Click to connect or disconnect to REW"
+            >
+              <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
+            </button>
+            <button
+              class="button"
+              data-bind="
+              click: renameMeasurement,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+              data-tooltip="Click to rename the measurements for homogenity"
+            >
+              <span data-bind="text: isProcessing() ? 'Processing...' : 'Rename'"></span>
+            </button>
+            <button
+              class="button"
+              data-bind="
+              click: buttonresetREWButton,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+              data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"
+              ></span>
+            </button>
+          </div>
+
+          <!-- Speakers Controls -->
+          <div class="control-group">
+            <h2 data-i18n="speakers_tools"></h2>
+
+            <h3 data-i18n="averaging_positions"></h3>
+            <p class="warning-text" data-i18n="warning_text"></p>
+
+            <label class="checkbox-container">
+              <input
+                class="checkmark"
+                type="checkbox"
+                data-bind="checked: keepOriginalForAverage"
+              />
+              <span data-i18n="keep_original"></span>
+              <span class="checkmark"></span>
+            </label>
+            <select
+              class="combo-box"
+              style="width: 150px"
+              data-bind="
+            options: averageMethod,
+            optionsText: 'text',
+            optionsValue: 'value',
+            event: { change: $root.saveMeasurements },
+            value: selectedAverageMethod"
+            ></select>
+            <button
+              class="button"
+              data-bind="
+              click: buttoncreatesAverages,
               disable: isProcessing,
               css: { 'disabled': isProcessing }"
             >
               <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
+                data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"
               ></span>
             </button>
+            <h3 data-i18n="alignment_inside"></h3>
+            <p data-i18n="alignment_note"></p>
+            <button
+              class="button"
+              data-bind="
+              click: buttonAlignPeaks,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"
+              ></span>
+            </button>
+            <button
+              class="button"
+              data-bind="
+              click: buttonAlignSPL,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'Align SPL'"
+              ></span>
+            </button>
+          </div>
+          <!-- MSO Config Import Section -->
+          <div class="control-group">
+            <h2 data-i18n="sub_tools"></h2>
 
-            <div>
-              <p>
-                MSO do not provide exports for REW, this is a trick that using the
-                Equalizer APO to achieve this goal. To make the export from MSO, the
-                related menu is available here:
-              </p>
-            </div>
-            <figure class="thumbnail-container">
-              <img
-                src="img/mso_mini.png"
-                loading="lazy"
-                alt="MSO export menu location"
-                class="thumbnail"
-                data-full="img/mso.png"
+            <h3 data-i18n="revert_avr_filter"></h3>
+            <p data-i18n="revert_avr_info"></p>
+
+            <label class="checkbox-container">
+              <input
+                class="checkmark"
+                type="checkbox"
+                data-bind="checked: replaceOriginalForLfeRevert"
               />
-            </figure>
-            <p>Then drop the file here:</p>
-            <!-- File Upload Area -->
-            <div class="dropzone" id="dropzoneMso">
-              <p>Drop your Equalizer APO export file here or click to select</p>
-              <input type="file" id="fileInputMso" accept=".txt" style="display: none" />
-            </div>
-
-            <div id="results" aria-live="polite"></div>
-
-            <div>
-              <h3>Auto:</h3>
-              <p>Nothing to do, the import inside REW is done automatically.</p>
-              <h4>Requirements:</h4>
-              <ul>
-                <li>REW API server must be started</li>
-                <li>
-                  Measurement having a name beginning by the name in MSO must be loaded
-                </li>
-              </ul>
-              <h3>Manual:</h3>
-              <p>
-                Download files with buttons. Import can be done through the EQ window with
-                the created file:
-              </p>
-            </div>
-            <figure class="thumbnail-container">
-              <img
-                src="img/rew_mini.png"
-                loading="lazy"
-                alt="REW import location"
-                class="thumbnail"
-                data-full="img/rew.png"
-              />
-            </figure>
-            <div id="imagePopup" class="popup">
-              <span class="close-btn">&times;</span>
-              <img id="fullImage" src="" loading="lazy" alt="Full size image" />
-            </div>
-          </details>
-          <h3>Create sum result</h3>
-          <p>Creates a new measurement named LFE Predicted_{Position}.</p>
-          <button
-            class="button"
-            data-bind="
-            click: buttonproduceSubSum,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-          >
-            <span data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"></span>
-          </button>
-          <button
-            class="button"
-            data-bind="
-            click: buttonproduceSubSumAllPositions,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
-          >
-            <span
-              data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
-            ></span>
-          </button>
-        </div>
-
-        <div class="control-group">
-          <h2>Tuning</h2>
-          <h3>Sub alignment with speaker</h3>
-          <p>
-            align "LFE predicted" and all individual subs measurements with selected
-            channel, the speaker must have a filter computed
-          </p>
-          <div>
+              <span data-i18n="replace_original">Replace original</span>
+              <span class="checkmark"></span>
+            </label>
             <select
-              id="filterSelectproduceAlignedButton"
+              id="filterSelect"
               class="combo-box"
               data-bind="
-          options: alingFrequencies,
-          optionsText: 'text',
-          optionsValue: 'value',
-          event: { change: $root.saveMeasurements },
-          optionsCaption: 'Select crossover',
-          value: selectedAlignFrequency"
-            ></select>
-            <select
-              id="SpeakerSelect"
-              class="combo-box"
-              data-bind="
-          options: uniqueSpeakersMeasurements,
-          optionsText: 'title',
-          optionsValue: 'uuid',
-          event: { change: $root.saveMeasurements },
-          optionsCaption: 'Select speaker channel',
-          value: selectedSpeaker"
+            options: LfeFrequencies,
+            optionsText: 'text',
+            optionsValue: 'value',
+            event: { change: $root.saveMeasurements },
+            value: selectedLfeFrequency"
             ></select>
             <button
               class="button"
               data-bind="
-          click: buttonproduceAlignedButton,
-          disable: isProcessing,
-          css: { 'disabled': isProcessing }"
+            click: buttonrevertLfeFilter,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+            >
+              <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
+            </button>
+          </div>
+
+          <div
+            class="control-group"
+            data-bind="visible: uniqueSubsMeasurements().length > 1"
+          >
+            <h2 data-i18n="multi_sub_management"></h2>
+            <h3 data-i18n="multi_sub_instruction">
+              Multiple Sub, choose on the 3 possibility to get them ready
+            </h3>
+
+            <h4 data-i18n="option1">1. do it by your own in REW</h4>
+            <p data-i18n="option1_info">
+              Use REW alignement tool and other functionality to align sub and creates
+              filters
+            </p>
+
+            <h4 data-i18n="option2">2. Generate automated config</h4>
+            <p data-i18n="option2_info">
+              will delete actual sub configuration for the current position
+            </p>
+
+            <button
+              class="button"
+              data-bind="
+              click: buttonMultiSubOptimizer,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
             >
               <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'find sub alignement'"
+                data-bind="text: isProcessing() ? 'Processing...' : 'Optimize Sub'"
+              ></span>
+            </button>
+
+            <h4 data-i18n="option3">3. Import your config from MSO</h4>
+
+            <!-- MSO Import Instructions -->
+            <details class="shrinkable-container">
+              <summary>MSO import</summary>
+
+              <button
+                class="button"
+                data-bind="
+                click: buttonCreatesMsoExports,
+                disable: isProcessing,
+                css: { 'disabled': isProcessing }"
+              >
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
+                ></span>
+              </button>
+
+              <!-- File Upload Area -->
+              <div class="dropzone" id="dropzoneMso">
+                <p data-i18n="drop_mso">
+                  Drop your Equalizer APO export file here or click to select
+                </p>
+                <input
+                  type="file"
+                  id="fileInputMso"
+                  accept=".txt"
+                  style="display: none"
+                />
+              </div>
+
+              <div id="results" aria-live="polite"></div>
+            </details>
+            <h3 data-i18n="create_sum_result">Create sum result</h3>
+            <p data-i18n="create_sum_description">
+              Creates a new measurement named LFE Predicted_{Position}.
+            </p>
+            <button
+              class="button"
+              data-bind="
+              click: buttonproduceSubSum,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"
+              ></span>
+            </button>
+            <button
+              class="button"
+              data-bind="
+              click: buttonproduceSubSumAllPositions,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
               ></span>
             </button>
           </div>
+
+          <div class="control-group">
+            <h2 data-i18n="tuning">Tuning</h2>
+            <h3 data-i18n="sub_alignment">Sub alignment with speaker</h3>
+            <p data-i18n="sub_alignment_info">
+              align "LFE predicted" and all individual subs measurements with selected
+              channel, the speaker must have a filter computed
+            </p>
+            <div>
+              <select
+                id="filterSelectproduceAlignedButton"
+                class="combo-box"
+                data-bind="
+            options: alingFrequencies,
+            optionsText: 'text',
+            optionsValue: 'value',
+            event: { change: $root.saveMeasurements },
+            optionsCaption: 'Select crossover',
+            value: selectedAlignFrequency"
+              ></select>
+              <select
+                id="SpeakerSelect"
+                class="combo-box"
+                data-bind="
+            options: uniqueSpeakersMeasurements,
+            optionsText: 'title',
+            optionsValue: 'uuid',
+            event: { change: $root.saveMeasurements },
+            optionsCaption: 'Select speaker channel',
+            value: selectedSpeaker"
+              ></select>
+              <button
+                class="button"
+                data-bind="
+            click: buttonproduceAlignedButton,
+            disable: isProcessing,
+            css: { 'disabled': isProcessing }"
+              >
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'find sub alignement'"
+                ></span>
+              </button>
+            </div>
+          </div>
+          <button
+            class="button"
+            data-bind="
+          click: buttoncreateOCAButton,
+          disable: isProcessing,
+          css: { 'disabled': isProcessing }"
+          >
+            <span
+              data-bind="text: isProcessing() ? 'Processing...' : 'Creates OCA file'"
+            ></span>
+          </button>
+        </section>
+        <!-- Result Status -->
+        <div id="status" data-bind="visible: hasStatus()" class="success">
+          <p data-bind="text: status()" class="status-text"></p>
         </div>
-        <button
-          class="button"
-          data-bind="
-        click: buttoncreateOCAButton,
-        disable: isProcessing,
-        css: { 'disabled': isProcessing }"
-        >
-          <span
-            data-bind="text: isProcessing() ? 'Processing...' : 'Creates OCA file'"
-          ></span>
-        </button>
-      </section>
-      <!-- Result Status -->
-      <div id="status" data-bind="visible: hasStatus()" class="success">
-        <p data-bind="text: status()" class="status-text"></p>
-      </div>
-      <div id="measurements-container">
-        <!-- Error State -->
-        <div data-bind="visible: hasError()" class="error">
-          <p data-bind="text: error()"></p>
-          <button data-bind="click: function() { error('') }">Retry</button>
-        </div>
-        <!-- Content -->
-        <div class="table-wrapper" data-bind="visible: !hasError()">
-          <table class="measurements-table">
-            <thead>
-              <tr>
-                <th>
-                  <select
-                    class="combo-box"
-                    data-bind="
+        <div id="measurements-container">
+          <!-- Error State -->
+          <div data-bind="visible: hasError()" class="error">
+            <p data-bind="text: error()"></p>
+            <button data-bind="click: function() { error('') }">Retry</button>
+          </div>
+          <!-- Content -->
+          <div class="table-wrapper" data-bind="visible: !hasError()">
+            <table class="measurements-table">
+              <thead>
+                <tr>
+                  <th>
+                    <select
+                      class="combo-box"
+                      data-bind="
                     options: selectedMeasurements,
                     optionsText: 'text',
                     optionsValue: 'value',
                     value: selectedMeasurementsFilter"
-                  ></select>
-                  <select
-                    id="filterSelectproduceAlignedButton"
-                    class="combo-box"
-                    data-bind="
+                    ></select>
+                    <select
+                      id="filterSelectproduceAlignedButton"
+                      class="combo-box"
+                      data-bind="
                   options: measurementsPositionList,
                   optionsText: function(item) { return 'Pos. ' + item },
                   enable: measurementsPositionList().length > 0
                   event: { change: $root.saveMeasurements },
                   value: currentSelectedPosition"
-                  ></select>
-                </th>
-                <th>Channel Name</th>
-                <th>Measurement</th>
-                <th
-                  data-bind="text: 'Distance (M) Limit:' + maxDistanceInMetersWarning()"
-                ></th>
-                <th>Trim (dB)</th>
-                <th>
-                  <select
-                    id="crossoverSelect"
-                    style="width: 110px"
-                    class="combo-box"
-                    data-bind="
+                    ></select>
+                  </th>
+                  <th data-i18n="channel_name">Channel Name</th>
+                  <th data-i18n="measurement">Measurement</th>
+                  <th
+                    data-bind="text: 'Distance (M) Limit:' + maxDistanceInMetersWarning()"
+                  ></th>
+                  <th data-i18n="trim_db">Trim (dB)</th>
+                  <th>
+                    <select
+                      id="crossoverSelect"
+                      style="width: 110px"
+                      class="combo-box"
+                      data-bind="
                     options: alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
                     optionsCaption: 'Crossover',
                     value: gobalCrossover"
-                  ></select>
-                </th>
-                <th>Speaker Type</th>
-                <th>Inverted</th>
-                <th>
-                  <button
-                    class="preview-btn"
-                    data-bind="
+                    ></select>
+                  </th>
+                  <th data-i18n="speaker_type">Speaker Type</th>
+                  <th data-i18n="inverted">Inverted</th>
+                  <th>
+                    <button
+                      class="preview-btn"
+                      data-bind="
                     click: buttongenratesPreview,
                     disable: isProcessing,
                     css: { 'disabled': isProcessing }"
-                  >
-                    <span
-                      data-bind="text: isProcessing() ? 'Processing...' : 'All previews'"
-                    ></span>
-                  </button>
-                </th>
-                <th>
-                  <button
-                    class="preview-btn"
-                    data-bind="
+                    >
+                      <span
+                        data-bind="text: isProcessing() ? 'Processing...' : 'All previews'"
+                      ></span>
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      class="preview-btn"
+                      data-bind="
                     click: buttongeneratesFilters,
                     disable: isProcessing,
                     css: { 'disabled': isProcessing }"
-                  >
-                    <span
-                      data-bind="text: isProcessing() ? 'Processing...' : 'All Filters'"
-                    ></span>
-                  </button>
-                </th>
-              </tr>
-            </thead>
-            <tbody data-bind="foreach: uniqueMeasurementsView">
-              <tr>
-                <td>
-                  <label class="checkbox-container">
-                    <input
-                      type="checkbox"
-                      disabled
-                      data-bind="
+                    >
+                      <span
+                        data-bind="text: isProcessing() ? 'Processing...' : 'All Filters'"
+                      ></span>
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody data-bind="foreach: uniqueMeasurementsView">
+                <tr>
+                  <td>
+                    <label class="checkbox-container">
+                      <input
+                        type="checkbox"
+                        disabled
+                        data-bind="
                   checked: isSelected"
-                    />
-                    <span class="checkmark"></span>
-                    <span data-bind="text: displayPositionText()"></span>
-                  </label>
-                </td>
-                <td
-                  data-bind="text: channelName(), css: { success: isChannelDetected() } "
-                ></td>
-                <td data-bind="text: displayMeasurementTitle()"></td>
-                <td data-bind="text: distanceInMeters(), css: exceedsDistance"></td>
-                <td
-                  data-bind="text: splForAvr().toFixed(1), css: { error: splIsAboveLimit() }"
-                ></td>
-                <td>
-                  <select
-                    id="crossoverSelect"
-                    class="combo-box"
-                    data-bind="
+                      />
+                      <span class="checkmark"></span>
+                      <span data-bind="text: displayPositionText()"></span>
+                    </label>
+                  </td>
+                  <td
+                    data-bind="text: channelName(), css: { success: isChannelDetected() } "
+                  ></td>
+                  <td data-bind="text: displayMeasurementTitle()"></td>
+                  <td data-bind="text: distanceInMeters(), css: exceedsDistance"></td>
+                  <td
+                    data-bind="text: splForAvr().toFixed(1), css: { error: splIsAboveLimit() }"
+                  ></td>
+                  <td>
+                    <select
+                      id="crossoverSelect"
+                      class="combo-box"
+                      data-bind="
                     options: $parent.alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
                     enable: crossover() !== 0,
                     value: crossover"
-                  ></select>
-                </td>
-                <td>
-                  <select
-                    id="speakerTypeSelect"
-                    class="combo-box"
-                    data-bind="
+                    ></select>
+                  </td>
+                  <td>
+                    <select
+                      id="speakerTypeSelect"
+                      class="combo-box"
+                      data-bind="
                     options: $parent.speakerTypeChoices.filter(function(t) { return !isSub() ? t.value !== 'E' : true; }),
                     optionsText: 'text',
                     optionsValue: 'value',
                     enable: !isSub(),
                     value: speakerType"
-                  ></select>
-                </td>
-                <td
-                  data-bind="text: inverted() ? 'Yes' : 'No', css: { warning: inverted() }"
-                ></td>
-                <td>
-                  <!-- ko if: !isSub() && position() !== 0 -->
-                  <button
-                    class="preview-btn"
-                    data-bind="
+                    ></select>
+                  </td>
+                  <td
+                    data-bind="text: inverted() ? 'Yes' : 'No', css: { warning: inverted() }"
+                  ></td>
+                  <td>
+                    <!-- ko if: !isSub() && position() !== 0 -->
+                    <button
+                      class="preview-btn"
+                      data-bind="
                     click: $parent.previewMeasurement,
                     disable: $parent.isProcessing,
                     css: { 'disabled': $parent.isProcessing }"
-                  >
-                    <span
-                      data-bind="text: $parent.isProcessing() ? 'Processing...' : 'Preview'"
-                    ></span>
-                  </button>
-                  <!-- /ko -->
-                </td>
-                <td data-bind="css: { success: associatedFilterItem() }">
-                  <!-- ko if: !isSub() && position() !== 0 -->
-                  <button
-                    class="preview-btn"
-                    data-bind="
+                    >
+                      <span
+                        data-bind="text: $parent.isProcessing() ? 'Processing...' : 'Preview'"
+                      ></span>
+                    </button>
+                    <!-- /ko -->
+                  </td>
+                  <td data-bind="css: { success: associatedFilterItem() }">
+                    <!-- ko if: !isSub() && position() !== 0 -->
+                    <button
+                      class="preview-btn"
+                      data-bind="
                     click: $parent.buttonCreateFilter,
                     disable: $parent.isProcessing,
                     css: { 'disabled': $parent.isProcessing }"
-                  >
-                    <span
-                      data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"
-                    ></span>
-                  </button>
-                  <!-- /ko -->
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <!-- Results count -->
-          <div
-            class="filter-results"
-            data-bind="visible: uniqueMeasurementsView().length !== measurements().length"
-          >
-            Showing <span data-bind="text: uniqueMeasurementsView().length"></span> of
-            <span data-bind="text: measurements().length"></span> measurements
+                    >
+                      <span
+                        data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"
+                      ></span>
+                    </button>
+                    <!-- /ko -->
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <!-- Results count -->
+            <div
+              class="filter-results"
+              data-bind="visible: uniqueMeasurementsView().length !== measurements().length"
+            >
+              Showing <span data-bind="text: uniqueMeasurementsView().length"></span> of
+              <span data-bind="text: measurements().length"></span> measurements
+            </div>
           </div>
         </div>
+      </div>
+
+      <!-- Documentation Container -->
+      <div id="documentationContent" class="documentation" style="display: none">
+        <nav class="documentation-sidebar">
+          <ul class="documentation-nav">
+            <li><a href="#introduction">Introduction</a></li>
+            <li><a href="#features">Features and Functionality</a></li>
+            <li><a href="#getting-started">Getting Started</a></li>
+            <li><a href="#conclusion">Conclusion</a></li>
+            <li><a href="#help">Help</a></li>
+          </ul>
+        </nav>
+
+        <main class="documentation-content">
+          <section id="introduction">
+            <h2 dir="auto">Introduction</h2>
+            <p dir="auto">
+              The Acoustical Correction Assistant is a tool designed to help users enhance
+              their audio experience by correcting room acoustics. It requires Room EQ
+              Wizard (REW) and supports importing ady files ans MSO configuration. This
+              guide will help you understand how to use the application effectively. Basic
+              acoustics understanding are required.
+            </p>
+          </section>
+          <section id="features">
+            <h2 dir="auto">Features and Functionality</h2>
+            <h3 dir="auto">1. Import MSO Configuration into REW</h3>
+            <ul>
+              <li dir="auto">
+                <strong>Description</strong>: Allows users to import their Multi-Sub
+                Optimizer (MSO) configurations directly into REW to be directly integrated
+                into the AVR, no minidsp needed.
+              </li>
+              <li dir="auto">
+                <strong>How to Use</strong>:
+                <ul>
+                  <li dir="auto">
+                    <strong>Export MSO</strong>: Creates a Equalizer APO export file from
+                    MSO.
+                  </li>
+                  <li dir="auto">
+                    <strong>Drop Export File</strong>: Alternatively, drag and drop your
+                    Equalizer APO export file into the designated area.
+                  </li>
+                </ul>
+              </li>
+              <li dir="auto">
+                <strong>Requirements</strong>:
+                <ul>
+                  <li dir="auto">
+                    <strong>REW API Server</strong>: Ensure that the REW API server is
+                    running.
+                  </li>
+                  <li dir="auto">
+                    <strong>Measurement Naming</strong>: Measurements should have names
+                    starting with the same name as the configuration (.avr file).
+                  </li>
+                </ul>
+              </li>
+            </ul>
+
+            <h3 dir="auto">2. Import AVR Files Generated from ODD Executable</h3>
+            <ul>
+              <li dir="auto">
+                <strong>Description</strong>: Enables users to import AVR files generated
+                by the ODD executable for indicating the current AVR setup.
+              </li>
+              <li dir="auto">
+                <strong>How to Use</strong>:
+                <ul>
+                  <li dir="auto">Download odd</li>
+                  <li dir="auto">Import AVR File</li>
+                </ul>
+              </li>
+              <li dir="auto">
+                <strong>File Details</strong>: After importing, AVR details such as list
+                of speaker and there attended names are displayed.
+              </li>
+            </ul>
+
+            <h3 dir="auto">3. Customization Options</h3>
+            <ul>
+              <li dir="auto">
+                <strong>LFE Crossover Selection</strong>: Users can select the crossover
+                point for the LFE (Low-Frequency Effects) channel.
+              </li>
+              <li dir="auto">
+                <strong>Inversions and Gains Warning</strong>: A warning message alerts
+                users that all current inversions and gains will be removed.
+              </li>
+            </ul>
+
+            <h3 dir="auto">4. Processing and Preview Features</h3>
+            <ul>
+              <li dir="auto">
+                <strong>Preview Options</strong>: Users can preview adjustments and view
+                all previews.
+              </li>
+              <li dir="auto">
+                <strong>Measurement Display</strong>: Shows which measurements are
+                currently displayed.
+              </li>
+            </ul>
+
+            <h3 dir="auto">5. Multilingual Support</h3>
+            <ul>
+              <li dir="auto">
+                The assistant supports French language, as evident from the interface
+                labels and messages.
+              </li>
+            </ul>
+          </section>
+          <section id="getting-started">
+            <h2 dir="auto">Getting Started</h2>
+            <ol start="1">
+              <li dir="auto">
+                <p dir="auto"><strong>Download and Install REW</strong>:</p>
+                <ul>
+                  <li dir="auto">
+                    Visit the
+                    <a
+                      href="https://www.avnirwana.com/threads/rew-api-beta-releases.12981/"
+                      target="_blank"
+                      rel="nofollow"
+                      >REW (Room EQ Wizard) latest Beta
+                    </a>
+                    page to download the latest beta version of the software.
+                  </li>
+                  <li dir="auto">
+                    Install REW on your computer following the provided instructions.
+                  </li>
+                </ul>
+              </li>
+              <li dir="auto">
+                <p dir="auto"><strong>Download odd program</strong>:</p>
+                <ul>
+                  <p>Download from the link according to your system:</p>
+                  <ol>
+                    <li><a href="ressources/odd.wtf">Windows</a></li>
+                    <li><a href="ressources/odd.mac">Mac</a></li>
+                    <li><a href="ressources/odd.linux">Linux</a></li>
+                  </ol>
+                  <li dir="auto">Store it to a stable location on you computer.</li>
+                </ul>
+              </li>
+              <li dir="auto">
+                <p dir="auto"><strong>Start the REW API Server</strong>:</p>
+                <ul>
+                  <li dir="auto">
+                    Launch REW and start the API server to enable communication with the
+                    assistant.
+                  </li>
+                </ul>
+              </li>
+              <li dir="auto">
+                <p dir="auto"><strong>Make the measurements</strong>:</p>
+                <ul>
+                  <li dir="auto">
+                    Use the odd program to makes the measurements, an ady file will be
+                    created. (recomended method)
+                  </li>
+                  <li dir="auto">
+                    Or, use the the Audyssey mobile app to makes the measurements, then
+                    transfer the ady file to your computer.
+                  </li>
+                  <li dir="auto">
+                    Or, clear your AVR settings (odd program will do it for you) and use
+                    your own mic to makes the measurements with REW.
+                  </li>
+                  <div>
+                    <p><strong>AVR settings </strong></p>
+                    <ol>
+                      <li>
+                        Use one way to clear actuals settings:
+                        <ol>
+                          <li>use odd program</li>
+                          <li>
+                            import flat correction curves with MQX previously saved file
+                          </li>
+                        </ol>
+                      </li>
+                      <li>
+                        Adjust volume level to 0,62 or -18dB (should gives around 75db at
+                        Front Right)
+                      </li>
+                      <li>
+                        (Optionnal, depends on you preference) If you want to use Dynamic
+                        EQ. Set Audyssey Dynamic EQ ON, Set the strength of DEQ to 5dB,
+                        all other Audyssey settings off.
+                      </li>
+                      <li>Disable loudnees management</li>
+                      <li>
+                        Sub Measurements:
+                        <ol>
+                          <li>
+                            set LFE LPF to 250hz, then use "revert AVR LPF" to cancel the
+                            filter effect
+                          </li>
+                          <li>
+                            Or, Assign XLR sub output to center to bypass LFE Low Pass
+                            filter
+                          </li>
+                        </ol>
+                      </li>
+                      <li>Turn off ECO Mode</li>
+                      <li>Check :</li>
+                      <ul>
+                        <li>
+                          all distance to 3m (do not use &lsquo;set default&rsquo; button)
+                        </li>
+                        <li>all levels to 0db</li>
+                      </ul>
+                    </ol>
+                    <p><strong> REW settings</strong></p>
+                    <ol>
+                      <li>Select java EXCL</li>
+                      <li>Sampling rate 48kHz, frequency range 0-24000Hz</li>
+                      <li>
+                        if you have atmos speakers you must uses dolby atmos truehd files
+                        with
+                        <a href="https://www.videolan.org/vlc/" target="_blank">VLC</a> :
+                        <details class="shrinkable-container">
+                          <summary>Lossless Audio Files</summary>
+                          <ul>
+                            <li>
+                              <a
+                                href="ressources/256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav"
+                                >256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav</a
+                              >
+                            </li>
+                            <li><a href="ressources/lossless/C.mlp">C.mlp</a></li>
+                            <li><a href="ressources/lossless/FL.mlp">FL.mlp</a></li>
+                            <li><a href="ressources/lossless/FR.mlp">FR.mlp</a></li>
+                            <li><a href="ressources/lossless/SLA.mlp">SLA.mlp</a></li>
+                            <li><a href="ressources/lossless/SRA.mlp">SRA.mlp</a></li>
+                            <li><a href="ressources/lossless/SBL.mlp">SBL.mlp</a></li>
+                            <li><a href="ressources/lossless/SBR.mlp">SBR.mlp</a></li>
+                            <li><a href="ressources/lossless/TFL.mlp">TFL.mlp</a></li>
+                            <li><a href="ressources/lossless/TFR.mlp">TFR.mlp</a></li>
+                            <li><a href="ressources/lossless/TRL.mlp">TRL.mlp</a></li>
+                            <li><a href="ressources/lossless/TRR.mlp">TRR.mlp</a></li>
+                            <li><a href="ressources/lossless/BDL.mlp">BDL.mlp</a></li>
+                            <li><a href="ressources/lossless/BDR.mlp">BDR.mlp</a></li>
+                            <li><a href="ressources/lossless/FDL.mlp">FDL.mlp</a></li>
+                            <li><a href="ressources/lossless/FDR.mlp">FDR.mlp</a></li>
+                            <li><a href="ressources/lossless/FHL.mlp">FHL.mlp</a></li>
+                            <li><a href="ressources/lossless/FHR.mlp">FHR.mlp</a></li>
+                            <li><a href="ressources/lossless/FWL.mlp">FWL.mlp</a></li>
+                            <li><a href="ressources/lossless/FWR.mlp">FWR.mlp</a></li>
+                            <li><a href="ressources/lossless/RHL.mlp">RHL.mlp</a></li>
+                            <li><a href="ressources/lossless/RHR.mlp">RHR.mlp</a></li>
+                            <li><a href="ressources/lossless/SDL.mlp">SDL.mlp</a></li>
+                            <li><a href="ressources/lossless/SDR.mlp">SDR.mlp</a></li>
+                            <li><a href="ressources/lossless/SHL.mlp">SHL.mlp</a></li>
+                            <li><a href="ressources/lossless/SHR.mlp">SHR.mlp</a></li>
+                            <li><a href="ressources/lossless/TML.mlp">TML.mlp</a></li>
+                            <li><a href="ressources/lossless/TMR.mlp">TMR.mlp</a></li>
+                            <li><a href="ressources/lossless/SWx.mlp">SWx.mlp</a></li>
+                            <li>
+                              <a href="ressources/lossless/SWx_10dB_louder.mlp"
+                                >SWx_10dB_louder.mlp</a
+                              >
+                            </li>
+                          </ul>
+                        </details>
+                      </li>
+                      <li>
+                        Acoustic Timing reference to Front Left channel (same as atmos
+                        files)
+                      </li>
+                      <li>
+                        Measurement loudness to -12dBFS (important for Atmos channels to
+                        play at the correct volumes)
+                      </li>
+                    </ol>
+                    <p><strong> Measurements </strong></p>
+                    <p>
+                      Measure each channel with the played sweeps (preferably multiple
+                      times and at multiple locations), measure LP last and leave the mic
+                      at this position. Will be easyer for further tests after calibration
+                    </p>
+                  </div>
+                </ul>
+              </li>
+              <li dir="auto">
+                <p dir="auto"><strong>Load your measurements</strong>:</p>
+                <ul>
+                  <li dir="auto">
+                    If you used the odd program, you will have a ady file. Import it into
+                    tha main web interface. this will automatically import the
+                    measurements into REW.
+                  </li>
+                  <li dir="auto">
+                    If you made your measurement manually, generate AVR files using the
+                    ODD executable is required. drag and drop it into the designated area
+                    or click to select.
+                  </li>
+
+                  <p>this is how to creates the avr file:</p>
+                  <ol>
+                    <li>
+                      <p>
+                        Mac: Start Terminal.app by pressing CMD and space and then typing
+                        Terminal.app
+                      </p>
+                      <p>Windows: open a command prompt</p>
+                      <p>linux: open a shell</p>
+                    </li>
+                    <li>
+                      Run the following commands:
+                      <ol style="list-style-type: lower-alpha">
+                        <li>Change Directory to your odd program folder, for exmaple:</li>
+                        <code class="inline-code">cd ~/Downloads</code>
+                        <li>List the downloaded/renamed file as a quick test:</li>
+                        <code class="inline-code">ls -l ./odd.*</code>
+                        <li>
+                          Clear the extended Attributes of the file to allow it to bypass
+                          Gatekeeper:
+                        </li>
+                        <code class="inline-code">xattr -c ./odd.mac</code>
+                        <li>Change the Mode of the file to allow it to run:</li>
+                        <code class="inline-code">chmod +x ./odd.mac</code>
+                        <li>
+                          test odd.mac to show help information. Note the dot in the
+                          front:
+                        </li>
+                        <code class="inline-code">/odd.mac -h</code>
+                      </ol>
+                    </li>
+                    <li>search for your AVR:</li>
+                    <div class="code-block">
+                      <code class="code-text"
+                        >./odd.mac search <br />Searching for AVRs on your network...
+                        Found 1 AVR(s) 1. Denon AVR-X3800H, AVR-X3800H, 192.168.50.225
+                      </code>
+                    </div>
+                    <li>generate AVR file for your AVR:</li>
+                    <div class="code-block">
+                      <code class="code-text"
+                        >./odd.mac gen <br />
+                        Generating .avr file... Searching for compatible AVRs... Found 1
+                        compatible AVR(s) 1. Denon AVR-X3800H, AVR-X3800H Selected AVR #1
+                        - Denon AVR-X3800H, AVR-X3800H, 192.168.50.225 Using title
+                        Denon_AVR-X3800H_AVR-X3800H_25-01-2025_13-49-35 Using path
+                        /Users/X/Downloads/OCA/Neuron/Denon_AVR-X3800H_AVR-X3800H_25-
+                        01-2025_13-49-35.avr Success!
+                      </code>
+                    </div>
+                    <p>
+                      if the receiver is not found then explicitly using its iP address
+                      may work. You can get this information by:
+                    </p>
+                    <ol style="list-style-type: lower-alpha">
+                      <li>installing the free Denon or Marantz app on your smartphone</li>
+                      <li>powering the AVR on</li>
+                      <li>
+                        in the app menu, go to Web Control -&gt; Network -&gt; Information
+                        and look for IP Address
+                      </li>
+                      <li>Note the IP address, e.g. 192.168.52.225</li>
+                      <li>
+                        Then use the -i parameter when using odd.mac to guide it into
+                        finding/using your AVR
+                      </li>
+
+                      <div class="code-block">
+                        <code class="code-text"
+                          >./odd.mac gen -i 192.168.50.2.225<br />
+                          Generating .avr file... Querying 192.168.50.225 for AVR info
+                        </code>
+                      </div>
+                    </ol>
+                  </ol>
+
+                  <li dir="auto">
+                    Use the connect button to connect to the REW API server. Your
+                    measurements should be loaded into the table below.
+                  </li>
+                </ul>
+              </li>
+              <li dir="auto">
+                <p dir="auto"><strong>Multi-Sub, Import from MSO</strong>:</p>
+                <ul>
+                  <li dir="auto">
+                    A button can generates for you the exports of your subs measurements
+                    to be used into MSO.
+                  </li>
+                  <li dir="auto">
+                    Once your sub configuration is finalised into MSO, use this method to
+                    creates an export file.
+                  </li>
+
+                  <div>
+                    <p>
+                      MSO do not provide exports for REW, this is a trick that using the
+                      Equalizer APO to achieve this goal. To make the export from MSO, the
+                      related menu is available here:
+                    </p>
+                  </div>
+                  <figure class="thumbnail-container">
+                    <img
+                      src="img/mso_mini.png"
+                      loading="lazy"
+                      alt="MSO export menu location"
+                      class="thumbnail"
+                      data-full="img/mso.png"
+                    />
+                  </figure>
+                  <p>
+                    Then drag and drop it into the designated area or click to select.
+                  </p>
+
+                  <div>
+                    <p>
+                      you have nothing to do, the import inside REW is done automatically.
+                    </p>
+                    <p>Requirements to work:</p>
+                    <ul>
+                      <li>REW API server must be started</li>
+                      <li>
+                        Measurement having a name beginning by the name in MSO must be
+                        loaded
+                      </li>
+                    </ul>
+                    <li>
+                      If for some reason you need to import manually, follow the
+                      instructions:
+                    </li>
+                    <p>
+                      Download files with buttons. Import can be done through the EQ
+                      window with the created file:
+                    </p>
+                  </div>
+                  <figure class="thumbnail-container">
+                    <img
+                      src="img/rew_mini.png"
+                      loading="lazy"
+                      alt="REW import location"
+                      class="thumbnail"
+                      data-full="img/rew.png"
+                    />
+                  </figure>
+                  <div id="imagePopup" class="popup">
+                    <span class="close-btn">&times;</span>
+                    <img id="fullImage" src="" loading="lazy" alt="Full size image" />
+                  </div>
+                </ul>
+              </li>
+              <li dir="auto">
+                <p dir="auto"><strong>Review and Customize Settings</strong>:</p>
+                <ul>
+                  <li dir="auto">Examine the file details and detected channels.</li>
+                  <li dir="auto">
+                    Customize settings such as the LFE crossover point and manage
+                    inversions and gains as needed.
+                  </li>
+                </ul>
+              </li>
+              <li dir="auto">
+                <p dir="auto"><strong>Process and Preview Adjustments</strong>:</p>
+                <ul>
+                  <li dir="auto">Use the preview features to get a predicted measure.</li>
+                </ul>
+              </li>
+
+              <li dir="auto">
+                <p dir="auto"><strong>Upload to your AVR</strong>:</p>
+                <ul>
+                  <li>
+                    upload the &ldquo;.oca&rdquo; file generated to your AVR, your
+                    filename will be different:
+                    <code class="inline-code"
+                      >./odd.mac load 20250125_1341_Sangoku_custom.oca</code
+                    >
+                  </li>
+                </ul>
+              </li>
+            </ol>
+          </section>
+          <section id="conclusion">
+            <h2 dir="auto">Conclusion</h2>
+            <p dir="auto">
+              The Acoustical Correction Assistant is a comprehensive tool designed to
+              streamline the process of acoustic correction for audio enthusiasts and
+              professionals. By integrating with REW and providing support for various
+              file types and configurations, it offers a versatile platform for optimizing
+              acoustic performance.
+            </p>
+          </section>
+          <section id="help">
+            <h2 dir="auto">Help</h2>
+            <ul>
+              <li dir="auto">
+                For further assistance, refer to gihub repository issue section or contact
+                the developer.
+              </li>
+            </ul>
+          </section>
+        </main>
       </div>
       <!-- Scripts -->
       <script src="lib/js-yaml.min.js"></script>
@@ -693,8 +1160,8 @@
     <footer>
       <div>
         <div class="credits-content">
-          <p class="copyright">&copy; 2025 Sangoku</p>
-          <p class="credits-text">Designed & Developed by Sangoku</p>
+          <p class="copyright" data-i18n="copyright">&copy; 2025 Sangoku</p>
+          <p class="credits-text" data-i18n="credits">Designed & Developed by Sangoku</p>
           <p class="version">Version 1.0.9</p>
 
           <!-- Donation Section -->

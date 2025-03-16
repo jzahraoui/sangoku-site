@@ -1,7 +1,7 @@
 import RewApi from './rew-api.js';
 import apo2camilla from './apo2camilla.js';
 import MeasurementViewModel from './MeasurementViewModel.js';
-import { translations } from './translations.js';
+import translations from './translations.js';
 
 /**
  * LanguageManager is responsible for managing the language settings of the application.
@@ -11,7 +11,6 @@ import { translations } from './translations.js';
 class LanguageManager {
   constructor() {
     this.currentLanguage = localStorage.getItem('userLanguage') || 'en';
-    this.i18nElements = document.querySelectorAll('[data-i18n]');
     this.init();
   }
 
@@ -35,25 +34,93 @@ class LanguageManager {
   }
 
   translatePage() {
-    this.i18nElements.forEach(element => {
-      const key = element.getAttribute('data-i18n');
-      if (translations[this.currentLanguage] && translations[this.currentLanguage][key]) {
-        if (element.tagName === 'INPUT' && element.hasAttribute('placeholder')) {
-          element.placeholder = translations[this.currentLanguage][key];
-        } else {
-          element.textContent = translations[this.currentLanguage][key];
+    try {
+      // Cache the current language translations
+      const currentTranslations = translations[this.currentLanguage];
+      if (!currentTranslations) {
+        console.warn(`No translations found for language: ${this.currentLanguage}`);
+        return;
+      }
+
+      // Use createNodeIterator for better performance with large DOMs
+      const iterator = document.createNodeIterator(
+        document.body,
+        NodeFilter.SHOW_ELEMENT,
+        {
+          acceptNode: node =>
+            node.hasAttribute('data-i18n')
+              ? NodeFilter.FILTER_ACCEPT
+              : NodeFilter.FILTER_REJECT,
+        }
+      );
+
+      let element;
+      while ((element = iterator.nextNode())) {
+        const key = element.getAttribute('data-i18n');
+        const translation = currentTranslations[key];
+
+        if (!translation) {
+          console.warn(`Missing translation for key: ${this.currentLanguage} ${key}`);
+          continue;
+        }
+
+        // Handle different element types
+        switch (element.tagName) {
+          case 'INPUT':
+            if (element.hasAttribute('placeholder')) {
+              element.placeholder = translation;
+            }
+            break;
+          case 'IMG':
+            if (element.hasAttribute('alt')) {
+              element.alt = translation;
+            }
+            break;
+          default:
+            element.textContent = translation;
         }
       }
-    });
 
-    // Handle dynamic content in Knockout bindings
-    if (window.viewModel) {
-      window.viewModel.updateTranslations(this.currentLanguage);
+      // Handle Knockout bindings if available
+      if (typeof window.viewModel?.updateTranslations === 'function') {
+        window.viewModel.updateTranslations(this.currentLanguage);
+      }
+
+      // Dispatch event when translations are complete
+      window.dispatchEvent(
+        new CustomEvent('translationsComplete', {
+          detail: { language: this.currentLanguage },
+        })
+      );
+    } catch (error) {
+      console.error('Translation error:', error);
     }
   }
 
   translate(key) {
-    return translations[this.currentLanguage][key] || key;
+    try {
+      // Cache the current language translations to avoid repeated lookups
+      const currentTranslations = translations[this.currentLanguage];
+
+      if (!currentTranslations) {
+        console.warn(`No translations found for language: ${this.currentLanguage}`);
+        return key;
+      }
+
+      // Support nested keys using dot notation (e.g., 'menu.items.title')
+      const keyParts = key.split('.');
+      let translation = currentTranslations;
+
+      for (const part of keyParts) {
+        translation = translation[part];
+        if (translation === undefined) break;
+      }
+
+      return translation || key;
+    } catch (error) {
+      console.error(`Translation error for key "${this.currentLanguage} ${key}":`, error);
+      return key;
+    }
   }
 }
 
@@ -123,9 +190,19 @@ class RewController {
       const fullImage = document.getElementById('fullImage');
       const thumbnailCloseBtn = document.querySelector('.close-btn');
 
+      // Function to handle popup visibility - DRY principle
+      const togglePopup = show => {
+        thumbnailPopup.style.display = show ? 'block' : 'none';
+      };
       thumbnails.forEach(thumb => {
         thumb.addEventListener('click', function () {
-          fullImage.src = this.dataset.full;
+          // Preload image before showing popup
+          const img = new Image();
+          img.onload = () => {
+            fullImage.src = this.dataset.full;
+            togglePopup(true);
+          };
+          img.src = this.dataset.full;
           thumbnailPopup.style.display = 'block';
         });
       });
@@ -141,6 +218,15 @@ class RewController {
           thumbnailPopup.style.display = 'none';
         }
       });
+      thumbnailPopup.addEventListener(
+        'touchstart',
+        e => {
+          if (e.target === thumbnailPopup) {
+            closePopup();
+          }
+        },
+        { passive: true }
+      );
 
       // Close on escape key
       document.addEventListener('keydown', e => {
@@ -148,6 +234,39 @@ class RewController {
           thumbnailPopup.style.display = 'none';
         }
       });
+
+      const appContent = document.getElementById('appContent');
+      const documentationContent = document.getElementById('documentationContent');
+
+      // Handle navigation with buttons
+      document.querySelectorAll('.nav-button').forEach(button => {
+        button.addEventListener('click', e => {
+          const page = e.target.closest('.nav-button').dataset.page;
+          navigateToPage(page === 'documentation' ? 'documentation' : '');
+        });
+      });
+
+      // Handle navigation
+      function navigateToPage(page) {
+        if (page === 'documentation') {
+          appContent.style.display = 'none';
+          documentationContent.style.display = 'block';
+        } else {
+          appContent.style.display = 'block';
+          documentationContent.style.display = 'none';
+        }
+        // Update URL without refresh
+        history.pushState({ page }, '', `#${page}`);
+
+        // Update active state of buttons
+        document.querySelectorAll('.nav-button').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.page === page);
+        });
+      }
+
+      // Handle initial load
+      const hash = window.location.hash.slice(1);
+      navigateToPage(hash === 'documentation' ? 'documentation' : '');
     });
   }
 }

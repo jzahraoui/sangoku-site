@@ -2,7 +2,7 @@ import MeasurementItem from './MeasurementItem.js';
 import PersistentStore from './PersistentStore.js';
 import BusinessTools from './BusinessTools.js';
 import OCAFileGenerator from './oca-file.js';
-import { translations } from './translations.js';
+import translations from './translations.js';
 import AdyTools from './ady-tools.js';
 import MultiSubOptimizer from './multi-sub-optimizer.js';
 
@@ -426,11 +426,13 @@ class MeasurementViewModel {
         await self.apiService.updateAPI('inhibit-graph-updates', true);
 
         const allOffset = self.measurements().map(item => item.splOffsetdB());
-        const uniqueOffsets = new Set(allOffset);
-        if (uniqueOffsets.size !== 1) {
-          throw new Error(
-            `Some measurements do not have the same SPL offset, please load not altered measurements`
-          );
+        // Check if we have any measurements
+        if (allOffset.length === 0) {
+          throw new Error('No valid measurements found');
+        }
+        const uniqueOffsets = [...new Set(allOffset)];
+        if (uniqueOffsets.length > 1) {
+            throw new Error('Inconsistent SPL offsets detected in measurements');
         }
 
         const allAlignOffset = self.measurements().map(item => item.alignSPLOffsetdB());
