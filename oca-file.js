@@ -124,6 +124,32 @@ export default class OCAFileGenerator {
         missing are: ${codesLabels.join(', ')}`);
     }
 
+    // group allResponses by item.channelDetails().group and check if they have the same crossover value
+    const groupedResponses = allResponses.reduce((acc, item) => {
+      const group = item.channelDetails().group;
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(item);
+      return acc;
+    }, {});
+    for (const group in groupedResponses) {
+      const items = groupedResponses[group];
+      if (!items || items.length === 0) {
+        continue; // Skip empty groups
+      }
+      // Skip crossover check for Subwoofer group
+      if (group === 'Subwoofer') {
+        continue;
+      }
+      const crossover = items[0].crossover();
+      if (items.some(item => item.crossover() !== crossover)) {
+        throw new Error(
+          `Crossover value is different for items in group ${group}, please ensure all REW measurements have the same crossover value`
+        );
+      }
+    }
+
     const channels = [];
 
     // creates a for loop on dataArray
