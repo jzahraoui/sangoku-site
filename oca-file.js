@@ -114,9 +114,11 @@ export default class OCAFileGenerator {
       channel => !providedChannels.includes(channel)
     );
 
-    if (missingChannels.length !== 0) {
+    if (missingChannels.length) {
       const codesLabels = missingChannels.map(channel => {
-        return CHANNEL_TYPES.getByChannelIndex(channel).code;
+        const missingChannel = CHANNEL_TYPES.getByChannelIndex(channel);
+        const missingCode = missingChannel ? missingChannel.code : channel;
+        return missingCode;
       });
       throw new Error(`${missingChannels.length} channel(s) are missing or added, please ensure all AVR detected channels are present in REW,
         missing are: ${codesLabels.join(', ')}`);
