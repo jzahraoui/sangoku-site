@@ -174,6 +174,8 @@ class MeasurementViewModel {
         58: 54,
         61: 55,
         64: 56,
+        47: 54,
+        49: 55,
       };
 
       if (!data.detectedChannels?.[0]) {
