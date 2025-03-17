@@ -702,7 +702,7 @@ class MeasurementItem {
       throw new Error(`Invalid filter: ${filters}`);
     }
     if (filters.length !== 22) {
-      console.warn(`Invalid filter length: ${filters.length} expected 22`);
+      console.debug(`Invalid filter length: ${filters.length} expected 22`);
     }
     const currentFilters = await this.getFilters();
 
@@ -712,6 +712,11 @@ class MeasurementItem {
       const found = currentFilters.find(f => f.index === index);
       if (!found) {
         throw new Error(`Invalid filter index: ${index}`);
+      }
+      // set auto to false if type is all pass
+      if (filter.type === 'All pass') {
+        filter.isAuto = false;
+        found.isAuto = false;
       }
       if (!this.compareObjects(filter, found)) {
         filtersCleaned.push(filter);
