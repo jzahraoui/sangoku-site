@@ -663,8 +663,8 @@
             <p dir="auto">
               The Acoustical Correction Assistant is a tool designed to help users enhance
               their audio experience by correcting room acoustics. It requires Room EQ
-              Wizard (REW) and supports importing ady files ans MSO configuration. This
-              guide will help you understand how to use the application effectively. Basic
+              Wizard (REW) and supports importing ady files and MSO configuration. This
+              guide will help you understand how to use the application efficiently. Basic
               acoustics understanding are required.
             </p>
           </section>
@@ -685,8 +685,8 @@
                     MSO.
                   </li>
                   <li dir="auto">
-                    <strong>Drop Export File</strong>: Alternatively, drag and drop your
-                    Equalizer APO export file into the designated area.
+                    <strong>Drop Export File</strong>: Then, drag and drop your Equalizer
+                    APO export file into the designated area.
                   </li>
                 </ul>
               </li>
@@ -727,8 +727,8 @@
             <h3 dir="auto">3. Customization Options</h3>
             <ul>
               <li dir="auto">
-                <strong>LFE Crossover Selection</strong>: Users can select the crossover
-                point for the LFE (Low-Frequency Effects) channel.
+                <strong>LFE Low Pass Filter (LPF) Selection</strong>: Users can select the
+                LPF point for the LFE (Low-Frequency Effects) channel.
               </li>
               <li dir="auto">
                 <strong>Inversions and Gains Warning</strong>: A warning message alerts
@@ -803,7 +803,8 @@
                 <ul>
                   <li dir="auto">
                     Use the odd program to makes the measurements, an ady file will be
-                    created. (recomended method)
+                    created. option 5 "Start built-in measurement process" (recomended
+                    method)
                   </li>
                   <li dir="auto">
                     Or, use the the Audyssey mobile app to makes the measurements, then
@@ -821,12 +822,12 @@
                         <ol>
                           <li>use odd program</li>
                           <li>
-                            import flat correction curves with MQX previously saved file
+                            import FLAT correction curves with MQX previously saved file
                           </li>
                         </ol>
                       </li>
                       <li>
-                        Adjust volume level to 0,62 or -18dB (should gives around 75db at
+                        Adjust volume level to 62 or -18dB (should give around 75db at
                         Front Right)
                       </li>
                       <li>
@@ -922,8 +923,8 @@
                     <p><strong> Measurements </strong></p>
                     <p>
                       Measure each channel with the played sweeps (preferably multiple
-                      times and at multiple locations), measure LP last and leave the mic
-                      at this position. Will be easyer for further tests after calibration
+                      times and at multiple locations), measure MLP last and leave the mic
+                      at this position. Will be easier for further tests after calibration
                     </p>
                   </div>
                 </ul>
@@ -932,12 +933,12 @@
                 <p dir="auto"><strong>Load your measurements</strong>:</p>
                 <ul>
                   <li dir="auto">
-                    If you used the odd program, you will have a ady file. Import it into
-                    tha main web interface. this will automatically import the
-                    measurements into REW.
+                    If you used the odd program, you will get an ady file in the
+                    “Downloads” folder. Import it into tha main web interface. this will
+                    automatically import the measurements into REW.
                   </li>
                   <li dir="auto">
-                    If you made your measurement manually, generate AVR files using the
+                    If you made your measurement manually, generating AVR files using the
                     ODD executable is required. drag and drop it into the designated area
                     or click to select.
                   </li>
@@ -945,15 +946,21 @@
                   <p>this is how to creates the avr file:</p>
                   <ol>
                     <li>
-                      <p>
-                        Mac: Start Terminal.app by pressing CMD and space and then typing
-                        Terminal.app
-                      </p>
-                      <p>Windows: open a command prompt</p>
-                      <p>linux: open a shell</p>
+                      <ul>
+                        <li>
+                          <u>Mac:</u> Start Terminal.app by pressing CMD and space and
+                          then typing Terminal.app
+                        </li>
+                        <li>
+                          <u>Windows:</u> open a command prompt or use the 'Menu Hepler'
+                          program
+                        </li>
+                        <li><u>linux:</u> open a shell</li>
+                      </ul>
                     </li>
                     <li>
-                      Run the following commands:
+                      Run the following commands, this is as examplample for mac, adapt
+                      for your system:
                       <ol style="list-style-type: lower-alpha">
                         <li>Change Directory to your odd program folder, for exmaple:</li>
                         <code class="inline-code">cd ~/Downloads</code>
@@ -1019,7 +1026,7 @@
                   </ol>
 
                   <li dir="auto">
-                    Use the connect button to connect to the REW API server. Your
+                    Use the CONNECT button to connect to the REW API server. Your
                     measurements should be loaded into the table below.
                   </li>
                 </ul>
@@ -1028,17 +1035,18 @@
                 <p dir="auto"><strong>Multi-Sub, Import from MSO</strong>:</p>
                 <ul>
                   <li dir="auto">
-                    A button can generates for you the exports of your subs measurements
-                    to be used into MSO.
+                    A button can generate for you the exports of your subs measurements.
+                    this package contains right named file you can use to initialize your
+                    MSO project.
                   </li>
                   <li dir="auto">
-                    Once your sub configuration is finalised into MSO, use this method to
-                    creates an export file.
+                    Once your sub configuration is finalised into MSO, use he following
+                    method to creates an export file.
                   </li>
 
                   <div>
                     <p>
-                      MSO do not provide exports for REW, this is a trick that using the
+                      MSO does not provide exports for REW, this is a trick that is using the
                       Equalizer APO to achieve this goal. To make the export from MSO, the
                       related menu is available here:
                     </p>
