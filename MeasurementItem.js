@@ -3,7 +3,6 @@ import './lib/decimal.min.js';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
-  static DEFAULT_SHIFT_IN_METERS = 2.58;
   static SPEED_OF_SOUND = 343;
   static MODEL_DISTANCE_LIMIT = 6.0;
   static MODEL_DISTANCE_CRITICAL_LIMIT = 7.35;
@@ -170,7 +169,7 @@ class MeasurementItem {
       }
 
       // Check error threshold first
-      if (currentDistance > maxErrorDistance) {
+      if (currentDistance > maxErrorDistance || currentDistance < 0) {
         return 'error';
       }
 
@@ -256,13 +255,13 @@ class MeasurementItem {
 
   _computeDistanceInMeters(valueInSeconds) {
     const valueInMeters =
-      this._computeInMeters(valueInSeconds) + MeasurementItem.DEFAULT_SHIFT_IN_METERS;
+      this._computeInMeters(valueInSeconds) + this.parentViewModel.DEFAULT_SHIFT_IN_METERS;
     return MeasurementItem.cleanFloat32Value(valueInMeters, 2);
   }
 
   _computeDistanceInSeconds(valueInMeters) {
     return this._computeInSeconds(
-      valueInMeters - MeasurementItem.DEFAULT_SHIFT_IN_METERS
+      valueInMeters - this.parentViewModel.DEFAULT_SHIFT_IN_METERS
     );
   }
 

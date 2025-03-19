@@ -14,6 +14,9 @@ class MeasurementViewModel {
     self.DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
     self.UNKNOWN_GROUP_NAME = 'UNKNOWN';
     self.DEFAULT_CROSSOVER_VALUE = 80;
+    self.DEFAULT_SHIFT_IN_METERS = 3;
+    self.DEFAULT_TARGET_LEVEL = 75;
+
     self.EQ_SETTINGS = {
       MANUFACTURER: 'Generic',
       MODEL: 'Generic',
@@ -190,9 +193,35 @@ class MeasurementViewModel {
           StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
       }));
 
+      const numbersOfSubs = data.subwooferNum;
+      const subwooferMode = data.subwooferMode;
+      const fisrtChannel = data.detectedChannels[0];
+      const firstChannelDistance = fisrtChannel.channelReport.distance;
+
+      if (firstChannelDistance) {
+        self.DEFAULT_SHIFT_IN_METERS = firstChannelDistance;
+      }
+
+      // Check if we have any measurements meaning we have a ady file
       if (data.detectedChannels?.[0].responseData?.[0]) {
+        // create zip containing all measurements
         const adyTools = new AdyTools(data);
         const content = await adyTools.parse();
+
+        // check if directionnal bass is present when we have multiple subs
+        if (numbersOfSubs && numbersOfSubs > 1) {
+          if (!subwooferMode) {
+            self.status(
+              `${self.status()}\nWARNING: Subwoofer mode not detected with multiple subs. Make sure Directional bass mode was used`
+            );
+          } else {
+            const directionnalBass = subwooferMode === 'Directional';
+            if (!directionnalBass) {
+              self.handleError('Directional bass mode not detected with multiple subs');
+              return;
+            }
+          }
+        }
 
         // TODO: ampassign can be directionnal must be converted to standard
         for (const [channelIndex, channel] of data.detectedChannels.entries()) {
@@ -213,13 +242,10 @@ class MeasurementViewModel {
             };
             await self.apiService.postSafe('import/impulse-response-data', options);
           }
-        }
 
-        // remove all responseData elements from data
-        data.detectedChannels = data.detectedChannels.map(channel => ({
-          ...channel,
-          responseData: [],
-        }));
+          // remove responseData elements from data
+          data.detectedChannels[channelIndex].responseData = [];
+        }
 
         // Create download buttons
         const button = document.createElement('button');
@@ -434,7 +460,7 @@ class MeasurementViewModel {
         }
         const uniqueOffsets = [...new Set(allOffset)];
         if (uniqueOffsets.length > 1) {
-            throw new Error('Inconsistent SPL offsets detected in measurements');
+          throw new Error('Inconsistent SPL offsets detected in measurements');
         }
 
         const allAlignOffset = self.measurements().map(item => item.alignSPLOffsetdB());
@@ -1237,7 +1263,7 @@ class MeasurementViewModel {
   async mainTargetLevel() {
     const firstMeasurement = this.uniqueMeasurements()[0];
     if (!firstMeasurement) {
-      return 75;
+      return this.DEFAULT_TARGET_LEVEL;
     }
     const level = await firstMeasurement.getTargetLevel();
     return Number(level.toFixed(2));
