@@ -152,6 +152,28 @@ export default class OCAFileGenerator {
 
     const channels = [];
 
+    // check if any of the items is above limit
+    const anyItemAboveLimit = allResponses.some(item => item.splIsAboveLimit());
+    if (anyItemAboveLimit) {
+      // Find the specific item that is above limit to display correct information
+      const itemAboveLimit = allResponses.find(item => item.splIsAboveLimit());
+      throw new Error(
+        `${itemAboveLimit.displayMeasurementTitle()} spl ${itemAboveLimit.splForAvr()}dB is above limit`
+      );
+    }
+
+    const anyItemExceedsDistance = allResponses.some(
+      item => item.exceedsDistance() === 'error'
+    );
+    if (anyItemExceedsDistance) {
+      const itemExceedsDistance = allResponses.find(
+        item => item.exceedsDistance() === 'error'
+      );
+      throw new Error(
+        `${itemExceedsDistance.displayMeasurementTitle()} distance ${itemExceedsDistance.distanceInMeters()}M exceeds limit`
+      );
+    }
+
     // creates a for loop on dataArray
     for (const item of Object.values(allResponses)) {
       // skip if item is not an object and not have timeOfIRStartSeconds attribute
@@ -161,18 +183,6 @@ export default class OCAFileGenerator {
         !Object.prototype.hasOwnProperty.call(item, 'distanceInMeters')
       ) {
         throw new Error('rensponses must contains extended values');
-      }
-
-      if (item.splIsAboveLimit()) {
-        throw new Error(
-          `${item.displayMeasurementTitle()} spl ${item.splForAvr()}dB is above limit`
-        );
-      }
-
-      if (item.exceedsDistance() === 'error') {
-        throw new Error(
-          `${item.displayMeasurementTitle()} distance ${item.distanceInMeters()}M is above limit`
-        );
       }
 
       let itemFilter;
