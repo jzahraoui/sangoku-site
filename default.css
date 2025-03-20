@@ -861,3 +861,71 @@ button:disabled {
 .nav-button i {
   font-size: 1.1rem;
 }
+
+.number-input {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  position: relative;
+}
+
+/* Style input itself */
+.number-input input[type='number'] {
+  width: 45px;
+  text-align: center;
+  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-sm) var(--spacing-sm);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--gray-700);
+  background-color: white;
+  transition: all 0.2s ease-in-out;
+  appearance: textfield;
+  -moz-appearance: textfield;
+  padding-right: 1px;
+}
+
+/* Hover and focus states */
+.number-input input[type='number']:hover {
+  border-color: var(--gray-400);
+  background-color: var(--gray-100);
+}
+
+.number-input input[type='number']:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+  background-color: white;
+}
+
+/* Style spinner arrows in Chrome, Safari, Edge, Opera */
+.number-input input[type='number']::-webkit-outer-spin-button,
+.number-input input[type='number']::-webkit-inner-spin-button {
+  opacity: 0;
+  height: 30px;
+  margin: 0;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  background: linear-gradient(
+    to bottom,
+    var(--gray-200) 0%,
+    var(--gray-200) 50%,
+    var(--gray-300) 50%,
+    var(--gray-300) 100%
+  );
+}
+
+/* Show spinner on hover */
+.number-input:hover input[type='number']::-webkit-outer-spin-button,
+.number-input:hover input[type='number']::-webkit-inner-spin-button {
+  opacity: 1;
+}
+
+/* Disabled state */
+.number-input input[type='number']:disabled {
+  background-color: var(--gray-200);
+  border-color: var(--gray-300);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}

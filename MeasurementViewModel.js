@@ -146,6 +146,16 @@ class MeasurementViewModel {
     // Observable array to store JSON data
     self.jsonAvrData = ko.observable();
 
+    self.additionalBassGainValue = ko.observable(3);
+    self.minadditionalBassGainValue = 0;
+    self.maxadditionalBassGainValue = 6;
+    self.maxBoostIndividualValue = ko.observable(0);
+    self.minIndividualValue = 0;
+    self.maxIndividualValue = 6;
+    self.maxBoostOverallValue = ko.observable(0);
+    self.minOverallValue = 0;
+    self.maxOverallValue = 3;
+
     self.validateFile = function (file) {
       const maxSize = 50 * 1024 * 1024; // 15KB
 
@@ -889,7 +899,8 @@ class MeasurementViewModel {
         // adjut target level according to the number of subs
         const numbersOfSubs = subsMeasurements.length;
         const overhead = 10 * Math.log10(numbersOfSubs);
-        const targetLevel = targetLevelAtFreq - overhead;
+        const targetLevel =
+          targetLevelAtFreq - overhead + Number(self.additionalBassGainValue());
 
         let lowFrequency = Infinity;
         let highFrequency = 0;
@@ -1038,8 +1049,8 @@ class MeasurementViewModel {
         await this.apiService.postSafe(`eq/match-target-settings`, {
           startFrequency: detectOptimizedSubs.lowCutoff,
           endFrequency: detectOptimizedSubs.highCutoff,
-          individualMaxBoostdB: 3,
-          overallMaxBoostdB: 0,
+          individualMaxBoostdB: self.maxBoostIndividualValue(),
+          overallMaxBoostdB: self.maxBoostOverallValue(),
           flatnessTargetdB: 1,
           allowNarrowFiltersBelow200Hz: false,
           varyQAbove200Hz: false,
@@ -1790,6 +1801,74 @@ class MeasurementViewModel {
         await alignedSumObject.setTitle(sumTitle);
       }
       const shiftDelay = shiftDelayMs / 1000;
+      return { shiftDelay, isBInverted };
+    } catch (error) {
+      throw new Error(error.message, { cause: error });
+    }
+  }
+
+  async findAligmentNew(
+    channelA,
+    channelB,
+    frequency,
+    maxSearchRange = 2,
+    createSum = false,
+    sumTitle = null,
+    minSearchRange = -0.5
+  ) {
+    if (createSum && !sumTitle) {
+      throw new Error('sumTitle is required when createSum is true');
+    }
+
+    try {
+      // one octave below frequency
+      const lowFrequency = frequency / 2;
+
+      // one octave above frequency
+      const highFrequency = frequency * 2;
+
+      const optimizerConfig = {
+        frequency: {
+          min: lowFrequency, // Hz
+          max: highFrequency, // Hz
+        },
+        gain: {
+          min: 0, // dB
+          max: 0, // dB
+          step: 0.1, // dB
+        },
+        delay: {
+          min: -maxSearchRange / 1000, // 0.5ms
+          max: -minSearchRange / 1000, // 2ms
+          step: 0.00001, // 0.01ms
+        },
+      };
+
+      const channelAFrequencyResponse = await channelA.getFrequencyResponse();
+      channelAFrequencyResponse.measurement = channelA.uuid;
+      const channelBFrequencyResponse = await channelB.getFrequencyResponse();
+      channelBFrequencyResponse.measurement = channelB.uuid;
+
+      const frequencyResponses = [channelAFrequencyResponse, channelBFrequencyResponse];
+
+      const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
+      const optimizerResults = await optimizer.optimizeSubwoofers();
+
+      const optimizedResults = optimizerResults.optimizedSubs[0].param;
+      if (!optimizedResults) {
+        throw new Error('No results found');
+      }
+
+      const isBInverted = optimizedResults.polarity === -1 ? true : false;
+      const shiftDelay = -optimizedResults.delay;
+
+      if (createSum) {
+        const bestSumFullRange = await optimizer.getFinalSubSum();
+        // await this.sendToREW(optimizerResults.bestSum, sumTitle + 'New');
+        // await this.sendToREW(optimizerResults.optimizedSubs[0], sumTitle + 'New');
+        await this.sendToREW(bestSumFullRange, sumTitle + 'N');
+      }
+
       return { shiftDelay, isBInverted };
     } catch (error) {
       throw new Error(error.message, { cause: error });

@@ -339,18 +339,69 @@
               will delete actual sub configuration for the current position
             </p>
 
-            <button
-              class="button"
-              data-bind="
-              click: buttonMultiSubOptimizer,
-              disable: isProcessing,
-              css: { 'disabled': isProcessing }"
-            >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Optimize Sub'"
-              ></span>
-            </button>
-
+            <div style="display: flex; flex-direction: column">
+              <div class="number-input">
+                <label style="width: 150px; text-align: left">Additional gain:</label>
+                <input
+                  type="number"
+                  data-bind="
+                      value: additionalBassGainValue,
+                      valueUpdate: 'afterkeydown',
+                      attr: {
+                          min: minadditionalBassGainValue,
+                          max: maxadditionalBassGainValue,
+                          step: 1
+                      }"
+                  required
+                  title="Enter a number between 0 and 6"
+                />
+              </div>
+              <div class="number-input">
+                <label style="width: 150px; text-align: left"
+                  >Individual max boost:</label
+                >
+                <input
+                  type="number"
+                  data-bind="
+                      value: maxBoostIndividualValue,
+                      valueUpdate: 'afterkeydown',
+                      attr: {
+                          min: minIndividualValue,
+                          max: maxIndividualValue,
+                          step: 1
+                      }"
+                  required
+                  title="Enter a number between 0 and 6"
+                />
+              </div>
+              <div class="number-input">
+                <label style="width: 150px; text-align: left">Overall max boost:</label>
+                <input
+                  type="number"
+                  data-bind="
+                      value: maxBoostOverallValue,
+                      valueUpdate: 'afterkeydown',
+                      attr: {
+                          min: minOverallValue,
+                          max: maxOverallValue,
+                          step: 1
+                      }"
+                  required
+                  title="Enter a number between 0 and 3"
+                />
+              </div>
+              <button
+                class="button"
+                data-bind="
+                click: buttonMultiSubOptimizer,
+                disable: isProcessing,
+                css: { 'disabled': isProcessing }"
+              >
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Optimize Sub'"
+                ></span>
+              </button>
+            </div>
             <h4 data-i18n="option3">3. Import your config from MSO</h4>
 
             <!-- MSO Import Instructions -->
@@ -1046,9 +1097,9 @@
 
                   <div>
                     <p>
-                      MSO does not provide exports for REW, this is a trick that is using the
-                      Equalizer APO to achieve this goal. To make the export from MSO, the
-                      related menu is available here:
+                      MSO does not provide exports for REW, this is a trick that is using
+                      the Equalizer APO to achieve this goal. To make the export from MSO,
+                      the related menu is available here:
                     </p>
                   </div>
                   <figure class="thumbnail-container">
