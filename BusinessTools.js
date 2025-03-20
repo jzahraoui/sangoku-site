@@ -333,8 +333,8 @@ class BusinessTools {
 
       // compute subwoofer aligment
       const { shiftDelay, isBInverted } = await this.viewModel.findAligment(
-        predictedSpeakerFiltered.uuid,
-        PredictedLfeFiltered.uuid,
+        predictedSpeakerFiltered,
+        PredictedLfeFiltered,
         cuttOffFrequency,
         2,
         false,

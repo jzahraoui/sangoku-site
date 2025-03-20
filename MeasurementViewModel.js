@@ -1739,8 +1739,8 @@ class MeasurementViewModel {
   }
 
   async findAligment(
-    channelAUuid,
-    channelBUuid,
+    channelA,
+    channelB,
     frequency,
     maxSearchRange = 3,
     createSum = false,
@@ -1756,8 +1756,8 @@ class MeasurementViewModel {
       await this.apiService.postAlign('Reset all');
       await this.apiService.postSafe(`alignment-tool/max-negative-delay`, minSearchRange);
       await this.apiService.postSafe(`alignment-tool/max-positive-delay`, maxSearchRange);
-      await this.apiService.postSafe('alignment-tool/uuid-a', channelAUuid);
-      await this.apiService.postSafe('alignment-tool/uuid-b', channelBUuid);
+      await this.apiService.postSafe('alignment-tool/uuid-a', channelA.uuid);
+      await this.apiService.postSafe('alignment-tool/uuid-b', channelB.uuid);
       // await this.apiService.postSafe(`alignment-tool/mode`, "Phase");
       // const AlignResults = await postAlign('Align phase', frequency);
       await this.apiService.postSafe(`alignment-tool/mode`, 'Impulse');
