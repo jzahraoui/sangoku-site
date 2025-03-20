@@ -516,6 +516,8 @@ class BusinessTools {
       const generatedPredictedUuids = [];
 
       for (const measurementItem of itemList) {
+        await measurementItem.resetSmoothing();
+        await measurementItem.resetIrWindows();
         const rollResponse = await measurementItem.producePredictedMeasurement();
         if (!rollResponse) {
           throw new Error(`Cannot generate predicted measurement`);
@@ -541,6 +543,7 @@ class BusinessTools {
       }
       const titles = itemList.map(item => item.displayMeasurementTitle());
       await lastAlignedSum.setTitle(title, `sum from:\n${titles.join('\n')}`);
+      await lastAlignedSum.resetIrWindows();
 
       if (deletePredicted) {
         // cleanup of equalised sub measurements usded to create the sum
