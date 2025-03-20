@@ -103,6 +103,13 @@ class MultiSubOptimizer {
     // Normalize measurements and prepare for processing
     return await Promise.all(
       this.subMeasurements.map(async frequencyResponse => {
+        // Normalize frequency response
+        if (frequencyResponse.freqs.length !== frequencyResponse.magnitude.length) {
+          throw new Error('Frequency and magnitude arrays must have the same length');
+        }
+        if (!frequencyResponse.measurement) {
+          throw new Error('Measurement UUID is required');
+        }
         // remove outside frequency range
         const scale = 1e7;
         const freqRangeStart = Math.fround(this.FREQ_RANGE_START);
