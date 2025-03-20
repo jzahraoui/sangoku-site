@@ -16,6 +16,7 @@ class MeasurementViewModel {
     self.DEFAULT_CROSSOVER_VALUE = 80;
     self.DEFAULT_SHIFT_IN_METERS = 3;
     self.DEFAULT_TARGET_LEVEL = 75;
+    self.inhibitGraphUpdates = true;
 
     self.EQ_SETTINGS = {
       MANUFACTURER: 'Generic',
@@ -327,10 +328,24 @@ class MeasurementViewModel {
 
     self.isProcessing = ko.observable(false);
 
-    self.isProcessing.subscribe(function (newValue) {
-      if (newValue === false) {
-        // Save to persistent storage
-        self.saveMeasurements();
+    self.isProcessing.subscribe(async function (newValue) {
+      try {
+        if (newValue === false) {
+          // Save to persistent storage first
+          await self.saveMeasurements();
+
+          if (self.inhibitGraphUpdates) {
+            await self.apiService.updateAPI('inhibit-graph-updates', false);
+          }
+        } else if (newValue === true) {
+          self.error('');
+          if (self.inhibitGraphUpdates) {
+            await self.apiService.updateAPI('inhibit-graph-updates', true);
+          }
+        }
+      } catch (error) {
+        console.error('Error in isProcessing subscription:', error);
+        // Add appropriate error handling here
       }
     });
 
@@ -340,7 +355,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Importing MSO config...');
 
         for (const [position, subResponses] of Object.entries(
@@ -373,7 +387,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         //self.isProcessing(true);
-        self.error('');
         //self.status("Pulling...");
         //await self.loadData();
         self.toggleBackgroundPolling();
@@ -389,7 +402,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Renaming started');
         for (const item of self.measurements()) {
           if (item.position() === 0) {
@@ -420,7 +432,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Reseting...');
         const defaultSettings = {
           manufacturer: self.EQ_SETTINGS.MANUFACTURER,
@@ -448,10 +459,7 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Average is runing...');
-
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
 
         const allOffset = self.measurements().map(item => item.splOffsetdB());
         // Check if we have any measurements
@@ -490,7 +498,6 @@ class MeasurementViewModel {
         self.handleError(`Averages failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
 
@@ -498,10 +505,8 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Reverting LFE filter...');
 
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
         await self.businessTools.revertLfeFilterProccess(
           true,
           self.selectedLfeFrequency(),
@@ -513,7 +518,6 @@ class MeasurementViewModel {
         self.handleError(`Reverting LFE filter failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
 
@@ -521,9 +525,7 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Computing sum...');
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
 
         const firstMeasurementLevel = await self.mainTargetLevel();
         for (const subItem of self.subsMeasurements()) {
@@ -539,7 +541,6 @@ class MeasurementViewModel {
         self.handleError(`Sum failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
 
@@ -547,7 +548,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Align peaks...');
 
         const firstMeasurement = self.uniqueSpeakersMeasurements()[0];
@@ -580,7 +580,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Computing SPL alignment...');
 
         console.debug(`Computing SPL alignment`);
@@ -609,7 +608,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
 
         await measurement.createStandardFilter();
         await measurement.copyFiltersToOther();
@@ -624,7 +622,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Computing sum...');
 
         // await this.createsSumFromFR(self.uniqueSubsMeasurements());
@@ -641,7 +638,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Searching for alignement...');
 
         await self.loadData();
@@ -651,7 +647,6 @@ class MeasurementViewModel {
         if (!selectedLfe) {
           throw new Error(`No LFE found, please use sum subs button`);
         }
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
         const speakerItem = self.findMeasurementByUuid(self.selectedSpeaker());
         const result = await self.businessTools.produceAligned(
           selectedLfe,
@@ -678,7 +673,6 @@ class MeasurementViewModel {
         self.handleError(`Alignement search failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
 
@@ -686,8 +680,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
 
         for (const item of self.uniqueSpeakersMeasurements()) {
           // display progression in the status
@@ -701,7 +693,6 @@ class MeasurementViewModel {
         self.handleError(`Preview failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
 
@@ -709,8 +700,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
 
         for (const item of self.uniqueSpeakersMeasurements()) {
           // display progression in the status
@@ -724,7 +713,6 @@ class MeasurementViewModel {
         self.handleError(`Filter generation failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
 
@@ -748,7 +736,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('OCA file generation...');
         const measurementsinError = self
           .uniqueMeasurements()
@@ -778,7 +765,6 @@ class MeasurementViewModel {
         self.OCAFileGenerator.numberOfSubwoofers = self.uniqueSubsMeasurements().length;
         self.OCAFileGenerator.versionEvo = 'Sangoku_custom';
 
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
         const jsonData = await self.OCAFileGenerator.createOCAFile(
           self.uniqueMeasurements()
         );
@@ -804,7 +790,6 @@ class MeasurementViewModel {
       } catch (error) {
         self.handleError(`OCA file failed: ${error.message}`, error);
       } finally {
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
         self.isProcessing(false);
       }
     };
@@ -817,7 +802,6 @@ class MeasurementViewModel {
         }
 
         self.isProcessing(true);
-        self.error('');
         self.status('Exports Subs...');
 
         const frequencyResponses = [];
@@ -876,7 +860,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('MultiSubOptimizer...');
 
         await self.loadData();
@@ -1092,7 +1075,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        self.error('');
         self.status('Copy started');
         await self.copyMeasurementCommonAttributes();
         self.status('Copy succeful');
@@ -1107,15 +1089,12 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        await self.apiService.updateAPI('inhibit-graph-updates', true);
-        self.error('');
         await self.businessTools.createMeasurementPreview(measurement);
         await measurement.copyAllToOther();
       } catch (error) {
         self.handleError(`Preview generation failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
-        await self.apiService.updateAPI('inhibit-graph-updates', false);
       }
     };
 
