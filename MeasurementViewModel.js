@@ -1404,7 +1404,7 @@ class MeasurementViewModel {
       return;
     }
     const options = {
-      identifier: maximisedSumTitle,
+      identifier: maximisedSumTitle.slice(0, 24),
       isImpedance: false,
       startFreq: optimizedSubsSum.freqs[0],
       freqStep: optimizedSubsSum.freqStep,
