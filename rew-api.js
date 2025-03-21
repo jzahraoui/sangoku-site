@@ -43,7 +43,8 @@ export default class RewApi {
         .replace(/\s+/g, '');
       return `tc${tcName}`;
     } catch (error) {
-      throw new Error(`Error checking target curve: ${error.message}`, { cause: error });
+      const message = error.message || 'Error checking target curve';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -82,7 +83,8 @@ export default class RewApi {
         );
       }
     } catch (error) {
-      throw new Error(`Error checking version: ${error.message}`, { cause: error });
+      const message = error.message || 'Error checking version';
+      throw new Error(message, { cause: error });
     }
 
     return versionString;
@@ -102,7 +104,8 @@ export default class RewApi {
         0
       );
     } catch (error) {
-      throw new Error(`Error updating API: ${error.message}`, { cause: error });
+      const message = error.message || 'Error updating API';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -111,7 +114,8 @@ export default class RewApi {
       const body = { command: 'Clear command in progress' };
       return await this.updateAPI('command', body);
     } catch (error) {
-      throw new Error(`Error clearing commands: ${error.message}`, { cause: error });
+      const message = error.message || 'Error clearing commands';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -125,7 +129,8 @@ export default class RewApi {
       };
       return await this.fetchWithRetry(requestUrl, requestOptions, retry);
     } catch (error) {
-      throw new Error(`Error fetching REW: ${error.message}`, { cause: error });
+      const message = error.message || 'Error fetching REW';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -142,7 +147,8 @@ export default class RewApi {
 
       return await this.fetchWithRetry(url, options);
     } catch (error) {
-      throw new Error(`Fetch failed: ${error.message}`, { cause: error });
+      const message = error.message || 'Fetch failed';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -156,7 +162,8 @@ export default class RewApi {
 
       return await this.fetchWithRetry(url, options);
     } catch (error) {
-      throw new Error(`Fetch failed: ${error.message}`, { cause: error });
+      const message = error.message || 'Fetch failed';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -203,7 +210,8 @@ export default class RewApi {
 
       return commandRequest;
     } catch (error) {
-      throw new Error(`Process execution failed: ${error.message}`, { cause: error });
+      const message = error.message || '`Process execution failed';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -223,7 +231,8 @@ export default class RewApi {
 
       return commandRequest;
     } catch (error) {
-      throw new Error(`Post failed: ${error.message}`, { cause: error });
+      const message = error.message || 'Post failed';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -237,7 +246,8 @@ export default class RewApi {
 
       return await this.fetchWithRetry(requestUrl, fetchOptions, retries);
     } catch (error) {
-      throw new Error(`Put failed: ${error.message}`, { cause: error });
+      const message = error.message || 'Put failed';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -271,7 +281,8 @@ export default class RewApi {
       }
       return result;
     } catch (error) {
-      throw new Error(`Post failed: ${error.message}`, { cause: error });
+      const message = error.message || 'Post failed';
+      throw new Error(message, { cause: error });
     }
   }
   async postDelete(indice, retry = 3) {
@@ -284,7 +295,8 @@ export default class RewApi {
     try {
       return await this.fetchWithRetry(url, options, retry);
     } catch (error) {
-      throw new Error(`Delete failed: ${error.message}`, { cause: error });
+      const message = error.message || 'Delete failed';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -414,7 +426,8 @@ export default class RewApi {
         return await this.fetchWithRetry(url, options, retries - 1, expectedProcess);
       }
 
-      throw new Error(`Max retries reached: ${error.message}`, { cause: error });
+      const message = error.message || 'Max retries reached';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -437,7 +450,8 @@ export default class RewApi {
     try {
       return JSON.parse(options.body);
     } catch (error) {
-      throw new Error(`Failed to parse request body: ${error.message}`, { cause: error });
+      const message = error.message || 'Failed to parse request body';
+      throw new Error(message, { cause: error });
     }
   }
 }
