@@ -3,6 +3,7 @@ class BusinessTools {
     this.viewModel = parentViewModel;
     this.LPF_REVERTED_SUFFIX = ' w/o LPF';
     this.RESULT_PREFIX = 'final ';
+    this.AVERAGE_SUFFIX = 'avg';
   }
 
   async revertLfeFilterProccess(deletePrevious = true, freq, replaceOriginal = false) {
@@ -151,7 +152,7 @@ class BusinessTools {
         // exclude previous results and create array of UUIDs for the current code group
         const usableItems = groupedResponse[code].items.filter(
           item =>
-            !item.title().endsWith('avg') && !item.title().startsWith(this.RESULT_PREFIX)
+            !item.title().endsWith(this.AVERAGE_SUFFIX) && !item.title().startsWith(this.RESULT_PREFIX)
         );
 
         // Process the collected indices
@@ -188,7 +189,7 @@ class BusinessTools {
         // Update title
         if (vectorAverage) {
           console.debug(`${code}: measurements average title renaming...`);
-          await vectorAverage.setTitle(code + 'avg');
+          await vectorAverage.setTitle(code + this.AVERAGE_SUFFIX);
         } else {
           throw new Error(`${code}: can not rename the average...`);
         }
