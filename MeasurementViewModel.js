@@ -5,6 +5,7 @@ import OCAFileGenerator from './oca-file.js';
 import translations from './translations.js';
 import AdyTools from './ady-tools.js';
 import MultiSubOptimizer from './multi-sub-optimizer.js';
+import AvrCaracteristics from './avr-caracteristics.js';
 
 const store = new PersistentStore('myAppData');
 
@@ -155,6 +156,7 @@ class MeasurementViewModel {
     self.maxBoostOverallValue = ko.observable(0);
     self.minOverallValue = 0;
     self.maxOverallValue = 3;
+    self.avr = {};
 
     self.validateFile = function (file) {
       const maxSize = 50 * 1024 * 1024; // 15KB
@@ -235,27 +237,26 @@ class MeasurementViewModel {
         }
 
         // TODO: ampassign can be directionnal must be converted to standard
-        for (const [channelIndex, channel] of data.detectedChannels.entries()) {
-          const responses = Object.entries(channel.responseData);
-          for (const [position, response] of responses) {
-            const encodedData = MeasurementItem.encodeRewToBase64(response);
-            if (!encodedData) {
-              self.handleError('Error encoding array');
-              return;
+        if (self.isPolling()) {
+          for (const [channelIndex, channel] of data.detectedChannels.entries()) {
+            const responses = Object.entries(channel.responseData);
+            for (const [position, response] of responses) {
+              const encodedData = MeasurementItem.encodeRewToBase64(response);
+              if (!encodedData) {
+                self.handleError('Error encoding array');
+                return;
+              }
+              const options = {
+                identifier: `${channel.commandId}_P${Number(position) + 1}`,
+                startTime: 0,
+                sampleRate: 48000,
+                splOffset: AdyTools.SPL_OFFSET,
+                applyCal: false,
+                data: encodedData,
+              };
+              await self.apiService.postSafe('import/impulse-response-data', options);
             }
-            const options = {
-              identifier: `${channel.commandId}_P${Number(position) + 1}`,
-              startTime: 0,
-              sampleRate: 48000,
-              splOffset: AdyTools.SPL_OFFSET,
-              applyCal: false,
-              data: encodedData,
-            };
-            await self.apiService.postSafe('import/impulse-response-data', options);
           }
-
-          // remove responseData elements from data
-          data.detectedChannels[channelIndex].responseData = [];
         }
 
         // Create download buttons
@@ -264,6 +265,15 @@ class MeasurementViewModel {
         button.onclick = () => saveAs(content, `${data.title}.zip`);
         results.appendChild(button);
       }
+
+      // remove responseData elements from data
+      data.detectedChannels = data.detectedChannels.map(channel => ({
+        ...channel,
+        responseData: [],
+      }));
+
+      self.avr = new AvrCaracteristics(data);
+      data.avr = self.avr.toJSON();
 
       self.jsonAvrData(data);
       self.OCAFileGenerator = new OCAFileGenerator(data);
@@ -274,10 +284,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
 
       try {
-        if (!self.isPolling()) {
-          throw new Error('Please connect to REW');
-        }
-
         await self.isProcessing(true);
 
         if (!file) {
@@ -348,12 +354,12 @@ class MeasurementViewModel {
           // Save to persistent storage first
           await self.saveMeasurements();
 
-          if (self.inhibitGraphUpdates) {
+          if (self.isPolling() && self.inhibitGraphUpdates) {
             await self.apiService.updateAPI('inhibit-graph-updates', false);
           }
         } else if (newValue === true) {
           self.error('');
-          if (self.inhibitGraphUpdates) {
+          if (self.isPolling() && self.inhibitGraphUpdates) {
             await self.apiService.updateAPI('inhibit-graph-updates', true);
           }
         }
@@ -498,14 +504,14 @@ class MeasurementViewModel {
 
         const allOffset = filteredMeasurements.map(item => ({
           title: item.displayMeasurementTitle(),
-          alignOffset: item.alignSPLOffsetdB(),
-          offset: item.splOffsetdB(),
+          alignOffset: item.alignSPLOffsetdB().toFixed(3),
+          offset: item.splOffsetdB().toFixed(3),
         }));
         const uniqueAlignOffsets = new Set(allOffset.map(x => x.alignOffset));
         if (uniqueAlignOffsets.size !== 1) {
           const measurementsWithOffsets = allOffset
             .filter(x => x.alignOffset !== 0)
-            .map(x => `${x.title}: ${x.alignOffset} dB`)
+            .map(x => `${x.title}: ${x.alignOffset}dB`)
             .join(', ');
           throw new Error(
             `Some measurements have inconsistent SPL alignment offsets: ${measurementsWithOffsets} expected 0dB`
