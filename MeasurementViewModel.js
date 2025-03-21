@@ -270,38 +270,42 @@ class MeasurementViewModel {
     };
 
     // Handle file reading
-    self.readFile = function (file) {
+    self.readFile = async function (file) {
+      if (self.isProcessing()) return;
+
+      try {
+        if (!self.isPolling()) {
+          throw new Error('Please connect to REW');
+        }
+
+        await self.isProcessing(true);
+
       if (!file) {
-        self.handleError('No file selected');
-        return;
+          throw new Error('No file selected');
       }
 
       if (!self.validateFile(file)) {
-        return;
+          throw new Error('File validation failed');
       }
 
-      self.isProcessing(true);
-
+        const fileContent = await new Promise((resolve, reject) => {
       const reader = new FileReader();
 
-      reader.onload = function (e) {
-        try {
-          const data = JSON.parse(e.target.result);
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('Error reading file'));
+
+          reader.readAsText(file);
+        });
+
+        const data = JSON.parse(fileContent);
           // Handle successful load
-          self.onFileLoaded(data);
+        await self.onFileLoaded(data);
         } catch (error) {
-          self.handleError('Error parsing JSON:', error);
+        self.handleError(`Error parsing file: ${error.message}`, error);
         } finally {
           self.isProcessing(false);
         }
       };
-
-      reader.onerror = function () {
-        self.handleError('Error reading file');
-      };
-
-      reader.readAsText(file);
-    };
 
     // Drop handlers
     self.handleDrop = function (_, e) {
@@ -354,8 +358,9 @@ class MeasurementViewModel {
           }
         }
       } catch (error) {
-        console.error('Error in isProcessing subscription:', error);
-        // Add appropriate error handling here
+        throw new Error(`Error in isProcessing subscription: ${error.message}`, {
+          cause: error,
+        });
       }
     });
 
