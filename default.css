@@ -929,3 +929,28 @@ button:disabled {
   color: var(--gray-500);
   cursor: not-allowed;
 }
+
+.avr-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+}
+
+.avr-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.detail-label {
+  font-weight: 600;
+  min-width: 140px;
+  color: var(--text-primary);
+}
+
+.detail-value {
+  color: var(--text-secondary);
+}

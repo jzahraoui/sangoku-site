@@ -85,25 +85,66 @@
               <summary data-i18n="avr_config"></summary>
 
               <!-- File Content Editor -->
-              <div data-bind="if: jsonAvrData">
+              <div class="avr-config-section" data-bind="if: jsonAvrData">
                 <h3 data-i18n="file_details"></h3>
 
-                <!-- Basic Properties -->
-                <div>
-                  <label data-bind="text: 'Title: ' + jsonAvrData().title"></label>
-                  <label
-                    data-bind="text: 'Target Model: ' + jsonAvrData().targetModelName"
-                  ></label>
-                  <label
-                    data-bind="text: 'MultEQ Version:' + jsonAvrData().enMultEQType"
-                  ></label>
-                  <label
-                    data-bind="text: 'subwooferMode: ' + jsonAvrData().subwooferMode"
-                  ></label>
-                  <label
-                    data-bind="text: 'subwooferLayout: ' + jsonAvrData().subwooferLayout"
-                  ></label>
-                  <!-- <label type="text" data-bind="text: 'lpfForLFE:' + OCAFileGenerator.lpfForLFE"></label> -->
+                <div class="avr-details">
+                  <div class="avr-detail-row">
+                    <span class="detail-label">Title:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().title"
+                    ></span>
+                  </div>
+                  <div class="avr-detail-row">
+                    <span class="detail-label">Target Model:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().targetModelName"
+                    ></span>
+                  </div>
+                  <div class="avr-detail-row">
+                    <span class="detail-label">MultEQ Version:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().avr.multEQDescription"
+                    ></span>
+                  </div>
+                  <div class="avr-detail-row">
+                    <span class="detail-label">Speed of Sound:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().avr.speedOfSound"
+                    ></span>
+                  </div>
+                  <div class="avr-detail-row">
+                    <span class="detail-label">Has Soft Roll:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().avr.hasSoftRollDac"
+                    ></span>
+                  </div>
+                  <div class="avr-detail-row">
+                    <span class="detail-label">180Hz crossover:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().avr.hasExtendedFreq"
+                    ></span>
+                  </div>
+                  <div class="avr-detail-row">
+                    <span class="detail-label">Subwoofer Mode:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().subwooferMode"
+                    ></span>
+                  </div>
+                  <div class="avr-detail-row">
+                    <span class="detail-label">Subwoofer Layout:</span>
+                    <span
+                      class="detail-value"
+                      data-bind="text: jsonAvrData().subwooferLayout"
+                    ></span>
+                  </div>
                 </div>
 
                 <!-- Channels Editor -->
