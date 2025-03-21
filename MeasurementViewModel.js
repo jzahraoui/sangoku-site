@@ -280,16 +280,16 @@ class MeasurementViewModel {
 
         await self.isProcessing(true);
 
-      if (!file) {
+        if (!file) {
           throw new Error('No file selected');
-      }
+        }
 
-      if (!self.validateFile(file)) {
+        if (!self.validateFile(file)) {
           throw new Error('File validation failed');
-      }
+        }
 
         const fileContent = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
+          const reader = new FileReader();
 
           reader.onload = () => resolve(reader.result);
           reader.onerror = () => reject(new Error('Error reading file'));
@@ -298,14 +298,14 @@ class MeasurementViewModel {
         });
 
         const data = JSON.parse(fileContent);
-          // Handle successful load
+        // Handle successful load
         await self.onFileLoaded(data);
-        } catch (error) {
+      } catch (error) {
         self.handleError(`Error parsing file: ${error.message}`, error);
-        } finally {
-          self.isProcessing(false);
-        }
-      };
+      } finally {
+        self.isProcessing(false);
+      }
+    };
 
     // Drop handlers
     self.handleDrop = function (_, e) {
@@ -473,32 +473,54 @@ class MeasurementViewModel {
     self.buttoncreatesAverages = async function () {
       if (self.isProcessing()) return;
       try {
+        if (!self.isPolling()) {
+          throw new Error('Please connect to REW before creating averages');
+        }
         self.isProcessing(true);
-        self.status('Average is runing...');
+        self.status('Average calculation started...');
 
-        const allOffset = self.measurements().map(item => item.splOffsetdB());
-        // Check if we have any measurements
-        if (allOffset.length === 0) {
-          throw new Error('No valid measurements found');
-        }
-        const uniqueOffsets = [...new Set(allOffset)];
-        if (uniqueOffsets.length > 1) {
-          throw new Error('Inconsistent SPL offsets detected in measurements');
-        }
-
-        const allAlignOffset = self.measurements().map(item => item.alignSPLOffsetdB());
-        const uniqueAlignOffsets = new Set(allAlignOffset);
-        if (uniqueAlignOffsets.size !== 1) {
-          throw new Error(`Some measurements have SPL offset, please undo SPL alignment`);
-        }
-
-        const allcumulativeIRShiftSeconds = self
+        // Get valid measurements to average
+        const filteredMeasurements = self
           .measurements()
-          .map(item => item.cumulativeIRShiftSeconds().toFixed(7));
-        const uniquecumulativeIRShiftSeconds = new Set(allcumulativeIRShiftSeconds);
-        if (uniquecumulativeIRShiftSeconds.size !== 1) {
+          .filter(
+            item =>
+              !item.title().endsWith('avg') &&
+              !item.title().startsWith(self.businessTools.RESULT_PREFIX) &&
+              item.channelName() !== self.UNKNOWN_GROUP_NAME &&
+              item.position() !== 0 &&
+              item.isValid
+          );
+
+        // Check if we have enough measurements
+        if (filteredMeasurements.length < 2) {
+          throw new Error('Need at least 2 valid measurements to calculate average');
+        }
+
+        const allOffset = filteredMeasurements.map(item => ({
+          title: item.displayMeasurementTitle(),
+          alignOffset: item.alignSPLOffsetdB(),
+          offset: item.splOffsetdB(),
+        }));
+        const uniqueAlignOffsets = new Set(allOffset.map(x => x.alignOffset));
+        if (uniqueAlignOffsets.size !== 1) {
+          const measurementsWithOffsets = allOffset
+            .filter(x => x.alignOffset !== 0)
+            .map(x => `${x.title}: ${x.alignOffset} dB`)
+            .join(', ');
           throw new Error(
-            `Some measurements have timing offset, please undo t=0 changes`
+            `Some measurements have inconsistent SPL alignment offsets: ${measurementsWithOffsets} expected 0dB`
+          );
+        }
+
+        const uniqueOffsets = new Set(allOffset.map(x => x.offset));
+        if (uniqueOffsets.size !== 1) {
+          const firstMeasurementOffset = allOffset[0].offset;
+          const measurementsWithOffsets = allOffset
+            .filter(x => x.offset !== firstMeasurementOffset)
+            .map(x => `${x.title}: ${x.offset}dB`)
+            .join('\n');
+          throw new Error(
+            `Inconsistent SPL offsets detected in measurements:\n${measurementsWithOffsets} expected ${firstMeasurementOffset}dB`
           );
         }
 
@@ -508,7 +530,7 @@ class MeasurementViewModel {
           self.selectedAverageMethod(),
           self.keepOriginalForAverage()
         );
-        self.status(`Averages created successfully`);
+        self.status('Average calculations completed successfully');
       } catch (error) {
         self.handleError(`Averages failed: ${error.message}`, error);
       } finally {
