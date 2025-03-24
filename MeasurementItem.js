@@ -3,7 +3,6 @@ import './lib/decimal.min.js';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
-  static SPEED_OF_SOUND = 343;
   static MODEL_DISTANCE_LIMIT = 6.0;
   static MODEL_DISTANCE_CRITICAL_LIMIT = 7.35;
 
@@ -14,6 +13,10 @@ class MeasurementItem {
     // Validate inputs
     if (!item || !parentViewModel) {
       throw new Error('Invalid parameters for MeasurementItem creation');
+    }
+
+    if (!parentViewModel.jsonAvrData()?.avr) {
+      throw new Error('No AVR data loaded');
     }
 
     self.parentViewModel = parentViewModel;
@@ -244,18 +247,24 @@ class MeasurementItem {
   _computeInMeters(valueInSeconds) {
     const failSafeValue =
       typeof valueInSeconds === 'number' && isFinite(valueInSeconds) ? valueInSeconds : 0;
-    return failSafeValue * MeasurementItem.SPEED_OF_SOUND;
+    return failSafeValue * this.parentViewModel.jsonAvrData().avr.speedOfSound;
   }
 
   _computeInSeconds(valueInMeters) {
     const failSafeValue =
       typeof valueInMeters === 'number' && isFinite(valueInMeters) ? valueInMeters : 0;
-    return failSafeValue / MeasurementItem.SPEED_OF_SOUND;
+    return failSafeValue / this.parentViewModel.jsonAvrData().avr.speedOfSound;
   }
 
   _computeDistanceInMeters(valueInSeconds) {
     const valueInMeters =
-      this._computeInMeters(valueInSeconds) + this.parentViewModel.DEFAULT_SHIFT_IN_METERS;
+      this._computeInMeters(valueInSeconds) +
+      this.parentViewModel.DEFAULT_SHIFT_IN_METERS;
+    if (!valueInMeters) {
+      throw new Error(
+        `Failed to compute distance in meters for ${this.displayMeasurementTitle()}`
+      );
+    }
     return MeasurementItem.cleanFloat32Value(valueInMeters, 2);
   }
 

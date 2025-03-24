@@ -5,6 +5,7 @@ import OCAFileGenerator from './oca-file.js';
 import translations from './translations.js';
 import AdyTools from './ady-tools.js';
 import MultiSubOptimizer from './multi-sub-optimizer.js';
+import AvrCaracteristics from './avr-caracteristics.js';
 
 const store = new PersistentStore('myAppData');
 
@@ -212,6 +213,9 @@ class MeasurementViewModel {
       if (firstChannelDistance) {
         self.DEFAULT_SHIFT_IN_METERS = firstChannelDistance;
       }
+
+      const avr = new AvrCaracteristics(data);
+      data.avr = avr.toJSON();
 
       // Check if we have any measurements meaning we have a ady file
       if (data.detectedChannels?.[0].responseData?.[0]) {

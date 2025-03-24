@@ -27,7 +27,7 @@ class AdyTools {
     };
     const formattedDate = this.currentDate.toLocaleString('fr-FR', options);
     const jszip = new JSZip();
-    const isCirrusLogic = false;
+    const isCirrusLogic = this.fileContent.avr.hasCirrusLogicDsp;
 
     // Convert map to Promise.all for parallel processing
     const zipPromises = this.fileContent.detectedChannels.flatMap(channel =>
@@ -97,6 +97,7 @@ class AdyTools {
     }
   }
 
+  // TODO: replace by Polar and Complex class methods
   vectorDivision(impulseA, impulseB) {
     // Basic input validation
     if (!impulseA || !impulseA.length || !impulseB || !impulseB.length) {
