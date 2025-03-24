@@ -24,7 +24,12 @@ const CHANNEL_TYPES = {
     code: 'FWR',
     group: 'FrontWide',
   },
-  // EnChannelType_SurrRight: { measurementOrder: 4, channelIndex: 4, code: "SRA" },
+  EnChannelType_SurrRight: {
+    measurementOrder: 4,
+    channelIndex: 4,
+    code: 'SRA',
+    group: 'SurroundA',
+  },
   EnChannelType_SurrRightA: {
     measurementOrder: 5,
     channelIndex: 5,
@@ -44,7 +49,12 @@ const CHANNEL_TYPES = {
     code: 'SBR',
     group: 'SurroundBack',
   },
-  // EnChannelType_SBackCenter: { measurementOrder: 9, channelIndex: 9, code: "SBL" },
+  EnChannelType_SBackCenter: {
+    measurementOrder: 9,
+    channelIndex: 9,
+    code: 'SBL',
+    group: 'SurroundBack',
+  },
   EnChannelType_SBackLeft: {
     measurementOrder: 10,
     channelIndex: 10,
@@ -64,7 +74,12 @@ const CHANNEL_TYPES = {
     code: 'SLA',
     group: 'SurroundA',
   },
-  // EnChannelType_SurrLeft: { measurementOrder: 14, channelIndex: 14, code: "SLA" },
+  EnChannelType_SurrLeft: {
+    measurementOrder: 14,
+    channelIndex: 14,
+    code: 'SLA',
+    group: 'SurroundA',
+  },
   EnChannelType_FrontWideLeft: {
     measurementOrder: 15,
     channelIndex: 15,

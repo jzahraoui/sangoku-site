@@ -67,7 +67,15 @@ class MeasurementItem {
         CHANNEL_TYPES.getBestMatchCode(self.title()) ||
         self.parentViewModel.UNKNOWN_GROUP_NAME
     );
-    self.channelDetails = ko.computed(() => CHANNEL_TYPES.getByCode(self.channelName()));
+
+    self.channelDetails = ko.computed(() => {
+      const foundChannel = parentViewModel
+        .jsonAvrData()
+        .detectedChannels.find(channel => channel.commandId === self.channelName());
+      if (foundChannel) {
+        return CHANNEL_TYPES.getByChannelIndex(foundChannel.enChannelType);
+      }
+    });
 
     self.position = ko.computed(() => {
       const groupedMeasurements = self.parentViewModel.groupedMeasurements();
