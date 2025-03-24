@@ -208,7 +208,8 @@ class MeasurementViewModel {
       const numbersOfSubs = data.subwooferNum;
       const subwooferMode = data.subwooferMode;
       const fisrtChannel = data.detectedChannels[0];
-      const firstChannelDistance = fisrtChannel.channelReport.distance;
+      const firstChannelDistance =
+        fisrtChannel.channelReport.distance || fisrtChannel.customDistance;
 
       if (firstChannelDistance) {
         self.DEFAULT_SHIFT_IN_METERS = firstChannelDistance;
@@ -239,27 +240,48 @@ class MeasurementViewModel {
         }
 
         // TODO: ampassign can be directionnal must be converted to standard
-        for (const [channelIndex, channel] of data.detectedChannels.entries()) {
-          const responses = Object.entries(channel.responseData);
-          for (const [position, response] of responses) {
-            const encodedData = MeasurementItem.encodeRewToBase64(response);
-            if (!encodedData) {
-              self.handleError('Error encoding array');
-              return;
-            }
-            const options = {
-              identifier: `${channel.commandId}_P${Number(position) + 1}`,
-              startTime: 0,
-              sampleRate: 48000,
-              splOffset: AdyTools.SPL_OFFSET,
-              applyCal: false,
-              data: encodedData,
-            };
-            await self.apiService.postSafe('import/impulse-response-data', options);
-          }
+        if (self.isPolling()) {
+          for (const [channelIndex, channel] of data.detectedChannels.entries()) {
+            const responses = Object.entries(channel.responseData);
+            for (const [position, response] of responses) {
+              const identifier = `${channel.commandId}_P${(Number(position) + 1).toString().padStart(2, '0')}`;
+              const max = Math.max(...response.map(x => Math.abs(x)));
+              const lastMeasurementIndex = self.measurements().length;
+              const encodedData = MeasurementItem.encodeRewToBase64(response);
 
-          // remove responseData elements from data
-          data.detectedChannels[channelIndex].responseData = [];
+              if (!encodedData) {
+                self.handleError('Error encoding array');
+                return;
+              }
+              const options = {
+                identifier: identifier,
+                startTime: 0,
+                sampleRate: 48000,
+                splOffset: AdyTools.SPL_OFFSET,
+                applyCal: false,
+                data: encodedData,
+              };
+              await self.apiService.postSafe('import/impulse-response-data', options);
+
+              const item = await this.apiService.fetchREW(
+                lastMeasurementIndex + 1,
+                'GET',
+                null,
+                0
+              );
+              const measurementItem = new MeasurementItem(item, this);
+              measurementItem.IRPeakValue = max;
+              await this.addMeasurement(measurementItem);
+              if (max >= 1) {
+                console.warn(
+                  `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
+                );
+              }
+            }
+
+            // remove responseData elements from data
+            data.detectedChannels[channelIndex].responseData = [];
+          }
         }
 
         // Create download buttons
@@ -278,10 +300,6 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
 
       try {
-        if (!self.isPolling()) {
-          throw new Error('Please connect to REW');
-        }
-
         await self.isProcessing(true);
 
         if (!file) {
@@ -352,13 +370,15 @@ class MeasurementViewModel {
           // Save to persistent storage first
           await self.saveMeasurements();
 
-          if (self.inhibitGraphUpdates) {
+          if (self.isPolling() && self.inhibitGraphUpdates) {
             await self.apiService.updateAPI('inhibit-graph-updates', false);
+            // await self.apiService.updateAPI('blocking', false);
           }
         } else if (newValue === true) {
           self.error('');
-          if (self.inhibitGraphUpdates) {
+          if (self.isPolling() && self.inhibitGraphUpdates) {
             await self.apiService.updateAPI('inhibit-graph-updates', true);
+            // await self.apiService.updateAPI('blocking', true);
           }
         }
       } catch (error) {
@@ -492,7 +512,8 @@ class MeasurementViewModel {
               !item.title().startsWith(self.businessTools.RESULT_PREFIX) &&
               item.channelName() !== self.UNKNOWN_GROUP_NAME &&
               item.position() !== 0 &&
-              item.isValid
+              item.isValid &&
+              item.IRPeakValue < 1
           );
 
         // Check if we have enough measurements
@@ -502,17 +523,17 @@ class MeasurementViewModel {
 
         const allOffset = filteredMeasurements.map(item => ({
           title: item.displayMeasurementTitle(),
-          alignOffset: item.alignSPLOffsetdB(),
-          offset: item.splOffsetdB(),
+          alignOffset: item.alignSPLOffsetdB().toFixed(2),
+          offset: item.splOffsetdB().toFixed(2),
         }));
         const uniqueAlignOffsets = new Set(allOffset.map(x => x.alignOffset));
         if (uniqueAlignOffsets.size !== 1) {
           const measurementsWithOffsets = allOffset
-            .filter(x => x.alignOffset !== 0)
-            .map(x => `${x.title}: ${x.alignOffset} dB`)
+            .filter(x => x.alignOffset !== '0.00')
+            .map(x => `${x.title}: ${x.alignOffset}dB`)
             .join(', ');
           throw new Error(
-            `Some measurements have inconsistent SPL alignment offsets: ${measurementsWithOffsets} expected 0dB`
+            `Some measurements have inconsistent SPL alignment offsets: ${measurementsWithOffsets}`
           );
         }
 
@@ -522,9 +543,9 @@ class MeasurementViewModel {
           const measurementsWithOffsets = allOffset
             .filter(x => x.offset !== firstMeasurementOffset)
             .map(x => `${x.title}: ${x.offset}dB`)
-            .join('\n');
+            .join(', ');
           throw new Error(
-            `Inconsistent SPL offsets detected in measurements:\n${measurementsWithOffsets} expected ${firstMeasurementOffset}dB`
+            `Inconsistent SPL offsets detected in measurements: ${measurementsWithOffsets} expected ${firstMeasurementOffset}dB`
           );
         }
 
@@ -1608,15 +1629,14 @@ class MeasurementViewModel {
       return existingItem;
     }
     try {
-      // First attempt to delete from API to ensure consistency
       const item = await this.apiService.fetchREW(itemUuid, 'GET', null, 0);
       // Transform data using the MeasurementItem class
       const measurementItem = new MeasurementItem(item, this);
       await this.addMeasurement(measurementItem);
-      console.debug(`measurement ${item.title} added`);
       return measurementItem;
     } catch (error) {
       this.handleError(`Failed to add measurement: ${error.message}`, error);
+      return false;
     }
   }
 
@@ -1634,12 +1654,10 @@ class MeasurementViewModel {
         console.warn(
           `measurement ${item.measurementIndex()}: ${item.title()} already exists, not added`
         );
-        return false;
       } else {
         this.measurements.push(item);
+        console.debug(`measurement ${item.title()} added`);
       }
-
-      return true; // Indicate successful addition
     } catch (error) {
       this.handleError(`Failed to add measurement: ${error.message}`, error);
     }
@@ -1769,6 +1787,12 @@ class MeasurementViewModel {
       if (withoutResultCommands.indexOf(commandName) !== -1) {
         return operationResult;
       } else {
+        // TODO: REW bug ? return code 200 instead of 202 and no results in the response
+        if (!operationResult.results) {
+          throw new Error(
+            `Missing result from API response: ${JSON.stringify(operationResult)}`
+          );
+        }
         const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
         // Save to persistent storage
         return await this.addMeasurementApi(operationResultUuid);
@@ -1909,6 +1933,11 @@ class MeasurementViewModel {
   restore() {
     const data = store.load();
     if (data) {
+      // avrFileContent must be loaded before measurements as they needs the informations
+      this.jsonAvrData(data.avrFileContent);
+      this.OCAFileGenerator = data.avrFileContent
+        ? new OCAFileGenerator(data.avrFileContent)
+        : null;
       // Transform data using the MeasurementItem class
       const enhancedMeasurements = Object.values(data.measurements).map(
         item => new MeasurementItem(item, this)
@@ -1921,11 +1950,7 @@ class MeasurementViewModel {
       this.selectedLfeFrequency(data.selectedLfeFrequency);
       this.selectedAlignFrequency(data.selectedAlignFrequency);
       this.selectedAverageMethod(data.selectedAverageMethod);
-      this.jsonAvrData(data.avrFileContent);
       this.lpfForLFE(data.selectedAlignFrequency);
-      this.OCAFileGenerator = data.avrFileContent
-        ? new OCAFileGenerator(data.avrFileContent)
-        : null;
     }
   }
 
