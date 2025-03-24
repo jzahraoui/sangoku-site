@@ -215,6 +215,7 @@ class MeasurementViewModel {
 
       const avr = new AvrCaracteristics(data);
       data.avr = avr.toJSON();
+      self.jsonAvrData(data);
 
       // Check if we have any measurements meaning we have a ady file
       if (data.detectedChannels?.[0].responseData?.[0]) {
@@ -276,9 +277,6 @@ class MeasurementViewModel {
                 );
               }
             }
-
-            // remove responseData elements from data
-            data.detectedChannels[channelIndex].responseData = [];
           }
         }
 
@@ -287,6 +285,14 @@ class MeasurementViewModel {
         button.textContent = `Download measurements zip`;
         button.onclick = () => saveAs(content, `${data.title}.zip`);
         results.appendChild(button);
+      }
+
+      // remove responseData elements from data
+      const channels = data.detectedChannels;
+      if (channels && Array.isArray(channels)) {
+        for (let i = 0; i < channels.length; i++) {
+          channels[i].responseData = [];
+        }
       }
 
       self.jsonAvrData(data);
