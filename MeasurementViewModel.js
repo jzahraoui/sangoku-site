@@ -122,9 +122,7 @@ class MeasurementViewModel {
     // Array of frequency options
     self.averageMethod = [
       { value: 'Vector average', text: 'Vector average' },
-      { value: 'RMS average', text: 'RMS average' },
       { value: 'Magn plus phase average', text: 'RMS + phase avg.' },
-      { value: 'dB average', text: 'dB average' },
       { value: 'dB plus phase average', text: 'dB + phase avg.' },
       { value: 'Vector sum', text: 'Vector sum' },
     ];
