@@ -42,6 +42,7 @@ class MeasurementItem {
     self.isFilter = item.isFilter || false;
     self.associatedFilter = item.associatedFilter;
     self.measurementType = MeasurementItem.measurementType.SPEAKERS;
+    self.IRPeakValue = item.IRPeakValue || 0;
 
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
@@ -1241,6 +1242,7 @@ class MeasurementItem {
       isFilter: this.isFilter,
       haveImpulseResponse: this.haveImpulseResponse,
       associatedFilter: this.associatedFilter,
+      IRPeakValue: this.IRPeakValue,
     };
   }
 
