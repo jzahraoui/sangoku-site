@@ -1,31 +1,6 @@
 import { CHANNEL_TYPES } from './audyssey.js';
 
 export default class OCAFileGenerator {
-  static SPEAKERS_LENGTH_BASIC = 128; // 128 taps
-  static SUB_LENGTH_BASIC = 512; // 512 taps
-
-  static SPEAKERS_LENGTH_XT = 512; // 512 taps
-  static SUB_LENGTH_XT = 512; // 512 taps
-
-  static SPEAKERS_LENGTH_XT32 = 16321; // converted to 1024 taps after odd mangling
-  static SUB_LENGTH_XT32 = 16055; // converted to 704 taps after odd mangling
-
-  static SPEAKERS_FILTER_TAPS_BASIC = 128;
-  static SUB_FILTER_TAPS_BASIC = 512;
-
-  static SPEAKERS_FILTER_TAPS_XT = 512;
-  static SUB_FILTER_TAPS_XT = 512;
-
-  static SPEAKERS_FILTER_TAPS_XT32 = 1024;
-  static SUB_FILTER_TAPS_XT32 = 704;
-
-  static EQType_MultEQ = 0;
-  static EQType_MultEQXT = 1;
-  static EQType_MultEQXT32 = 2;
-
-  static FREQUENCY_48_KHZ = 48000;
-  static FREQUENCY_6_KHZ = 6000;
-
   static GAIN_ADJUSTMENT_EXP = -0.44999998807907104;
   static GAIN_ADJUSTMENT_EXP_SOFT = -0.35;
 
@@ -174,6 +149,12 @@ export default class OCAFileGenerator {
       );
     }
 
+    // check if 180Hz crossover is used into allResponses item
+    const anyItemHas180HzCrossover = allResponses.some(item => item.crossover() === 180);
+    if (anyItemHas180HzCrossover && !this.avrFileContent.avr.hasExtendedFreq) {
+      throw new Error(`180Hz crossover is not supported by your AVR`);
+    }
+
     // creates a for loop on dataArray
     for (const item of Object.values(allResponses)) {
       // skip if item is not an object and not have timeOfIRStartSeconds attribute
@@ -189,8 +170,14 @@ export default class OCAFileGenerator {
       try {
         //const itemMinimumPhase =  await item.createMinimumPhaseCopy();
         itemFilter = await item.generateFilterMeasurement();
-        const filterLength = this.getFilterLength(item);
-        const getFilterFrequency = this.getFilterFreq(item);
+        let filterCaracteristics;
+        if (item.isSub()) {
+          filterCaracteristics = this.avrFileContent.avr.multEQSpecs.subFilter;
+        } else {
+          filterCaracteristics = this.avrFileContent.avr.multEQSpecs.speakerFilter;
+        }
+        const filterLength = filterCaracteristics.samples;
+        const getFilterFrequency = filterCaracteristics.frequency;
         const filter = await this.computeFilterGeneration(
           itemFilter,
           filterLength,
@@ -296,59 +283,5 @@ export default class OCAFileGenerator {
     // Use toFixed for direct string conversion to desired precision
     // Then convert back to number for consistent output
     return Number(value.toFixed(precision));
-  }
-
-  /**
-   * Get the filter length based on the EQ type.
-   * @returns {number} The filter length.
-   */
-  getFilterLength(item) {
-    if (!item.haveImpulseResponse) {
-      return;
-    }
-    if (!this.eqType) {
-      throw new Error(`Invalid EQ type: ${this.eqType}`);
-    }
-
-    switch (this.eqType) {
-      case OCAFileGenerator.EQType_MultEQ:
-        return item.isSub()
-          ? OCAFileGenerator.SUB_LENGTH_BASIC
-          : OCAFileGenerator.SPEAKERS_LENGTH_BASIC;
-      case OCAFileGenerator.EQType_MultEQXT:
-        return item.isSub()
-          ? OCAFileGenerator.SUB_LENGTH_XT
-          : OCAFileGenerator.SPEAKERS_LENGTH_XT;
-      case OCAFileGenerator.EQType_MultEQXT32:
-        return item.isSub()
-          ? OCAFileGenerator.SUB_LENGTH_XT32
-          : OCAFileGenerator.SPEAKERS_LENGTH_XT32;
-      default:
-        throw new Error(`Invalid EQ type: ${this.eqType}`);
-    }
-  }
-
-  getFilterFreq(item) {
-    if (!item.haveImpulseResponse) {
-      return;
-    }
-    if (!this.eqType) {
-      throw new Error(`Invalid EQ type: ${this.eqType}`);
-    }
-
-    switch (this.eqType) {
-      case OCAFileGenerator.EQType_MultEQ:
-        return item.isSub()
-          ? OCAFileGenerator.FREQUENCY_48_KHZ
-          : OCAFileGenerator.FREQUENCY_6_KHZ;
-      case OCAFileGenerator.EQType_MultEQXT:
-        return item.isSub()
-          ? OCAFileGenerator.FREQUENCY_48_KHZ
-          : OCAFileGenerator.FREQUENCY_6_KHZ;
-      case OCAFileGenerator.EQType_MultEQXT32:
-        return OCAFileGenerator.FREQUENCY_48_KHZ;
-      default:
-        throw new Error(`Invalid EQ type: ${this.eqType}`);
-    }
   }
 }
