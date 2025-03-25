@@ -1,5 +1,5 @@
 class AdyTools {
-  static SPL_OFFSET = 82.0;
+  static SPL_OFFSET = 80.0;
 
   constructor(fileContent) {
     if (!fileContent) {
