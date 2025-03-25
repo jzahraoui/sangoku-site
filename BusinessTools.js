@@ -152,7 +152,8 @@ class BusinessTools {
         // exclude previous results and create array of UUIDs for the current code group
         const usableItems = groupedResponse[code].items.filter(
           item =>
-            !item.title().endsWith(this.AVERAGE_SUFFIX) && !item.title().startsWith(this.RESULT_PREFIX)
+            !item.title().endsWith(this.AVERAGE_SUFFIX) &&
+            !item.title().startsWith(this.RESULT_PREFIX)
         );
 
         // Process the collected indices
@@ -321,6 +322,10 @@ class BusinessTools {
       await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
 
     const cxText = cuttOffFrequency ? `X@${cuttOffFrequency}Hz` : 'FB';
+    const allowedForwardSearchMs = 2;
+    const allowedForwardSearchMeter = PredictedLfe._computeInMeters(
+      allowedForwardSearchMs / 1000
+    );
     let totalOffset = 0;
     let mustBeInverted = false;
 
@@ -330,14 +335,35 @@ class BusinessTools {
         PredictedLfeFiltered.timeOfIRPeakSeconds -
         predictedSpeakerFiltered.timeOfIRPeakSeconds;
       await PredictedLfeFiltered.addIROffsetSeconds(distanceToSpeakerPeak);
+
+      const distanceToSpeakerPeakMeters =
+        PredictedLfe._computeInMeters(distanceToSpeakerPeak);
+
+      const neededDistanceMeter =
+        PredictedLfe.distanceInMeters() +
+        distanceToSpeakerPeakMeters +
+        allowedForwardSearchMeter;
+
       totalOffset = distanceToSpeakerPeak;
+
+      if (neededDistanceMeter > this.viewModel.maxDistanceInMetersError()) {
+        console.warn(
+          `Subwoofer too far from speaker: ${neededDistanceMeter.toFixed(
+            2
+          )}m (max ${this.viewModel.maxDistanceInMetersError().toFixed(2)}m)`
+        );
+        const overheadOffset = PredictedLfe._computeInSeconds(
+          neededDistanceMeter - this.viewModel.maxDistanceInMetersError()
+        );
+        totalOffset = totalOffset - overheadOffset;
+      }
 
       // compute subwoofer aligment
       const { shiftDelay, isBInverted } = await this.viewModel.findAligment(
         predictedSpeakerFiltered,
         PredictedLfeFiltered,
         cuttOffFrequency,
-        2,
+        allowedForwardSearchMs,
         false,
         `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()}`
       );
