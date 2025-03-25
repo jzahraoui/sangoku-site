@@ -652,14 +652,14 @@ class MeasurementViewModel {
         const firstMeasurementLevel = await self.mainTargetLevel();
 
         for (const measurement of self.uniqueSpeakersMeasurements()) {
-          await measurement.applyWorkingSettings();
+          await measurement.genericCommand('Smooth', { smoothing: '1/1' });
           await measurement.resetTargetSettings();
           await measurement.eqCommands('Calculate target level');
           const targetLevel = await measurement.getTargetLevel();
           await measurement.addSPLOffsetDB(firstMeasurementLevel - targetLevel);
           await measurement.setTargetLevel(firstMeasurementLevel);
           await measurement.copySplOffsetDeltadBToOther();
-          await measurement.removeWorkingSettings();
+          await measurement.genericCommand('Smooth', { smoothing: 'None' });
         }
 
         self.status('SPL alignment successful');
@@ -1428,7 +1428,8 @@ class MeasurementViewModel {
    * Round number to specified decimal places
    */
   roundToPrecision(number, precision = 1) {
-    return Number(Math.round(number + 'e' + precision) + 'e-' + precision);
+    const factor = Math.pow(10, precision);
+    return Math.round(number * factor) / factor;
   }
 
   async createsSumFromFR(measurementList) {
