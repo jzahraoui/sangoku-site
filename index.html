@@ -596,9 +596,16 @@
                   </th>
                   <th data-i18n="channel_name">Channel Name</th>
                   <th data-i18n="measurement">Measurement</th>
-                  <th
-                    data-bind="text: 'Distance (M) Limit:' + maxDistanceInMetersWarning()"
-                  ></th>
+                  <th>
+                    <span data-bind="text: 'Distance (M)'"></span><br />
+                    <span
+                      data-bind="text: 'Warn. ' + maxDistanceInMetersWarning().toFixed(2)"
+                    ></span
+                    ><br />
+                    <span
+                      data-bind="text: 'Crit. ' + maxDistanceInMetersError().toFixed(2)"
+                    ></span>
+                  </th>
                   <th data-i18n="trim_db">Trim (dB)</th>
                   <th>
                     <select
