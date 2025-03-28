@@ -401,6 +401,47 @@ const CHANNEL_TYPES = {
     return matchingResults?.[0];
   },
 
+  getStandardSubwooferName(subName) {
+    if (!subName) return null;
+
+    const searchTerm = subName.toUpperCase();
+
+    // Define standard mapping for subwoofer channel names
+    const SUBWOOFER_MAPPINGS = {
+      // Left channel subwoofers
+      SW1: 'SW1', // Subwoofer Mix 1
+      SWL: 'SW1', // Subwoofer Left
+      SWFL: 'SW1', // Subwoofer Front Left
+      SWMIX1: 'SW1', // Subwoofer Mix 1
+
+      // Right channel subwoofers
+      SW2: 'SW2', // Subwoofer Mix 2
+      SWR: 'SW2', // Subwoofer Right
+      SWFR: 'SW2', // Subwoofer Front Right
+      SWMIX2: 'SW2', // Subwoofer Mix 2
+
+      // Back Left channel subwoofers
+      SW3: 'SW3', // Subwoofer Mix 3
+      SWBL: 'SW3', // Subwoofer Back Left
+      SWMIX3: 'SW3', // Subwoofer Mix 3
+
+      // Back Right channel subwoofers
+      SW4: 'SW4', // Subwoofer Mix 4
+      SWBR: 'SW4', // Subwoofer Back Right
+      SWMIX4: 'SW4', // Subwoofer Mix 4
+    };
+
+    // Find matching subwoofer channel
+    for (const [channel, standardName] of Object.entries(SUBWOOFER_MAPPINGS)) {
+      if (searchTerm.startsWith(channel)) {
+        return standardName;
+      }
+    }
+
+    // Return original name if no standard mapping found
+    return subName;
+  },
+
   /**
    * Finds the best matching channel code(s) for a given name
    * @param {string} name - The name to match against channel codes
@@ -408,26 +449,18 @@ const CHANNEL_TYPES = {
    */
   getBestMatchCode(name) {
     if (!name) return null;
-    // Convert name to uppercase for case-insensitive comparison
-    const searchTerm = name.toUpperCase();
 
-    const subwooferMap = {
-      SW1: ['SWL', 'SWFL', 'SWMIX1'],
-      SW2: ['SWR', 'SWFR', 'SWMIX2'],
-      SW3: ['SWBL', 'SWMIX3'],
-      SW4: ['SWBR', 'SWMIX4'],
-    };
-    // check if searchTerm is include into subwooferMap
-    for (const [key, values] of Object.entries(subwooferMap)) {
-      if (values.some(channel => searchTerm.startsWith(channel))) {
-        return key;
-      }
+    name = name.toUpperCase();
+
+    if (name.startsWith('SW')) {
+      return this.getStandardSubwooferName(name);
     }
+
     // Get all channel types from the CHANNEL_TYPES object
     const channels = Object.values(CHANNEL_TYPES);
     // Process channels to find matches
     const matchingChannels = channels
-      .filter(channel => searchTerm.startsWith(channel.code))
+      .filter(channel => name.startsWith(channel.code))
       .sort((a, b) => a.measurementOrder - b.measurementOrder);
     // if not found return
     if (matchingChannels.length === 0) return null;
