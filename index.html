@@ -700,7 +700,7 @@
                     data-bind="text: inverted() ? 'Yes' : 'No', css: { warning: inverted() }"
                   ></td>
                   <td>
-                    <!-- ko if: !isSub() && position() !== 0 -->
+                    <!-- ko if: ($parent.uniqueSubsMeasurements().length === 1 || !isSub()) && position() !== 0 -->
                     <button
                       class="preview-btn"
                       data-bind="
@@ -722,6 +722,19 @@
                     click: $parent.buttonCreateFilter,
                     disable: $parent.isProcessing,
                     css: { 'disabled': $parent.isProcessing }"
+                    >
+                      <span
+                        data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"
+                      ></span>
+                    </button>
+                    <!-- /ko -->
+                    <!-- ko if: isSub() && $parent.uniqueSubsMeasurements().length === 1 && position() !== 0 -->
+                    <button
+                      class="preview-btn"
+                      data-bind="
+                      click: $parent.buttonSingleSubOptimizer,
+                      disable: $parent.isProcessing,
+                      css: { 'disabled': $parent.isProcessing }"
                     >
                       <span
                         data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"
