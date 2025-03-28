@@ -418,6 +418,21 @@ class BusinessTools {
     }
     try {
       // apply low pass filter to LFE at cuttOffFrequency
+      const emptyFilter = [
+        {
+          index: 21,
+          type: 'None',
+          enabled: true,
+          isAuto: false,
+        },
+        {
+          index: 22,
+          type: 'None',
+          enabled: true,
+          isAuto: false,
+        },
+      ];
+      // apply low pass filter to LFE at cuttOffFrequency
       const subFilter = [
         {
           index: 21,
@@ -437,6 +452,7 @@ class BusinessTools {
       ];
       await sub.setFilters(subFilter);
       const PredictedLfeFiltered = await sub.producePredictedMeasurement();
+      await sub.setFilters(emptyFilter);
 
       // apply high pass filter at cuttOffFrequency
       const speakerFilter = [
@@ -469,6 +485,11 @@ class BusinessTools {
   async createMeasurementPreview(item) {
     // skip subs
     if (item.isSub()) {
+      const predictedSubChannel = await item.producePredictedMeasurement();
+      // set title
+      const finalTitle = `${this.RESULT_PREFIX}${item.title()} FB_P${item.position()}`;
+      await predictedSubChannel.setTitle(finalTitle);
+      await predictedSubChannel.genericCommand('Smooth', { smoothing: 'Psy' });
       return true;
     }
     if (item.channelName() === this.viewModel.UNKNOWN_GROUP_NAME) {
