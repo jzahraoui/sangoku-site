@@ -18,6 +18,7 @@ class AdyTools {
 
     if (needCal) {
       inv_micCal = await AdyTools.getMicCalDataInv();
+      console.debug('Applying calibration to measurement data...');
     }
 
     try {
@@ -265,7 +266,7 @@ class AdyTools {
 
   static invertIR(impulseResponse) {
     // Create a perfect impulse (Dirac delta)
-    const perfectImpulse = new Float32Array(impulseResponse.length);
+    const perfectImpulse = [...Array(impulseResponse.length).fill(0)];
     perfectImpulse[0] = 1; // First sample is 1, rest are 0
 
     return AdyTools.vectorDivision(perfectImpulse, impulseResponse);
