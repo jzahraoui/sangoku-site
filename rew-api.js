@@ -5,10 +5,6 @@ export default class RewApi {
     this.VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
     this.MAX_RETRIES = 5;
     this.MAX_RETRY_DELAY = 5;
-    this.sOs = 343.0;
-    this.minDistAccuracy = 3.0 / 100 / this.sOs / 2;
-    this.modelDelayLimit = (6.0 / this.sOs) * 1000;
-    this.powerFactor = 1.61803398874989; //Adjusts number of speaker averages for IDW - increase for more averages
   }
 
   // Move API initialization to separate method
@@ -41,7 +37,7 @@ export default class RewApi {
         .pop()
         .replace(/\.[^/.]+$/, '')
         .replace(/\s+/g, '');
-      return `tc${tcName}`;
+      return tcName ? `tc${tcName}` : '';
     } catch (error) {
       const message = error.message || 'Error checking target curve';
       throw new Error(message, { cause: error });
