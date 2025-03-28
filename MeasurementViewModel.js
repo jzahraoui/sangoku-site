@@ -4,6 +4,7 @@ import BusinessTools from './BusinessTools.js';
 import OCAFileGenerator from './oca-file.js';
 import translations from './translations.js';
 import AdyTools from './ady-tools.js';
+import MqxTools from './mqx-tools.js';
 import MultiSubOptimizer from './multi-sub-optimizer.js';
 import AvrCaracteristics from './avr-caracteristics.js';
 
@@ -156,9 +157,13 @@ class MeasurementViewModel {
     self.maxOverallValue = 3;
 
     self.validateFile = function (file) {
-      const maxSize = 50 * 1024 * 1024; // 15KB
+      const maxSize = 70 * 1024 * 1024; // 70MB
 
-      if (!file.name.endsWith('.avr') && !file.name.endsWith('.ady')) {
+      if (
+        !file.name.endsWith('.avr') &&
+        !file.name.endsWith('.ady') &&
+        !file.name.endsWith('.mqx')
+      ) {
         self.handleError('Please select a .avr or .ady file');
         return false;
       }
@@ -170,107 +175,106 @@ class MeasurementViewModel {
       return true;
     };
 
-    self.onFileLoaded = async function (data) {
+    self.onFileLoaded = async function (data, filename) {
       // Handle the loaded JSON data
-      self.status('Loaded file: ' + JSON.stringify(data?.title));
-      const results = document.getElementById('resultsAvr');
-      if (!results) {
-        throw new Error('Results element not found');
-      }
-      results.innerHTML = '';
+      self.status('Loaded file: ' + filename);
 
-      const StandardChannelMapping = {
-        59: 54,
-        60: 55,
-        62: 56,
-        63: 57,
-        58: 54,
-        61: 55,
-        64: 56,
-        47: 54,
-        49: 55,
-      };
-
-      if (!data.detectedChannels?.[0]) {
-        self.handleError('No channels detected');
-        return;
-      }
-
-      // convert directionnal bass to standard
-      data.detectedChannels = data.detectedChannels.map(channel => ({
-        ...channel,
-        enChannelType:
-          StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
-      }));
-
-      const numbersOfSubs = data.subwooferNum;
-      const subwooferMode = data.subwooferMode;
-      const fisrtChannel = data.detectedChannels[0];
-      const firstChannelDistance =
-        fisrtChannel.channelReport.distance || fisrtChannel.customDistance;
-
-      if (firstChannelDistance) {
-        self.DEFAULT_SHIFT_IN_METERS = firstChannelDistance;
-      }
-
-      const avr = new AvrCaracteristics(data);
-      data.avr = avr.toJSON();
-      self.jsonAvrData(data);
-
-      // Check if we have any measurements meaning we have a ady file
-      if (data.detectedChannels?.[0].responseData?.[0]) {
-        // create zip containing all measurements
-        const adyTools = new AdyTools(data);
-        const content = await adyTools.parse();
-
-        // check if directionnal bass is present when we have multiple subs
-        if (numbersOfSubs && numbersOfSubs > 1) {
-          if (!subwooferMode) {
-            self.status(
-              `${self.status()}\nWARNING: Subwoofer mode not detected with multiple subs. Make sure Directional bass mode was used`
-            );
-          } else {
-            const directionnalBass = subwooferMode === 'Directional';
-            if (!directionnalBass) {
-              self.handleError('Directional bass mode not detected with multiple subs');
-              return;
-            }
+      try {
+        if (filename.endsWith('.mqx')) {
+          if (!self.jsonAvrData()) {
+            throw new Error('Please load AVR data first');
           }
+          const mqxTools = new MqxTools(data, self.jsonAvrData());
+          await mqxTools.parse();
+          data = mqxTools.jsonAvrData;
         }
 
-        // TODO: ampassign can be directionnal must be converted to standard
-        if (self.isPolling()) {
-          for (const [channelIndex, channel] of data.detectedChannels.entries()) {
-            const responses = Object.entries(channel.responseData);
-            for (const [position, response] of responses) {
-              const identifier = `${channel.commandId}_P${(Number(position) + 1).toString().padStart(2, '0')}`;
+        const results = document.getElementById('resultsAvr');
+        if (!results) {
+          throw new Error('Results element not found');
+        }
+        results.innerHTML = '';
+
+        const StandardChannelMapping = {
+          59: 54,
+          60: 55,
+          62: 56,
+          63: 57,
+          58: 54,
+          61: 55,
+          64: 56,
+          47: 54,
+          49: 55,
+        };
+
+        if (!data.detectedChannels?.[0]) {
+          throw new Error('No channels detected');
+        }
+
+        // convert directionnal bass to standard
+        data.detectedChannels = data.detectedChannels.map(channel => ({
+          ...channel,
+          enChannelType:
+            StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
+        }));
+
+        const fisrtChannel = data.detectedChannels[0];
+        const firstChannelDistance =
+          fisrtChannel.channelReport.distance || fisrtChannel.customDistance;
+
+        if (firstChannelDistance) {
+          self.DEFAULT_SHIFT_IN_METERS = firstChannelDistance;
+        }
+
+        const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
+        data.avr = avr.toJSON();
+
+        // Check if we have any measurements meaning we have a ady file
+        if (data.detectedChannels?.[0].responseData?.[0]) {
+          // create zip containing all measurements
+          const hasCirrusLogicDsp = data.avr.hasCirrusLogicDsp;
+          const needCal = hasCirrusLogicDsp || filename.endsWith('.mqx');
+          const adyTools = new AdyTools(data);
+          const zipContent = await adyTools.parseContent(needCal);
+
+          if (filename.endsWith('.ady')) {
+            adyTools.isDirectionalWhenMultiSubs();
+          }
+
+          // TODO: ampassign can be directionnal must be converted to standard
+          if (self.isPolling()) {
+            const orderedImpulses = adyTools.impulses.sort((a, b) =>
+              a.name.localeCompare(b.name)
+            );
+            for (const processedResponse of orderedImpulses) {
+              const identifier = processedResponse.name;
+              const response = processedResponse.data;
               const max = Math.max(...response.map(x => Math.abs(x)));
               const lastMeasurementIndex = self.measurements().length;
               const encodedData = MeasurementItem.encodeRewToBase64(response);
 
               if (!encodedData) {
-                self.handleError('Error encoding array');
-                return;
+                throw new Error('Error encoding array');
               }
               const options = {
                 identifier: identifier,
                 startTime: 0,
-                sampleRate: 48000,
+                sampleRate: adyTools.samplingRate,
                 splOffset: AdyTools.SPL_OFFSET,
                 applyCal: false,
                 data: encodedData,
               };
               await self.apiService.postSafe('import/impulse-response-data', options);
 
-              const item = await this.apiService.fetchREW(
+              const item = await self.apiService.fetchREW(
                 lastMeasurementIndex + 1,
                 'GET',
                 null,
                 0
               );
-              const measurementItem = new MeasurementItem(item, this);
+              const measurementItem = new MeasurementItem(item, self);
               measurementItem.IRPeakValue = max;
-              await this.addMeasurement(measurementItem);
+              await self.addMeasurement(measurementItem);
               if (max >= 1) {
                 console.warn(
                   `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
@@ -278,25 +282,25 @@ class MeasurementViewModel {
               }
             }
           }
+
+          // Create download buttons
+          const button = document.createElement('button');
+          button.textContent = `Download measurements zip`;
+          button.onclick = () => saveAs(zipContent, `${data.title}.zip`);
+          results.appendChild(button);
         }
-
-        // Create download buttons
-        const button = document.createElement('button');
-        button.textContent = `Download measurements zip`;
-        button.onclick = () => saveAs(content, `${data.title}.zip`);
-        results.appendChild(button);
-      }
-
-      // remove responseData elements from data
-      const channels = data.detectedChannels;
-      if (channels && Array.isArray(channels)) {
-        for (let i = 0; i < channels.length; i++) {
-          channels[i].responseData = [];
+      } catch (error) {
+        self.handleError(error.message);
+      } finally {
+        // Clean up response data regardless of file type
+        if (data?.detectedChannels && Array.isArray(data.detectedChannels)) {
+          for (const channel of data.detectedChannels) {
+            channel.responseData = {};
+          }
+          self.jsonAvrData(data);
+          self.OCAFileGenerator = new OCAFileGenerator(data);
         }
       }
-
-      self.jsonAvrData(data);
-      self.OCAFileGenerator = new OCAFileGenerator(data);
     };
 
     // Handle file reading
@@ -314,7 +318,7 @@ class MeasurementViewModel {
           throw new Error('File validation failed');
         }
 
-        const fileContent = await new Promise((resolve, reject) => {
+        let fileContent = await new Promise((resolve, reject) => {
           const reader = new FileReader();
 
           reader.onload = () => resolve(reader.result);
@@ -323,14 +327,66 @@ class MeasurementViewModel {
           reader.readAsText(file);
         });
 
+        // if mqx file contain garbage after closing json, truncate after the closing brake corresponding to the fisrt open bracket
+        if (file.name.endsWith('.mqx')) {
+          fileContent = self.cleanJSON(fileContent);
+        }
+
         const data = JSON.parse(fileContent);
         // Handle successful load
-        await self.onFileLoaded(data);
+        await self.onFileLoaded(data, file.name);
       } catch (error) {
         self.handleError(`Error parsing file: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
       }
+    };
+
+    self.cleanJSON = function (fileContent) {
+      // Early return if the input is empty or not a string
+      if (!fileContent || typeof fileContent !== 'string') {
+        throw new Error('Invalid input: fileContent must be a non-empty string');
+      }
+
+      const firstOpen = fileContent.indexOf('{');
+      if (firstOpen === -1) {
+        throw new Error('Invalid file format: no JSON object found');
+      }
+
+      let openCount = 0;
+      let inString = false;
+      let escapeNext = false;
+
+      for (let i = firstOpen; i < fileContent.length; i++) {
+        const char = fileContent[i];
+
+        // Handle string literals
+        if (char === '"' && !escapeNext) {
+          inString = !inString;
+          continue;
+        }
+
+        // Handle escape characters
+        if (char === '\\' && !escapeNext) {
+          escapeNext = true;
+          continue;
+        }
+        escapeNext = false;
+
+        // Only count braces when not in a string
+        if (!inString) {
+          if (char === '{') {
+            openCount++;
+          } else if (char === '}') {
+            openCount--;
+            if (openCount === 0) {
+              return fileContent.slice(firstOpen, i + 1);
+            }
+          }
+        }
+      }
+
+      throw new Error('Invalid JSON structure: unmatched braces');
     };
 
     // Drop handlers
@@ -690,8 +746,6 @@ class MeasurementViewModel {
         self.isProcessing(true);
         self.status('Computing sum...');
 
-        // await this.createsSumFromFR(self.uniqueSubsMeasurements());
-
         await self.produceSumProcess(self, self.uniqueSubsMeasurements());
       } catch (error) {
         self.handleError(`Sum failed: ${error.message}`, error);
@@ -815,7 +869,7 @@ class MeasurementViewModel {
         if (!self.OCAFileGenerator) {
           throw new Error(`Please load avr file first`);
         }
-        this.targetCurve = await this.apiService.checkTargetCurve();
+        self.targetCurve = await self.apiService.checkTargetCurve();
         self.OCAFileGenerator.tcName = `${self.targetCurve} ${await self.mainTargetLevel()}dB`;
         self.OCAFileGenerator.softRoll = self.softRoll();
         self.OCAFileGenerator.enableDynamicEq = self.enableDynamicEq();
@@ -872,7 +926,7 @@ class MeasurementViewModel {
 
         const frequencyResponses = [];
         const jszip = new JSZip();
-        const zipFilename = `MSO ${self.OCAFileGenerator.model}.zip`;
+        const zipFilename = `MSO-${self.OCAFileGenerator.model}.zip`;
         const minFreq = 5; // minimum frequency in Hz
         const maxFreq = 400; // maximum frequency in Hz
 
@@ -882,12 +936,12 @@ class MeasurementViewModel {
             measurements.map(async measurement => {
               await measurement.resetAll();
               const frequencyResponse = await measurement.getFrequencyResponse();
-              const subName = measurement.channelName().replace('SW', 'Sub ');
-              const localFilename = `${subName}_Pos ${measurement.position()}.txt`;
+              const subName = measurement.channelName().replace('SW', 'SUB');
+              const localFilename = `POS${measurement.position()}-${subName}.txt`;
 
               const filecontent = frequencyResponse.freqs.reduce((acc, freq, i) => {
                 if (freq >= minFreq && freq <= maxFreq) {
-                  const line = `${freq.toFixed(6)}  ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
+                  const line = `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
                   return acc ? `${acc}\n${line}` : line;
                 }
                 return acc;
@@ -922,6 +976,71 @@ class MeasurementViewModel {
       }
     };
 
+    self.buttonSingleSubOptimizer = async function (subMeasurement) {
+      if (self.isProcessing()) return;
+      try {
+        self.isProcessing(true);
+        self.status('Sub Optimizer...');
+
+        const additionalBassGainValue = 6;
+
+        // Find the level of target curve at 40Hz
+        const targetLevelAtFreq = await self.getTargetLevelAtFreq(40, subMeasurement);
+
+        // adjut target level according to the number of subs
+        const targetLevel = targetLevelAtFreq + additionalBassGainValue;
+        await subMeasurement.resetSmoothing();
+        const frequencyResponse = await subMeasurement.getFrequencyResponse(
+          'SPL',
+          '1/2',
+          6
+        );
+        frequencyResponse.measurement = subMeasurement.uuid;
+        frequencyResponse.position = subMeasurement.position();
+        const detect = self.detectSubwooferCutoff(
+          frequencyResponse.freqs,
+          frequencyResponse.magnitude,
+          -18
+        );
+
+        self.status(
+          `${self.status()} \nAdjust ${subMeasurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(1)}dB`
+        );
+        self.status(
+          `${self.status()} (center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`
+        );
+        await self.processCommands('Align SPL', [subMeasurement.uuid], {
+          frequencyHz: detect.centerFrequency,
+          spanOctaves: detect.octaves,
+          targetdB: targetLevel,
+        });
+        await subMeasurement.copySplOffsetDeltadBToOther();
+
+        self.status(
+          `${self.status()} \nCreating EQ filters for sub ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz`
+        );
+
+        await self.apiService.postSafe(`eq/match-target-settings`, {
+          startFrequency: detect.lowCutoff,
+          endFrequency: detect.highCutoff,
+          individualMaxBoostdB: 0,
+          overallMaxBoostdB: 0,
+          flatnessTargetdB: 1,
+          allowNarrowFiltersBelow200Hz: false,
+          varyQAbove200Hz: false,
+          allowLowShelf: false,
+          allowHighShelf: false,
+        });
+
+        await subMeasurement.eqCommands('Match target');
+        await subMeasurement.copyFiltersToOther();
+      } catch (error) {
+        self.handleError(`MultiSubOptimizer failed: ${error.message}`, error);
+      } finally {
+        self.isProcessing(false);
+      }
+    };
+
     self.buttonMultiSubOptimizer = async function () {
       if (self.isProcessing()) return;
       try {
@@ -938,20 +1057,7 @@ class MeasurementViewModel {
         const firstMeasurementLevel = await self.mainTargetLevel();
         const frequencyResponses = [];
         // Find the level of target curve at 40Hz
-        const targetCurveResponse = await firstMeasurement.getTargetResponse('SPL', 6);
-        if (!targetCurveResponse) {
-          throw new Error('Failed to get target curve response');
-        }
-        const targetFreq = 40;
-        const targetLevelAtFreq = (() => {
-          const freqIndex = targetCurveResponse.freqs.reduce((closestIdx, curr, idx) => {
-            const closestFreq = targetCurveResponse.freqs[closestIdx];
-            return Math.abs(curr - targetFreq) < Math.abs(closestFreq - targetFreq)
-              ? idx
-              : closestIdx;
-          }, 0);
-          return targetCurveResponse.magnitude[freqIndex];
-        })();
+        const targetLevelAtFreq = await self.getTargetLevelAtFreq(40, firstMeasurement);
         // adjut target level according to the number of subs
         const numbersOfSubs = subsMeasurements.length;
         const overhead = 10 * Math.log10(numbersOfSubs);
@@ -975,7 +1081,7 @@ class MeasurementViewModel {
           );
           frequencyResponse.measurement = measurement.uuid;
           frequencyResponse.position = measurement.position();
-          const detect = this.detectSubwooferCutoff(
+          const detect = self.detectSubwooferCutoff(
             frequencyResponse.freqs,
             frequencyResponse.magnitude,
             -18
@@ -995,7 +1101,7 @@ class MeasurementViewModel {
           self.status(
             `${self.status()} (center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`
           );
-          await this.processCommands('Align SPL', [measurement.uuid], {
+          await self.processCommands('Align SPL', [measurement.uuid], {
             frequencyHz: detect.centerFrequency,
             spanOctaves: detect.octaves,
             targetdB: targetLevel,
@@ -1088,21 +1194,21 @@ class MeasurementViewModel {
 
         const optimizedSubsSumPeak = self.getMaxFromArray(optimizedSubsSum.magnitude);
 
-        const detectOptimizedSubs = this.detectSubwooferCutoff(
+        const detectOptimizedSubs = self.detectSubwooferCutoff(
           optimizedSubsSum.freqs,
           optimizedSubsSum.magnitude,
           targetLevelAtFreq - optimizedSubsSumPeak
         );
 
-        const maximisedSum = await this.sendToREW(optimizedSubsSum, maximisedSumTitle);
+        const maximisedSum = await self.sendToREW(optimizedSubsSum, maximisedSumTitle);
         // DEBUG to check it this is the same
-        // await this.sendToREW(optimizerResults.bestSum, 'test');
+        // await self.sendToREW(optimizerResults.bestSum, 'test');
 
         self.status(
           `${self.status()} \nCreating EQ filters for sub sumation ${detectOptimizedSubs.lowCutoff}Hz - ${detectOptimizedSubs.highCutoff}Hz`
         );
 
-        await this.apiService.postSafe(`eq/match-target-settings`, {
+        await self.apiService.postSafe(`eq/match-target-settings`, {
           startFrequency: detectOptimizedSubs.lowCutoff,
           endFrequency: detectOptimizedSubs.highCutoff,
           individualMaxBoostdB: self.maxBoostIndividualValue(),
@@ -1304,6 +1410,36 @@ class MeasurementViewModel {
     self.uniqueSpeakersMeasurements = ko.computed(() => {
       return self.uniqueMeasurements().filter(item => !item.isSub());
     });
+  }
+
+  async getTargetLevelAtFreq(targetFreq = 40, measurement) {
+    // Input validation
+    if (!Number.isFinite(targetFreq) || targetFreq <= 0) {
+      throw new Error('Target frequency must be a positive number');
+    }
+
+    if (!measurement) {
+      measurement = this.uniqueMeasurements()[0];
+    }
+
+    if (!measurement) {
+      throw new Error('No measurements available');
+    }
+
+    // Find the level of target curve at 40Hz
+
+    const targetCurveResponse = await measurement.getTargetResponse('SPL', 6);
+    if (!targetCurveResponse) {
+      throw new Error('Failed to get target curve response');
+    }
+
+    const freqIndex = targetCurveResponse.freqs.reduce((closestIdx, curr, idx) => {
+      const closestFreq = targetCurveResponse.freqs[closestIdx];
+      return Math.abs(curr - targetFreq) < Math.abs(closestFreq - targetFreq)
+        ? idx
+        : closestIdx;
+    }, 0);
+    return targetCurveResponse.magnitude[freqIndex];
   }
 
   async mainTargetLevel() {
