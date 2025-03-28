@@ -1112,12 +1112,18 @@ class MeasurementItem {
   }
 
   static cleanFloat32Value(value, precision = 7) {
+    // Handle non-numeric values and NaN
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      console.warn(`Invalid numeric value: ${value}`);
+      return 0;
+    }
     // Use toFixed for direct string conversion to desired precision
     // Then convert back to number for consistent output
-    return Number(value.toFixed(precision));
+    return Number(num.toFixed(precision));
   }
 
-  static decodeRewBase64(encodedData) {
+  static decodeRewBase64(encodedData, isLittleEndian = false) {
     if (!encodedData) {
       throw new Error(`Invalid encoded data: ${encodedData}`);
     }
@@ -1127,7 +1133,10 @@ class MeasurementItem {
       const sampleCount = dataView.byteLength / Float32Array.BYTES_PER_ELEMENT;
       const result = new Array(sampleCount);
       for (let i = 0; i < sampleCount; i++) {
-        const value = dataView.getFloat32(i * Float32Array.BYTES_PER_ELEMENT, false);
+        const value = dataView.getFloat32(
+          i * Float32Array.BYTES_PER_ELEMENT,
+          isLittleEndian
+        );
 
         result[i] = MeasurementItem.cleanFloat32Value(value);
       }
