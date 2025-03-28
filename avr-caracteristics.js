@@ -184,12 +184,12 @@ class AvrCaracteristics {
         subFilter: {
           samples: 512,
           taps: 512,
-          frequency: 48000
+          frequency: 48000,
         },
         speakerFilter: {
           samples: 128,
           taps: 128,
-          frequency: 6000
+          frequency: 6000,
         },
       },
     },
@@ -200,14 +200,13 @@ class AvrCaracteristics {
         subFilter: {
           samples: 512,
           taps: 512,
-          frequency: 48000
+          frequency: 48000,
         },
         speakerFilter: {
           samples: 512,
           taps: 512,
-          frequency: 6000
+          frequency: 6000,
         },
-
       },
     },
     XT32: {
@@ -217,12 +216,12 @@ class AvrCaracteristics {
         subFilter: {
           samples: 16055,
           taps: 704,
-          frequency: 48000
+          frequency: 48000,
         },
         speakerFilter: {
           samples: 16321,
           taps: 1024,
-          frequency: 48000
+          frequency: 48000,
         },
       },
     },
@@ -250,23 +249,32 @@ class AvrCaracteristics {
 
   /**
    * Creates a new AvrCaracteristics instance
-   * @param {Object} jsonContent - Configuration data
-   * @throws {Error} If jsonContent is invalid
+   * @param {String} targetModelName - Configuration data
+   * @throws {Error} If targetModelName is invalid
    */
-  constructor(jsonContent) {
-    if (!jsonContent || typeof jsonContent !== 'object') {
-      throw new Error('Invalid configuration data');
-    }
-
-    if (!jsonContent.targetModelName) {
+  constructor(targetModelName, enMultEQType) {
+    if (!targetModelName) {
       throw new Error('Target model name is required');
     }
+    if (!enMultEQType) {
+      throw new Error('MultEQ type is required');
+    }
 
-    this.jsonContent = jsonContent;
-    this.targetModelName = jsonContent.targetModelName;
+    this.targetModelName = targetModelName;
+    this.enMultEQType = enMultEQType;
     this.modelSuffix = this.targetModelName.slice(-6);
     this.validateModelConfig();
+    this.hasExtendedFrequency = this.hasExtendedFreq();
+    this.hasCirrusLogicDsp = this.getHasCirrusLogicDsp();
+    this.hasSwitchableDacFilter = this.hasSwitchableDacFilter();
+    this.hasSoftRollDac = this.hasSoftRollDac();
     this.speedOfSound = this.getSpeedOfSound();
+    this.minDistAccuracy = this.getMinDistAccuracy();
+    this.frequencyIndexes = this.getFrequencyIndexes(this.hasExtendedFrequency);
+    this.multEQDetails = this.configureMultEQ();
+    this.multEQType = this.multEQDetails.name;
+    this.multEQSpecs = this.multEQDetails.specs;
+    this.multEQDescription = AvrCaracteristics.getDescription(this.multEQType);
   }
 
   /**
@@ -289,12 +297,7 @@ class AvrCaracteristics {
   }
 
   configureMultEQ() {
-    if (!this.jsonContent || typeof this.jsonContent.enMultEQType === 'undefined') {
-      throw new Error('Invalid MultEQ configuration');
-    }
-
-    const multEQType = this.jsonContent.enMultEQType;
-    return AvrCaracteristics.getTypeById(multEQType);
+    return AvrCaracteristics.getTypeById(this.enMultEQType);
   }
 
   /**
@@ -303,16 +306,13 @@ class AvrCaracteristics {
    */
   logModelSpecs() {
     console.info(`Target AV receiver model: ${this.targetModelName}`);
-
-    console.log(
-      `MultEQ Type:: ${AvrCaracteristics.getDescription(this.configureMultEQ().name)}`
-    );
-    console.info(`Model specific speed of sound setting: ${this.getSpeedOfSound()} m/s`);
-    console.info(`Model minimum distance accuracy: ${this.getMinDistAccuracy()} m/s`);
+    console.log(`MultEQ Type:: ${AvrCaracteristics.getDescription(this.multEQType)}`);
+    console.info(`Model specific speed of sound setting: ${this.speedOfSound} m/s`);
+    console.info(`Model minimum distance accuracy: ${this.minDistAccuracy} m/s`);
     console.info(
-      `Model is capable of setting 180Hz crossover: ${this.hasExtendedFreq()}`
+      `Model is capable of setting 180Hz crossover: ${this.hasExtendedFrequency}`
     );
-    console.info(`Model has Cirrus Logic DSP chip: ${this.hasCirrusLogicDsp()}`);
+    console.info(`Model has Cirrus Logic DSP chip: ${this.hasCirrusLogicDsp}`);
     this.logDacSpecs();
   }
 
@@ -321,15 +321,15 @@ class AvrCaracteristics {
    * @private
    */
   logDacSpecs() {
-    console.info(`Model has switchable DAC filter: ${this.hasSwitchableDacFilter()}`);
-    if (this.hasSwitchableDacFilter()) {
+    console.info(`Model has switchable DAC filter: ${this.hasSwitchableDacFilter}`);
+    if (this.hasSwitchableDacFilter) {
       console.info(
         "If 'DAC filter' in your unit is not set to 'Filter 2', " +
           "use 'Remove soft roll-off' optimization option for correct high frequency reproduction"
       );
     }
 
-    if (this.hasSoftRollDac()) {
+    if (this.hasSoftRollDac) {
       console.info(
         'Model has DAC with high frequency soft roll - ' +
           "use 'Remove soft roll-off' optimization option for correct high frequency reproduction"
@@ -341,16 +341,16 @@ class AvrCaracteristics {
     return {
       targetModelName: this.targetModelName,
       modelSuffix: this.modelSuffix,
-      hasExtendedFreq: this.hasExtendedFreq(),
-      hasCirrusLogicDsp: this.hasCirrusLogicDsp(),
-      hasSwitchableDacFilter: this.hasSwitchableDacFilter(),
-      hasSoftRollDac: this.hasSoftRollDac(),
-      speedOfSound: this.getSpeedOfSound(),
-      minDistAccuracy: this.getMinDistAccuracy(),
-      frequencyIndexes: this.getFrequencyIndexes(),
-      multEQType: this.configureMultEQ().name,
-      multEQSpecs: this.configureMultEQ().specs,
-      multEQDescription: AvrCaracteristics.getDescription(this.configureMultEQ().name),
+      hasExtendedFreq: this.hasExtendedFrequency,
+      hasCirrusLogicDsp: this.hasCirrusLogicDsp,
+      hasSwitchableDacFilter: this.hasSwitchableDacFilter,
+      hasSoftRollDac: this.hasSoftRollDac,
+      speedOfSound: this.speedOfSound,
+      minDistAccuracy: this.minDistAccuracy,
+      frequencyIndexes: this.frequencyIndexes,
+      multEQType: this.multEQType,
+      multEQSpecs: this.multEQSpecs,
+      multEQDescription: this.multEQDescription,
     };
   }
 
@@ -358,8 +358,8 @@ class AvrCaracteristics {
     return !this.isLegacyModel();
   }
 
-  getFrequencyIndexes() {
-    return this.hasExtendedFreq()
+  getFrequencyIndexes(hasExtendedFreq) {
+    return hasExtendedFreq
       ? AvrCaracteristics.FREQUENCY_INDEXES.EXTENDED
       : AvrCaracteristics.FREQUENCY_INDEXES.BASE;
   }
@@ -382,7 +382,7 @@ class AvrCaracteristics {
       : AvrCaracteristics.SPEED_OF_SOUND.DEFAULT;
   }
 
-  hasCirrusLogicDsp() {
+  getHasCirrusLogicDsp() {
     return AvrCaracteristics.MODEL_LISTS.CIRRUS_LOGIC_DSP.includes(this.modelSuffix);
   }
 
