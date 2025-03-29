@@ -507,11 +507,11 @@ class MeasurementViewModel {
             continue;
           }
           // do not rename averaged measurements
-          if (item.title().endsWith('avg')) {
+          if (item.isAverage) {
             continue;
           }
 
-          if (item.channelName() === self.UNKNOWN_GROUP_NAME) {
+          if (item.isUnknownChannel) {
             continue;
           }
 
@@ -568,12 +568,11 @@ class MeasurementViewModel {
           .measurements()
           .filter(
             item =>
-              !item.title().endsWith('avg') &&
-              !item.title().startsWith(self.businessTools.RESULT_PREFIX) &&
-              item.channelName() !== self.UNKNOWN_GROUP_NAME &&
+              !item.isAverage &&
+              !item.isPredicted &&
+              !item.isUnknownChannel &&
               item.position() !== 0 &&
-              item.isValid &&
-              item.IRPeakValue < 1
+              item.IRPeakValue <= 1
           );
 
         // Check if we have enough measurements
@@ -703,19 +702,69 @@ class MeasurementViewModel {
       try {
         self.isProcessing(true);
         self.status('Computing SPL alignment...');
+        await self.loadData();
+        const workingMeasurements = self.uniqueSpeakersMeasurements();
+        const workingMeasurementsUuids = workingMeasurements.map(m => m.uuid);
+        const firstMeasurement = workingMeasurements[0];
+        const previousTargetcurveTitle = `Target ${firstMeasurement.title()}`;
+        const initialTargetLevel = await self.mainTargetLevel();
 
-        console.debug(`Computing SPL alignment`);
-        const firstMeasurementLevel = await self.mainTargetLevel();
+        // delete previous target curve
+        const previousTargetcurve = self
+          .measurements()
+          .filter(item => item.title() === previousTargetcurveTitle);
+        for (const item of previousTargetcurve) {
+          await self.removeMeasurement(item);
+        }
 
-        for (const measurement of self.uniqueSpeakersMeasurements()) {
-          await measurement.genericCommand('Smooth', { smoothing: '1/1' });
-          await measurement.resetTargetSettings();
-          await measurement.eqCommands('Calculate target level');
-          const targetLevel = await measurement.getTargetLevel();
-          await measurement.addSPLOffsetDB(firstMeasurementLevel - targetLevel);
-          await measurement.setTargetLevel(firstMeasurementLevel);
+        await firstMeasurement.resetTargetSettings();
+        const targetcurve = await firstMeasurement.eqCommands(
+          'Generate target measurement'
+        );
+
+        await self.processCommands('Smooth', workingMeasurementsUuids, {
+          smoothing: '1/1',
+        });
+
+        const alignResult = await self.processCommands(
+          'Align SPL',
+          [...workingMeasurementsUuids, targetcurve.uuid],
+          {
+            frequencyHz: 2500,
+            spanOctaves: 5,
+            targetdB: 'average',
+          }
+        );
+
+        // update attribute for all measurements processed to be able to be used in copySplOffsetDeltadBToOther
+        for (const work of workingMeasurements) {
+          const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
+            alignResult,
+            work.uuid
+          );
+          work.alignSPLOffsetdB(alignOffset);
+        }
+
+        await self.processCommands('Smooth', workingMeasurementsUuids, {
+          smoothing: 'None',
+        });
+
+        // get align offset from target curve
+        const targetcurveOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
+          alignResult,
+          targetcurve.uuid
+        );
+
+        const finalTargetLevel = initialTargetLevel + targetcurveOffset;
+
+        // copy target level to sub also
+        for (const valid of self.validMeasurements()) {
+          await valid.setTargetLevel(finalTargetLevel);
+        }
+
+        // set SPL level to all other measurements positions
+        for (const measurement of self.uniqueMeasurements()) {
           await measurement.copySplOffsetDeltadBToOther();
-          await measurement.genericCommand('Smooth', { smoothing: 'None' });
         }
 
         self.status('SPL alignment successful');
@@ -1009,11 +1058,21 @@ class MeasurementViewModel {
         self.status(
           `${self.status()} (center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`
         );
-        await self.processCommands('Align SPL', [subMeasurement.uuid], {
-          frequencyHz: detect.centerFrequency,
-          spanOctaves: detect.octaves,
-          targetdB: targetLevel,
-        });
+        const alignResult = await self.processCommands(
+          'Align SPL',
+          [subMeasurement.uuid],
+          {
+            frequencyHz: detect.centerFrequency,
+            spanOctaves: detect.octaves,
+            targetdB: targetLevel,
+          }
+        );
+        const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
+          alignResult,
+          subMeasurement.uuid
+        );
+        subMeasurement.alignSPLOffsetdB(alignOffset);
+
         await subMeasurement.copySplOffsetDeltadBToOther();
 
         self.status(
@@ -1101,11 +1160,21 @@ class MeasurementViewModel {
           self.status(
             `${self.status()} (center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`
           );
-          await self.processCommands('Align SPL', [measurement.uuid], {
-            frequencyHz: detect.centerFrequency,
-            spanOctaves: detect.octaves,
-            targetdB: targetLevel,
-          });
+          const alignResult = await self.processCommands(
+            'Align SPL',
+            [measurement.uuid],
+            {
+              frequencyHz: detect.centerFrequency,
+              spanOctaves: detect.octaves,
+              targetdB: targetLevel,
+            }
+          );
+
+          const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
+            alignResult,
+            measurement.uuid
+          );
+          measurement.alignSPLOffsetdB(alignOffset);
         }
 
         const optimizerConfig = {
@@ -1272,16 +1341,20 @@ class MeasurementViewModel {
     };
 
     // Computed for filtered measurements
-    self.subsMeasurements = ko.computed(() => {
-      return self.measurements().filter(item => item.isSub());
-    });
+    self.subsMeasurements = ko.computed(() =>
+      self.measurements().filter(item => item.isSub())
+    );
+
+    self.validMeasurements = ko.computed(() =>
+      self.measurements().filter(item => item.isValid)
+    );
 
     self.groupedMeasurements = ko.computed(() => {
       // group data by channelName attribute and set isSelected to true for the first occurrence
       return self.measurements().reduce((acc, item) => {
         const channelName = item.channelName();
 
-        if (channelName === self.UNKNOWN_GROUP_NAME) {
+        if (item.isUnknownChannel) {
           return acc;
         }
 
@@ -1328,13 +1401,21 @@ class MeasurementViewModel {
     // Filtered measurements
     self.uniqueMeasurements = ko.computed(() => {
       const measurements = self.measurements();
-      return measurements.length ? measurements.filter(item => item.isSelected()) : [];
+      // Early return for empty collection
+      if (!measurements || measurements.length === 0) {
+        return [];
+      }
+      return measurements.filter(item => item.isSelected());
     }, self);
 
     // Filtered measurements
     self.notUniqueMeasurements = ko.computed(() => {
       const measurements = self.measurements();
-      return measurements.length ? measurements.filter(item => !item.isSelected()) : [];
+      // Early return for empty collection
+      if (!measurements || measurements.length === 0) {
+        return [];
+      }
+      return measurements.filter(item => !item.isSelected());
     }, self);
 
     // Filtered measurements
@@ -1345,17 +1426,28 @@ class MeasurementViewModel {
       return self.measurements();
     });
 
-    self.minDistanceInMeters = ko.computed(() => {
-      return Math.min(...self.uniqueMeasurements().map(item => item.distanceInMeters()));
-    });
+    self.minDistanceInMeters = ko.computed(() =>
+      Math.min(...self.uniqueMeasurements().map(item => item.distanceInMeters()))
+    );
 
-    self.maxDistanceInMetersWarning = ko.computed(() => {
-      return self.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_LIMIT;
-    });
+    self.maxDistanceInMetersWarning = ko
+      .computed(() => {
+        const minDistance = self.minDistanceInMeters() || 0; // Fallback to 0 if undefined
+        const limit = MeasurementItem.MODEL_DISTANCE_LIMIT;
 
-    self.maxDistanceInMetersError = ko.computed(() => {
-      return self.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT;
-    });
+        // Ensure we're working with numbers
+        return Number(minDistance) + Number(limit);
+      })
+      .extend({ pure: true }); // Only updates when dependencies actually change
+
+    self.maxDistanceInMetersError = ko
+      .computed(() => {
+        const minDistance = self.minDistanceInMeters();
+        const criticalLimit = MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT;
+
+        return Number(minDistance) + criticalLimit;
+      })
+      .extend({ pure: true }); // Ensures updates only occur when dependencies change
 
     self.maxDdistanceInMeters = ko.computed(() => {
       return Math.max(...self.uniqueMeasurements().map(item => item.distanceInMeters()));
