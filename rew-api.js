@@ -363,15 +363,31 @@ export default class RewApi {
         //console.debug(`Process ${expectedProcess.processName} completed`);
       }
 
+      let processExpectedResponse;
+      const processID = data.message?.match(/.*ID \d+/);
+
       // Return data based on response status
       if (response.status === 200) {
-        return data;
+        if (!processID) return data;
+        if (!url.startsWith('measurements')) return data;
+
+        processExpectedResponse = {
+          processName: processID?.[0],
+          message: 'Completed',
+        };
+
+        const resultUrl = this.getResultUrl(url);
+        const processResponse = await this.fetchWithRetry(
+          resultUrl,
+          { method: 'GET' },
+          MAX_PULLING_RETRY,
+          processExpectedResponse
+        );
+        return processResponse;
       }
 
       if (response.status === 202) {
         // Determine result URL and process expected response
-        let processExpectedResponse;
-        const processID = data.message.match(/.*ID \d+/);
 
         if (url.startsWith('import')) {
           if (!processID) {
