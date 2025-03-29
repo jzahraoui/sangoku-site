@@ -151,9 +151,7 @@ class BusinessTools {
 
         // exclude previous results and create array of UUIDs for the current code group
         const usableItems = groupedResponse[code].items.filter(
-          item =>
-            !item.title().endsWith(this.AVERAGE_SUFFIX) &&
-            !item.title().startsWith(this.RESULT_PREFIX)
+          item => !item.isAverage && !item.isPredicted
         );
 
         // Process the collected indices
@@ -276,7 +274,6 @@ class BusinessTools {
         if (!foundItem) {
           throw new Error(`Cannot find measurement name matching ${channel}`);
         }
-        // TODO: check
         // Apply filters
         await foundItem.setFilters(filters);
         // invert
@@ -290,8 +287,7 @@ class BusinessTools {
         // reverse delay if previous iteration and apply specified delay
         await foundItem.setcumulativeIRShiftSeconds(-delay / 1000);
 
-        const splToAdd = gain - foundItem.splOffsetDeltadB();
-        await foundItem.addSPLOffsetDB(splToAdd);
+        await foundItem.setSPLOffsetDB(gain);
       } catch (error) {
         throw new Error(`Error processing channel ${channel}: ${error.message}`, {
           cause: error,
@@ -492,7 +488,7 @@ class BusinessTools {
       await predictedSubChannel.genericCommand('Smooth', { smoothing: 'Psy' });
       return true;
     }
-    if (item.channelName() === this.viewModel.UNKNOWN_GROUP_NAME) {
+    if (item.isUnknownChannel) {
       return true;
     }
 
