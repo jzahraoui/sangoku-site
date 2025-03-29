@@ -46,8 +46,7 @@ class MeasurementItem {
 
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
-    self.initialSplOffsetdB =
-      item.initialSplOffsetdB || item.splOffsetdB - item.alignSPLOffsetdB;
+    self.initialSplOffsetdB = item.initialSplOffsetdB || item.splOffsetdB;
 
     // restore saved data
     const isSW = item.title.startsWith('SW');
@@ -130,11 +129,7 @@ class MeasurementItem {
       self._computeDistanceInMeters(self.cumulativeIRShiftSeconds())
     );
     self.splOffsetDeltadB = ko.computed(
-      () =>
-        self.splOffsetdB() -
-        self.alignSPLOffsetdB() -
-        self.initialSplOffsetdB +
-        self.alignSPLOffsetdB()
+      () => self.splOffsetdB() - self.initialSplOffsetdB
     );
     self.splForAvr = ko.computed(() => Math.round(self.splOffsetDeltadB() * 2) / 2);
     self.splIsAboveLimit = ko.computed(
@@ -221,6 +216,28 @@ class MeasurementItem {
         if (self.speakerType() === 'L') {
           self.speakerType('S');
         }
+      }
+    });
+
+    self.alignSPLOffsetdB.subscribe(newValue => {
+      // Validate new value
+      const parsedValue = Number(newValue);
+      if (!Number.isFinite(parsedValue)) {
+        return;
+      }
+
+      // Get current values
+      const currentSPLOffset = self.splOffsetdB();
+      const previousAlignSPL = self.alignSPLOffsetdB.previousValue || 0;
+
+      // Store current value for next update
+      self.alignSPLOffsetdB.previousValue = parsedValue;
+      const alignSPLDelta = parsedValue - previousAlignSPL;
+
+      // Only calculate the delta when we have a real change
+      if (alignSPLDelta !== 0) {
+        const newOffset = currentSPLOffset + alignSPLDelta;
+        self.splOffsetdB(newOffset);
       }
     });
   }
@@ -598,11 +615,101 @@ class MeasurementItem {
     return true;
   }
 
+  static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
+    try {
+      // Find the result with matching UUID
+      const result = Object.values(responseData.results).find(
+        item => item.UUID === targetUUID
+      );
+
+      if (!result) {
+        throw new Error(`No result found for UUID: ${targetUUID}`);
+      }
+
+      const alignSPLOffset = Number(result.alignSPLOffsetdB);
+
+      if (isNaN(alignSPLOffset)) {
+        throw new Error('Invalid alignSPLOffsetdB value');
+      }
+
+      return alignSPLOffset;
+    } catch (error) {
+      console.error('Error extracting alignSPLOffsetdB:', error);
+      return null;
+    }
+  }
+
   async setSPLOffsetDB(newValue) {
-    await this.addSPLOffsetDB(newValue - this.splOffsetDeltadB());
+    // check if the value is a number
+    if (isNaN(newValue)) {
+      throw new Error(`Invalid SPL offset: ${newValue}`);
+    }
+    // round the value to 2 decimal places
+    newValue = MeasurementItem.cleanFloat32Value(newValue, 2);
+    const currentValue = MeasurementItem.cleanFloat32Value(this.splOffsetDeltadB(), 2);
+
+    // Check if the new value is the same as the current value
+    if (newValue === currentValue) {
+      return true;
+    }
+    console.debug(
+      `Setting SPL offset to ${newValue} dB for ${this.displayMeasurementTitle()}`
+    );
+    // refence level is 75 dB just for the align command
+    const referenceLevel = 75;
+    const defaulParameters = {
+      frequencyHz: 1000,
+      spanOctaves: 1,
+    };
+    // first align the SPL to get the reference level
+    const alignResult = await this.parentViewModel.processCommands(
+      'Align SPL',
+      [this.uuid],
+      {
+        ...defaulParameters,
+        targetdB: referenceLevel,
+      }
+    );
+
+    const referenceAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
+      alignResult,
+      this.uuid
+    );
+
+    const offset = newValue - referenceAlignSPLOffsetdB;
+
+    // align a second time to get the rigth level
+    const finalAlignResult = await this.parentViewModel.processCommands(
+      'Align SPL',
+      [this.uuid],
+      {
+        ...defaulParameters,
+        targetdB: referenceLevel + offset,
+      }
+    );
+    const finalAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
+      finalAlignResult,
+      this.uuid
+    );
+    if (finalAlignSPLOffsetdB !== newValue) {
+      throw new Error(
+        `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`
+      );
+    }
+    this.alignSPLOffsetdB(newValue);
   }
 
   async addSPLOffsetDB(amountToAdd) {
+    const initalOffset = this.splOffsetDeltadB();
+    const newLevel = initalOffset + amountToAdd;
+    this.setSPLOffsetDB(newLevel);
+  }
+
+  async setSPLOffsetDBOld(newValue) {
+    await this.addSPLOffsetDB(newValue - this.splOffsetDeltadB());
+  }
+
+  async addSPLOffsetDBOld(amountToAdd) {
     amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 2);
     if (amountToAdd === 0) {
       return true;
@@ -1263,11 +1370,34 @@ class MeasurementItem {
     };
   }
 
+  get isAverage() {
+    return this.title().endsWith(this.parentViewModel.businessTools.AVERAGE_SUFFIX);
+  }
+
+  get isPredicted() {
+    return this.title().startsWith(this.parentViewModel.businessTools.RESULT_PREFIX);
+  }
+
+  get isLfePredicted() {
+    return this.title().startsWith(this.parentViewModel.businessTools.LFE_PREDICTED);
+  }
+
+  get isUnknownChannel() {
+    return this.channelName() === this.parentViewModel.UNKNOWN_GROUP_NAME;
+  }
+
+  get isValidPosition() {
+    return Boolean(this.position());
+  }
+
   // Getters for computed values
   get isValid() {
-    return this.speakerType() === 'S'
-      ? this.crossover() >= 40 && this.crossover() <= 250
-      : true;
+    return (
+      this.isValidPosition &&
+      !this.isPredicted &&
+      !this.isUnknownChannel &&
+      !this.isLfePredicted
+    );
   }
 }
 
