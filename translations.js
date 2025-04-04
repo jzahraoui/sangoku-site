@@ -2,7 +2,7 @@ const translations = {
   en: {
     title: 'Room Correction Helper',
     import_avr: 'Import your avr file generated from odd executable',
-    drop_avr: 'Drop .avr or .ady file here or click to select',
+    drop_avr: 'Drop .avr or .mqx/.ady file here or click to select',
     avr_config: 'Avr configuration details',
     file_details: 'File Details',
     title_label: 'Title: ',
@@ -104,7 +104,7 @@ const translations = {
   fr: {
     title: 'Assistant de correction accoustique',
     import_avr: "Importez votre fichier avr généré par l'exécutable odd",
-    drop_avr: 'Déposez le fichier .avr ou .ady ici ou cliquez pour sélectionner',
+    drop_avr: 'Déposez le fichier .avr ou .mqx/.ady ici ou cliquez pour sélectionner',
     avr_config: 'Détails de configuration Avr',
     file_details: 'Détails du Fichier',
     title_label: 'Titre: ',
