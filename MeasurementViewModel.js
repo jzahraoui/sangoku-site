@@ -742,6 +742,7 @@ class MeasurementViewModel {
             alignResult,
             work.uuid
           );
+          work.splOffsetdB(work.splOffsetdBUnaligned() + alignOffset);
           work.alignSPLOffsetdB(alignOffset);
         }
 
@@ -1071,6 +1072,7 @@ class MeasurementViewModel {
           alignResult,
           subMeasurement.uuid
         );
+        subMeasurement.splOffsetdB(subMeasurement.splOffsetdBUnaligned() + alignOffset);
         subMeasurement.alignSPLOffsetdB(alignOffset);
 
         await subMeasurement.copySplOffsetDeltadBToOther();
@@ -1174,6 +1176,7 @@ class MeasurementViewModel {
             alignResult,
             measurement.uuid
           );
+          measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
           measurement.alignSPLOffsetdB(alignOffset);
         }
 
@@ -1190,7 +1193,7 @@ class MeasurementViewModel {
           delay: {
             min: -0.005, // 5ms
             max: 0.005, // 5ms
-            step: 0.00001, // 0.01ms
+            step: self.jsonAvrData().avr.minDistAccuracy || 0.00001, // 0.01ms
           },
         };
 

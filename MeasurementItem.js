@@ -46,7 +46,8 @@ class MeasurementItem {
 
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
-    self.initialSplOffsetdB = item.initialSplOffsetdB || item.splOffsetdB;
+    self.initialSplOffsetdB =
+      item.initialSplOffsetdB || item.splOffsetdB - item.alignSPLOffsetdB;
 
     // restore saved data
     const isSW = item.title.startsWith('SW');
@@ -128,8 +129,14 @@ class MeasurementItem {
     self.distanceInMeters = ko.computed(() =>
       self._computeDistanceInMeters(self.cumulativeIRShiftSeconds())
     );
+    self.splOffsetdBUnaligned = ko.computed(
+      () => self.splOffsetdB() - self.alignSPLOffsetdB()
+    );
+    self.splOffsetdBManual = ko.computed(
+      () => self.splOffsetdBUnaligned() - self.initialSplOffsetdB
+    );
     self.splOffsetDeltadB = ko.computed(
-      () => self.splOffsetdB() - self.initialSplOffsetdB
+      () => self.splOffsetdBManual() + self.alignSPLOffsetdB()
     );
     self.splForAvr = ko.computed(() => Math.round(self.splOffsetDeltadB() * 2) / 2);
     self.splIsAboveLimit = ko.computed(
@@ -216,28 +223,6 @@ class MeasurementItem {
         if (self.speakerType() === 'L') {
           self.speakerType('S');
         }
-      }
-    });
-
-    self.alignSPLOffsetdB.subscribe(newValue => {
-      // Validate new value
-      const parsedValue = Number(newValue);
-      if (!Number.isFinite(parsedValue)) {
-        return;
-      }
-
-      // Get current values
-      const currentSPLOffset = self.splOffsetdB();
-      const previousAlignSPL = self.alignSPLOffsetdB.previousValue || 0;
-
-      // Store current value for next update
-      self.alignSPLOffsetdB.previousValue = parsedValue;
-      const alignSPLDelta = parsedValue - previousAlignSPL;
-
-      // Only calculate the delta when we have a real change
-      if (alignSPLDelta !== 0) {
-        const newOffset = currentSPLOffset + alignSPLDelta;
-        self.splOffsetdB(newOffset);
       }
     });
   }
@@ -696,6 +681,7 @@ class MeasurementItem {
         `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`
       );
     }
+    this.splOffsetdB(this.splOffsetdBUnaligned() + newValue);
     this.alignSPLOffsetdB(newValue);
   }
 
