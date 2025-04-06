@@ -20,9 +20,7 @@ class MultiSubOptimizer {
   };
 
   constructor(subMeasurements, config = MultiSubOptimizer.DEFAULT_CONFIG) {
-    if (!subMeasurements || subMeasurements.length < 2) {
-      throw new Error('At least 2 subwoofer measurements required');
-    }
+    this.validateMeasurements(subMeasurements);
     this.subMeasurements = subMeasurements;
     this.optimizedSubs = [];
     this.FREQ_RANGE_START = config.frequency.min; // Starting frequency for optimization (Hz)
@@ -33,13 +31,30 @@ class MultiSubOptimizer {
     this.DELAY_RANGE_START = config.delay.min; // in seconds
     this.DELAY_RANGE_END = config.delay.max; // -5ms to +5ms
     this.DELAY_RESOLUTION = config.delay.step; // in seconds means 0.01ms
-  }
 
-  generateTestParams() {
     // Validate delay range parameters
     if (this.DELAY_RANGE_START > this.DELAY_RANGE_END || this.DELAY_RESOLUTION <= 0) {
       throw new Error('Invalid delay range parameters');
     }
+  }
+
+  validateMeasurements(subMeasurements) {
+    if (!subMeasurements || subMeasurements.length < 2) {
+      throw new Error('At least 2 subwoofer measurements required');
+    }
+    // Check if all measurements have the same frequency points
+
+    subMeasurements.forEach(frequencyResponse => {
+      if (frequencyResponse.freqs.length !== frequencyResponse.magnitude.length) {
+        throw new Error('Frequency and magnitude arrays must have the same length');
+      }
+      if (!frequencyResponse.measurement) {
+        throw new Error('Measurement UUID is required');
+      }
+    });
+  }
+
+  generateTestParams() {
     // Pre-calculate parameter ranges
     const delayCount =
       Math.floor(
@@ -81,68 +96,56 @@ class MultiSubOptimizer {
     return testParamsList;
   }
 
-  async optimizeSubwoofers() {
-    try {
-      // 1. Initial measurements preparation
-      const preparedSubs = await this.prepareMeasurements();
+  optimizeSubwoofers() {
+    // 1. Initial measurements preparation
+    const preparedSubs = this.prepareMeasurements();
 
-      // 2. Calculate initial response
-      // const initialResponse = await this.calculateCombinedResponse(preparedSubs);
+    // 2. Calculate initial response
+    // const initialResponse = this.calculateCombinedResponse(preparedSubs);
 
-      // 3. Optimize parameters for each sub
-      const optimizedParams = await this.findOptimalParameters(preparedSubs);
+    // 3. Optimize parameters for each sub
+    const optimizedParams = this.findOptimalParameters(preparedSubs);
 
-      return optimizedParams;
-    } catch (error) {
-      throw new Error(`Optimization failed: ${error.message}`, { cause: error });
-    }
+    return optimizedParams;
   }
 
-  async prepareMeasurements() {
+  prepareMeasurements() {
     console.debug('Preparing measurements for optimization');
     // Normalize measurements and prepare for processing
-    return await Promise.all(
-      this.subMeasurements.map(async frequencyResponse => {
-        // Normalize frequency response
-        if (frequencyResponse.freqs.length !== frequencyResponse.magnitude.length) {
-          throw new Error('Frequency and magnitude arrays must have the same length');
+    return this.subMeasurements.map(frequencyResponse => {
+      // Normalize frequency response
+      // remove outside frequency range
+      const scale = 1e7;
+      const freqRangeStart = Math.fround(this.FREQ_RANGE_START);
+      const freqRangeEnd = Math.fround(this.FREQ_RANGE_END);
+
+      // Create new arrays to store filtered values
+      const filteredFreqs = [];
+      const filteredMagnitude = [];
+      const filteredPhase = [];
+
+      // Iterate through frequencies and keep only those within range
+      frequencyResponse.freqs.forEach((freq, index) => {
+        // Round down to 7 digits for consistent comparison
+        const roundedFreq = Math.floor(freq * scale) / scale;
+
+        if (roundedFreq >= freqRangeStart && roundedFreq <= freqRangeEnd) {
+          filteredFreqs.push(freq);
+          filteredMagnitude.push(frequencyResponse.magnitude[index]);
+          filteredPhase.push(frequencyResponse.phase[index]);
         }
-        if (!frequencyResponse.measurement) {
-          throw new Error('Measurement UUID is required');
-        }
-        // remove outside frequency range
-        const scale = 1e7;
-        const freqRangeStart = Math.fround(this.FREQ_RANGE_START);
-        const freqRangeEnd = Math.fround(this.FREQ_RANGE_END);
-
-        // Create new arrays to store filtered values
-        const filteredFreqs = [];
-        const filteredMagnitude = [];
-        const filteredPhase = [];
-
-        // Iterate through frequencies and keep only those within range
-        frequencyResponse.freqs.forEach((freq, index) => {
-          // Round down to 7 digits for consistent comparison
-          const roundedFreq = Math.floor(freq * scale) / scale;
-
-          if (roundedFreq >= freqRangeStart && roundedFreq <= freqRangeEnd) {
-            filteredFreqs.push(freq);
-            filteredMagnitude.push(frequencyResponse.magnitude[index]);
-            filteredPhase.push(frequencyResponse.phase[index]);
-          }
-        });
-        return {
-          measurement: frequencyResponse.measurement,
-          freqs: filteredFreqs,
-          magnitude: filteredMagnitude,
-          phase: filteredPhase,
-          freqStep: frequencyResponse.freqStep,
-        };
-      })
-    );
+      });
+      return {
+        measurement: frequencyResponse.measurement,
+        freqs: filteredFreqs,
+        magnitude: filteredMagnitude,
+        phase: filteredPhase,
+        freqStep: frequencyResponse.freqStep,
+      };
+    });
   }
 
-  async findOptimalParameters(preparedSubs) {
+  findOptimalParameters(preparedSubs) {
     // Early validation
     if (!preparedSubs?.length || preparedSubs.length < 2) {
       return [];
@@ -163,7 +166,7 @@ class MultiSubOptimizer {
 
     this.optimizedSubs = [];
     for (const subToOptimize of subsWithoutFirst) {
-      const { bestParams, bestScore, finalResponse } = await this.optimizeSingleSub(
+      const { bestParams, bestScore, finalResponse } = this.optimizeSingleSub(
         subToOptimize,
         previousValidSum,
         testParamsList
@@ -188,32 +191,30 @@ class MultiSubOptimizer {
   }
 
   // Helper method to optimize a single sub
-  async optimizeSingleSub(subToOptimize, previousValidSum, testParamsList) {
+  optimizeSingleSub(subToOptimize, previousValidSum, testParamsList) {
     let bestScore = 0;
     let bestParams = null;
     let finalResponse = null;
 
-    const testResults = await Promise.all(
-      testParamsList.map(async testParams => {
-        const subModified = await this.calculateResponseWithParams({
-          ...subToOptimize,
-          param: testParams,
-        });
+    const testResults = testParamsList.map(testParams => {
+      const subModified = this.calculateResponseWithParams({
+        ...subToOptimize,
+        param: testParams,
+      });
 
-        const combinedResponse = await this.calculateCombinedResponse([
-          subModified,
-          previousValidSum,
-        ]);
+      const combinedResponse = this.calculateCombinedResponse([
+        subModified,
+        previousValidSum,
+      ]);
 
-        const magnitudeScore = await this.calculateAverageLevelScore(combinedResponse);
+      const magnitudeScore = this.calculateAverageLevelScore(combinedResponse);
 
-        return {
-          score: magnitudeScore,
-          params: { ...testParams },
-          response: combinedResponse,
-        };
-      })
-    );
+      return {
+        score: magnitudeScore,
+        params: { ...testParams },
+        response: combinedResponse,
+      };
+    });
 
     for (const result of testResults) {
       if (result.score > bestScore) {
@@ -223,12 +224,12 @@ class MultiSubOptimizer {
       }
     }
 
-    await this.checkDelayBoundaries(subToOptimize, bestParams);
+    this.checkDelayBoundaries(subToOptimize, bestParams);
 
     return { bestParams, bestScore, finalResponse };
   }
 
-  async getFinalSubSum() {
+  getFinalSubSum() {
     const optimizedSubArray = [];
     const defaultParams = Object.freeze({ delay: 0, gain: 0, polarity: 1 });
     for (const originalSub of this.subMeasurements) {
@@ -236,17 +237,17 @@ class MultiSubOptimizer {
         sub => sub.measurement === originalSub.measurement
       );
       originalSub.param = found?.param ? found.param : defaultParams;
-      const response = await this.calculateResponseWithParams(originalSub);
+      const response = this.calculateResponseWithParams(originalSub);
       optimizedSubArray.push(response);
     }
 
-    const optimizedSubsSum = await this.calculateCombinedResponse(optimizedSubArray);
+    const optimizedSubsSum = this.calculateCombinedResponse(optimizedSubArray);
 
     return optimizedSubsSum;
   }
 
   // Helper method to check delay boundaries
-  async checkDelayBoundaries(sub, params) {
+  checkDelayBoundaries(sub, params) {
     if (
       params.delay === this.DELAY_RANGE_END ||
       params.delay === this.DELAY_RANGE_START
@@ -259,13 +260,13 @@ class MultiSubOptimizer {
     }
   }
 
-  async calculateAlignmentScore(response) {
+  calculateAlignmentScore(response) {
     // Input validation
     if (!response?.magnitude?.length || !response?.phase?.length || !response?.freqs) {
       return 0;
     }
     let coherenceScore = 0;
-    const weights = await this.calculateFrequencyWeights(response.freqs);
+    const weights = this.calculateFrequencyWeights(response.freqs);
 
     for (let i = 0; i < response.magnitude.length; i++) {
       // Phase coherence: prefer phases closer to 0° or 180°
@@ -287,13 +288,13 @@ class MultiSubOptimizer {
     return totalWeight > 0 ? coherenceScore / totalWeight : 0;
   }
 
-  async calculateFrequencyWeights(frequencies) {
+  calculateFrequencyWeights(frequencies) {
     // Give more weight to lower frequencies
     const minFreq = Math.min(...frequencies);
     return frequencies.map(freq => 1 / Math.sqrt(freq / minFreq));
   }
 
-  async calculateAverageLevelScore(response) {
+  calculateAverageLevelScore(response) {
     // Input validation
     if (
       !response ||
@@ -347,7 +348,7 @@ class MultiSubOptimizer {
    * @param {Object} response - The response object containing freqs, magnitude, and phase arrays.
    * @returns {string} - The formatted string representation of the response.
    */
-  async displayResponse(response) {
+  displayResponse(response) {
     // Early validation
     if (!response?.freqs?.length) {
       return '';
@@ -367,7 +368,7 @@ class MultiSubOptimizer {
   }
 
   // function to calculate combined response resulting of arthemetic sum operation on magnitude and phase of two responses
-  async calculateCombinedResponse(subs) {
+  calculateCombinedResponse(subs) {
     if (!subs || subs.length === 0) {
       throw new Error('No measurements provided');
     }
@@ -407,7 +408,7 @@ class MultiSubOptimizer {
     };
   }
 
-  async calculateResponseWithParams(sub) {
+  calculateResponseWithParams(sub) {
     const size = sub.freqs.length;
     const response = {
       measurement: sub.measurement,
@@ -436,7 +437,7 @@ class MultiSubOptimizer {
     return response;
   }
 
-  async calculateSeatVariation(response) {
+  calculateSeatVariation(response) {
     const magnitudes = response.magnitude;
     const len = magnitudes.length;
 
@@ -459,7 +460,7 @@ class MultiSubOptimizer {
     return Math.sqrt(variance);
   }
 
-  async calculateFlatnessScore(response) {
+  calculateFlatnessScore(response) {
     const magnitudes = response.magnitude;
     const len = magnitudes.length;
 
