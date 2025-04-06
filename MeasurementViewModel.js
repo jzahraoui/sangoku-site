@@ -1176,6 +1176,7 @@ class MeasurementViewModel {
             alignResult,
             measurement.uuid
           );
+          self.status(`${self.status()} => ${alignOffset}dB`);
           measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
           measurement.alignSPLOffsetdB(alignOffset);
         }
@@ -1222,7 +1223,7 @@ class MeasurementViewModel {
 
         self.status(`${self.status()} \nSarting lookup...`);
         const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
-        const optimizerResults = await optimizer.optimizeSubwoofers();
+        const optimizerResults = optimizer.optimizeSubwoofers();
 
         const optimizedSubs = optimizerResults.optimizedSubs;
 
@@ -1262,7 +1263,7 @@ class MeasurementViewModel {
         // DEBUG use REW api way to generate the sum for compare
         // const maximisedSum = await self.produceSumProcess(self, subsMeasurements);
 
-        const optimizedSubsSum = await optimizer.getFinalSubSum();
+        const optimizedSubsSum = optimizer.getFinalSubSum();
 
         const optimizedSubsSumPeak = self.getMaxFromArray(optimizedSubsSum.magnitude);
 
@@ -1675,10 +1676,9 @@ class MeasurementViewModel {
         frequencyResponses.push(frequencyResponse);
       }
 
-      const optimizer = await new MultiSubOptimizer(frequencyResponses);
-      const optimizedSubsSum =
-        await optimizer.calculateCombinedResponse(frequencyResponses);
-      const data = await optimizer.displayResponse(optimizedSubsSum);
+      const optimizer = new MultiSubOptimizer(frequencyResponses);
+      const optimizedSubsSum = optimizer.calculateCombinedResponse(frequencyResponses);
+      const data = optimizer.displayResponse(optimizedSubsSum);
 
       // Create blob with data content
       const blob = new Blob([data], { type: 'text/plain;charset=utf-8' });
@@ -2143,7 +2143,7 @@ class MeasurementViewModel {
       const frequencyResponses = [channelAFrequencyResponse, channelBFrequencyResponse];
 
       const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
-      const optimizerResults = await optimizer.optimizeSubwoofers();
+      const optimizerResults = optimizer.optimizeSubwoofers();
 
       const optimizedResults = optimizerResults.optimizedSubs[0].param;
       if (!optimizedResults) {
@@ -2154,7 +2154,7 @@ class MeasurementViewModel {
       const shiftDelay = -optimizedResults.delay;
 
       if (createSum) {
-        const bestSumFullRange = await optimizer.getFinalSubSum();
+        const bestSumFullRange = optimizer.getFinalSubSum();
         // await this.sendToREW(optimizerResults.bestSum, sumTitle + 'New');
         // await this.sendToREW(optimizerResults.optimizedSubs[0], sumTitle + 'New');
         await this.sendToREW(bestSumFullRange, sumTitle + 'N');
