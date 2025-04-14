@@ -708,6 +708,11 @@ class MeasurementViewModel {
         const firstMeasurement = workingMeasurements[0];
         const previousTargetcurveTitle = `Target ${firstMeasurement.title()}`;
         const initialTargetLevel = await self.mainTargetLevel();
+        const alignSplOptions = {
+          frequencyHz: 2500,
+          spanOctaves: 5,
+          targetdB: 'average',
+        };
 
         // delete previous target curve
         const previousTargetcurve = self
@@ -721,6 +726,9 @@ class MeasurementViewModel {
         const targetcurve = await firstMeasurement.eqCommands(
           'Generate target measurement'
         );
+        for (const work of workingMeasurements) {
+          await work.applyWorkingSettings();
+        }
 
         await self.processCommands('Smooth', workingMeasurementsUuids, {
           smoothing: '1/1',
@@ -729,11 +737,7 @@ class MeasurementViewModel {
         const alignResult = await self.processCommands(
           'Align SPL',
           [...workingMeasurementsUuids, targetcurve.uuid],
-          {
-            frequencyHz: 2500,
-            spanOctaves: 5,
-            targetdB: 'average',
-          }
+          alignSplOptions
         );
 
         // update attribute for all measurements processed to be able to be used in copySplOffsetDeltadBToOther
@@ -744,6 +748,7 @@ class MeasurementViewModel {
           );
           work.splOffsetdB(work.splOffsetdBUnaligned() + alignOffset);
           work.alignSPLOffsetdB(alignOffset);
+          await work.removeWorkingSettings();
         }
 
         await self.processCommands('Smooth', workingMeasurementsUuids, {
