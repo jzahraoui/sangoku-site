@@ -1115,7 +1115,7 @@ class MeasurementItem {
     await this.resetIrWindows();
   }
 
-  async createStandardFilter(maxBoost = 0) {
+  async createStandardFilter() {
     if (this.isFilter) {
       throw new Error(
         `Operation not permitted on a filter ${this.displayMeasurementTitle()}`
@@ -1128,9 +1128,7 @@ class MeasurementItem {
       );
     }
 
-    const firstMeasurementLevel = await this.parentViewModel.mainTargetLevel();
-    await this.setTargetLevel(firstMeasurementLevel);
-
+    // target level is supposed to already be adjusted by SPL alignment
     await this.applyWorkingSettings();
 
     if (this.crossover()) {
@@ -1144,47 +1142,15 @@ class MeasurementItem {
       await this.resetTargetSettings();
     }
 
-    //const allpassQ = Math.sqrt(2) / 3;
-    // if (this.isSub() && sameXover) {
-    //   await mp.setFilters(
-    //     [{
-    //       index: 20,
-    //       type: "All pass",
-    //       enabled: true,
-    //       isAuto: false,
-    //       frequency: this.crossover(),
-    //       q: allpassQ
-    //     }]);
-    // }
+    // do not use high pass filter at cuttOffFrequency
 
-    // apply high pass filter at cuttOffFrequency
-    if (this.crossover()) {
-      const speakerFilter = [
-        {
-          index: 21,
-          enabled: true,
-          isAuto: false,
-          frequency: this.crossover(),
-          shape: 'BU',
-          slopedBPerOctave: 12,
-          type: 'High pass',
-        },
-        {
-          index: 22,
-          type: 'None',
-          enabled: true,
-          isAuto: false,
-        },
-      ];
-      await this.setFilters(speakerFilter);
-    } else {
-      await this.resetFilters();
-    }
+    await this.resetFilters();
+
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: 10,
-      endFrequency: 500,
+      startFrequency: this.lowerFrequencyBound,
+      endFrequency: 220,
       individualMaxBoostdB: 0,
-      overallMaxBoostdB: maxBoost,
+      overallMaxBoostdB: 0,
       flatnessTargetdB: 1,
       allowNarrowFiltersBelow200Hz: false,
       varyQAbove200Hz: false,
@@ -1194,8 +1160,37 @@ class MeasurementItem {
 
     await this.eqCommands('Match target');
 
+    // set filters auto to off to prevent overwriting by the second pass
+    await this.setAllFiltersAuto(false);
+
+    // must be set seaparatly to be taken into account
+    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+      endFrequency: this.upperFrequencyBound,
+    });
+    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+      startFrequency: 180,
+      individualMaxBoostdB: this.individualMaxBoostValue,
+      overallMaxBoostdB: this.overallBoostValue,
+    });
+
+    await this.eqCommands('Match target');
+
+    // retore filters auto to on for next iteration
+    await this.setAllFiltersAuto(true);
+
     await this.removeWorkingSettings();
 
+    return true;
+  }
+
+  async setAllFiltersAuto(requiredState = true) {
+    const filters = await this.getFilters();
+    for (const filter of filters) {
+      if (filter.type === 'PK' && filter.isAuto !== requiredState) {
+        filter.isAuto = requiredState;
+      }
+    }
+    await this.setFilters(filters);
     return true;
   }
 
