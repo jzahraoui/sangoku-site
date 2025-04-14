@@ -1197,8 +1197,8 @@ class MeasurementViewModel {
             step: 0.1, // dB
           },
           delay: {
-            min: -0.005, // 5ms
-            max: 0.005, // 5ms
+            min: -0.002, // 2ms
+            max: 0.002, // 2ms
             step: self.jsonAvrData().avr.minDistAccuracy || 0.00001, // 0.01ms
           },
         };
