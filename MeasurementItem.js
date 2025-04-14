@@ -19,6 +19,13 @@ class MeasurementItem {
       throw new Error('No AVR data loaded');
     }
 
+    self.upperFrequencyBound = 16000;
+    self.lowerFrequencyBound = 10;
+    self.leftWindowWidthMilliseconds = 30;
+    self.rightWindowWidthMilliseconds = 1000;
+    self.individualMaxBoostValue = 10;
+    self.overallBoostValue = 6;
+
     self.parentViewModel = parentViewModel;
     // Original data
     self.title = ko.observable(item.title);
@@ -328,8 +335,8 @@ class MeasurementItem {
     const defaultSettings = {
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
-      leftWindowWidthms: 30,
-      rightWindowWidthms: 1000,
+      leftWindowWidthms: this.leftWindowWidthMilliseconds,
+      rightWindowWidthms: this.rightWindowWidthMilliseconds,
       addFDW: false,
       addMTW: false,
     };
@@ -1090,8 +1097,8 @@ class MeasurementItem {
     await this.setIrWindows({
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
-      leftWindowWidthms: 20,
-      rightWindowWidthms: 500,
+      leftWindowWidthms: this.leftWindowWidthMilliseconds,
+      rightWindowWidthms: this.rightWindowWidthMilliseconds,
       refTimems: this.timeOfIRPeakSeconds * 1000,
       addFDW: false,
       addMTW: true,
