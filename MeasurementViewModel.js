@@ -1214,7 +1214,7 @@ class MeasurementViewModel {
 
         const previousMaxSum = self
           .measurements()
-          .filter(item => item.title() === maximisedSumTitle);
+          .filter(item => item.title().startsWith(maximisedSumTitle));
         for (const item of previousMaxSum) {
           await item.delete();
         }
@@ -1279,6 +1279,11 @@ class MeasurementViewModel {
         );
 
         const maximisedSum = await self.sendToREW(optimizedSubsSum, maximisedSumTitle);
+
+        await self.sendToREW(
+          optimizer.theoreticalMaxResponse,
+          maximisedSumTitle + ' Theo'
+        );
         // DEBUG to check it this is the same
         // await self.sendToREW(optimizerResults.bestSum, 'test');
 
