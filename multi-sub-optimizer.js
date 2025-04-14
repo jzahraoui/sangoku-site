@@ -190,6 +190,64 @@ class MultiSubOptimizer {
     return result;
   }
 
+  calculateMaxTheoreticalResponse(preparedSubs) {
+    if (!preparedSubs?.length) {
+      return null;
+    }
+
+    const firstSub = preparedSubs[0];
+    const freqs = firstSub.freqs;
+    const freqStep = firstSub.freqStep;
+
+    // Create arrays to store the theoretical maximum
+    const theoreticalMagnitude = new Array(freqs.length).fill(0);
+    const theoreticalPhase = new Array(freqs.length).fill(0);
+
+    // For each frequency point
+    for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
+      // Process each subwoofer's response
+      let polarSum;
+      for (const sub of preparedSubs) {
+        // Convert magnitude from dB to linear voltage
+        const subPolar = Polar.fromDb(sub.magnitude[freqIndex], 0);
+
+        polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
+      }
+
+      theoreticalMagnitude[freqIndex] = polarSum.magnitudeDb;
+    }
+
+    return {
+      freqs,
+      magnitude: theoreticalMagnitude,
+      phase: theoreticalPhase,
+      freqStep,
+    };
+  }
+
+  calculateEfficiencyRatio(actualResponse, theoreticalResponse) {
+    if (!actualResponse?.magnitude?.length || !theoreticalResponse?.magnitude?.length) {
+      return 0;
+    }
+
+    let efficiencySum = 0;
+    const count = actualResponse.magnitude.length;
+
+    for (let i = 0; i < count; i++) {
+      // Convert from dB to linear for proper ratio calculation
+      const actualLinear = Math.pow(10, actualResponse.magnitude[i] / 20);
+      const theoreticalLinear = Math.pow(10, theoreticalResponse.magnitude[i] / 20);
+
+      // Calculate efficiency at each frequency point (as a percentage)
+      const pointEfficiency =
+        (actualLinear / theoreticalLinear) * this.frequencyWeights[i] * 100;
+      efficiencySum += pointEfficiency;
+    }
+
+    // Return average efficiency percentage
+    return efficiencySum / count;
+  }
+
   // Helper method to optimize a single sub
   optimizeSingleSub(subToOptimize, previousValidSum, testParamsList) {
     let bestScore = 0;
