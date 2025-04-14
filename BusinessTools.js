@@ -562,6 +562,7 @@ class BusinessTools {
       for (const measurementItem of itemList) {
         await measurementItem.resetSmoothing();
         await measurementItem.resetIrWindows();
+        await measurementItem.resetTargetSettings();
         const rollResponse = await measurementItem.producePredictedMeasurement();
         if (!rollResponse) {
           throw new Error(`Cannot generate predicted measurement`);
