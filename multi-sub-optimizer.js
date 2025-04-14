@@ -31,6 +31,8 @@ class MultiSubOptimizer {
     this.DELAY_RANGE_START = config.delay.min; // in seconds
     this.DELAY_RANGE_END = config.delay.max; // -5ms to +5ms
     this.DELAY_RESOLUTION = config.delay.step; // in seconds means 0.01ms
+    this.frequencyWeights = null;
+    this.theoreticalMaxResponse = null;
 
     // Validate delay range parameters
     if (this.DELAY_RANGE_START > this.DELAY_RANGE_END || this.DELAY_RESOLUTION <= 0) {
@@ -100,6 +102,10 @@ class MultiSubOptimizer {
     // 1. Initial measurements preparation
     const preparedSubs = this.prepareMeasurements();
 
+    // Calculate theoretical maximum response
+    this.theoreticalMaxResponse = this.calculateMaxTheoreticalResponse(preparedSubs);
+    console.debug('Calculated theoretical maximum response');
+
     // 2. Calculate initial response
     // const initialResponse = this.calculateCombinedResponse(preparedSubs);
 
@@ -112,7 +118,7 @@ class MultiSubOptimizer {
   prepareMeasurements() {
     console.debug('Preparing measurements for optimization');
     // Normalize measurements and prepare for processing
-    return this.subMeasurements.map(frequencyResponse => {
+    const preparedSubs = this.subMeasurements.map(frequencyResponse => {
       // Normalize frequency response
       // remove outside frequency range
       const scale = 1e7;
@@ -143,6 +149,27 @@ class MultiSubOptimizer {
         freqStep: frequencyResponse.freqStep,
       };
     });
+
+    // check if all measurements have the same frequency points
+    const firstFreqs = preparedSubs[0].freqs;
+    preparedSubs.forEach((sub, index) => {
+      if (sub.freqs.length !== firstFreqs.length) {
+        throw new Error(
+          `Sub ${index} has a different number of frequency points than the first sub`
+        );
+      }
+      sub.freqs.forEach((freq, freqIndex) => {
+        if (freq !== firstFreqs[freqIndex]) {
+          throw new Error(
+            `Sub ${index} has a different frequency point at index ${freqIndex} than the first sub`
+          );
+        }
+      });
+    });
+
+    this.frequencyWeights = this.calculateFrequencyWeights(preparedSubs[0].freqs);
+
+    return preparedSubs;
   }
 
   findOptimalParameters(preparedSubs) {
@@ -265,7 +292,10 @@ class MultiSubOptimizer {
         previousValidSum,
       ]);
 
-      const magnitudeScore = this.calculateAverageLevelScore(combinedResponse);
+      const magnitudeScore = this.calculateEfficiencyRatio(
+        combinedResponse,
+        this.theoreticalMaxResponse
+      );
 
       return {
         score: magnitudeScore,
@@ -324,7 +354,7 @@ class MultiSubOptimizer {
       return 0;
     }
     let coherenceScore = 0;
-    const weights = this.calculateFrequencyWeights(response.freqs);
+    const weights = this.frequencyWeights;
 
     for (let i = 0; i < response.magnitude.length; i++) {
       // Phase coherence: prefer phases closer to 0° or 180°
@@ -433,15 +463,8 @@ class MultiSubOptimizer {
 
     const freqs = subs[0].freqs;
     const freqStep = subs[0].freqStep;
-    const combinedMagnitude = [];
-    const combinedPhase = [];
-
-    // Validate that all subs have the same frequency points
-    for (const sub of subs) {
-      if (sub.freqs.length !== freqs.length) {
-        throw new Error('All measurements must have the same number of frequency points');
-      }
-    }
+    const combinedMagnitude = new Array(freqs.length).fill(0);
+    const combinedPhase = new Array(freqs.length).fill(0);
 
     // For each frequency point
     for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
@@ -454,8 +477,8 @@ class MultiSubOptimizer {
         polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
       }
 
-      combinedMagnitude.push(polarSum.magnitudeDb);
-      combinedPhase.push(polarSum.phaseDegrees);
+      combinedMagnitude[freqIndex] = polarSum.magnitudeDb;
+      combinedPhase[freqIndex] = polarSum.phaseDegrees;
     }
 
     return {
