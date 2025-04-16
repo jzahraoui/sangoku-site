@@ -306,8 +306,13 @@ class AdyTools {
     const numbersOfSubs = Number(this.fileContent.subwooferNum);
     const subwooferMode = this.fileContent.subwooferMode;
 
-    // For single subwoofer, no need for directional mode
-    if (numbersOfSubs === 1) {
+    // For none or single subwoofer, no need for directional mode
+    if (numbersOfSubs <= 1) {
+      return true;
+    }
+
+    // N/A means no multiple subwoofer mode detected
+    if (subwooferMode === 'N/A') {
       return true;
     }
 
