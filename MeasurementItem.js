@@ -1168,7 +1168,7 @@ class MeasurementItem {
       endFrequency: this.upperFrequencyBound,
     });
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: 180,
+      startFrequency: 220,
       individualMaxBoostdB: this.individualMaxBoostValue,
       overallMaxBoostdB: this.overallBoostValue,
     });
