@@ -648,10 +648,8 @@ class MeasurementViewModel {
         self.isProcessing(true);
         self.status('Computing sum...');
 
-        const firstMeasurementLevel = await self.mainTargetLevel();
-        for (const subItem of self.subsMeasurements()) {
-          await subItem.setTargetLevel(firstMeasurementLevel);
-        }
+        // target level must be correct to ensure accurate predicted measurements
+        await self.setTargetLevelToAll();
 
         for (const [position, subResponses] of Object.entries(
           self.byPositionsGroupedSubsMeasurements()
@@ -707,7 +705,6 @@ class MeasurementViewModel {
         const workingMeasurementsUuids = workingMeasurements.map(m => m.uuid);
         const firstMeasurement = workingMeasurements[0];
         const previousTargetcurveTitle = `Target ${firstMeasurement.title()}`;
-        const initialTargetLevel = await self.mainTargetLevel();
         const alignSplOptions = {
           frequencyHz: 2500,
           spanOctaves: 5,
@@ -723,9 +720,6 @@ class MeasurementViewModel {
         }
 
         await firstMeasurement.resetTargetSettings();
-        const targetcurve = await firstMeasurement.eqCommands(
-          'Generate target measurement'
-        );
         for (const work of workingMeasurements) {
           await work.applyWorkingSettings();
         }
@@ -736,9 +730,16 @@ class MeasurementViewModel {
 
         const alignResult = await self.processCommands(
           'Align SPL',
-          [...workingMeasurementsUuids, targetcurve.uuid],
+          [...workingMeasurementsUuids],
           alignSplOptions
         );
+
+        // must be calculated before removing working settings
+        await firstMeasurement.eqCommands('Calculate target level');
+        await firstMeasurement.eqCommands('Generate target measurement');
+
+        // set target level to all measurements including subs
+        await self.setTargetLevelToAll();
 
         // update attribute for all measurements processed to be able to be used in copySplOffsetDeltadBToOther
         for (const work of workingMeasurements) {
@@ -755,20 +756,7 @@ class MeasurementViewModel {
           smoothing: 'None',
         });
 
-        // get align offset from target curve
-        const targetcurveOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
-          alignResult,
-          targetcurve.uuid
-        );
-
-        const finalTargetLevel = initialTargetLevel + targetcurveOffset;
-
-        // copy target level to sub also
-        for (const valid of self.validMeasurements()) {
-          await valid.setTargetLevel(finalTargetLevel);
-        }
-
-        // set SPL level to all other measurements positions
+        // copy SPL alignment level to other measurements positions
         for (const measurement of self.uniqueMeasurements()) {
           await measurement.copySplOffsetDeltadBToOther();
         }
@@ -1559,7 +1547,7 @@ class MeasurementViewModel {
 
   async setTargetLevelToAll() {
     const firstMeasurementLevel = await this.mainTargetLevel();
-    for (const measurement of this.measurements()) {
+    for (const measurement of this.validMeasurements()) {
       await measurement.setTargetLevel(firstMeasurementLevel);
     }
     return firstMeasurementLevel;
