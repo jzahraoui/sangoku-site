@@ -219,11 +219,7 @@ export default class RewApi {
         body: JSON.stringify(parameters),
       };
 
-      const commandRequest = await this.fetchWithRetry(
-        `${requestUrl}`,
-        fetchOptions,
-        retries
-      );
+      const commandRequest = await this.fetchWithRetry(requestUrl, fetchOptions, retries);
 
       return commandRequest;
     } catch (error) {
@@ -232,7 +228,7 @@ export default class RewApi {
     }
   }
 
-  async putSafe(requestUrl, parameters, expectedMessage, retries = 3) {
+  async putSafe(requestUrl, parameters, retries = 0) {
     try {
       const fetchOptions = {
         method: 'PUT',
