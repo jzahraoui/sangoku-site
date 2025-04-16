@@ -393,7 +393,8 @@ class AvrCaracteristics {
   getMinDistAccuracy() {
     const ACCURACY_FACTOR = 0.03;
     const DIVISION_FACTOR = 2;
-    return ACCURACY_FACTOR / this.getSpeedOfSound() / DIVISION_FACTOR;
+    const result = ACCURACY_FACTOR / this.getSpeedOfSound() / DIVISION_FACTOR;
+    return Number(result.toFixed(7));
   }
 }
 
