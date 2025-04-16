@@ -850,6 +850,20 @@ class MeasurementItem {
     return true;
   }
 
+  async setSingleFilter(filter) {
+    if (!filter) {
+      throw new Error(`Invalid filter: ${filter}`);
+    }
+
+    await this.parentViewModel.apiService.putSafe(
+      `measurements/${this.uuid}/filters`,
+      filter
+    );
+
+    await this.deleteAssociatedFilter();
+    return true;
+  }
+
   compareObjects(obj1, obj2) {
     const sortedStringify = obj =>
       JSON.stringify(
