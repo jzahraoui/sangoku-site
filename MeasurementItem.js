@@ -23,8 +23,10 @@ class MeasurementItem {
     self.lowerFrequencyBound = 10;
     self.leftWindowWidthMilliseconds = 30;
     self.rightWindowWidthMilliseconds = 1000;
-    self.individualMaxBoostValue = 10;
+    self.individualMaxBoostValue = 3;
     self.overallBoostValue = 6;
+
+    self.defaultSmoothingValue = 'Psy';
 
     self.parentViewModel = parentViewModel;
     // Original data
@@ -319,6 +321,10 @@ class MeasurementItem {
 
   async resetSmoothing() {
     await this.genericCommand('Smooth', { smoothing: 'None' });
+  }
+
+  async defaultSmoothing() {
+    await this.genericCommand('Smooth', { smoothing: this.defaultSmoothingValue });
   }
 
   async resetIrWindows() {
@@ -1127,6 +1133,7 @@ class MeasurementItem {
       );
     }
     await this.resetIrWindows();
+    await this.defaultSmoothing();
   }
 
   async createStandardFilter() {
@@ -1182,10 +1189,12 @@ class MeasurementItem {
       endFrequency: this.upperFrequencyBound,
     });
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: 220,
+      startFrequency: 180,
       individualMaxBoostdB: this.individualMaxBoostValue,
       overallMaxBoostdB: this.overallBoostValue,
     });
+
+    await this.genericCommand('Smooth', { smoothing: '1/3' });
 
     await this.eqCommands('Match target');
 

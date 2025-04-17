@@ -485,7 +485,7 @@ class BusinessTools {
       // set title
       const finalTitle = `${this.RESULT_PREFIX}${item.title()} FB_P${item.position()}`;
       await predictedSubChannel.setTitle(finalTitle);
-      await predictedSubChannel.genericCommand('Smooth', { smoothing: 'Psy' });
+      await predictedSubChannel.defaultSmoothing();
       return true;
     }
     if (item.isUnknownChannel) {
@@ -527,7 +527,7 @@ class BusinessTools {
     const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB';
     const finalTitle = `${this.RESULT_PREFIX}${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
-    await finalPredcition.genericCommand('Smooth', { smoothing: 'Psy' });
+    await finalPredcition.defaultSmoothing();
     return true;
   }
 
