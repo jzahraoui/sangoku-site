@@ -507,29 +507,6 @@ class MultiSubOptimizer {
     return response;
   }
 
-  calculateSeatVariation(response) {
-    const magnitudes = response.magnitude;
-    const len = magnitudes.length;
-
-    if (len === 0) return 0;
-    if (len === 1) return 0;
-
-    // Use reduce for a single pass calculation
-    const { sum, sumSquares } = magnitudes.reduce(
-      (acc, mag) => ({
-        sum: acc.sum + mag,
-        sumSquares: acc.sumSquares + mag * mag,
-      }),
-      { sum: 0, sumSquares: 0 }
-    );
-
-    const mean = sum / len;
-    // Avoid potential floating point precision issues
-    const variance = Math.max(0, sumSquares / len - mean * mean);
-
-    return Math.sqrt(variance);
-  }
-
   calculateFlatnessScore(response) {
     const magnitudes = response.magnitude;
     const len = magnitudes.length;
