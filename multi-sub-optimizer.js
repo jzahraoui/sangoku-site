@@ -511,32 +511,73 @@ class MultiSubOptimizer {
     return response;
   }
 
+  // Measures overall deviation from the mean level (standard deviation)
+  // Evaluates local smoothness by examining changes between adjacent frequency points
+  // Considers peak-to-peak range which is critical for subwoofer performance
+  // Combines these factors with appropriate weightings to produce a more meaningful score
+  // The score is designed so that lower values indicate a flatter, smoother response, which is typically desirable in audio systems. You can adjust the weights based on your specific priorities for the optimization.
   calculateFlatnessScore(response) {
     const magnitudes = response.magnitude;
     const len = magnitudes.length;
 
     if (len <= 1) return 0; // Handle edge cases
 
-    let totalVariation = 0;
+    // Calculate mean level for reference
+    const meanLevel = magnitudes.reduce((sum, val) => sum + val, 0) / len;
+
+    // Calculate variance (squared deviation from mean)
+    let variance = 0;
+    let deviationSum = 0;
+    let localVariationSum = 0;
     let min = magnitudes[0];
     let max = magnitudes[0];
 
-    // Single pass to calculate variation and find min/max
-    for (let i = 1; i < len; i++) {
-      const current = magnitudes[i];
-      const previous = magnitudes[i - 1];
+    // Weighted analysis of both overall deviation and local variations
+    for (let i = 0; i < len; i++) {
+      // Overall deviation from mean (flatness across whole range)
+      const deviation = magnitudes[i] - meanLevel;
+      deviationSum += Math.pow(deviation, 2);
 
-      totalVariation += Math.abs(current - previous);
-      min = Math.min(min, current);
-      max = Math.max(max, current);
+      // Local variation (smoothness between adjacent points)
+      if (i > 0) {
+        const localDiff = magnitudes[i] - magnitudes[i - 1];
+        // Square the difference to penalize larger jumps more
+        localVariationSum += Math.pow(localDiff, 2);
+      }
+
+      // Track min/max for peak-to-peak measurement
+      min = Math.min(min, magnitudes[i]);
+      max = Math.max(max, magnitudes[i]);
     }
-    const range = max - min;
-    // Perfectly flat response
-    if (range === 0) return 0; // Avoid division by zero
 
-    // Normalize the variation score by the range and length
-    const normalizedVariation = totalVariation / (len - 1);
-    return normalizedVariation;
+    // Calculate standard deviation (overall flatness)
+    variance = deviationSum / len;
+    const stdDev = Math.sqrt(variance);
+
+    // Calculate RMS of local variations (smoothness)
+    const localRMS = Math.sqrt(localVariationSum / (len - 1));
+
+    // Peak-to-peak range (another flatness indicator)
+    const peakToPeak = max - min;
+
+    // Weighted combination of factors - lower is better (flatter)
+    // Weight factors can be adjusted based on what aspects of flatness are most important
+    const overallWeight = 0.5; // How much we care about overall deviation
+    const localWeight = 0.3; // How much we care about local smoothness
+    const peakWeight = 0.2; // How much we care about peak-to-peak range
+
+    // Combining the metrics (normalizing each factor first)
+    const normalizedStdDev = stdDev;
+    const normalizedLocalRMS = localRMS * 2; // Scale up local variations for better sensitivity
+    const normalizedPeakToPeak = peakToPeak / 3; // Divide by typical range for subwoofers
+
+    // Final score (lower is better - flatter response)
+    const flatnessScore =
+      overallWeight * normalizedStdDev +
+      localWeight * normalizedLocalRMS +
+      peakWeight * normalizedPeakToPeak;
+
+    return flatnessScore;
   }
 }
 
