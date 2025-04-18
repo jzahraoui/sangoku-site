@@ -99,7 +99,7 @@ class MultiSubOptimizer {
     const preparedSubs = this.prepareMeasurements();
 
     // Calculate theoretical maximum response
-    this.theoreticalMaxResponse = this.calculateMaxTheoreticalResponse(preparedSubs);
+    this.theoreticalMaxResponse = this.calculateCombinedResponse(preparedSubs, true);
     console.debug('Calculated theoretical maximum response');
 
     // 2. Calculate initial response
@@ -211,41 +211,6 @@ class MultiSubOptimizer {
     };
 
     return result;
-  }
-
-  calculateMaxTheoreticalResponse(preparedSubs) {
-    if (!preparedSubs?.length) {
-      return null;
-    }
-
-    const firstSub = preparedSubs[0];
-    const freqs = firstSub.freqs;
-    const freqStep = firstSub.freqStep;
-
-    // Create arrays to store the theoretical maximum
-    const theoreticalMagnitude = new Array(freqs.length).fill(0);
-    const theoreticalPhase = new Array(freqs.length).fill(0);
-
-    // For each frequency point
-    for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
-      // Process each subwoofer's response
-      let polarSum;
-      for (const sub of preparedSubs) {
-        // Convert magnitude from dB to linear voltage
-        const subPolar = Polar.fromDb(sub.magnitude[freqIndex], 0);
-
-        polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
-      }
-
-      theoreticalMagnitude[freqIndex] = polarSum.magnitudeDb;
-    }
-
-    return {
-      freqs,
-      magnitude: theoreticalMagnitude,
-      phase: theoreticalPhase,
-      freqStep,
-    };
   }
 
   calculateEfficiencyRatio(actualResponse, theoreticalResponse) {
@@ -452,7 +417,7 @@ class MultiSubOptimizer {
   }
 
   // function to calculate combined response resulting of arthemetic sum operation on magnitude and phase of two responses
-  calculateCombinedResponse(subs) {
+  calculateCombinedResponse(subs, theoreticalResponse = false) {
     if (!subs || subs.length === 0) {
       throw new Error('No measurements provided');
     }
@@ -467,8 +432,9 @@ class MultiSubOptimizer {
       // Process each subwoofer's response
       let polarSum;
       for (const sub of subs) {
+        const phase = theoreticalResponse ? 0 : sub.phase[freqIndex];
         // Convert magnitude from dB to linear voltage
-        const subPolar = Polar.fromDb(sub.magnitude[freqIndex], sub.phase[freqIndex]);
+        const subPolar = Polar.fromDb(sub.magnitude[freqIndex], phase);
 
         polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
       }
