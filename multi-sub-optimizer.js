@@ -23,19 +23,12 @@ class MultiSubOptimizer {
     this.validateMeasurements(subMeasurements);
     this.subMeasurements = subMeasurements;
     this.optimizedSubs = [];
-    this.FREQ_RANGE_START = config.frequency.min; // Starting frequency for optimization (Hz)
-    this.FREQ_RANGE_END = config.frequency.max; // Ending frequency for optimization (Hz)
-    this.GAIN_RESOLUTION = config.gain.step; // dB
-    this.GAIN_RANGE_START = config.gain.min; // dB
-    this.GAIN_RANGE_END = config.gain.max; // dB
-    this.DELAY_RANGE_START = config.delay.min; // in seconds
-    this.DELAY_RANGE_END = config.delay.max; // -5ms to +5ms
-    this.DELAY_RESOLUTION = config.delay.step; // in seconds means 0.01ms
+    this.config = config;
     this.frequencyWeights = null;
     this.theoreticalMaxResponse = null;
 
     // Validate delay range parameters
-    if (this.DELAY_RANGE_START > this.DELAY_RANGE_END || this.DELAY_RESOLUTION <= 0) {
+    if (this.config.delay.min > this.config.delay.max || this.config.delay.step <= 0) {
       throw new Error('Invalid delay range parameters');
     }
   }
@@ -58,32 +51,35 @@ class MultiSubOptimizer {
 
   generateTestParams() {
     // Pre-calculate parameter ranges
-    const delayCount =
-      Math.floor(
-        (this.DELAY_RANGE_END - this.DELAY_RANGE_START) / this.DELAY_RESOLUTION + 0.5
-      ) + 1;
 
-    const delays = new Array(delayCount);
     // Helper function to round to specific decimal places
-    const round = (value, resolution) => {
-      return Number((Math.round(value / resolution) * resolution).toFixed(10));
+    const round = (value, resolution = 0.0001) => {
+      // Calculate number of decimal places from resolution
+      const decimalPlaces = -Math.floor(Math.log10(resolution));
+      const multiplier = Math.pow(10, decimalPlaces);
+      return Math.round(value * multiplier) / multiplier;
     };
 
+    const delayCount =
+      Math.floor(
+        (this.config.delay.max - this.config.delay.min) / this.config.delay.step + 0.5
+      ) + 1;
+    const delays = new Array(delayCount);
     for (let i = 0; i < delayCount; i++) {
-      const calc = this.DELAY_RANGE_START + i * this.DELAY_RESOLUTION;
-      const rounded = round(calc, this.DELAY_RESOLUTION);
+      const calc = this.config.delay.min + i * this.config.delay.step;
+      const rounded = round(calc, this.config.delay.step);
       delays[i] = rounded;
     }
 
     const gainCount =
       Math.floor(
-        (this.GAIN_RANGE_END - this.GAIN_RANGE_START) / this.GAIN_RESOLUTION + 0.5
+        (this.config.gain.max - this.config.gain.min) / this.config.gain.step + 0.5
       ) + 1;
     const gains = new Array(gainCount);
     for (let i = 0; i < gainCount; i++) {
       gains[i] = round(
-        this.GAIN_RANGE_START + i * this.GAIN_RESOLUTION,
-        this.GAIN_RESOLUTION
+        this.config.gain.min + i * this.config.gain.step,
+        this.config.gain.step
       );
     }
 
@@ -122,8 +118,8 @@ class MultiSubOptimizer {
       // Normalize frequency response
       // remove outside frequency range
       const scale = 1e7;
-      const freqRangeStart = Math.fround(this.FREQ_RANGE_START);
-      const freqRangeEnd = Math.fround(this.FREQ_RANGE_END);
+      const freqRangeStart = Math.fround(this.config.frequency.min);
+      const freqRangeEnd = Math.fround(this.config.frequency.max);
 
       // Create new arrays to store filtered values
       const filteredFreqs = [];
@@ -337,8 +333,8 @@ class MultiSubOptimizer {
   // Helper method to check delay boundaries
   checkDelayBoundaries(sub, params) {
     if (
-      params.delay === this.DELAY_RANGE_END ||
-      params.delay === this.DELAY_RANGE_START
+      params.delay === this.config.delay.max ||
+      params.delay === this.config.delay.min
     ) {
       console.warn(
         `Optimal delay for ${sub.measurement} is at the edge: ${
