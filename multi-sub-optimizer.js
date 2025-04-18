@@ -338,9 +338,36 @@ class MultiSubOptimizer {
   }
 
   calculateFrequencyWeights(frequencies) {
-    // Give more weight to lower frequencies
     const minFreq = Math.min(...frequencies);
-    return frequencies.map(freq => 1 / Math.sqrt(freq / minFreq));
+    const maxFreq = Math.max(...frequencies);
+
+    // Create weights that consider multiple factors important for subwoofer optimization
+    return frequencies.map(freq => {
+      // 1. Basic low-frequency emphasis (similar to previous implementation but refined)
+      const basicWeight = 1 / Math.pow(freq / minFreq, 0.6); // Adjust power for smoothness
+
+      // 2. Modal region emphasis - most critical for room acoustics (typically 20-80Hz)
+      const modalImportance = freq < 80 ? 1.5 : 1.0;
+
+      // 3. Crossover region emphasis - important for integration with mains (usually 80-120Hz)
+      const distanceFromCrossover = Math.abs(freq - 80);
+      const crossoverImportance = distanceFromCrossover < 20 ? 1.3 : 1.0;
+
+      // 4. De-emphasize extremes of range where measurement accuracy might be lower
+      let edgeFactor = 1.0;
+      if (freq < minFreq * 1.2) {
+        // Low extreme
+        const normalizedPosition = (freq - minFreq) / (minFreq * 0.2);
+        edgeFactor = 0.5 + 0.5 * normalizedPosition;
+      } else if (freq > maxFreq * 0.8) {
+        // High extreme
+        const normalizedPosition = (maxFreq - freq) / (maxFreq * 0.2);
+        edgeFactor = 0.5 + 0.5 * normalizedPosition;
+      }
+
+      // Combine all factors - multiply for compound effect
+      return basicWeight * modalImportance * crossoverImportance * edgeFactor;
+    });
   }
 
   calculateAverageLevelScore(response) {
