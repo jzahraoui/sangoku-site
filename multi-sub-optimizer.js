@@ -106,7 +106,11 @@ class MultiSubOptimizer {
     // const initialResponse = this.calculateCombinedResponse(preparedSubs);
 
     // 3. Optimize parameters for each sub
+    const start = performance.now();
     const optimizedParams = this.findOptimalParameters(preparedSubs);
+    const end = performance.now();
+    const executionTime = end - start;
+    console.debug(`Execution time: ${executionTime.toFixed(2)} milliseconds`);
 
     return optimizedParams;
   }
