@@ -17,7 +17,31 @@ class MultiSubOptimizer {
       max: 0.005, // seconds
       step: 0.00001, // seconds
     },
+    allPass: {
+      enabled: false,
+      frequency: {
+        min: 10, // Hz
+        max: 100, // Hz
+        step: 1, // Hz
+      },
+      q: {
+        min: 0.1,
+        max: 5,
+        step: 0.1,
+      },
+    },
   };
+
+  static EMPTY_CONFIG = Object.freeze({
+    delay: 0,
+    gain: 0,
+    polarity: 1,
+    allPass: {
+      frequency: 0,
+      q: 0,
+      enabled: false,
+    },
+  });
 
   constructor(subMeasurements, config = MultiSubOptimizer.DEFAULT_CONFIG) {
     this.validateMeasurements(subMeasurements);
@@ -83,13 +107,62 @@ class MultiSubOptimizer {
       );
     }
 
+    const allPassParamsList = [];
+    allPassParamsList.push({ frequency: 0, q: 0, enabled: false });
+
+    if (this.config.allPass.enabled) {
+      // all-pass filter parameters
+      const freqCount =
+        Math.floor(
+          (this.config.allPass.frequency.max - this.config.allPass.frequency.min) /
+            this.config.allPass.frequency.step +
+            0.5
+        ) + 1;
+
+      const frequencies = new Array(freqCount);
+      for (let i = 0; i < freqCount; i++) {
+        frequencies[i] = round(
+          this.config.allPass.frequency.min + i * this.config.allPass.frequency.step,
+          this.config.allPass.frequency.step
+        );
+      }
+
+      const qCount =
+        Math.floor(
+          (this.config.allPass.q.max - this.config.allPass.q.min) /
+            this.config.allPass.q.step +
+            0.5
+        ) + 1;
+
+      const qValues = new Array(qCount);
+      for (let i = 0; i < qCount; i++) {
+        qValues[i] = round(
+          this.config.allPass.q.min + i * this.config.allPass.q.step,
+          this.config.allPass.q.step
+        );
+      }
+
+      for (const freq of frequencies) {
+        for (const q of qValues) {
+          allPassParamsList.push({ frequency: freq, q: q, enabled: true });
+        }
+      }
+    }
+
     const testParamsList = [];
     for (const polarity of [1, -1]) {
       for (const delay of delays) {
         for (const gain of gains) {
-          testParamsList.push({ delay, gain, polarity });
+          for (const allPassParams of allPassParamsList) {
+            testParamsList.push({
+              delay,
+              gain,
+              polarity,
+              allPass: allPassParams,
+            });
         }
       }
+    }
     }
     return testParamsList;
   }
@@ -181,7 +254,7 @@ class MultiSubOptimizer {
     // Initialize reference sub
     const referenceSub = {
       ...preparedSubs[0],
-      param: Object.freeze({ delay: 0, gain: 0, polarity: 1 }),
+      param: MultiSubOptimizer.EMPTY_CONFIG,
     };
 
     const subsWithoutFirst = preparedSubs.slice(1);
@@ -491,13 +564,25 @@ class MultiSubOptimizer {
       phase: [],
       freqStep: sub.freqStep,
     };
-    const { gain, delay, polarity } = sub.param;
+    const { gain, delay, polarity, allPass } = sub.param || {};
+
+    // Pre-calculate all-pass filter response if enabled
+    let allPassPhaseShift = null;
+    if (allPass?.enabled) {
+      allPassPhaseShift = this.calculateAllPassResponse(allPass.frequency, allPass.q);
+    }
 
     for (let freqIndex = 0; freqIndex < size; freqIndex++) {
       // Calculate magnitude
       let polar = Polar.fromDb(sub.magnitude[freqIndex], sub.phase[freqIndex])
         .addGainDb(gain)
         .delay(delay, sub.freqs[freqIndex]);
+
+      // Apply all-pass filter phase shift if enabled
+      if (allPass?.enabled) {
+        const additionalPhase = allPassPhaseShift(sub.freqs[freqIndex]);
+        polar = polar.addPhaseDegrees(additionalPhase);
+      }
 
       if (polarity === -1) {
         polar = polar.invertPolarity();
