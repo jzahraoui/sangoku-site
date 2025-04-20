@@ -549,6 +549,16 @@ class BusinessTools {
   }
 
   async createsSum(itemList, deletePredicted = true, title) {
+    if (!Array.isArray(itemList)) {
+      throw new Error('Parameter must be an array');
+    }
+    if (itemList.length < 2) {
+      throw new Error('Parameter must contains at least 2 elements');
+    }
+
+    let generatedPredictedUuids = [];
+    let intermediateSumUuids = [];
+
     try {
       if (!Array.isArray(itemList)) {
         throw new Error('Parameter must be an array');
@@ -556,8 +566,6 @@ class BusinessTools {
       if (itemList.length < 2) {
         throw new Error('Parameter must contains at least 2 elements');
       }
-
-      const generatedPredictedUuids = [];
 
       for (const measurementItem of itemList) {
         await measurementItem.resetSmoothing();
@@ -583,27 +591,27 @@ class BusinessTools {
           lastAlignedSum.uuid,
           { function: 'A + B' }
         );
-        await this.viewModel.removeMeasurement(lastAlignedSum);
+        intermediateSumUuids.push(lastAlignedSum.uuid);
         lastAlignedSum = newAlignedSum;
       }
       const titles = itemList.map(item => item.displayMeasurementTitle());
       await lastAlignedSum.setTitle(title, `sum from:\n${titles.join('\n')}`);
       await lastAlignedSum.resetIrWindows();
 
-      if (deletePredicted) {
-        // cleanup of equalised sub measurements usded to create the sum
-        for (const uuid of generatedPredictedUuids) {
-          try {
-            await this.viewModel.removeMeasurementUuid(uuid);
-          } catch (error) {
-            console.error(`Error deleting measurement ${uuid}:`, error);
-          }
-        }
-      }
-
       return lastAlignedSum;
     } catch (error) {
       throw new Error(`Error creating sum:${error.message}`, { cause: error });
+    } finally {
+      for (const uuid of intermediateSumUuids) {
+        await this.viewModel.removeMeasurementUuid(uuid);
+      }
+
+      if (deletePredicted && generatedPredictedUuids.length) {
+        // cleanup of equalised sub measurements usded to create the sum
+        for (const uuid of generatedPredictedUuids) {
+          await this.viewModel.removeMeasurementUuid(uuid);
+        }
+      }
     }
   }
 }
