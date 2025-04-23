@@ -970,7 +970,8 @@ class MeasurementItem {
   }
 
   async setTargetLevel(level) {
-    if (!level) {
+    // Check if level is undefined/null, but allow zero
+    if (level === undefined || level === null) {
       throw new Error(`Invalid level: ${level}`);
     }
     level = Number(level.toFixed(2));

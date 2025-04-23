@@ -339,7 +339,7 @@ export default class RewApi {
       }
 
       // Validate data structure
-      if (!data) {
+      if (data === undefined || data === null) {
         throw new Error('Invalid response data');
       }
 
