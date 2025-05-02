@@ -21,23 +21,24 @@ export default class RewApi {
     try {
       const tcResponse = await fetch(`${this.baseUrl}/eq/house-curve`);
       const target = tcResponse.ok ? await tcResponse.json() : null;
-      const targetCurvePath = target?.message;
-      const missingTargetCurve = !target || !targetCurvePath;
+      const targetCurvePath = target?.message || target;
+      const missingTargetCurve = !targetCurvePath;
 
       if (missingTargetCurve) {
         console.warn(
           `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`
         );
+        return 'tcDefault';
       } else {
         console.info(`Using target curve : ${JSON.stringify(targetCurvePath)}`);
+        const normalizedPath = targetCurvePath.replace(/\\/g, '/');
+        const tcName = normalizedPath
+          .split('/')
+          .pop()
+          .replace(/\.[^/.]+$/, '')
+          .replace(/\s+/g, '');
+        return tcName ? `tc${tcName}` : '';
       }
-      const normalizedPath = targetCurvePath.replace(/\\/g, '/');
-      const tcName = normalizedPath
-        .split('/')
-        .pop()
-        .replace(/\.[^/.]+$/, '')
-        .replace(/\s+/g, '');
-      return tcName ? `tc${tcName}` : '';
     } catch (error) {
       const message = error.message || 'Error checking target curve';
       throw new Error(message, { cause: error });
