@@ -340,7 +340,7 @@ class BusinessTools {
         distanceToSpeakerPeakMeters +
         allowedForwardSearchMeter;
 
-      totalOffset = distanceToSpeakerPeak;
+      totalOffset += distanceToSpeakerPeak;
 
       if (neededDistanceMeter > this.viewModel.maxDistanceInMetersError()) {
         console.warn(
@@ -351,7 +351,7 @@ class BusinessTools {
         const overheadOffset = PredictedLfe._computeInSeconds(
           neededDistanceMeter - this.viewModel.maxDistanceInMetersError()
         );
-        totalOffset = totalOffset - overheadOffset;
+        totalOffset -= overheadOffset;
       }
 
       // compute subwoofer aligment
@@ -386,7 +386,7 @@ class BusinessTools {
         );
       }
 
-      totalOffset = totalOffset - shiftDelay;
+      totalOffset -= shiftDelay;
       const resultMessage = `Subwoofer aligment: ${(totalOffset * 1000).toFixed(
         2
       )}ms (from previous position ${(distanceToSpeakerPeak * 1000).toFixed(
@@ -395,6 +395,8 @@ class BusinessTools {
 
       return resultMessage;
     } catch (error) {
+      // cancel the offset applied to the sub
+      totalOffset = 0;
       throw new Error(`${error.message}`, { cause: error });
     } finally {
       // cleanup of predicted measurements
@@ -412,6 +414,10 @@ class BusinessTools {
       const predictedSpeakerFiltered = speaker;
       return { PredictedLfeFiltered, predictedSpeakerFiltered };
     }
+    // prenvent errors if the equaliser is not the Generic
+    sub.ResetEqualiser();
+    speaker.ResetEqualiser();
+
     try {
       // apply low pass filter to LFE at cuttOffFrequency
       const emptyFilter = [
