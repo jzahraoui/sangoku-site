@@ -25,6 +25,7 @@ class MeasurementItem {
     self.rightWindowWidthMilliseconds = 1000;
     self.individualMaxBoostValue = 3;
     self.overallBoostValue = 6;
+    self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
 
     self.defaultSmoothingValue = 'Psy';
 
@@ -388,25 +389,31 @@ class MeasurementItem {
     );
   }
 
-  async ResetEqualiser() {
+  async isdefaultEqualiser() {
     const commandResult = await this.parentViewModel.apiService.fetchSafe(
       '/equaliser',
       this.uuid
     );
 
-    const defaultSettings = { manufacturer: 'Generic', model: 'Generic' };
-
     // compare commandResult with defaultSettings
     if (
-      commandResult.manufacturer === defaultSettings.manufacturer &&
-      commandResult.model === defaultSettings.model
+      commandResult.manufacturer === this.defaulEqtSettings.manufacturer &&
+      commandResult.model === this.defaulEqtSettings.model
     ) {
+      return true;
+    }
+    return false;
+  }
+
+  async ResetEqualiser() {
+    // compare commandResult with defaultSettings
+    if (this.isdefaultEqualiser()) {
       return true;
     }
 
     await this.parentViewModel.apiService.postSafe(
       `measurements/${this.uuid}/equaliser`,
-      defaultSettings
+      this.defaulEqtSettings
     );
   }
 
