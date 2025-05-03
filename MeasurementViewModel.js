@@ -418,9 +418,11 @@ class MeasurementViewModel {
       self.readFile(file);
     };
 
-    self.keepOriginalForAverage = ko.observable(true);
+    self.DeleteOriginalForAverage = ko.observable(true);
 
-    self.replaceOriginalForLfeRevert = ko.observable(true);
+    self.useAllPassFiltersForSubs = ko.observable(false);
+
+    self.DeleteOriginalForLfeRevert = ko.observable(true);
 
     self.isProcessing = ko.observable(false);
 
@@ -612,7 +614,7 @@ class MeasurementViewModel {
         await self.businessTools.processGroupedResponses(
           self.groupedMeasurements(),
           self.selectedAverageMethod(),
-          self.keepOriginalForAverage()
+          self.DeleteOriginalForAverage()
         );
         self.status('Average calculations completed successfully');
       } catch (error) {
@@ -631,7 +633,7 @@ class MeasurementViewModel {
         await self.businessTools.revertLfeFilterProccess(
           true,
           self.selectedLfeFrequency(),
-          self.replaceOriginalForLfeRevert()
+          self.DeleteOriginalForLfeRevert()
         );
 
         self.status('LFE filter reverted successfully');

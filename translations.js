@@ -53,7 +53,7 @@ const translations = {
     revert_avr_filter: '(Optional) Revert AVR low pass filter:',
     revert_avr_info:
       'This step is not needed if you used odd to make the measurements. If your sub measurements were done with REW and you own mic, you can revert the effect of the low pass filter of the AVR. Select the frequency filter that was active during measures.',
-    replace_original: 'Replace original',
+    replace_original: 'Delete original',
     revert: 'Revert',
     multi_sub_management: 'Multi-Sub Management',
     multi_sub_instruction:
@@ -61,10 +61,10 @@ const translations = {
     option1: '1. Do it by your own in REW',
     option1_info:
       'Use REW alignment tool and other functionalities to align sub and create filters',
-    option2: '2. Generate automated config',
+    option2: 'Generate automated config',
     option2_info: 'Will delete actual sub configuration for the current position',
     optimize_sub: 'Optimize Sub',
-    option3: '3. Import your config from MSO',
+    option3: 'Import your config from MSO',
     download_sub_exports: 'Download Sub exports',
     create_sum_result: 'Creates a new measurement named LFE Predicted_{Position}.',
     sum_subs: 'Sum Subs',
@@ -155,7 +155,7 @@ const translations = {
     revert_avr_filter: '(Optionnel) Annuler le filtre passe-bas AVR :',
     revert_avr_info:
       "Cette étape n'est pas nécessaire si vous avez utilisé odd pour réaliser les mesures. Si vos mesures de sub ont été effectuées avec REW et que vous possédez un micro, vous pouvez annuler l'effet du filtre passe-bas de l'AVR. Sélectionnez le filtre de fréquence actif lors des mesures.",
-    replace_original: "Remplacer l'original",
+    replace_original: "Supprimer l'original",
     revert: 'Annuler',
     multi_sub_management: 'Gestion multi-subs',
     multi_sub_instruction:
@@ -163,10 +163,10 @@ const translations = {
     option1: '1. Réalisez-le vous-même dans REW',
     option1_info:
       "Utilisez l'outil d'alignement REW et d'autres fonctionnalités pour aligner les subs et créer des filtres",
-    option2: '2. Générer une configuration automatisée',
+    option2: 'Générer une configuration automatisée',
     option2_info: 'Supprimera la configuration actuelle du sub pour la position en cours',
     optimize_sub: 'Optimiser le sub',
-    option3: '3. Importez votre configuration depuis MSO',
+    option3: 'Importez votre configuration depuis MSO',
     download_sub_exports: 'Télécharger les exports de sub',
     create_sum_result: 'Crée une nouvelle mesure nommée LFE Predicted_{Position}.',
     sum_subs: 'Somme des Subs',

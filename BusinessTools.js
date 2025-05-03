@@ -127,7 +127,7 @@ class BusinessTools {
   }
 
   // Process grouped responses and create UUID arrays
-  async processGroupedResponses(groupedResponse, avgMethod, keepOriginal = true) {
+  async processGroupedResponses(groupedResponse, avgMethod, deleteOriginal = true) {
     try {
       // Input validation
       if (!groupedResponse || typeof groupedResponse !== 'object') {
@@ -193,7 +193,7 @@ class BusinessTools {
           throw new Error(`${code}: can not rename the average...`);
         }
 
-        if (!keepOriginal) {
+        if (deleteOriginal) {
           // Delete measurements - sequential processing
           console.debug(`${code}: ${uuids.length} measures deleting...`);
           for (const uuid of uuids) {
