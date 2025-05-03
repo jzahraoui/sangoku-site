@@ -354,7 +354,10 @@ export default class RewApi {
             `The API response does not concern the expected process ID: expected ${expectedProcess.processName} received ${data.processName}`
           );
         }
-        if (!data.message.toUpperCase().includes(expectedProcess.message.toUpperCase())) {
+        const reveivedMessage = data.message || data;
+        if (
+          !reveivedMessage.toUpperCase().includes(expectedProcess.message.toUpperCase())
+        ) {
           throw new Error(`API does not give a "Complete" status`);
         }
         //console.debug(`Process ${expectedProcess.processName} completed`);
