@@ -407,7 +407,7 @@ class MeasurementItem {
 
   async ResetEqualiser() {
     // compare commandResult with defaultSettings
-    if (this.isdefaultEqualiser()) {
+    if (await this.isdefaultEqualiser()) {
       return true;
     }
 
