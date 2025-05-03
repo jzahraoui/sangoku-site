@@ -754,16 +754,21 @@ class MeasurementViewModel {
           await work.removeWorkingSettings();
         }
 
-        await self.processCommands('Smooth', workingMeasurementsUuids, {
-          smoothing: 'None',
-        });
-
         // copy SPL alignment level to other measurements positions
         for (const measurement of self.uniqueMeasurements()) {
           await measurement.copySplOffsetDeltadBToOther();
         }
 
-        self.status('SPL alignment successful');
+        // ajust subwoofer levels
+        await self.adjustSubwooferSPLLevels(self, self.uniqueSubsMeasurements());
+
+        const subsMeasurementsUuids = self.uniqueSubsMeasurements().map(m => m.uuid);
+
+        await self.processCommands('Smooth', subsMeasurementsUuids, {
+          smoothing: 'Psy',
+        });
+
+        self.status(`${self.status()} \nSPL alignment successful `);
       } catch (error) {
         self.handleError(`SPL alignment: ${error.message}`, error);
       } finally {
@@ -1021,66 +1026,40 @@ class MeasurementViewModel {
       }
     };
 
+    self.buttonChooseSubOptimizer = async function () {
+      if (self.uniqueSubsMeasurements().length === 0) {
+        self.handleError('No subwoofers found');
+        return;
+      }
+      if (self.uniqueSubsMeasurements().length === 1) {
+        self.buttonSingleSubOptimizer(self.uniqueSubsMeasurements()[0]);
+      }
+      if (self.uniqueSubsMeasurements().length > 1) {
+        self.buttonMultiSubOptimizer();
+      }
+    };
+
     self.buttonSingleSubOptimizer = async function (subMeasurement) {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
         self.status('Sub Optimizer...');
 
-        const additionalBassGainValue = 6;
+        const { lowFrequency, highFrequency, targetLevelAtFreq } =
+          await self.adjustSubwooferSPLLevels(self, [subMeasurement]);
 
-        // Find the level of target curve at 40Hz
-        const targetLevelAtFreq = await self.getTargetLevelAtFreq(40, subMeasurement);
-
-        // adjut target level according to the number of subs
-        const targetLevel = targetLevelAtFreq + additionalBassGainValue;
-        await subMeasurement.resetSmoothing();
-        const frequencyResponse = await subMeasurement.getFrequencyResponse(
-          'SPL',
-          '1/2',
-          6
-        );
-        frequencyResponse.measurement = subMeasurement.uuid;
-        frequencyResponse.position = subMeasurement.position();
-        const detect = self.detectSubwooferCutoff(
-          frequencyResponse.freqs,
-          frequencyResponse.magnitude,
-          -18
-        );
+        await subMeasurement.setInverted(false);
+        await subMeasurement.resetFilters();
 
         self.status(
-          `${self.status()} \nAdjust ${subMeasurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(1)}dB`
-        );
-        self.status(
-          `${self.status()} (center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`
-        );
-        const alignResult = await self.processCommands(
-          'Align SPL',
-          [subMeasurement.uuid],
-          {
-            frequencyHz: detect.centerFrequency,
-            spanOctaves: detect.octaves,
-            targetdB: targetLevel,
-          }
-        );
-        const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
-          alignResult,
-          subMeasurement.uuid
-        );
-        subMeasurement.splOffsetdB(subMeasurement.splOffsetdBUnaligned() + alignOffset);
-        subMeasurement.alignSPLOffsetdB(alignOffset);
-
-        await subMeasurement.copySplOffsetDeltadBToOther();
-
-        self.status(
-          `${self.status()} \nCreating EQ filters for sub ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz`
+          `${self.status()} \nCreating EQ filters for sub ${lowFrequency}Hz - ${highFrequency}Hz`
         );
 
         await self.apiService.postSafe(`eq/match-target-settings`, {
-          startFrequency: detect.lowCutoff,
-          endFrequency: detect.highCutoff,
-          individualMaxBoostdB: 0,
-          overallMaxBoostdB: 0,
+          startFrequency: lowFrequency,
+          endFrequency: highFrequency,
+          individualMaxBoostdB: self.maxBoostIndividualValue(),
+          overallMaxBoostdB: self.maxBoostOverallValue(),
           flatnessTargetdB: 1,
           allowNarrowFiltersBelow200Hz: false,
           varyQAbove200Hz: false,
@@ -1091,7 +1070,7 @@ class MeasurementViewModel {
         await subMeasurement.eqCommands('Match target');
         await subMeasurement.copyFiltersToOther();
       } catch (error) {
-        self.handleError(`MultiSubOptimizer failed: ${error.message}`, error);
+        self.handleError(`Sub Optimizer failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
       }
@@ -1107,74 +1086,13 @@ class MeasurementViewModel {
 
         const maximisedSumTitle = 'LFE Max Sum';
         const subsMeasurements = self.uniqueSubsMeasurements();
-        const firstMeasurement = subsMeasurements[0];
-        // align the others sub to first measurement delay
-        const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
         const firstMeasurementLevel = await self.mainTargetLevel();
         const frequencyResponses = [];
-        // Find the level of target curve at 40Hz
-        const targetLevelAtFreq = await self.getTargetLevelAtFreq(40, firstMeasurement);
-        // adjut target level according to the number of subs
-        const numbersOfSubs = subsMeasurements.length;
-        const overhead = 10 * Math.log10(numbersOfSubs);
-        const targetLevel =
-          targetLevelAtFreq - overhead + Number(self.additionalBassGainValue());
+        const { lowFrequency, highFrequency, targetLevelAtFreq } =
+          await self.adjustSubwooferSPLLevels(self, subsMeasurements);
 
-        let lowFrequency = Infinity;
-        let highFrequency = 0;
-
-        for (const measurement of subsMeasurements) {
-          // await measurement.resetcumulativeIRShiftSeconds();
-          await measurement.setInverted(false);
-          await measurement.resetFilters();
-          await measurement.resetSmoothing();
-          await measurement.setcumulativeIRShiftSeconds(mainDelay);
-
-          const frequencyResponse = await measurement.getFrequencyResponse(
-            'SPL',
-            '1/2',
-            6
-          );
-          frequencyResponse.measurement = measurement.uuid;
-          frequencyResponse.position = measurement.position();
-          const detect = self.detectSubwooferCutoff(
-            frequencyResponse.freqs,
-            frequencyResponse.magnitude,
-            -18
-          );
-
-          // if detect low frequency is lower than previous lowFrequency
-          if (detect.lowCutoff < lowFrequency) {
-            lowFrequency = Math.round(detect.lowCutoff);
-          }
-          if (detect.highCutoff > highFrequency) {
-            highFrequency = Math.round(detect.highCutoff);
-          }
-
-          self.status(
-            `${self.status()} \nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(1)}dB`
-          );
-          self.status(
-            `${self.status()} (center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`
-          );
-          const alignResult = await self.processCommands(
-            'Align SPL',
-            [measurement.uuid],
-            {
-              frequencyHz: detect.centerFrequency,
-              spanOctaves: detect.octaves,
-              targetdB: targetLevel,
-            }
-          );
-
-          const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
-            alignResult,
-            measurement.uuid
-          );
-          self.status(`${self.status()} => ${alignOffset}dB`);
-          measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
-          measurement.alignSPLOffsetdB(alignOffset);
-        }
+        // set the same delay for all subwoofers
+        await self.setSameDelayToAll(subsMeasurements);
 
         const optimizerConfig = {
           frequency: {
@@ -1190,6 +1108,19 @@ class MeasurementViewModel {
             min: -0.002, // 2ms
             max: 0.002, // 2ms
             step: self.jsonAvrData().avr.minDistAccuracy || 0.00001, // 0.01ms
+          },
+          allPass: {
+            enabled: self.useAllPassFiltersForSubs(),
+            frequency: {
+              min: 10, // Hz
+              max: 500, // Hz
+              step: 10, // Hz
+            },
+            q: {
+              min: 0.1,
+              max: 0.5,
+              step: 0.1,
+            },
           },
         };
 
@@ -1210,8 +1141,11 @@ class MeasurementViewModel {
         }
 
         for (const measurement of subsMeasurements) {
+          await measurement.setInverted(false);
+          await measurement.resetFilters();
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
+          frequencyResponse.name = measurement.displayMeasurementTitle();
           frequencyResponse.position = measurement.position();
           frequencyResponses.push(frequencyResponse);
         }
@@ -1248,11 +1182,9 @@ class MeasurementViewModel {
               `Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`
             );
           }
-          const delayMs = (sub.param.delay * 1000).toFixed(2);
-          const infoMessage = `${subMeasurement.displayMeasurementTitle()} inverted: ${sub.param.polarity === -1} delay: ${delayMs}ms`;
-          self.status(`${self.status()} \n${infoMessage}`);
-          console.debug(infoMessage);
         }
+
+        self.status(`${self.status()} \n${optimizer.logText}`);
 
         self.status(`${self.status()} \nCreates sub sumation`);
         // DEBUG use REW api way to generate the sum for compare
@@ -1293,6 +1225,17 @@ class MeasurementViewModel {
           allowHighShelf: false,
         });
 
+        // reserve filter emplacement 20 for all pass
+        if (optimizerConfig.allPass.enabled) {
+          const maximisedSumFilter = {
+            index: 20,
+            enabled: true,
+            isAuto: false,
+            type: 'None',
+          };
+          await maximisedSum.setSingleFilter(maximisedSumFilter);
+        }
+
         await maximisedSum.setTargetLevel(firstMeasurementLevel);
         await maximisedSum.eqCommands('Match target');
 
@@ -1303,7 +1246,34 @@ class MeasurementViewModel {
         self.status(`${self.status()} \nApply calculated filters to each sub`);
 
         for (const sub of subsMeasurements) {
-          await sub.setFilters(filters);
+          // find the optimized sub for this measurement
+          const optimizedSub = optimizedSubs.find(
+            optimizedSub => optimizedSub.measurement === sub.uuid
+          );
+
+          let subFilters = [...filters];
+
+          // allpass settings
+          if (optimizedSub?.param.allPass.enabled) {
+            const allPassFilter = {
+              index: 20,
+              enabled: true,
+              isAuto: false,
+              frequency: optimizedSub.param.allPass.frequency,
+              q: optimizedSub.param.allPass.q,
+              type: 'All pass',
+            };
+
+            // find index of filter with index = 20
+            const index = subFilters.findIndex(filter => filter.index === 20);
+            // replace filter with index = 20
+            if (index === -1) {
+              throw new Error(`Filter not found for index 20`);
+            } else {
+              subFilters[index] = allPassFilter;
+            }
+          }
+          await sub.setFilters(subFilters);
           await sub.copyFiltersToOther();
           await sub.copyCumulativeIRShiftToOther();
           await sub.copySplOffsetDeltadBToOther();
@@ -1508,6 +1478,83 @@ class MeasurementViewModel {
     });
   }
 
+  async setSameDelayToAll(measurements) {
+    if (measurements.length <= 1) {
+      return;
+    }
+    const firstMeasurement = measurements[0];
+    // align the others sub to first measurement delay
+    const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
+    for (const measurement of measurements) {
+      await measurement.setcumulativeIRShiftSeconds(mainDelay);
+    }
+  }
+
+  async adjustSubwooferSPLLevels(self, subsMeasurements) {
+    if (subsMeasurements.length === 0) {
+      return;
+    }
+
+    const firstMeasurement = subsMeasurements[0];
+
+    // Find the level of target curve at 40Hz
+    const targetLevelAtFreq = await self.getTargetLevelAtFreq(40, firstMeasurement);
+
+    // adjut target level according to the number of subs
+    const numbersOfSubs = subsMeasurements.length;
+    const overhead = 10 * Math.log10(numbersOfSubs);
+    const targetLevel =
+      targetLevelAtFreq - overhead + Number(self.additionalBassGainValue());
+
+    let lowFrequency = Infinity;
+    let highFrequency = 0;
+
+    for (const measurement of subsMeasurements) {
+      await measurement.resetSmoothing();
+
+      const frequencyResponse = await measurement.getFrequencyResponse('SPL', '1/2', 6);
+      frequencyResponse.measurement = measurement.uuid;
+      frequencyResponse.name = measurement.displayMeasurementTitle();
+      frequencyResponse.position = measurement.position();
+      const detect = self.detectSubwooferCutoff(
+        frequencyResponse.freqs,
+        frequencyResponse.magnitude,
+        -18
+      );
+
+      // if detect low frequency is lower than previous lowFrequency
+      if (detect.lowCutoff < lowFrequency) {
+        lowFrequency = Math.round(detect.lowCutoff);
+      }
+      if (detect.highCutoff > highFrequency) {
+        highFrequency = Math.round(detect.highCutoff);
+      }
+
+      let logMessage = `\nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(1)}dB`;
+      logMessage += `(center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`;
+
+      const alignResult = await self.processCommands('Align SPL', [measurement.uuid], {
+        frequencyHz: detect.centerFrequency,
+        spanOctaves: detect.octaves,
+        targetdB: targetLevel,
+      });
+
+      const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
+        alignResult,
+        measurement.uuid
+      );
+
+      logMessage += ` => ${alignOffset}dB`;
+      self.status(`${self.status()} ${logMessage}`);
+
+      measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
+      measurement.alignSPLOffsetdB(alignOffset);
+      await measurement.copySplOffsetDeltadBToOther();
+    }
+
+    return { lowFrequency, highFrequency, targetLevelAtFreq };
+  }
+
   async getTargetLevelAtFreq(targetFreq = 40, measurement) {
     // Input validation
     if (!Number.isFinite(targetFreq) || targetFreq <= 0) {
@@ -1549,7 +1596,7 @@ class MeasurementViewModel {
 
   async setTargetLevelToAll() {
     const firstMeasurementLevel = await this.mainTargetLevel();
-    for (const measurement of this.validMeasurements()) {
+    for (const measurement of this.measurements()) {
       await measurement.setTargetLevel(firstMeasurementLevel);
     }
     return firstMeasurementLevel;
@@ -2129,8 +2176,8 @@ class MeasurementViewModel {
           step: 0.1, // dB
         },
         delay: {
-          min: -maxSearchRange / 1000, // 0.5ms
-          max: -minSearchRange / 1000, // 2ms
+          min: -maxSearchRange / 1000,
+          max: -minSearchRange / 1000,
           step: 0.00001, // 0.01ms
         },
       };

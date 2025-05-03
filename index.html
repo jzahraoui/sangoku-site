@@ -272,7 +272,7 @@
               <input
                 class="checkmark"
                 type="checkbox"
-                data-bind="checked: !keepOriginalForAverage"
+                data-bind="checked: DeleteOriginalForAverage"
               />
               <span data-i18n="replace_original"></span>
               <span class="checkmark"></span>
@@ -334,9 +334,9 @@
               <input
                 class="checkmark"
                 type="checkbox"
-                data-bind="checked: replaceOriginalForLfeRevert"
+                data-bind="checked: DeleteOriginalForLfeRevert"
               />
-              <span data-i18n="replace_original">Replace original</span>
+              <span data-i18n="replace_original">Delete original</span>
               <span class="checkmark"></span>
             </label>
             <select
@@ -358,24 +358,8 @@
             >
               <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
             </button>
-          </div>
 
-          <div
-            class="control-group"
-            data-bind="visible: uniqueSubsMeasurements().length > 1"
-          >
-            <h2 data-i18n="multi_sub_management"></h2>
-            <h3 data-i18n="multi_sub_instruction">
-              Multiple Sub, choose on the 3 possibility to get them ready
-            </h3>
-
-            <h4 data-i18n="option1">1. do it by your own in REW</h4>
-            <p data-i18n="option1_info">
-              Use REW alignement tool and other functionality to align sub and creates
-              filters
-            </p>
-
-            <h4 data-i18n="option2">2. Generate automated config</h4>
+            <h4 data-i18n="option2">Generate automated config</h4>
             <p data-i18n="option2_info">
               will delete actual sub configuration for the current position
             </p>
@@ -431,10 +415,21 @@
                   title="Enter a number between 0 and 3"
                 />
               </div>
+              <div>
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-bind="checked: useAllPassFiltersForSubs"
+                  />
+                  <span>Use all pass filters (slower)</span>
+                  <span class="checkmark"></span>
+                </label>
+              </div>
               <button
                 class="button"
                 data-bind="
-                click: buttonMultiSubOptimizer,
+                click: buttonChooseSubOptimizer,
                 disable: isProcessing,
                 css: { 'disabled': isProcessing }"
               >
@@ -443,65 +438,67 @@
                 ></span>
               </button>
             </div>
-            <h4 data-i18n="option3">3. Import your config from MSO</h4>
+            <div data-bind="visible: uniqueSubsMeasurements().length > 1">
+              <h4 data-i18n="option3">3. Import your config from MSO</h4>
 
-            <!-- MSO Import Instructions -->
-            <details class="shrinkable-container">
-              <summary>MSO import</summary>
+              <!-- MSO Import Instructions -->
+              <details class="shrinkable-container">
+                <summary>MSO import</summary>
 
-              <button
-                class="button"
-                data-bind="
+                <button
+                  class="button"
+                  data-bind="
                 click: buttonCreatesMsoExports,
                 disable: isProcessing,
                 css: { 'disabled': isProcessing }"
-              >
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
-                ></span>
-              </button>
+                >
+                  <span
+                    data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
+                  ></span>
+                </button>
 
-              <!-- File Upload Area -->
-              <div class="dropzone" id="dropzoneMso">
-                <p data-i18n="drop_mso">
-                  Drop your Equalizer APO export file here or click to select
-                </p>
-                <input
-                  type="file"
-                  id="fileInputMso"
-                  accept=".txt"
-                  style="display: none"
-                />
-              </div>
+                <!-- File Upload Area -->
+                <div class="dropzone" id="dropzoneMso">
+                  <p data-i18n="drop_mso">
+                    Drop your Equalizer APO export file here or click to select
+                  </p>
+                  <input
+                    type="file"
+                    id="fileInputMso"
+                    accept=".txt"
+                    style="display: none"
+                  />
+                </div>
 
-              <div id="results" aria-live="polite"></div>
-            </details>
-            <h3 data-i18n="create_sum_result">Create sum result</h3>
-            <p data-i18n="create_sum_description">
-              Creates a new measurement named LFE Predicted_{Position}.
-            </p>
-            <button
-              class="button"
-              data-bind="
+                <div id="results" aria-live="polite"></div>
+              </details>
+              <h3 data-i18n="create_sum_result">Create sum result</h3>
+              <p data-i18n="create_sum_description">
+                Creates a new measurement named LFE Predicted_{Position}.
+              </p>
+              <button
+                class="button"
+                data-bind="
               click: buttonproduceSubSum,
               disable: isProcessing,
               css: { 'disabled': isProcessing }"
-            >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"
-              ></span>
-            </button>
-            <button
-              class="button"
-              data-bind="
+              >
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"
+                ></span>
+              </button>
+              <button
+                class="button"
+                data-bind="
               click: buttonproduceSubSumAllPositions,
               disable: isProcessing,
               css: { 'disabled': isProcessing }"
-            >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
-              ></span>
-            </button>
+              >
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
+                ></span>
+              </button>
+            </div>
           </div>
 
           <div class="control-group">
