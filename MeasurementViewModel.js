@@ -1047,9 +1047,6 @@ class MeasurementViewModel {
         const { lowFrequency, highFrequency, targetLevelAtFreq } =
           await self.adjustSubwooferSPLLevels(self, [subMeasurement]);
 
-        await subMeasurement.setInverted(false);
-        await subMeasurement.resetFilters();
-
         self.status(
           `${self.status()} \nCreating EQ filters for sub ${lowFrequency}Hz - ${highFrequency}Hz`
         );
@@ -1510,6 +1507,7 @@ class MeasurementViewModel {
 
     for (const measurement of subsMeasurements) {
       await measurement.resetSmoothing();
+      await measurement.resetTargetSettings();
 
       const frequencyResponse = await measurement.getFrequencyResponse('SPL', '1/2', 6);
       frequencyResponse.measurement = measurement.uuid;
