@@ -125,7 +125,6 @@ class MeasurementViewModel {
       { value: 'Vector average', text: 'Vector average' },
       { value: 'Magn plus phase average', text: 'RMS + phase avg.' },
       { value: 'dB plus phase average', text: 'dB + phase avg.' },
-      { value: 'Vector sum', text: 'Vector sum' },
     ];
 
     // Subscribe to changes in global crossover

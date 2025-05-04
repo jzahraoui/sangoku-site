@@ -415,7 +415,7 @@
                   title="Enter a number between 0 and 3"
                 />
               </div>
-              <div>
+              <div data-bind="visible: uniqueSubsMeasurements().length > 1">
                 <label class="checkbox-container">
                   <input
                     class="checkmark"
@@ -472,10 +472,7 @@
 
                 <div id="results" aria-live="polite"></div>
               </details>
-              <h3 data-i18n="create_sum_result">Create sum result</h3>
-              <p data-i18n="create_sum_description">
-                Creates a new measurement named LFE Predicted_{Position}.
-              </p>
+              <br />
               <button
                 class="button"
                 data-bind="
@@ -498,6 +495,7 @@
                   data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
                 ></span>
               </button>
+              <p data-i18n="create_sum_result">Create sum result</p>
             </div>
           </div>
 
