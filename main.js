@@ -237,12 +237,13 @@ class RewController {
 
       const appContent = document.getElementById('appContent');
       const documentationContent = document.getElementById('documentationContent');
+      const ressourceContent = document.getElementById('resourcesContent');
 
       // Handle navigation with buttons
       document.querySelectorAll('.nav-button').forEach(button => {
         button.addEventListener('click', e => {
           const page = e.target.closest('.nav-button').dataset.page;
-          navigateToPage(page === 'documentation' ? 'documentation' : '');
+          navigateToPage(page);
         });
       });
 
@@ -251,9 +252,15 @@ class RewController {
         if (page === 'documentation') {
           appContent.style.display = 'none';
           documentationContent.style.display = 'block';
+          ressourceContent.style.display = 'none';
+        } else if (page === 'resources') {
+          appContent.style.display = 'none';
+          documentationContent.style.display = 'none';
+          ressourceContent.style.display = 'block';
         } else {
           appContent.style.display = 'block';
           documentationContent.style.display = 'none';
+          ressourceContent.style.display = 'none';
         }
         // Update URL without refresh
         history.pushState({ page }, '', `#${page}`);
@@ -266,7 +273,131 @@ class RewController {
 
       // Handle initial load
       const hash = window.location.hash.slice(1);
-      navigateToPage(hash === 'documentation' ? 'documentation' : '');
+      navigateToPage(hash || '');
+
+      // Handle collapsible sections
+      const collapsibles = document.querySelectorAll('.collapsible');
+
+      collapsibles.forEach(collapsible => {
+        collapsible.addEventListener('click', function () {
+          this.classList.toggle('active');
+          const content = this.nextElementSibling;
+
+          if (content.style.maxHeight) {
+            content.style.maxHeight = null;
+          } else {
+            content.style.maxHeight = content.scrollHeight + 'px';
+          }
+        });
+      });
+
+      // Handle ZIP downloads with real implementation using JSZip
+      const downloadAllButtons = document.querySelectorAll('.download-all-button');
+
+      downloadAllButtons.forEach(button => {
+        button.addEventListener('click', async function (e) {
+          e.preventDefault();
+
+          const buttonId = this.id;
+          let folderPath = '';
+          let zipFilename = '';
+          let fileExtension = '';
+
+          // Set parameters based on which button was clicked
+          switch (buttonId) {
+            case 'downloadAllLossless':
+              folderPath = 'ressources/lossless/';
+              zipFilename = 'lossless_audio_files';
+              fileExtension = '.mlp';
+              break;
+            case 'downloadAllLossy':
+              folderPath = 'ressources/lossy/';
+              zipFilename = 'lossy_audio_files';
+              fileExtension = '.mp4';
+              break;
+            case 'downloadAllTargetCurves':
+              folderPath = 'ressources/target_curves/';
+              zipFilename = 'target_curves';
+              fileExtension = '.txt';
+              break;
+            default:
+              console.error('Unknown button ID');
+              return;
+          }
+
+          // Create status message
+          const statusDiv = document.createElement('div');
+          statusDiv.className = 'download-status';
+          statusDiv.textContent = 'Preparing files for download...';
+          this.parentNode.appendChild(statusDiv);
+
+          try {
+            // Create a new JSZip instance
+            const zip = new JSZip();
+
+            // Get all links with the specified file extension from the relevant section
+            const section = this.closest('section');
+            const links = section.querySelectorAll(
+              `a[href^="${folderPath}"][href$="${fileExtension}"]`
+            );
+
+            if (links.length === 0) {
+              throw new Error('No files found to download');
+            }
+
+            // Add loading animation
+            statusDiv.innerHTML =
+              '<i class="fas fa-spinner fa-spin"></i> Creating ZIP file...';
+
+            // Add files to the zip
+            const fetchPromises = Array.from(links).map(link => {
+              const url = link.getAttribute('href');
+              const filename = url.split('/').pop();
+
+              return fetch(url)
+                .then(response => {
+                  if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
+                  return response.blob();
+                })
+                .then(blob => {
+                  zip.file(filename, blob);
+                  return filename;
+                });
+            });
+
+            // Wait for all files to be fetched and added to the zip
+            await Promise.all(fetchPromises);
+
+            // Generate the zip file
+            statusDiv.innerHTML =
+              '<i class="fas fa-spinner fa-spin"></i> Generating ZIP file...';
+            const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+            // Create download link and trigger download
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(zipBlob);
+            downloadLink.download = `${zipFilename}.zip`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+
+            // Update status
+            statusDiv.innerHTML = '<i class="fas fa-check"></i> Download complete!';
+            statusDiv.style.color = '#28a745';
+
+            // Remove status after a delay
+            setTimeout(() => {
+              if (statusDiv.parentNode) {
+                statusDiv.parentNode.removeChild(statusDiv);
+              }
+            }, 3000);
+          } catch (error) {
+            console.error('Error creating ZIP file:', error);
+            statusDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}`;
+            statusDiv.style.color = '#dc3545';
+          }
+        });
+      });
     });
   }
 }

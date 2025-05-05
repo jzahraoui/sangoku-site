@@ -28,6 +28,10 @@
           <i class="fas fa-book"></i>
           Documentation
         </button>
+        <button class="nav-button" data-page="resources">
+          <i class="fas fa-download"></i>
+          Resources
+        </button>
       </div>
     </header>
 
@@ -1259,6 +1263,1082 @@
           </section>
         </main>
       </div>
+
+      <!-- Resources Container -->
+      <div id="resourcesContent" class="documentation" style="display: none">
+        <nav class="documentation-sidebar">
+          <ul class="documentation-nav">
+            <li><a href="#odd-programs">ODD Programs</a></li>
+            <li><a href="#audio-files">Audio Files</a></li>
+            <li><a href="#target-curves">Target Curves</a></li>
+          </ul>
+        </nav>
+
+        <main class="documentation-content">
+          <section id="odd-programs">
+            <h2>ODD Programs</h2>
+            <p>Download the ODD program for your operating system:</p>
+
+            <div class="resources-grid">
+              <div class="resource-card">
+                <div class="resource-icon"><i class="fab fa-windows"></i></div>
+                <div class="resource-details">
+                  <h3>Windows</h3>
+                  <p>ODD program for Windows systems</p>
+                  <a href="ressources/odd.wtf" class="download-button" download>
+                    <i class="fas fa-download"></i> Download
+                  </a>
+                </div>
+              </div>
+
+              <div class="resource-card">
+                <div class="resource-icon"><i class="fab fa-apple"></i></div>
+                <div class="resource-details">
+                  <h3>macOS</h3>
+                  <p>ODD program for Mac systems</p>
+                  <a href="ressources/odd.mac" class="download-button" download>
+                    <i class="fas fa-download"></i> Download
+                  </a>
+                </div>
+              </div>
+
+              <div class="resource-card">
+                <div class="resource-icon"><i class="fab fa-linux"></i></div>
+                <div class="resource-details">
+                  <h3>Linux</h3>
+                  <p>ODD program for Linux systems</p>
+                  <a href="ressources/odd.linux" class="download-button" download>
+                    <i class="fas fa-download"></i> Download
+                  </a>
+                </div>
+              </div>
+
+              <div class="resource-card">
+                <div class="resource-icon"><i class="fas fa-terminal"></i></div>
+                <div class="resource-details">
+                  <h3>Menu Helper</h3>
+                  <p>Batch script for Windows users</p>
+                  <a href="ressources/odd_menu.bat" class="download-button" download>
+                    <i class="fas fa-download"></i> Download
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="audio-files">
+            <h2>Audio Files</h2>
+            <p>Download audio files for room measurements:</p>
+
+            <div class="resource-card wide-card">
+              <div class="resource-icon"><i class="fas fa-file-audio"></i></div>
+              <div class="resource-details">
+                <h3>Measurement Sweep</h3>
+                <p>256k Measurement Sweep (0-24000Hz, -12dBFS, 48kHz)</p>
+                <a
+                  href="ressources/256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav"
+                  class="download-button"
+                  download
+                >
+                  <i class="fas fa-download"></i> Download WAV
+                </a>
+              </div>
+            </div>
+
+            <h3>Lossless Audio Files (MLP)</h3>
+            <p>High-quality lossless audio files for precise measurements:</p>
+
+            <div class="collapsible-section">
+              <button class="collapsible">Show Lossless Audio Files</button>
+              <div class="collapsible-content">
+                <div class="resources-grid small-grid">
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Center</h4>
+                      <a
+                        href="ressources/lossless/C.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> C.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card"></div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Left</h4>
+                      <a
+                        href="ressources/lossless/FL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Right</h4>
+                      <a
+                        href="ressources/lossless/FR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <!-- More lossless files -->
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Left</h4>
+                      <a
+                        href="ressources/lossless/SLA.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SLA.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Right</h4>
+                      <a
+                        href="ressources/lossless/SRA.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SRA.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Back Left</h4>
+                      <a
+                        href="ressources/lossless/SBL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SBL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Back Right</h4>
+                      <a
+                        href="ressources/lossless/SBR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SBR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Front Left</h4>
+                      <a
+                        href="ressources/lossless/TFL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TFL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Front Right</h4>
+                      <a
+                        href="ressources/lossless/TFR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TFR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Middle Left</h4>
+                      <a
+                        href="ressources/lossless/TML.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TML.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Middle Right</h4>
+                      <a
+                        href="ressources/lossless/TMR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TMR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Rear Left</h4>
+                      <a
+                        href="ressources/lossless/TRL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TRL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Rear Right</h4>
+                      <a
+                        href="ressources/lossless/TRR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TRR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Dolby Left</h4>
+                      <a
+                        href="ressources/lossless/FDL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FDL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Dolby Right</h4>
+                      <a
+                        href="ressources/lossless/FDR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FDR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Height Left</h4>
+                      <a
+                        href="ressources/lossless/FHL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FHL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Height Right</h4>
+                      <a
+                        href="ressources/lossless/FHR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FHR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Wide Left</h4>
+                      <a
+                        href="ressources/lossless/FWL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FWL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Wide Right</h4>
+                      <a
+                        href="ressources/lossless/FWR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FWR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Rear Height Left</h4>
+                      <a
+                        href="ressources/lossless/RHL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> RHL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Rear Height Right</h4>
+                      <a
+                        href="ressources/lossless/RHR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> RHR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Dolby Left</h4>
+                      <a
+                        href="ressources/lossless/SDL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SDL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Dolby Right</h4>
+                      <a
+                        href="ressources/lossless/SDR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SDR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Height Left</h4>
+                      <a
+                        href="ressources/lossless/SHL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SHL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Height Right</h4>
+                      <a
+                        href="ressources/lossless/SHR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SHR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Back Dolby Left</h4>
+                      <a
+                        href="ressources/lossless/BDL.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> BDL.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Back Dolby Right</h4>
+                      <a
+                        href="ressources/lossless/BDR.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> BDR.mlp
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Subwoofer</h4>
+                      <a
+                        href="ressources/lossless/SWx.mlp"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SWx.mlp
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="download-all-container">
+                  <a href="#" class="download-all-button" id="downloadAllLossless">
+                    <i class="fas fa-download"></i> Download All Lossless Files (ZIP)
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <h3>Lossy Audio Files (MP4)</h3>
+            <p>Compressed audio files for standard measurements:</p>
+
+            <div class="collapsible-section">
+              <button class="collapsible">Show Lossy Audio Files</button>
+              <div class="collapsible-content">
+                <div class="resources-grid small-grid">
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Center</h4>
+                      <a
+                        href="ressources/lossy/C.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> C.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card"></div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Left</h4>
+                      <a
+                        href="ressources/lossy/FL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Right</h4>
+                      <a
+                        href="ressources/lossy/FR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Left</h4>
+                      <a
+                        href="ressources/lossy/SLA.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SLA.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Right</h4>
+                      <a
+                        href="ressources/lossy/SRA.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SRA.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Back Left</h4>
+                      <a
+                        href="ressources/lossy/SBL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SBL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Back Right</h4>
+                      <a
+                        href="ressources/lossy/SBR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SBR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Front Left</h4>
+                      <a
+                        href="ressources/lossy/TFL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TFL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Front Right</h4>
+                      <a
+                        href="ressources/lossy/TFR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TFR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Middle Left</h4>
+                      <a
+                        href="ressources/lossy/TML.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TML.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Middle Right</h4>
+                      <a
+                        href="ressources/lossy/TMR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TMR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Rear Left</h4>
+                      <a
+                        href="ressources/lossy/TRL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TRL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Top Rear Right</h4>
+                      <a
+                        href="ressources/lossy/TRR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> TRR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Dolby Left</h4>
+                      <a
+                        href="ressources/lossy/FDL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FDL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Dolby Right</h4>
+                      <a
+                        href="ressources/lossy/FDR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FDR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Height Left</h4>
+                      <a
+                        href="ressources/lossy/FHL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FHL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Height Right</h4>
+                      <a
+                        href="ressources/lossy/FHR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FHR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Wide Left</h4>
+                      <a
+                        href="ressources/lossy/FWL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FWL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Front Wide Right</h4>
+                      <a
+                        href="ressources/lossy/FWR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> FWR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Rear Height Left</h4>
+                      <a
+                        href="ressources/lossy/RHL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> RHL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Rear Height Right</h4>
+                      <a
+                        href="ressources/lossy/RHR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> RHR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Dolby Left</h4>
+                      <a
+                        href="ressources/lossy/SDL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SDL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Dolby Right</h4>
+                      <a
+                        href="ressources/lossy/SDR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SDR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Height Left</h4>
+                      <a
+                        href="ressources/lossy/SHL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SHL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Surround Height Right</h4>
+                      <a
+                        href="ressources/lossy/SHR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> SHR.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Back Dolby Left</h4>
+                      <a
+                        href="ressources/lossy/BDL.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> BDL.mp4
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Back Dolby Right</h4>
+                      <a
+                        href="ressources/lossy/BDR.mp4"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> BDR.mp4
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="download-all-container">
+                  <a href="#" class="download-all-button" id="downloadAllLossy">
+                    <i class="fas fa-download"></i> Download All Lossy Files (ZIP)
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="target-curves">
+            <h2>Target Curves</h2>
+            <p>Download target curves for room correction:</p>
+
+            <div class="collapsible-section">
+              <button class="collapsible">Show Target Curves</button>
+              <div class="collapsible-content">
+                <div class="resources-grid small-grid">
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Harman Kardon</h4>
+                      <a
+                        href="ressources/target_curves/Harman Kardon.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Denon Marantz</h4>
+                      <a
+                        href="ressources/target_curves/Denon Marantz.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Dolby Atmos Music</h4>
+                      <a
+                        href="ressources/target_curves/Dolby Atmos Music.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>A1 Evo</h4>
+                      <a
+                        href="ressources/target_curves/A1 Evo.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Evo Neuron 2.0</h4>
+                      <a
+                        href="ressources/target_curves/Evo Neuron 2.0.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Evo Neuron 3.0</h4>
+                      <a
+                        href="ressources/target_curves/Evo Neuron 3.0.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Evo Acoustica</h4>
+                      <a
+                        href="ressources/target_curves/Evo Acoustica.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Bruel Kjear</h4>
+                      <a
+                        href="ressources/target_curves/Bruel Kjear.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Dirac Harman 4dB</h4>
+                      <a
+                        href="ressources/target_curves/Dirac Harman 4dB.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Dirac Harman 6dB</h4>
+                      <a
+                        href="ressources/target_curves/Dirac Harman 6dB.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Dirac Harman 8dB</h4>
+                      <a
+                        href="ressources/target_curves/Dirac Harman 8dB.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Dirac Harman 10dB</h4>
+                      <a
+                        href="ressources/target_curves/Dirac Harman 10dB.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Navid</h4>
+                      <a
+                        href="ressources/target_curves/Navid.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Not Dr Toole</h4>
+                      <a
+                        href="ressources/target_curves/not Dr Toole.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>rTings</h4>
+                      <a
+                        href="ressources/target_curves/rTings.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Chris Bope</h4>
+                      <a
+                        href="ressources/target_curves/tcChrisBope.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="resource-card small-card">
+                    <div class="resource-details">
+                      <h4>Chris Bope v2</h4>
+                      <a
+                        href="ressources/target_curves/tcChrisBope_v2.txt"
+                        class="download-button small-button"
+                        download
+                      >
+                        <i class="fas fa-download"></i> Download
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="download-all-container">
+                  <a href="#" class="download-all-button" id="downloadAllTargetCurves">
+                    <i class="fas fa-download"></i> Download All Target Curves (ZIP)
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+
       <!-- Scripts -->
       <script src="lib/js-yaml.min.js"></script>
       <script src="lib/knockout-latest.min.js"></script>
