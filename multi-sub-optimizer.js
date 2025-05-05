@@ -302,7 +302,9 @@ class MultiSubOptimizer {
       method = 'genetic'; // For larger spaces, use genetic search
     }
 
-    this.appendLogText(`Optimizing with ${method} method: ${paramCount} test parameters`);
+    this.appendLogText(
+      `Optimizing with ${method} method: ${paramCount} test parameters per sub`
+    );
 
     // Pre-calculate the reference response once
     let previousValidSum = referenceSub;
