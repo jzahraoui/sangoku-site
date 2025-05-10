@@ -1491,6 +1491,9 @@ class MeasurementViewModel {
       return;
     }
 
+    const minFrequency = 10;
+    const maxFrequency = 19990;
+
     const firstMeasurement = subsMeasurements[0];
 
     // Find the level of target curve at 40Hz
@@ -1547,6 +1550,13 @@ class MeasurementViewModel {
       measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
       measurement.alignSPLOffsetdB(alignOffset);
       await measurement.copySplOffsetDeltadBToOther();
+    }
+
+    if (lowFrequency < minFrequency) {
+      lowFrequency = minFrequency;
+    }
+    if (highFrequency > maxFrequency) {
+      highFrequency = maxFrequency;
     }
 
     return { lowFrequency, highFrequency, targetLevelAtFreq };
@@ -1622,12 +1632,18 @@ class MeasurementViewModel {
    * @param {number} high - Upper frequency bound (default 500Hz)
    * @returns {Object} Object containing low and high cutoff frequencies and peak magnitude
    */
-  detectSubwooferCutoff(frequencies, magnitude, thresholdDb = -6, low = 10, high = 500) {
+  detectSubwooferCutoff(
+    fullFrequencies,
+    fullMagnitude,
+    thresholdDb = -6,
+    low = 10,
+    high = 500
+  ) {
     // Input validation
     if (
-      !frequencies?.length ||
-      !magnitude?.length ||
-      frequencies.length !== magnitude.length
+      !fullFrequencies?.length ||
+      !fullMagnitude?.length ||
+      fullFrequencies.length !== fullMagnitude.length
     ) {
       throw new Error('Invalid input arrays');
     }
@@ -1635,6 +1651,18 @@ class MeasurementViewModel {
     if (thresholdDb >= 0) {
       throw new Error('Threshold must be negative');
     }
+
+    // Create new arrays to store filtered values
+    const frequencies = [];
+    const magnitude = [];
+
+    // Iterate through frequencies and keep only those within range
+    fullFrequencies.forEach((freq, index) => {
+      if (freq >= low && freq <= high) {
+        frequencies.push(freq);
+        magnitude.push(fullMagnitude[index]);
+      }
+    });
 
     // Find peak magnitude using array methods instead of loop
     const peakMagnitude = this.getMaxFromArray(
