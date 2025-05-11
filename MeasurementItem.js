@@ -877,6 +877,22 @@ class MeasurementItem {
     return true;
   }
 
+  async getFreeXFilterIndex() {
+    if (!(await this.isdefaultEqualiser())) {
+      throw new Error(`Invalid Equaliser: ${this.displayMeasurementTitle()}`);
+    }
+
+    const filters = await this.getFilters();
+
+    if (filters[20]?.type === 'None') {
+      return 21;
+    } else if (filters[21]?.type === 'None') {
+      return 22;
+    }
+
+    return -1;
+  }
+
   compareObjects(obj1, obj2) {
     const sortedStringify = obj =>
       JSON.stringify(

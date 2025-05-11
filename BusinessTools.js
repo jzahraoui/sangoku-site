@@ -310,13 +310,6 @@ class BusinessTools {
       throw new Error('Invalid PredictedLfe object or missing cumulativeIRShiftSeconds');
     }
 
-    // Front Left predicted equalized measurement
-    const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
-    // TODO: manage the case of only one sub
-
-    const { PredictedLfeFiltered, predictedSpeakerFiltered } =
-      await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
-
     const cxText = cuttOffFrequency ? `X@${cuttOffFrequency}Hz` : 'FB';
     const allowedForwardSearchMs = 2;
     const allowedForwardSearchMeter = PredictedLfe._computeInMeters(
@@ -324,8 +317,21 @@ class BusinessTools {
     );
     let totalOffset = 0;
     let mustBeInverted = false;
+    let predictedFrontLeft;
+    let letPredictedLfeFiltered;
+    let letPredictedSpeakerFiltered;
 
     try {
+      // Front Left predicted equalized measurement
+      predictedFrontLeft = await speakerItem.producePredictedMeasurement();
+      // TODO: manage the case of only one sub
+
+      const { PredictedLfeFiltered, predictedSpeakerFiltered } =
+        await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
+
+      letPredictedLfeFiltered = PredictedLfeFiltered;
+      letPredictedSpeakerFiltered = predictedSpeakerFiltered;
+
       // get the sub impulse closer to the front left, better method than cros corr align
       const distanceToSpeakerPeak =
         PredictedLfeFiltered.timeOfIRPeakSeconds -
@@ -401,8 +407,8 @@ class BusinessTools {
     } finally {
       // cleanup of predicted measurements
       await this.viewModel.removeMeasurement(predictedFrontLeft);
-      await this.viewModel.removeMeasurement(predictedSpeakerFiltered);
-      await this.viewModel.removeMeasurement(PredictedLfeFiltered);
+      await this.viewModel.removeMeasurement(letPredictedSpeakerFiltered);
+      await this.viewModel.removeMeasurement(letPredictedLfeFiltered);
       await PredictedLfe.addIROffsetSeconds(totalOffset);
       await this.applyTimeOffsetToSubs(totalOffset, subResponses, mustBeInverted);
     }
@@ -419,64 +425,56 @@ class BusinessTools {
     speaker.ResetEqualiser();
 
     try {
+      const emptyFilter = index => ({
+        index,
+        type: 'None',
+        enabled: true,
+        isAuto: false,
+      });
+
       // apply low pass filter to LFE at cuttOffFrequency
-      const emptyFilter = [
-        {
-          index: 21,
-          type: 'None',
-          enabled: true,
-          isAuto: false,
-        },
-        {
-          index: 22,
-          type: 'None',
-          enabled: true,
-          isAuto: false,
-        },
-      ];
-      // apply low pass filter to LFE at cuttOffFrequency
-      const subFilter = [
-        {
-          index: 21,
-          enabled: true,
-          isAuto: false,
-          frequency: cuttOffFrequency,
-          shape: 'L-R',
-          slopedBPerOctave: 24,
-          type: 'Low pass',
-        },
-        {
-          index: 22,
-          type: 'None',
-          enabled: true,
-          isAuto: false,
-        },
-      ];
-      await sub.setFilters(subFilter);
-      const PredictedLfeFiltered = await sub.producePredictedMeasurement();
-      await sub.setFilters(emptyFilter);
+      const subFilter = index => ({
+        index,
+        enabled: true,
+        isAuto: false,
+        frequency: cuttOffFrequency,
+        shape: 'L-R',
+        slopedBPerOctave: 24,
+        type: 'Low pass',
+      });
 
       // apply high pass filter at cuttOffFrequency
-      const speakerFilter = [
-        {
-          index: 21,
-          enabled: true,
-          isAuto: false,
-          frequency: cuttOffFrequency,
-          shape: 'BU',
-          slopedBPerOctave: 12,
-          type: 'High pass',
-        },
-        {
-          index: 22,
-          type: 'None',
-          enabled: true,
-          isAuto: false,
-        },
-      ];
-      await speaker.setFilters(speakerFilter);
+      const speakerFilter = index => ({
+        index,
+        enabled: true,
+        isAuto: false,
+        frequency: cuttOffFrequency,
+        shape: 'BU',
+        slopedBPerOctave: 12,
+        type: 'High pass',
+      });
+
+      const subFreeFilterIndex = await sub.getFreeXFilterIndex();
+      if (subFreeFilterIndex === -1) {
+        throw new Error(
+          `No free filter found for ${sub.title()}. please check X1, X2 filters`
+        );
+      }
+      await sub.setSingleFilter(subFilter(subFreeFilterIndex));
+      // generate predicted filtered measurement for sub
+      const PredictedLfeFiltered = await sub.producePredictedMeasurement();
+      await sub.setSingleFilter(emptyFilter(subFreeFilterIndex));
+
+      const speakerFreeFilterIndex = await speaker.getFreeXFilterIndex();
+      if (speakerFreeFilterIndex === -1) {
+        throw new Error(
+          `No free filter found for ${speaker.title()}. please check X1, X2 filters`
+        );
+      }
+      await speaker.setSingleFilter(speakerFilter(speakerFreeFilterIndex));
       // generate predicted filtered measurement for speaker
       const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
+      await speaker.setSingleFilter(emptyFilter(speakerFreeFilterIndex));
 
       return { PredictedLfeFiltered, predictedSpeakerFiltered };
     } catch (error) {
