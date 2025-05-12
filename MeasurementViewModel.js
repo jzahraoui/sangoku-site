@@ -1064,6 +1064,7 @@ class MeasurementViewModel {
         });
 
         await subMeasurement.eqCommands('Match target');
+        await subMeasurement.checkFilterGain();
         await subMeasurement.copyFiltersToOther();
       } catch (error) {
         self.handleError(`Sub Optimizer failed: ${error.message}`, error);
@@ -1138,6 +1139,7 @@ class MeasurementViewModel {
 
         for (const measurement of subsMeasurements) {
           await measurement.setInverted(false);
+          // why is this needed?
           await measurement.resetFilters();
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
@@ -1236,6 +1238,7 @@ class MeasurementViewModel {
         await maximisedSum.eqCommands('Match target');
 
         const filters = await maximisedSum.getFilters();
+        await maximisedSum.checkFilterGain(filters);
 
         //await self.removeMeasurement(maximisedSum);
 

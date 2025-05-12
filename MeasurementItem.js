@@ -844,7 +844,7 @@ class MeasurementItem {
         throw new Error(`Invalid filter index: ${index}`);
       }
       // set auto to false if type is all pass
-      if (filter.type === 'All pass') {
+      if (filter.type === 'All pass' || filter.index > 20) {
         filter.isAuto = false;
         found.isAuto = false;
       }
@@ -1016,7 +1016,7 @@ class MeasurementItem {
     const currentFilters = await this.getFilters();
 
     const emptyFilter = {
-      filters: Array.from({ length: 22 }, (_, i) => ({
+      filters: Array.from({ length: 20 }, (_, i) => ({
         index: i + 1,
         type: 'None',
         enabled: true,
@@ -1160,6 +1160,26 @@ class MeasurementItem {
     await this.defaultSmoothing();
   }
 
+  async checkFilterGain(filters) {
+    filters = filters || (await this.getFilters());
+    for (const filter of filters) {
+      if (filter.type === 'PK') {
+        // check if PK filters are inside limits -25dB to +25dB
+        if (filter.gaindB < -25 || filter.gaindB > 25) {
+          throw new Error(
+            `${this.displayMeasurementTitle()} Filter ${filter.index} gain is out of limits: ${Math.round(filter.gaindB)}dB. Please add High Pass to X1 or X2 filter`
+          );
+        }
+        // check if PK filters are inside limits 0.1 to 20
+        if (filter.q < 0.1 || filter.q > 20) {
+          throw new Error(
+            `${this.displayMeasurementTitle()} Filter ${filter.index} Q is out of limits: ${filter.q}.`
+          );
+        }
+      }
+    }
+  }
+
   async createStandardFilter() {
     if (this.isFilter) {
       throw new Error(
@@ -1189,6 +1209,7 @@ class MeasurementItem {
 
     // do not use high pass filter at cuttOffFrequency
 
+    // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
 
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
@@ -1204,6 +1225,7 @@ class MeasurementItem {
     });
 
     await this.eqCommands('Match target');
+    await this.checkFilterGain();
 
     // set filters auto to off to prevent overwriting by the second pass
     await this.setAllFiltersAuto(false);
@@ -1221,6 +1243,7 @@ class MeasurementItem {
     await this.genericCommand('Smooth', { smoothing: '1/3' });
 
     await this.eqCommands('Match target');
+    await this.checkFilterGain();
 
     // retore filters auto to on for next iteration
     await this.setAllFiltersAuto(true);
@@ -1233,7 +1256,7 @@ class MeasurementItem {
   async setAllFiltersAuto(requiredState = true) {
     const filters = await this.getFilters();
     for (const filter of filters) {
-      if (filter.type === 'PK' && filter.isAuto !== requiredState) {
+      if (filter.type === 'PK' && filter.index <= 20 && filter.isAuto !== requiredState) {
         filter.isAuto = requiredState;
       }
     }
