@@ -69,15 +69,15 @@ class MeasurementViewModel {
 
     // Array of frequency options
     self.LfeFrequencies = [
-      { value: '80', text: '80Hz' },
-      { value: '90', text: '90Hz' },
-      { value: '100', text: '100Hz' },
-      { value: '110', text: '110Hz' },
-      { value: '120', text: '120Hz' },
-      { value: '150', text: '150Hz' },
-      { value: '180', text: '180Hz' },
-      { value: '200', text: '200Hz' },
-      { value: '250', text: '250Hz' },
+      { value: 80, text: '80Hz' },
+      { value: 90, text: '90Hz' },
+      { value: 100, text: '100Hz' },
+      { value: 110, text: '110Hz' },
+      { value: 120, text: '120Hz' },
+      { value: 150, text: '150Hz' },
+      { value: 180, text: '180Hz' },
+      { value: 200, text: '200Hz' },
+      { value: 250, text: '250Hz' },
     ];
 
     // Observable for the selected value
@@ -837,6 +837,8 @@ class MeasurementViewModel {
           await predictedLfe.setInverted(selectedLfe.inverted());
         }
 
+        self.lpfForLFE(Math.max(120, self.selectedAlignFrequency()));
+
         self.status(result);
       } catch (error) {
         self.handleError(`Alignement search failed: ${error.message}`, error);
@@ -893,7 +895,7 @@ class MeasurementViewModel {
     self.enableLowFrequencyContainment = ko.observable(false);
     self.lowFrequencyContainmentLevel = ko.observable(3);
     self.subwooferOutput = ko.observable('LFE');
-    self.lpfForLFE = ko.observable();
+    self.lpfForLFE = ko.observable(120);
 
     // Available filter options
     self.subwooferOutputChoice = [
@@ -2261,7 +2263,6 @@ class MeasurementViewModel {
       this.selectedLfeFrequency(data.selectedLfeFrequency);
       this.selectedAlignFrequency(data.selectedAlignFrequency);
       this.selectedAverageMethod(data.selectedAverageMethod);
-      this.lpfForLFE(data.selectedAlignFrequency);
     }
   }
 
