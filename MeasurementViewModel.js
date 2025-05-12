@@ -1066,8 +1066,12 @@ class MeasurementViewModel {
         });
 
         await subMeasurement.eqCommands('Match target');
-        await subMeasurement.checkFilterGain();
         await subMeasurement.copyFiltersToOther();
+
+        const isFiltersOk = await subMeasurement.checkFilterGain();
+        if (isFiltersOk !== 'OK') {
+          throw new Error(isFiltersOk);
+        }
       } catch (error) {
         self.handleError(`Sub Optimizer failed: ${error.message}`, error);
       } finally {
@@ -1240,7 +1244,6 @@ class MeasurementViewModel {
         await maximisedSum.eqCommands('Match target');
 
         const filters = await maximisedSum.getFilters();
-        await maximisedSum.checkFilterGain(filters);
 
         //await self.removeMeasurement(maximisedSum);
 
@@ -1278,6 +1281,11 @@ class MeasurementViewModel {
           await sub.copyFiltersToOther();
           await sub.copyCumulativeIRShiftToOther();
           await sub.copySplOffsetDeltadBToOther();
+        }
+
+        const isFiltersOk = await maximisedSum.checkFilterGain();
+        if (isFiltersOk !== 'OK') {
+          throw new Error(isFiltersOk);
         }
 
         self.status(`${self.status()} \nMultiSubOptimizer successfull`);
