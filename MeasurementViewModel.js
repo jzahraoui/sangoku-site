@@ -145,8 +145,8 @@ class MeasurementViewModel {
     // Observable array to store JSON data
     self.jsonAvrData = ko.observable();
 
-    self.additionalBassGainValue = ko.observable(3);
-    self.minadditionalBassGainValue = 0;
+    self.additionalBassGainValue = ko.observable(0);
+    self.minadditionalBassGainValue = -6;
     self.maxadditionalBassGainValue = 6;
     self.maxBoostIndividualValue = ko.observable(0);
     self.minIndividualValue = 0;
