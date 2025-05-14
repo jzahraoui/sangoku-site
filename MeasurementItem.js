@@ -70,6 +70,9 @@ class MeasurementItem {
     self.crossover = ko.observable(defaultCrossover);
     self.speakerType = ko.observable(defaultSpeakerType);
     self.isSub = ko.observable(isSW);
+    self.numberOfpositions = ko.observable(0);
+    self.positionName = ko.observable('');
+    self.displayPositionText = ko.observable('');
 
     // Computed properties
     self.channelName = ko.computed(
@@ -95,18 +98,16 @@ class MeasurementItem {
         return 0;
       }
 
-      return groupedMeasurements[channelName].items.indexOf(self) + 1;
-    });
+      const position = groupedMeasurements[channelName].items.indexOf(self) + 1;
+      const numberOfPositions = groupedMeasurements[channelName].count;
+      const displayPositionText = self.isAverage
+        ? 'Average'
+        : `Pos. ${position}/${numberOfPositions}`;
 
-    self.numberOfpositions = ko.computed(() => {
-      const groupedMeasurements = self.parentViewModel.groupedMeasurements();
-      const channelName = self.channelName();
+      self.numberOfpositions(numberOfPositions);
+      self.displayPositionText(displayPositionText);
 
-      if (!groupedMeasurements || !groupedMeasurements[channelName]) {
-        return 0;
-      }
-
-      return groupedMeasurements[channelName].count;
+      return position;
     });
 
     self.associatedFilterItem = ko.computed(() =>
@@ -132,9 +133,6 @@ class MeasurementItem {
     });
     self.displayMeasurementTitle = ko.computed(
       () => `${self.measurementIndex()}: ${self.title()}`
-    );
-    self.displayPositionText = ko.computed(
-      () => `Pos. ${self.position()}/${self.numberOfpositions()}`
     );
     self.distanceInMeters = ko.computed(() =>
       self._computeDistanceInMeters(self.cumulativeIRShiftSeconds())

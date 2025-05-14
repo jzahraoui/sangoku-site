@@ -1367,14 +1367,21 @@ class MeasurementViewModel {
 
     self.measurementsPositionList = ko.computed(() => {
       try {
-        return [
-          ...new Set(
-            self
-              .measurements()
-              .map(item => item.position())
-              .filter(Boolean)
-          ),
-        ];
+        const allMeasurementPositions = self
+          .measurements()
+          .map(item => item.position())
+          .filter(Boolean);
+
+        const uniquePositions = [...new Set(allMeasurementPositions)];
+
+        const positionsSet = uniquePositions
+          .map(pos => {
+            const item = self.measurements().find(m => m.position() === pos);
+            return { value: pos, text: item.displayPositionText() };
+          })
+          .sort((a, b) => a.text.localeCompare(b.text));
+
+        return positionsSet;
       } catch (error) {
         self.handleError('Error computing measurements position list:', error);
         return [];
