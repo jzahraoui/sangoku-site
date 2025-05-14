@@ -264,15 +264,33 @@
             <h3 data-i18n="averaging_positions"></h3>
             <p class="warning-text" data-i18n="warning_text"></p>
 
-            <label class="checkbox-container">
-              <input
-                class="checkmark"
-                type="checkbox"
-                data-bind="checked: DeleteOriginalForAverage"
-              />
-              <span data-i18n="replace_original"></span>
-              <span class="checkmark"></span>
-            </label>
+            <div class="radio-group">
+              <label class="radio-container">
+                <input
+                  type="radio"
+                  value="all"
+                  data-bind="checked: DeleteOriginalForAverage"
+                />
+                <span>Delete all original measurements</span>
+              </label>
+              <label class="radio-container">
+                <input
+                  type="radio"
+                  value="all_but_1"
+                  data-bind="checked: DeleteOriginalForAverage"
+                />
+                <span>Delete all but position 1</span>
+              </label>
+              <label class="radio-container">
+                <input
+                  type="radio"
+                  value="none"
+                  data-bind="checked: DeleteOriginalForAverage"
+                />
+                <span>Keep everything</span>
+              </label>
+            </div>
+
             <select
               class="combo-box"
               style="width: 150px"

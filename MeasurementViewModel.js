@@ -417,7 +417,7 @@ class MeasurementViewModel {
       self.readFile(file);
     };
 
-    self.DeleteOriginalForAverage = ko.observable(true);
+    self.DeleteOriginalForAverage = ko.observable('all');
 
     self.useAllPassFiltersForSubs = ko.observable(false);
 

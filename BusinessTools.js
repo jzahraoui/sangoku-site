@@ -127,7 +127,7 @@ class BusinessTools {
   }
 
   // Process grouped responses and create UUID arrays
-  async processGroupedResponses(groupedResponse, avgMethod, deleteOriginal = true) {
+  async processGroupedResponses(groupedResponse, avgMethod, deleteOriginal) {
     try {
       // Input validation
       if (!groupedResponse || typeof groupedResponse !== 'object') {
@@ -171,19 +171,9 @@ class BusinessTools {
         console.debug(`${code}: ${uuids.length} measures cross corr align...`);
         await this.viewModel.processCommands('Cross corr align', uuids);
 
-        let vectorAverage;
-        if (code.startsWith('SW')) {
-          // average method suited for subs
-          console.debug(`${code}: ${uuids.length} measures Magn plus phase average...`);
-          vectorAverage = await this.viewModel.processCommands(
-            'Magn plus phase average',
-            uuids
-          );
-        } else {
-          // Vector average processing
-          console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
-          vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
-        }
+        // average processing
+        console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
+        const vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
 
         // Update title
         if (vectorAverage) {
@@ -193,11 +183,17 @@ class BusinessTools {
           throw new Error(`${code}: can not rename the average...`);
         }
 
-        if (deleteOriginal) {
+        if (deleteOriginal === 'all') {
           // Delete measurements - sequential processing
-          console.debug(`${code}: ${uuids.length} measures deleting...`);
           for (const uuid of uuids) {
             await this.viewModel.removeMeasurementUuid(uuid);
+          }
+        }
+
+        if (deleteOriginal === 'all_but_1') {
+          // Delete all but the first measurement
+          for (let i = 1; i < uuids.length; i++) {
+            await this.viewModel.removeMeasurementUuid(uuids[i]);
           }
         }
       }
