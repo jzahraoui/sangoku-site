@@ -389,11 +389,21 @@ class BusinessTools {
       }
 
       totalOffset -= shiftDelay;
-      const resultMessage = `Subwoofer aligment: ${(totalOffset * 1000).toFixed(
+      const debugMessage = `Subwoofer aligment: ${(totalOffset * 1000).toFixed(
         2
       )}ms (from previous position ${(distanceToSpeakerPeak * 1000).toFixed(
         2
       )}ms - alignment tool result ${(shiftDelay * 1000).toFixed(2)}ms)`;
+
+      console.debug(debugMessage);
+
+      const newDistance = PredictedLfe._computeDistanceInMeters(
+        PredictedLfe.cumulativeIRShiftSeconds() + totalOffset
+      ).toFixed(2);
+
+      const shiftDistance = PredictedLfe._computeInMeters(totalOffset).toFixed(2);
+
+      const resultMessage = `Subwoofer deplaced by: ${shiftDistance}m, new distance: ${newDistance}m (alignment:${(shiftDelay * 1000).toFixed(2)}ms)`;
 
       return resultMessage;
     } catch (error) {
