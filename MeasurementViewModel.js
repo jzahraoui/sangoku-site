@@ -175,6 +175,10 @@ class MeasurementViewModel {
     };
 
     self.onFileLoaded = async function (data, filename) {
+      // clear error and load data to prevent buggy behavior
+      self.error('');
+      self.loadData();
+
       // Handle the loaded JSON data
       self.status('Loaded file: ' + filename);
 
