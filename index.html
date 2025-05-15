@@ -39,7 +39,11 @@
       <!-- App Content Container -->
       <div id="appContent">
         <!-- REW Controls Section -->
-        <section id="RewCommands" class="controls-section">
+        <section
+          id="RewCommands"
+          class="controls-section"
+          data-bind="style: { backgroundColor: hasError() ? '#ffebee' : '' }"
+        >
           <!-- Add this HTML for the popup -->
           <div id="descriptionPopup" class="popup">
             <div class="popup-content">
