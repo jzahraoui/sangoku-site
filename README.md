@@ -11,6 +11,13 @@ Room Correction Helper is a specialized tool designed to assist in:
 - Managing room correction data
 - Integrating with Room EQ Wizard (REW)
 
+## Useful links
+
+- [App website](https://sangoku.work/)
+- [Forum HCFR](https://www.homecinema-fr.com/forum/acoustique-correction-active-et-logiciels-de-mesure/room-correction-helper-pour-preampli-audyssey-t30137090.html)
+- [Forum AVS](https://www.avsforum.com/threads/sangoku-room-correction-helper.3320856)
+- [YouTube channel](https://www.youtube.com/@Sangoku-Z/playlists)
+
 ## Features
 
 - **Multi-Language Support**
