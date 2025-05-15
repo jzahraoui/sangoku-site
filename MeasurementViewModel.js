@@ -619,6 +619,10 @@ class MeasurementViewModel {
           self.selectedAverageMethod(),
           self.DeleteOriginalForAverage()
         );
+        const averagePosition = self
+          .measurementsPositionList()
+          .find(pos => pos.text === 'Average');
+        self.currentSelectedPosition(averagePosition.value);
         self.status('Average calculations completed successfully');
       } catch (error) {
         self.handleError(`Averages failed: ${error.message}`, error);
