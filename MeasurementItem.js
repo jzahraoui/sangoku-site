@@ -1188,6 +1188,8 @@ class MeasurementItem {
       );
     }
 
+    let customStartFrequency = this.lowerFrequencyBound;
+
     // target level is supposed to already be adjusted by SPL alignment
     await this.applyWorkingSettings();
 
@@ -1198,6 +1200,20 @@ class MeasurementItem {
         highPassCrossoverType: 'BU2',
         highPassCutoffHz: this.crossover(),
       });
+
+      // set the custom start frequency to 1/4 of the crossover frequency
+      //customStartFrequency = this.crossover() / 4;
+
+      if (this.crossover() > 60) {
+        await this.setSingleFilter({
+          index: 21,
+          type: 'High pass',
+          enabled: true,
+          frequency: this.crossover() / 4,
+          shape: 'BU',
+          slopedBPerOctave: 12,
+        });
+      }
     } else {
       await this.resetTargetSettings();
     }
@@ -1207,11 +1223,15 @@ class MeasurementItem {
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
 
+    // must be set seaparatly to be taken into account
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: this.lowerFrequencyBound,
-      endFrequency: 220,
-      individualMaxBoostdB: 0,
-      overallMaxBoostdB: 0,
+      endFrequency: this.upperFrequencyBound,
+    });
+    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+      startFrequency: 180,
+      endFrequency: this.upperFrequencyBound,
+      individualMaxBoostdB: this.individualMaxBoostValue,
+      overallMaxBoostdB: this.overallBoostValue,
       flatnessTargetdB: 1,
       allowNarrowFiltersBelow200Hz: false,
       varyQAbove200Hz: false,
@@ -1219,22 +1239,17 @@ class MeasurementItem {
       allowHighShelf: false,
     });
 
+    await this.genericCommand('Smooth', { smoothing: '1/12' });
     await this.eqCommands('Match target');
 
     // set filters auto to off to prevent overwriting by the second pass
     await this.setAllFiltersAuto(false);
 
-    // must be set seaparatly to be taken into account
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      endFrequency: this.upperFrequencyBound,
+      startFrequency: customStartFrequency,
+      individualMaxBoostdB: 0,
+      overallMaxBoostdB: 0,
     });
-    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: 180,
-      individualMaxBoostdB: this.individualMaxBoostValue,
-      overallMaxBoostdB: this.overallBoostValue,
-    });
-
-    await this.genericCommand('Smooth', { smoothing: '1/3' });
 
     await this.eqCommands('Match target');
 
