@@ -150,6 +150,24 @@ class RewController {
       //   }
       // });
 
+      const appContent = document.getElementById('appContent');
+      const documentationContent = document.getElementById('documentationContent');
+      const ressourceContent = document.getElementById('resourcesContent');
+
+      // Load resources content
+      await fetch('resources.html')
+        .then(response => response.text())
+        .then(data => {
+          ressourceContent.innerHTML = data;
+        });
+
+      // Load documentation content
+      await fetch('documentation.html')
+        .then(response => response.text())
+        .then(data => {
+          documentationContent.innerHTML = data;
+        });
+
       const popup = document.getElementById('descriptionPopup');
       const popupDescription = document.getElementById('popupDescription');
       const closeBtn = document.querySelector('.close-btn');
@@ -234,10 +252,6 @@ class RewController {
           thumbnailPopup.style.display = 'none';
         }
       });
-
-      const appContent = document.getElementById('appContent');
-      const documentationContent = document.getElementById('documentationContent');
-      const ressourceContent = document.getElementById('resourcesContent');
 
       // Handle navigation with buttons
       document.querySelectorAll('.nav-button').forEach(button => {
