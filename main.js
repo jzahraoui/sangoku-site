@@ -153,6 +153,7 @@ class RewController {
       const appContent = document.getElementById('appContent');
       const documentationContent = document.getElementById('documentationContent');
       const ressourceContent = document.getElementById('resourcesContent');
+      const changeLogContent = document.getElementById('changeLogContent');
 
       // Load resources content
       await fetch('resources.html')
@@ -166,6 +167,13 @@ class RewController {
         .then(response => response.text())
         .then(data => {
           documentationContent.innerHTML = data;
+        });
+
+      // Load change log content
+      await fetch('change-log.html')
+        .then(response => response.text())
+        .then(data => {
+          changeLogContent.innerHTML = data;
         });
 
       const popup = document.getElementById('descriptionPopup');
@@ -263,18 +271,18 @@ class RewController {
 
       // Handle navigation
       function navigateToPage(page) {
+        appContent.style.display = 'none';
+        documentationContent.style.display = 'none';
+        ressourceContent.style.display = 'none';
+        changeLogContent.style.display = 'none';
         if (page === 'documentation') {
-          appContent.style.display = 'none';
           documentationContent.style.display = 'block';
-          ressourceContent.style.display = 'none';
         } else if (page === 'resources') {
-          appContent.style.display = 'none';
-          documentationContent.style.display = 'none';
           ressourceContent.style.display = 'block';
+        } else if (page === 'changelog') {
+          changeLogContent.style.display = 'block';
         } else {
           appContent.style.display = 'block';
-          documentationContent.style.display = 'none';
-          ressourceContent.style.display = 'none';
         }
         // Update URL without refresh
         history.pushState({ page }, '', `#${page}`);
@@ -412,6 +420,130 @@ class RewController {
           }
         });
       });
+
+      const commitList = document.getElementById('commitList');
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const searchInput = document.getElementById('searchCommits');
+      const authorFilter = document.getElementById('filterByAuthor');
+
+      let allCommits = [];
+      const authors = new Set();
+
+      // Extract version tag from commit message if exists
+      function extractVersionTag(message) {
+        const versionMatch = message.match(/(\d+\.\d+\.\d+)/);
+        return versionMatch ? versionMatch[0] : null;
+      }
+
+      // Filter commits based on search and author filter
+      function filterCommits() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedAuthor = authorFilter.value;
+
+        commitList.innerHTML = '';
+
+        const filteredCommits = allCommits.filter(commit => {
+          const matchesSearch = commit.commit.message.toLowerCase().includes(searchTerm);
+          const matchesAuthor =
+            !selectedAuthor || commit.commit.author.name === selectedAuthor;
+          return matchesSearch && matchesAuthor;
+        });
+
+        if (filteredCommits.length === 0) {
+          const noResults = document.createElement('div');
+          noResults.className = 'loading';
+          noResults.innerHTML = '<p>No commits match your filters</p>';
+          commitList.appendChild(noResults);
+          return;
+        }
+
+        // Group commits by version tag
+        const commitsByVersion = {};
+        let versionTag;
+
+        filteredCommits.forEach(commit => {
+          const versionTagRead = extractVersionTag(commit.commit.message);
+          // If a version tag is found, update the versionTag variable
+          if (versionTagRead) {
+            versionTag = versionTagRead;
+          }
+          commit.versionTag = versionTag;
+
+          if (!commit.commit.message.startsWith('feat:')) return;
+
+          // Group by version tag
+          if (!commitsByVersion[versionTag]) {
+            commitsByVersion[versionTag] = [];
+          }
+          commitsByVersion[versionTag].push(commit);
+        });
+
+        // Render commits grouped by version
+        Object.entries(commitsByVersion).forEach(([version, commits]) => {
+          const fragment = document.createDocumentFragment();
+          const commitEl = document.createElement('li');
+          commitEl.className = 'commit';
+
+          commitEl.innerHTML = `<div class="commit-header"><h3 class="commit-title">Version ${version}</h3></div>`;
+
+          const messagesContainer = document.createElement('div');
+          messagesContainer.className = 'commit-messages';
+
+          commits.forEach(commit => {
+            const message = document.createElement('div');
+            message.className = 'commit-message';
+            message.innerHTML = `- ${commit.commit.message.split('\n').join('<br>')}`;
+            messagesContainer.appendChild(message);
+          });
+
+          commitEl.appendChild(messagesContainer);
+          fragment.appendChild(commitEl);
+          commitList.appendChild(fragment);
+        });
+      }
+
+      // Fetch commits from GitHub API
+      async function fetchCommits() {
+        try {
+          const response = await fetch(
+            'https://api.github.com/repos/jzahraoui/sangoku-site/commits'
+          );
+
+          if (!response.ok) {
+            throw new Error('Failed to fetch commits');
+          }
+
+          allCommits = await response.json();
+
+          // Populate author filter
+          allCommits.forEach(commit => {
+            authors.add(commit.commit.author.name);
+          });
+
+          authors.forEach(author => {
+            const option = document.createElement('option');
+            option.value = author;
+            option.textContent = author;
+            authorFilter.appendChild(option);
+          });
+
+          // Display commits
+          loading.style.display = 'none';
+          filterCommits();
+
+          // Set up event listeners for filters
+          searchInput.addEventListener('input', filterCommits);
+          authorFilter.addEventListener('change', filterCommits);
+        } catch (err) {
+          console.error('Error fetching commits:', err);
+          loading.style.display = 'none';
+          error.style.display = 'block';
+        }
+      }
+
+      // Initialize
+      fetchCommits();
     });
   }
 }
