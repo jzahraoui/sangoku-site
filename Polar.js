@@ -3,8 +3,7 @@ import Complex from './complex.js';
 class Polar {
   constructor(magnitude, phase) {
     this._magnitude = magnitude;
-    this._phase = phase;
-    this._normalizePhase();
+    this._phase = Polar.normalizePhase(phase);
   }
 
   // Static factory methods
@@ -108,8 +107,15 @@ class Polar {
   }
 
   // Private helper method to normalize phase to [-π, π]
-  _normalizePhase() {
-    this._phase = ((this._phase + Math.PI) % (2 * Math.PI)) - Math.PI;
+  static normalizePhase(phaseRadians) {
+    if (!Number.isFinite(phaseRadians)) {
+      return 0;
+    }
+    const twoPi = 2 * Math.PI;
+    // Use true modulo to always get a value in [-π, π]
+    let normalized = (phaseRadians + Math.PI) % twoPi;
+    if (normalized < 0) normalized += twoPi;
+    return normalized - Math.PI;
   }
 
   // Static utility methods
