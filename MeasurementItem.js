@@ -1234,7 +1234,7 @@ class MeasurementItem {
       allowHighShelf: false,
     });
 
-    await this.genericCommand('Smooth', { smoothing: '1/12' });
+    await this.genericCommand('Smooth', { smoothing: 'Var' });
     await this.eqCommands('Match target');
 
     // set filters auto to off to prevent overwriting by the second pass
