@@ -747,19 +747,17 @@ class MultiSubOptimizer {
 
   // function to calculate combined response resulting of arthemetic sum operation on magnitude and phase of two responses
   calculateCombinedResponse(subs, theoreticalResponse = false) {
-    if (!subs || subs.length === 0) {
-      throw new Error('No measurements provided');
-    }
+    if (!subs?.length) throw new Error('No measurements provided');
 
     const freqs = subs[0].freqs;
     const freqStep = subs[0].freqStep;
-    const combinedMagnitude = new Array(freqs.length).fill(0);
-    const combinedPhase = new Array(freqs.length).fill(0);
+    const combinedMagnitude = new Array(freqs.length);
+    const combinedPhase = new Array(freqs.length);
 
     // For each frequency point
     for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
       // Process each subwoofer's response
-      let polarSum;
+      let polarSum = null;
       for (const sub of subs) {
         const phase = theoreticalResponse ? 0 : sub.phase[freqIndex];
         // Convert magnitude from dB to linear voltage
@@ -772,12 +770,7 @@ class MultiSubOptimizer {
       combinedPhase[freqIndex] = polarSum.phaseDegrees;
     }
 
-    return {
-      freqs: freqs,
-      magnitude: combinedMagnitude,
-      phase: combinedPhase,
-      freqStep: freqStep,
-    };
+    return { freqs, magnitude: combinedMagnitude, phase: combinedPhase, freqStep };
   }
 
   calculateResponseWithParams(sub) {
