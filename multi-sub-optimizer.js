@@ -235,6 +235,9 @@ class MultiSubOptimizer {
         magnitude: filteredMagnitude,
         phase: filteredPhase,
         freqStep: frequencyResponse.freqStep,
+        endFreq: filteredFreqs[filteredFreqs.length - 1],
+        startFreq: filteredFreqs[0],
+        param: MultiSubOptimizer.EMPTY_CONFIG,
       };
     });
 
