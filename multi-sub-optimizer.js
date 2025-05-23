@@ -620,9 +620,12 @@ class MultiSubOptimizer {
   }
 
   /**
+   * !!! WARNING !!! when the sub is delayed, the phase shift and this method provdings wrong results
+   * a better approach would be to calculate the phase alignment between the two responses
+   *
    * Calculates a score representing the phase alignment of the response,
    * weighted by frequency importance and linear magnitude.
-   * A score closer to 1 indicates better phase alignment (closer to 0° or 180°),
+   * A score closer to 100% indicates better phase alignment (closer to 0° or 180°),
    * especially at frequencies with higher magnitude and importance.
    * @param {object} response - The frequency response object { freqs, magnitude, phase }.
    * @returns {number} The normalized alignment score (0 to 1).
@@ -630,16 +633,14 @@ class MultiSubOptimizer {
   calculateAlignmentScore(response) {
     // Input validation
     if (!response?.magnitude?.length || !response?.phase?.length || !response?.freqs) {
-      console.warn('Invalid response data for calculateAlignmentScore');
+      console.warn('Invalid response data for alignment score');
       return 0;
     }
     if (
       !this.frequencyWeights ||
       this.frequencyWeights.length !== response.freqs.length
     ) {
-      console.warn(
-        'Frequency weights not available or mismatched for calculateAlignmentScore'
-      );
+      console.warn('Frequency weights not available or mismatched for alignment score');
       return 0; // Cannot calculate without proper weights
     }
 
@@ -676,7 +677,7 @@ class MultiSubOptimizer {
     }
 
     // The score represents the average phase coherence, weighted by frequency importance and linear magnitude.
-    return weightedCoherenceSum / totalWeightingFactor;
+    return (weightedCoherenceSum / totalWeightingFactor) * 100; // Scale to percentage
   }
 
   calculateFrequencyWeights(frequencies) {
