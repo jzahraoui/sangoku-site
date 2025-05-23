@@ -1010,7 +1010,7 @@ class MeasurementItem {
     const currentFilters = await this.getFilters();
 
     const emptyFilter = {
-      filters: Array.from({ length: 20 }, (_, i) => ({
+      filters: Array.from({ length: 22 }, (_, i) => ({
         index: i + 1,
         type: 'None',
         enabled: true,
@@ -1190,6 +1190,9 @@ class MeasurementItem {
     // target level is supposed to already be adjusted by SPL alignment
     await this.applyWorkingSettings();
 
+    // must have only lower band filter to be able to use the high pass filter
+    await this.resetFilters();
+
     if (this.crossover()) {
       await this.setTargetSettings({
         shape: 'Driver',
@@ -1214,9 +1217,6 @@ class MeasurementItem {
     }
 
     // do not use high pass filter at cuttOffFrequency
-
-    // must have only lower band filter to be able to use the high pass filter
-    await this.resetFilters();
 
     // must be set seaparatly to be taken into account
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
