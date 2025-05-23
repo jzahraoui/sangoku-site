@@ -581,13 +581,23 @@ class MultiSubOptimizer {
   }
 
   getFinalSubSum() {
-    const optimizedSubArray = [];
-    for (const originalSub of this.subMeasurements) {
+    const [firstSub, ...subsWithoutFirst] = this.subMeasurements;
+    const optimizedSubArray = [firstSub];
+
+    // Process each remaining sub with its optimized parameters
+    for (const originalSub of subsWithoutFirst) {
+      // Find the matching optimized sub by measurement ID
       const found = this.optimizedSubs.find(
         sub => sub.measurement === originalSub.measurement
       );
-      originalSub.param = found?.param ? found.param : MultiSubOptimizer.EMPTY_CONFIG;
-      const response = this.calculateResponseWithParams(originalSub);
+
+      if (!found) throw new Error('Sub not found in optimized subs');
+
+      // Apply optimized parameters
+      const subCopy = { ...originalSub, param: found.param };
+
+      // Calculate the response with the parameters and add to array
+      const response = this.calculateResponseWithParams(subCopy);
       optimizedSubArray.push(response);
     }
 
