@@ -817,6 +817,76 @@ class MultiSubOptimizer {
   }
 
   /**
+   * Calculates a penalty score for frequency response dips/drops.
+   * Penalizes rapid magnitude drops between adjacent frequency points,
+   * weighted by frequency importance.
+   *
+   * @param {Object} response - Frequency response with magnitude array
+   * @returns {number} Penalty score where higher values indicate more problematic dips
+   */
+  dipPenaltyScore(response) {
+    if (
+      !response ||
+      !response.freqs ||
+      !response.magnitude ||
+      response.freqs.length !== response.magnitude.length ||
+      response.freqs.length === 0
+    ) {
+      return 0; // Return 0 penalty for invalid input instead of -Infinity
+    }
+
+    // Validate frequency weights availability
+    if (
+      !this.frequencyWeights ||
+      this.frequencyWeights.length !== response.freqs.length
+    ) {
+      console.warn('Frequency weights unavailable, using uniform weighting');
+      this.frequencyWeights = new Array(response.freqs.length).fill(1.0);
+    }
+
+    let dipPenalty = 0;
+
+    // Fixed threshold - 3dB is a reasonable threshold for detecting problematic drops
+    // Adaptive threshold based on frequency resolution
+    // Higher resolution (smaller spacing) = lower threshold for detecting drops
+    const dropThreshold = Math.max(3.0, response.freqStep * 17);
+
+    let allreadyCountedDip = false;
+
+    for (let i = 1; i < response.freqs.length; i++) {
+      // Start from i=1
+      const currentLevel = response.magnitude[i];
+      const previousLevel = response.magnitude[i - 1]; // Fixed: use adjacent point
+      const weight = this.frequencyWeights[i];
+
+      // Validate individual data points
+      if (
+        !Number.isFinite(currentLevel) ||
+        !Number.isFinite(previousLevel) ||
+        !Number.isFinite(weight)
+      ) {
+        continue;
+      }
+
+      // Calculate drop (positive value indicates a drop in level)
+      const drop = previousLevel - currentLevel;
+
+      if (drop > dropThreshold && !allreadyCountedDip) {
+        // Scale penalty by drop severity and frequency importance
+        const severityFactor = Math.min(drop / dropThreshold, 3); // Cap at 3x threshold
+        const weightedPenalty = drop * severityFactor * weight;
+
+        dipPenalty += weightedPenalty;
+        allreadyCountedDip = true; // Set flag to avoid double counting
+      } else {
+        allreadyCountedDip = false; // Reset flag when no drop detected
+      }
+    }
+
+    return dipPenalty / 2;
+  }
+
+  /**
    * Calculates a comprehensive flatness score for frequency response analysis.
    *
    * The score combines three key metrics with configurable weightings:
