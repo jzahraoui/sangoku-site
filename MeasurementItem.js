@@ -1194,11 +1194,13 @@ class MeasurementItem {
     await this.resetFilters();
 
     if (this.crossover()) {
+      // 2 octaves below the crossover frequency
+      const belowCrossover = Math.max(20, Math.round(this.crossover() / 4));
       await this.setTargetSettings({
         shape: 'Driver',
         lowPassCrossoverType: 'None',
         highPassCrossoverType: 'BU2',
-        highPassCutoffHz: this.crossover(),
+        highPassCutoffHz: belowCrossover,
       });
 
       if (this.crossover() > 60) {
@@ -1206,12 +1208,12 @@ class MeasurementItem {
           index: 21,
           type: 'High pass',
           enabled: true,
-          frequency: this.crossover() / 3,
+          frequency: belowCrossover,
           shape: 'BU',
           slopedBPerOctave: 12,
         });
       }
-      customInterPassFrequency = Math.round(this.crossover() / 1.5);
+      customInterPassFrequency = Math.max(60, Math.round(this.crossover() / 1.5));
     } else {
       await this.resetTargetSettings();
     }
