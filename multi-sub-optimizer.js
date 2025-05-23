@@ -243,14 +243,20 @@ class MultiSubOptimizer {
 
     // check if all measurements have the same frequency points
     const firstFreqs = preparedSubs[0].freqs;
-    preparedSubs.forEach((sub, index) => {
+    const preparedSubsWithoutFirst = preparedSubs.slice(1);
+    preparedSubsWithoutFirst.forEach((sub, index) => {
       if (sub.freqs.length !== firstFreqs.length) {
         throw new Error(
           `Sub ${index} has a different number of frequency points than the first sub`
         );
       }
       sub.freqs.forEach((freq, freqIndex) => {
-        if (freq !== firstFreqs[freqIndex]) {
+        // Round down to 3 digits for consistent comparison
+        const precision = 1e3;
+        const roundedFreq = Math.floor(freq * precision) / precision;
+        const roundedFirstFreq =
+          Math.floor(firstFreqs[freqIndex] * precision) / precision;
+        if (roundedFreq !== roundedFirstFreq) {
           throw new Error(
             `Sub ${index} has a different frequency point at index ${freqIndex} than the first sub`
           );
