@@ -523,12 +523,12 @@ class BusinessTools {
     await item.resetIrWindows();
 
     const predictedChannel = await item.producePredictedMeasurement();
-    const relatedLfeMeasurement = item.relatedLfeMeasurement();
 
     let finalPredcition;
     if (item.crossover() === 0) {
       finalPredcition = predictedChannel;
     } else {
+      const relatedLfeMeasurement = item.relatedLfeMeasurement();
       if (!relatedLfeMeasurement) {
         // TODO use createssum to get it
         throw new Error(`Cannot find predicted LFE for position ${item.position()}`);
@@ -554,6 +554,8 @@ class BusinessTools {
       // cleanup of predicted measurements
       await this.viewModel.removeMeasurement(PredictedLfeFiltered);
       await this.viewModel.removeMeasurement(predictedSpeakerFiltered);
+
+      await relatedLfeMeasurement.defaultSmoothing();
     }
     // set title
     const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB';
@@ -562,7 +564,6 @@ class BusinessTools {
 
     await finalPredcition.defaultSmoothing();
     await item.defaultSmoothing();
-    await relatedLfeMeasurement.defaultSmoothing();
 
     return true;
   }
