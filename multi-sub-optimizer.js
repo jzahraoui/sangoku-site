@@ -972,8 +972,13 @@ class MultiSubOptimizer {
 
     const response = this.calculateCombinedResponse([subModified, previousValidSum]);
 
-    const score = this.calculateEfficiencyRatio(response, theoreticalMax);
-    response.score = score;
+    const efficiencyRatioscore = this.calculateEfficiencyRatio(response, theoreticalMax);
+
+    const dipPenaltyScore = this.dipPenaltyScore(response);
+
+    const flatnessScore = this.calculateFlatnessScore(response);
+
+    response.score = efficiencyRatioscore - dipPenaltyScore - flatnessScore;
     response.param = subToOptimize.param;
     response.hasAllPass = subToOptimize.param.allPass.enabled;
 
