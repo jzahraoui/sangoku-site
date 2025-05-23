@@ -1205,7 +1205,7 @@ class MeasurementItem {
           index: 21,
           type: 'High pass',
           enabled: true,
-          frequency: this.crossover() / 4,
+          frequency: this.crossover() / 3,
           shape: 'BU',
           slopedBPerOctave: 12,
         });
