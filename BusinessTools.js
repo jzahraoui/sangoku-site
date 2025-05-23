@@ -258,6 +258,11 @@ class BusinessTools {
     });
   }
 
+  /**
+   * Imports and applies filter configurations from REW (Room EQ Wizard) to subwoofer responses
+   * @param {Array} REWconfigs - Array of REW configuration objects
+   * @param {Object} subResponses - Object containing subwoofer response measurements
+   */
   async importFilterInREW(REWconfigs, subResponses) {
     // Process each REW configuration sequentially
     for (const { filters, channel, invert, gain, delay } of REWconfigs) {
@@ -292,6 +297,14 @@ class BusinessTools {
     }
   }
 
+  /**
+   * Aligns a subwoofer (LFE) with a speaker by calculating and applying the optimal time offset
+   * @param {Object} PredictedLfe - The predicted LFE measurement object
+   * @param {number} cuttOffFrequency - Crossover frequency in Hz (default: 120Hz)
+   * @param {Object} speakerItem - The speaker measurement object to align with
+   * @param {Array} subResponses - Array of subwoofer response objects
+   * @returns {string} A message describing the alignment results
+   */
   async produceAligned(PredictedLfe, cuttOffFrequency = 120, speakerItem, subResponses) {
     if (!speakerItem) {
       throw new Error(`Please select a speaker item`);
@@ -420,6 +433,13 @@ class BusinessTools {
     }
   }
 
+  /**
+   * Applies crossover filters to subwoofer and speaker measurements
+   * @param {Object} sub - The subwoofer measurement object
+   * @param {Object} speaker - The speaker measurement object
+   * @param {number} cuttOffFrequency - Crossover frequency in Hz
+   * @returns {Object} Object containing filtered measurements for both sub and speaker
+   */
   async applyCuttOffFilter(sub, speaker, cuttOffFrequency) {
     if (cuttOffFrequency === 0) {
       const PredictedLfeFiltered = sub;
