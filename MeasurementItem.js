@@ -20,7 +20,7 @@ class MeasurementItem {
     }
 
     self.upperFrequencyBound = 16000;
-    self.lowerFrequencyBound = 10;
+    self.lowerFrequencyBound = 15;
     self.leftWindowWidthMilliseconds = 30;
     self.rightWindowWidthMilliseconds = 1000;
     self.individualMaxBoostValue = 3;
