@@ -1208,7 +1208,7 @@ class MeasurementItem {
           slopedBPerOctave: 12,
         });
       }
-      customInterPassFrequency = this.crossover() / 1.5;
+      customInterPassFrequency = Math.round(this.crossover() / 1.5);
     } else {
       await this.resetTargetSettings();
     }
