@@ -720,54 +720,6 @@ class MultiSubOptimizer {
     });
   }
 
-  calculateAverageLevelScore(response) {
-    // Input validation
-    if (
-      !response ||
-      !response.freqs ||
-      !response.magnitude ||
-      response.freqs.length !== response.magnitude.length
-    ) {
-      return -Infinity;
-    }
-
-    let peak = 0;
-    let dip = Infinity;
-    let dipSum = 0;
-    let levelSum = 0;
-    let count = 0;
-    const peakThreshold = 5;
-
-    for (let i = 0; i < response.freqs.length; i++) {
-      const level = response.magnitude[i];
-      const previousLevel = response.magnitude[i - 1] || level;
-      peak = Math.max(peak, level);
-      dip = Math.min(dip, level);
-
-      // Penalize rapid changes in magnitude (potential destructive interference)
-      const diff = level - previousLevel;
-      if (diff < -peakThreshold) {
-        // More than 3dB change between adjacent frequencies
-        dipSum += Math.abs(diff);
-      }
-      levelSum += level;
-      count++;
-    }
-
-    // Guard against empty or invalid data
-    if (count === 0) {
-      return -Infinity;
-    }
-
-    // Calculate average magnitude
-    const avgMag = levelSum / count;
-    // const range = peak - dip;
-    const peakBonus = peak * 0.5; // Reduce peak influence
-    const score = avgMag + peakBonus - dipSum;
-
-    return score;
-  }
-
   /**
    * Displays the frequency response in a formatted string.
    * Each line contains frequency, magnitude, and phase values.
