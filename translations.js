@@ -76,7 +76,7 @@ const translations = {
     select_crossover: 'Select crossover',
     select_speaker_channel: 'Select speaker channel',
     find_sub_alignment: 'Find sub alignment',
-    create_oca_file: 'Creates OCA file',
+    create_oca_file: 'Create OCA file',
     measurement: 'Measurement',
     trim_db: 'Trim (dB)',
     crossover: 'Crossover',
