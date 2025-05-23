@@ -320,63 +320,60 @@ class BusinessTools {
     }
 
     const cxText = cuttOffFrequency ? `X@${cuttOffFrequency}Hz` : 'FB';
-    const allowedForwardSearchMs = 2;
-    const allowedForwardSearchMeter = PredictedLfe._computeInMeters(
-      allowedForwardSearchMs / 1000
-    );
+    const maxForwardSearchMs = 2;
     let totalOffset = 0;
     let mustBeInverted = false;
-    let predictedFrontLeft;
-    let letPredictedLfeFiltered;
-    let letPredictedSpeakerFiltered;
-
+    const mustBeDeleted = [];
     try {
       // Front Left predicted equalized measurement
-      predictedFrontLeft = await speakerItem.producePredictedMeasurement();
+      const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
       // TODO: manage the case of only one sub
 
       const { PredictedLfeFiltered, predictedSpeakerFiltered } =
         await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
 
-      letPredictedLfeFiltered = PredictedLfeFiltered;
-      letPredictedSpeakerFiltered = predictedSpeakerFiltered;
+      // Store filtered measurements for cleanup in finally block
+      mustBeDeleted.push(PredictedLfeFiltered);
+      mustBeDeleted.push(predictedSpeakerFiltered);
+      mustBeDeleted.push(predictedFrontLeft);
 
       // get the sub impulse closer to the front left, better method than cros corr align
       const distanceToSpeakerPeak =
         PredictedLfeFiltered.timeOfIRPeakSeconds -
         predictedSpeakerFiltered.timeOfIRPeakSeconds;
-      await PredictedLfeFiltered.addIROffsetSeconds(distanceToSpeakerPeak);
 
       const distanceToSpeakerPeakMeters =
         PredictedLfe._computeInMeters(distanceToSpeakerPeak);
 
       const neededDistanceMeter =
-        PredictedLfe.distanceInMeters() +
-        distanceToSpeakerPeakMeters +
-        allowedForwardSearchMeter;
+        PredictedLfe.distanceInMeters() + distanceToSpeakerPeakMeters;
 
-      totalOffset += distanceToSpeakerPeak;
+      // Calculate and apply adjustment to stay within maximum distance
+      const overheadOffsetMs =
+        PredictedLfe._computeInSeconds(
+          this.viewModel.maxDistanceInMetersError() - neededDistanceMeter
+        ) * 1000;
 
-      if (neededDistanceMeter > this.viewModel.maxDistanceInMetersError()) {
-        console.warn(
-          `Subwoofer too far from speaker: ${neededDistanceMeter.toFixed(
-            2
-          )}m (max ${this.viewModel.maxDistanceInMetersError().toFixed(2)}m)`
-        );
-        const overheadOffset = PredictedLfe._computeInSeconds(
-          neededDistanceMeter - this.viewModel.maxDistanceInMetersError()
-        );
-        totalOffset -= overheadOffset;
+      // correction to prevent exceeding max distance
+      let finalDistance = distanceToSpeakerPeak;
+      if (overheadOffsetMs < 0) {
+        finalDistance += overheadOffsetMs / 1000;
       }
+
+      // Apply initial offset to align impulse peaks
+      await PredictedLfeFiltered.addIROffsetSeconds(finalDistance);
+      // Update total offset with initial alignment
+      totalOffset += finalDistance;
 
       // compute subwoofer aligment
       const { shiftDelay, isBInverted } = await this.viewModel.findAligment(
         predictedSpeakerFiltered,
         PredictedLfeFiltered,
         cuttOffFrequency,
-        allowedForwardSearchMs,
+        maxForwardSearchMs,
         false,
-        `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()}`
+        `${this.RESULT_PREFIX}${speakerItem.title()} ${cxText}_P${speakerItem.position()}`,
+        0
       );
 
       if (isBInverted) {
@@ -425,9 +422,9 @@ class BusinessTools {
       throw new Error(`${error.message}`, { cause: error });
     } finally {
       // cleanup of predicted measurements
-      await this.viewModel.removeMeasurement(predictedFrontLeft);
-      await this.viewModel.removeMeasurement(letPredictedSpeakerFiltered);
-      await this.viewModel.removeMeasurement(letPredictedLfeFiltered);
+      for (const measurement of mustBeDeleted) {
+        await this.viewModel.removeMeasurement(measurement);
+      }
       await PredictedLfe.addIROffsetSeconds(totalOffset);
       await this.applyTimeOffsetToSubs(totalOffset, subResponses, mustBeInverted);
     }
