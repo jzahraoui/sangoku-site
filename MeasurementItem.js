@@ -1185,6 +1185,7 @@ class MeasurementItem {
     }
 
     let customStartFrequency = this.lowerFrequencyBound;
+    let customInterPassFrequency = 180;
 
     // target level is supposed to already be adjusted by SPL alignment
     await this.applyWorkingSettings();
@@ -1210,6 +1211,7 @@ class MeasurementItem {
           slopedBPerOctave: 12,
         });
       }
+      customInterPassFrequency = this.crossover() / 1.5;
     } else {
       await this.resetTargetSettings();
     }
@@ -1224,7 +1226,7 @@ class MeasurementItem {
       endFrequency: this.upperFrequencyBound,
     });
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: 180,
+      startFrequency: customInterPassFrequency,
       endFrequency: this.upperFrequencyBound,
       individualMaxBoostdB: this.individualMaxBoostValue,
       overallMaxBoostdB: this.overallBoostValue,
