@@ -350,6 +350,27 @@ class MultiSubOptimizer {
     return result;
   }
 
+  /**
+   * Calculates the efficiency ratio between actual and theoretical frequency responses.
+   *
+   * This method compares how well the actual combined subwoofer response performs
+   * relative to the theoretical maximum possible response at each frequency point.
+   *
+   * The calculation process:
+   * 1. Converts dB magnitudes to linear gain values for proper ratio calculation
+   * 2. Calculates point-wise efficiency: (actual/theoretical) × 100%
+   * 3. Applies frequency weighting to emphasize important bass frequencies
+   * 4. Returns the weighted average efficiency across all frequency points
+   *
+   * Higher values indicate better efficiency - the actual response is closer
+   * to the theoretical maximum. Values above 100% indicate constructive
+   * interference beyond the theoretical sum, while lower values indicate
+   * destructive interference or suboptimal alignment.
+   *
+   * @param {Object} actualResponse - Current combined frequency response
+   * @param {Object} theoreticalResponse - Theoretical maximum response (all subs in-phase)
+   * @returns {number} Weighted average efficiency percentage (0-100+%)
+   */
   calculateEfficiencyRatio(actualResponse, theoreticalResponse) {
     if (!actualResponse?.magnitude?.length || !theoreticalResponse?.magnitude?.length) {
       return 0;
@@ -360,13 +381,13 @@ class MultiSubOptimizer {
 
     for (let i = 0; i < count; i++) {
       // Convert from dB to linear for proper ratio calculation
-      const actualLinear = Math.pow(10, actualResponse.magnitude[i] / 20);
-      const theoreticalLinear = Math.pow(10, theoreticalResponse.magnitude[i] / 20);
+      const actualLinear = Polar.DbToLinearGain(actualResponse.magnitude[i]);
+      const theoreticalLinear = Polar.DbToLinearGain(theoreticalResponse.magnitude[i]);
 
       // Calculate efficiency at each frequency point (as a percentage)
-      const pointEfficiency =
-        (actualLinear / theoreticalLinear) * this.frequencyWeights[i] * 100;
-      efficiencySum += pointEfficiency;
+      const pointEfficiency = (actualLinear / theoreticalLinear) * 100;
+      const pointEfficiencyWeighted = pointEfficiency * this.frequencyWeights[i];
+      efficiencySum += pointEfficiencyWeighted;
     }
 
     // Return average efficiency percentage
