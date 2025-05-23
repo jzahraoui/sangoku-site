@@ -1198,9 +1198,6 @@ class MeasurementItem {
         highPassCutoffHz: this.crossover(),
       });
 
-      // set the custom start frequency to 1/4 of the crossover frequency
-      //customStartFrequency = this.crossover() / 4;
-
       if (this.crossover() > 60) {
         await this.setSingleFilter({
           index: 21,
