@@ -816,11 +816,22 @@ class MultiSubOptimizer {
     return response;
   }
 
-  // Measures overall deviation from the mean level (standard deviation)
-  // Evaluates local smoothness by examining changes between adjacent frequency points
-  // Considers peak-to-peak range which is critical for subwoofer performance
-  // Combines these factors with appropriate weightings to produce a more meaningful score
-  // The score is designed so that lower values indicate a flatter, smoother response, which is typically desirable in audio systems. You can adjust the weights based on your specific priorities for the optimization.
+  /**
+   * Calculates a comprehensive flatness score for frequency response analysis.
+   *
+   * The score combines three key metrics with configurable weightings:
+   * 1. Overall flatness: Standard deviation from mean magnitude (50% weight)
+   * 2. Local smoothness: RMS of adjacent point variations (30% weight)
+   * 3. Peak-to-peak range: Total dynamic range across frequency band (20% weight)
+   *
+   * Lower scores indicate flatter, smoother responses which are generally
+   * more desirable for subwoofer optimization. The function penalizes both
+   * overall deviations from the mean level and rapid local variations
+   * between adjacent frequency points.
+   *
+   * @param {Object} response - Frequency response with magnitude array
+   * @returns {number} Flatness where lower values indicate flatter response
+   */
   calculateFlatnessScore(response) {
     const magnitudes = response.magnitude;
     const len = magnitudes.length;
