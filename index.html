@@ -166,65 +166,6 @@
                   </tbody>
                 </table>
               </div>
-              <div>
-                <h3 data-i18n="customisation"></h3>
-                <label data-i18n="lfe_crossover"></label>
-                <select
-                  class="combo-box"
-                  data-bind="
-                options: LfeFrequencies,
-                optionsText: 'text',
-                optionsValue: 'value',
-                event: { change: $root.saveMeasurements },
-                value: lpfForLFE"
-                ></select>
-                <label data-i18n="subwoofer_output_label"
-                  >Selects which low frequency signals are sent to the subwoofer
-                  outputs:</label
-                >
-                <select
-                  class="combo-box"
-                  data-bind="
-                options: subwooferOutputChoice,
-                optionsText: 'text',
-                optionsValue: 'value',
-                event: { change: $root.saveMeasurements },
-                value: subwooferOutput"
-                ></select>
-                <label class="checkbox-container">
-                  <input
-                    class="checkmark"
-                    type="checkbox"
-                    data-bind="
-                  checked: enableDynamicEq,
-                  enable: true"
-                  />
-                  <span data-i18n="enable_dynamic_eq">enableDynamicEq</span>
-                  <span class="checkmark"></span>
-                </label>
-                <label class="checkbox-container">
-                  <input
-                    class="checkmark"
-                    type="checkbox"
-                    data-bind="
-                  checked: enableDynamicVolume,
-                  enable: true"
-                  />
-                  <span data-i18n="enable_dynamic_volume">enableDynamicVolume</span>
-                  <span class="checkmark"></span>
-                </label>
-                <label class="checkbox-container">
-                  <input
-                    class="checkmark"
-                    type="checkbox"
-                    data-bind="
-                  checked: enableLowFrequencyContainment,
-                  enable: true"
-                  />
-                  <span data-i18n="enable_lfc">enableLowFrequencyContainment</span>
-                  <span class="checkmark"></span>
-                </label>
-              </div>
             </details>
           </div>
 
@@ -564,6 +505,78 @@
               </button>
             </div>
           </div>
+          
+          <div class="control-group">
+            <h2 data-i18n="oca_file" class="section-title">OCA file</h2>
+
+            <div class="settings-grid">
+              <div class="setting-row">
+                <label data-i18n="lfe_crossover" class="setting-label"></label>
+                <select
+                  class="combo-box"
+                  data-bind="
+                  options: LfeFrequencies,
+                  optionsText: 'text',
+                  optionsValue: 'value',
+                  event: { change: $root.saveMeasurements },
+                  value: lpfForLFE"
+                ></select>
+              </div>
+              
+              <div class="setting-row">
+                <label data-i18n="subwoofer_output_label" class="setting-label"
+                  >Selects which low frequency signals are sent to the subwoofer
+                  outputs:</label
+                >
+                <select
+                  class="combo-box"
+                  data-bind="
+                  options: subwooferOutputChoice,
+                  optionsText: 'text',
+                  optionsValue: 'value',
+                  event: { change: $root.saveMeasurements },
+                  value: subwooferOutput"
+                ></select>
+              </div>
+              
+              <div class="checkbox-group">
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-bind="
+                    checked: enableDynamicEq,
+                    enable: true"
+                  />
+                  <span data-i18n="enable_dynamic_eq" class="checkbox-label">enableDynamicEq</span>
+                  <span class="checkmark"></span>
+                </label>
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-bind="
+                    checked: enableDynamicVolume,
+                    enable: true"
+                  />
+                  <span data-i18n="enable_dynamic_volume" class="checkbox-label">enableDynamicVolume</span>
+                  <span class="checkmark"></span>
+                </label>
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-bind="
+                    checked: enableLowFrequencyContainment,
+                    enable: true"
+                  />
+                  <span data-i18n="enable_lfc" class="checkbox-label">enableLowFrequencyContainment</span>
+                  <span class="checkmark"></span>
+                </label>
+              </div>
+            </div>
+            
+            <div class="button-container">
           <button
             class="button"
             data-bind="
