@@ -422,85 +422,93 @@
 
                 <!-- File Upload Area -->
                 <div class="dropzone" id="dropzoneMso">
-                  <p data-i18n="drop_mso">
-                    Drop your Equalizer APO export file here or click to select
-                  </p>
-                  <input
-                    type="file"
-                    id="fileInputMso"
-                    accept=".txt"
-                    style="display: none"
-                  />
+                  <div class="dropzone-inner">
+                    <i class="fa fa-cloud-upload"></i>
+                    <p data-i18n="drop_mso" class="dropzone-text">
+                      Drop your Equalizer APO export file here or click to select
+                    </p>
+                    <input
+                      type="file"
+                      id="fileInputMso"
+                      accept=".txt"
+                      style="display: none"
+                    />
+                  </div>
                 </div>
 
-                <div id="results" aria-live="polite"></div>
+                <div id="results" aria-live="polite" class="results-container"></div>
               </details>
-              <br />
-              <button
-                class="button"
-                data-bind="
-              click: buttonproduceSubSum,
-              disable: isProcessing,
-              css: { 'disabled': isProcessing }"
-              >
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"
-                ></span>
-              </button>
-              <button
-                class="button"
-                data-bind="
-              click: buttonproduceSubSumAllPositions,
-              disable: isProcessing,
-              css: { 'disabled': isProcessing }"
-              >
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
-                ></span>
-              </button>
-              <p data-i18n="create_sum_result">Create sum result</p>
+              
+              <div class="button-group">
+                <button
+                  class="button primary-button"
+                  data-bind="
+                click: buttonproduceSubSum,
+                disable: isProcessing,
+                css: { 'disabled': isProcessing }"
+                >
+                  <i class="fa fa-plus-circle"></i>
+                  <span
+                    data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"
+                  ></span>
+                </button>
+                <button
+                  class="button secondary-button"
+                  data-bind="
+                click: buttonproduceSubSumAllPositions,
+                disable: isProcessing,
+                css: { 'disabled': isProcessing }"
+                >
+                  <i class="fa fa-list"></i>
+                  <span
+                    data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
+                  ></span>
+                </button>
+              </div>
+              <p data-i18n="create_sum_result" class="help-text">Create sum result</p>
             </div>
           </div>
 
           <div class="control-group">
-            <h2 data-i18n="tuning">Tuning</h2>
-            <h3 data-i18n="sub_alignment">Sub alignment with speaker</h3>
-            <p data-i18n="sub_alignment_info">
-              align "LFE predicted" and all individual subs measurements with selected
+            <h2 data-i18n="tuning" class="section-title">Tuning</h2>
+            <h3 data-i18n="sub_alignment" class="subsection-title">Sub alignment with speaker</h3>
+            <p data-i18n="sub_alignment_info" class="info-text">
+              Align "LFE predicted" and all individual subs measurements with selected
               channel, the speaker must have a filter computed
             </p>
-            <div>
+            <div class="control-row">
               <select
                 id="filterSelectproduceAlignedButton"
                 class="combo-box"
                 data-bind="
-            options: alingFrequencies,
-            optionsText: 'text',
-            optionsValue: 'value',
-            event: { change: $root.saveMeasurements },
-            optionsCaption: 'Select crossover',
-            value: selectedAlignFrequency"
+              options: alingFrequencies,
+              optionsText: 'text',
+              optionsValue: 'value',
+              event: { change: $root.saveMeasurements },
+              optionsCaption: 'Select crossover',
+              value: selectedAlignFrequency"
               ></select>
               <select
                 id="SpeakerSelect"
                 class="combo-box"
                 data-bind="
-            options: uniqueSpeakersMeasurements,
-            optionsText: 'title',
-            optionsValue: 'uuid',
-            event: { change: $root.saveMeasurements },
-            optionsCaption: 'Select speaker channel',
-            value: selectedSpeaker"
+              options: uniqueSpeakersMeasurements,
+              optionsText: 'title',
+              optionsValue: 'uuid',
+              event: { change: $root.saveMeasurements },
+              optionsCaption: 'Select speaker channel',
+              value: selectedSpeaker"
               ></select>
               <button
-                class="button"
+                class="button action-button"
                 data-bind="
-            click: buttonproduceAlignedButton,
-            disable: isProcessing,
-            css: { 'disabled': isProcessing }"
+              click: buttonproduceAlignedButton,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
               >
+                <i class="fa fa-magic"></i>
                 <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'find sub alignement'"
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Find Sub Alignment'"
                 ></span>
               </button>
             </div>
@@ -577,17 +585,20 @@
             </div>
             
             <div class="button-container">
-          <button
-            class="button"
-            data-bind="
-          click: buttoncreateOCAButton,
-          disable: isProcessing,
-          css: { 'disabled': isProcessing }"
-          >
-            <span
-              data-bind="text: isProcessing() ? 'Processing...' : 'Create OCA file'"
-            ></span>
-          </button>
+              <button
+                class="button primary-button large-button"
+                data-bind="
+                click: buttoncreateOCAButton,
+                disable: isProcessing,
+                css: { 'disabled': isProcessing }"
+              >
+                <i class="fa fa-file-text"></i>
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Create OCA file'"
+                ></span>
+              </button>
+            </div>
+          </div>
         </section>
         <!-- Result Status -->
         <div id="status" data-bind="visible: hasStatus()" class="success">
@@ -603,46 +614,48 @@
           <div class="table-wrapper" data-bind="visible: !hasError()">
             <table class="measurements-table">
               <thead>
-                <tr>
-                  <th>
-                    <select
-                      class="combo-box"
-                      data-bind="
-                    options: selectedMeasurements,
+                <tr class="table-header">
+                  <th class="filter-header">
+                    <div class="filter-controls">
+                      <select
+                        class="combo-box filter-select"
+                        data-bind="
+                      options: selectedMeasurements,
+                      optionsText: 'text',
+                      optionsValue: 'value',
+                      value: selectedMeasurementsFilter"
+                      ></select>
+                      <select
+                        id="filterSelectproduceAlignedButton"
+                        class="combo-box position-select"
+                        data-bind="
+                    options: measurementsPositionList,
                     optionsText: 'text',
                     optionsValue: 'value',
-                    value: selectedMeasurementsFilter"
-                    ></select>
-                    <select
-                      id="filterSelectproduceAlignedButton"
-                      class="combo-box"
-                      data-bind="
-                  options: measurementsPositionList,
-                  optionsText: 'text',
-                  optionsValue: 'value',
-                  enable: measurementsPositionList().length > 0
-                  event: { change: $root.saveMeasurements },
-                  value: currentSelectedPosition"
-                    ></select>
+                    enable: measurementsPositionList().length > 0,
+                    event: { change: $root.saveMeasurements },
+                    value: currentSelectedPosition"
+                      ></select>
+                    </div>
                   </th>
-                  <th data-i18n="channel_name">Channel Name</th>
-                  <th data-i18n="measurement">Measurement</th>
-                  <th>
-                    <span data-bind="text: 'Distance (M)'"></span><br />
-                    <span
-                      data-bind="text: 'Warn. ' + maxDistanceInMetersWarning().toFixed(2)"
-                    ></span
-                    ><br />
-                    <span
-                      data-bind="text: 'Crit. ' + maxDistanceInMetersError().toFixed(2)"
-                    ></span>
+                  <th data-i18n="channel_name" class="column-header">Channel Name</th>
+                  <th data-i18n="measurement" class="column-header">Measurement</th>
+                  <th class="distance-column">
+                    <div class="distance-info">
+                      <span class="distance-label" data-bind="text: 'Distance (M)'"></span>
+                      <span class="warning-value"
+                        data-bind="text: 'Warn. ' + maxDistanceInMetersWarning().toFixed(2)"
+                      ></span>
+                      <span class="critical-value"
+                        data-bind="text: 'Crit. ' + maxDistanceInMetersError().toFixed(2)"
+                      ></span>
+                    </div>
                   </th>
-                  <th data-i18n="trim_db">Trim (dB)</th>
-                  <th>
+                  <th data-i18n="trim_db" class="column-header">Trim (dB)</th>
+                  <th class="crossover-column">
                     <select
                       id="crossoverSelect"
-                      style="width: 110px"
-                      class="combo-box"
+                      class="combo-box crossover-select"
                       data-bind="
                     options: alingFrequencies,
                     optionsText: 'text',
@@ -651,11 +664,11 @@
                     value: gobalCrossover"
                     ></select>
                   </th>
-                  <th data-i18n="speaker_type">Speaker Type</th>
-                  <th data-i18n="inverted">Inverted</th>
-                  <th>
+                  <th data-i18n="speaker_type" class="column-header">Speaker Type</th>
+                  <th data-i18n="inverted" class="column-header">Inverted</th>
+                  <th class="action-column">
                     <button
-                      class="preview-btn"
+                      class="preview-btn action-button"
                       data-bind="
                     click: buttongenratesPreview,
                     disable: isProcessing,
