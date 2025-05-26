@@ -83,7 +83,9 @@ export default class OCAFileGenerator {
     const expectedChannels = this.avrFileContent.detectedChannels.map(
       expected => expected.enChannelType
     );
-    const providedChannels = allResponses.map(item => item.channelDetails().channelIndex);
+    const providedChannels = allResponses.map(
+      item => item.channelDetails()?.channelIndex
+    );
 
     const missingChannels = expectedChannels.filter(
       channel => !providedChannels.includes(channel)
