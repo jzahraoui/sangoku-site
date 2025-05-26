@@ -31,7 +31,7 @@ const CHANNEL_TYPES = {
     measurementOrder: 4,
     channelIndex: 4,
     code: 'SRA',
-    group: 'SurroundA',
+    group: 'Surround',
     position: 'Right',
   },
   EnChannelType_SurrRightA: {
@@ -89,7 +89,7 @@ const CHANNEL_TYPES = {
     measurementOrder: 14,
     channelIndex: 14,
     code: 'SLA',
-    group: 'SurroundA',
+    group: 'Surround',
     position: 'Left',
   },
   EnChannelType_FrontWideLeft: {
@@ -584,6 +584,14 @@ const CHANNEL_TYPES = {
 
   getCode(channelType) {
     return this[channelType]?.code;
+  },
+
+  getGroup(channelType) {
+    return this[channelType]?.group;
+  },
+
+  getGroupMembers(groupName) {
+    return Object.values(CHANNEL_TYPES).filter(channel => channel.group === groupName);
   },
 };
 
