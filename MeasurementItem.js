@@ -1415,6 +1415,11 @@ class MeasurementItem {
   toJSON() {
     return {
       title: this.title(),
+      displayMeasurementTitle: this.displayMeasurementTitle(),
+      channelName: this.channelName(),
+      position: this.position(),
+      distance: this.distanceInMeters(),
+      splForAvr: this.splForAvr().toFixed(1),
       notes: this.notes,
       date: this.date,
       uuid: this.uuid,

@@ -599,6 +599,20 @@
                   data-bind="text: isProcessing() ? 'Processing...' : 'Create OCA File'"
                 ></span>
               </button>
+              
+            <div class="button-container">
+              <button
+                class="button primary-button large-button"
+                data-bind="
+                click: buttoncreateSetting,
+                disable: isProcessing,
+                css: { 'disabled': isProcessing }"
+              >
+                <i class="fa fa-file-export"></i>
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Create settings File'"
+                ></span>
+              </button>
             </div>
           </div>
         </section>

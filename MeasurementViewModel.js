@@ -976,6 +976,128 @@ class MeasurementViewModel {
       }
     };
 
+    self.buttoncreateSetting = async function () {
+      if (self.isProcessing()) return;
+      try {
+        self.isProcessing(true);
+        self.status('text generation...');
+
+        const avrData = self.jsonAvrData();
+        if (!avrData || !avrData.targetModelName) {
+          throw new Error(`Please load avr file first`);
+        }
+        self.targetCurve = await self.apiService.checkTargetCurve();
+        self.rewVersion = await this.apiService.checkVersion();
+        const selectedSpeakerText =
+          self.findMeasurementByUuid(self.selectedSpeaker())?.displayMeasurementTitle() ||
+          'None';
+
+        // Generate a text file containing all the settings and parameters
+        let textData = '';
+
+        // Title and timestamp
+        const now = new Date();
+        textData += `=======================================================\n`;
+        textData += `  SANGOKU AUDIO SETTINGS - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}\n`;
+        textData += `=======================================================\n\n`;
+
+        // Basic settings section
+        textData += `BASIC SETTINGS\n`;
+        textData += `-------------\n`;
+        textData += `Target Curve:      ${self.targetCurve}\n`;
+        textData += `Target Level:      ${await self.mainTargetLevel()} dB\n`;
+        textData += `Average Method:    ${self.selectedAverageMethod()}\n`;
+        textData += `REW Version:       ${self.rewVersion}\n\n`;
+
+        // AVR Info section
+        textData += `AVR INFORMATION\n`;
+        textData += `--------------\n`;
+        textData += `Model:                ${avrData.targetModelName}\n`;
+        textData += `MultEQ Type:          ${avrData.avr.multEQDescription}\n`;
+        textData += `Has Cirrus Logic DSP: ${avrData.hasCirrusLogicDsp ? 'Yes' : 'No'}\n`;
+        textData += `Speed of Sound:       ${avrData.avr.speedOfSound} m/s\n\n`;
+
+        // Subwoofer settings section
+        textData += `SUBWOOFER SETTINGS\n`;
+        textData += `------------------\n`;
+        textData += `Number of Subs:           ${self.uniqueSubsMeasurements().length}\n`;
+        textData += `Revert LFE Filter Freq:   ${self.selectedLfeFrequency()} Hz\n`;
+
+        textData += `Additional Bass Gain: ${self.additionalBassGainValue()} dB\n`;
+        textData += `Max Boost Individual: ${self.maxBoostIndividualValue()} dB\n`;
+        textData += `Max Boost Overall:    ${self.maxBoostOverallValue()} dB\n`;
+
+        textData += `Align Frequency:      ${self.selectedAlignFrequency()} Hz\n`;
+        textData += `Selected Speaker:     ${selectedSpeakerText}\n`;
+
+        textData += `LPF for LFE:          ${self.lpfForLFE()} Hz\n`;
+        textData += `Subwoofer Output:         ${self.subwooferOutput()}\n\n`;
+
+        // Dynamic settings section
+        textData += `DYNAMIC SETTINGS\n`;
+        textData += `----------------\n`;
+        textData += `Dynamic EQ:        ${self.enableDynamicEq() ? 'Enabled' : 'Disabled'}\n`;
+        if (self.enableDynamicEq()) {
+          textData += `  Reference Level:  ${self.dynamicEqRefLevel()} dB\n`;
+        }
+        textData += `Dynamic Volume:    ${self.enableDynamicVolume() ? 'Enabled' : 'Disabled'}\n`;
+        if (self.enableDynamicVolume()) {
+          textData += `  Volume Setting:   ${self.dynamicVolumeSetting()}\n`;
+        }
+        textData += `LF Containment:    ${self.enableLowFrequencyContainment() ? 'Enabled' : 'Disabled'}\n`;
+        if (self.enableLowFrequencyContainment()) {
+          textData += `  LFC Level:        ${self.lowFrequencyContainmentLevel()}\n`;
+        }
+        textData += `Version:           Sangoku_custom\n\n`;
+
+        // Save to persistent store
+        const reducedMeasurements = self.uniqueMeasurements().map(item => item.toJSON());
+
+        // Create table header
+        textData +=
+          '\n+------------------------+---------------+----------+-------------+---------------------+----------+\n';
+        textData +=
+          '| Measurement            | Channel       | Distance | SPL Offset  | Crossover Frequency | Inverted |\n';
+        textData +=
+          '+------------------------+---------------+----------+-------------+---------------------+----------+\n';
+
+        // Add table rows
+        for (const measurement of reducedMeasurements) {
+          const title = measurement.displayMeasurementTitle.padEnd(22);
+          const channel = measurement.channelName.padEnd(13);
+          const distance = String(measurement.distance.toFixed(2)).padStart(8);
+          const splOffset = String(measurement.splForAvr).padStart(11);
+          const crossover = String(measurement.crossover).padStart(19);
+          const inverted = String(measurement.inverted ? 'Yes' : '').padEnd(8);
+
+          textData += `| ${title} | ${channel} | ${distance} | ${splOffset} | ${crossover} | ${inverted} |\n`;
+        }
+
+        // Add table footer
+        textData +=
+          '+------------------------+---------------+----------+-------------+---------------------+----------+\n';
+
+        // Create timestamp
+        const timestamp = new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-');
+        const model = avrData.targetModelName.replaceAll(' ', '-');
+        const filename = `${timestamp}_${self.targetCurve}_${model}.txt`;
+
+        // Create blob
+        const blob = new Blob([textData], {
+          type: 'application/text',
+        });
+
+        // Save file
+        saveAs(blob, filename);
+
+        self.status('Settings file created successfully');
+      } catch (error) {
+        self.handleError(`Settings file failed: ${error.message}`, error);
+      } finally {
+        self.isProcessing(false);
+      }
+    };
+
     self.buttonCreatesMsoExports = async function () {
       if (self.isProcessing()) return;
       try {
