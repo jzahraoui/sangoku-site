@@ -1023,14 +1023,14 @@ class MeasurementViewModel {
         textData += `Number of Subs:           ${self.uniqueSubsMeasurements().length}\n`;
         textData += `Revert LFE Filter Freq:   ${self.selectedLfeFrequency()} Hz\n`;
 
-        textData += `Additional Bass Gain: ${self.additionalBassGainValue()} dB\n`;
-        textData += `Max Boost Individual: ${self.maxBoostIndividualValue()} dB\n`;
-        textData += `Max Boost Overall:    ${self.maxBoostOverallValue()} dB\n`;
+        textData += `Additional Bass Gain:     ${self.additionalBassGainValue()} dB\n`;
+        textData += `Max Boost Individual:     ${self.maxBoostIndividualValue()} dB\n`;
+        textData += `Max Boost Overall:        ${self.maxBoostOverallValue()} dB\n`;
 
-        textData += `Align Frequency:      ${self.selectedAlignFrequency()} Hz\n`;
-        textData += `Selected Speaker:     ${selectedSpeakerText}\n`;
+        textData += `Align Frequency:          ${self.selectedAlignFrequency()} Hz\n`;
+        textData += `Selected Speaker:         ${selectedSpeakerText}\n`;
 
-        textData += `LPF for LFE:          ${self.lpfForLFE()} Hz\n`;
+        textData += `LPF for LFE:              ${self.lpfForLFE()} Hz\n`;
         textData += `Subwoofer Output:         ${self.subwooferOutput()}\n\n`;
 
         // Dynamic settings section
