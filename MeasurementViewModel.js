@@ -55,8 +55,6 @@ class MeasurementViewModel {
       self.status('');
     };
 
-    self.OCAFileGenerator = null;
-
     // Observable for selected speaker
     self.selectedSpeaker = ko.observable('');
 
@@ -301,7 +299,6 @@ class MeasurementViewModel {
             channel.responseData = {};
           }
           self.jsonAvrData(data);
-          self.OCAFileGenerator = new OCAFileGenerator(data);
         }
       }
     };
@@ -925,28 +922,27 @@ class MeasurementViewModel {
             `There are ${measurementsinError.length} measurements with errors. Please fix them before generating the OCA file.`
           );
         }
-        if (!self.OCAFileGenerator) {
+        const avrData = self.jsonAvrData();
+        if (!avrData || !avrData.targetModelName) {
           throw new Error(`Please load avr file first`);
         }
-        self.targetCurve = await self.apiService.checkTargetCurve();
-        self.OCAFileGenerator.tcName = `${self.targetCurve} ${await self.mainTargetLevel()}dB`;
-        self.OCAFileGenerator.softRoll = self.softRoll();
-        self.OCAFileGenerator.enableDynamicEq = self.enableDynamicEq();
-        self.OCAFileGenerator.dynamicEqRefLevel = self.dynamicEqRefLevel();
-        self.OCAFileGenerator.enableDynamicVolume = self.enableDynamicVolume();
-        self.OCAFileGenerator.dynamicVolumeSetting = self.dynamicVolumeSetting();
-        self.OCAFileGenerator.enableLowFrequencyContainment =
-          self.enableLowFrequencyContainment();
-        self.OCAFileGenerator.lowFrequencyContainmentLevel =
-          self.lowFrequencyContainmentLevel();
-        self.OCAFileGenerator.subwooferOutput = self.subwooferOutput();
-        self.OCAFileGenerator.lpfForLFE = self.lpfForLFE();
-        self.OCAFileGenerator.numberOfSubwoofers = self.uniqueSubsMeasurements().length;
-        self.OCAFileGenerator.versionEvo = 'Sangoku_custom';
+        const OCAFile = new OCAFileGenerator(avrData);
 
-        const jsonData = await self.OCAFileGenerator.createOCAFile(
-          self.uniqueMeasurements()
-        );
+        self.targetCurve = await self.apiService.checkTargetCurve();
+        OCAFile.tcName = `${self.targetCurve} ${await self.mainTargetLevel()}dB`;
+        OCAFile.softRoll = self.softRoll();
+        OCAFile.enableDynamicEq = self.enableDynamicEq();
+        OCAFile.dynamicEqRefLevel = self.dynamicEqRefLevel();
+        OCAFile.enableDynamicVolume = self.enableDynamicVolume();
+        OCAFile.dynamicVolumeSetting = self.dynamicVolumeSetting();
+        OCAFile.enableLowFrequencyContainment = self.enableLowFrequencyContainment();
+        OCAFile.lowFrequencyContainmentLevel = self.lowFrequencyContainmentLevel();
+        OCAFile.subwooferOutput = self.subwooferOutput();
+        OCAFile.lpfForLFE = self.lpfForLFE();
+        OCAFile.numberOfSubwoofers = self.uniqueSubsMeasurements().length;
+        OCAFile.versionEvo = 'Sangoku_custom';
+
+        const jsonData = await OCAFile.createOCAFile(self.uniqueMeasurements());
 
         // Validate input
         if (!jsonData) {
@@ -985,7 +981,7 @@ class MeasurementViewModel {
 
         const frequencyResponses = [];
         const jszip = new JSZip();
-        const zipFilename = `MSO-${self.OCAFileGenerator.model}.zip`;
+        const zipFilename = `MSO-${self.jsonAvrData().model}.zip`;
         const minFreq = 5; // minimum frequency in Hz
         const maxFreq = 400; // maximum frequency in Hz
 
