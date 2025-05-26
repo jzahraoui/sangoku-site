@@ -2272,23 +2272,24 @@ class MeasurementViewModel {
   restore() {
     const data = store.load();
     if (data) {
+      if (data.avrFileContent) {
       // avrFileContent must be loaded before measurements as they needs the informations
       this.jsonAvrData(data.avrFileContent);
-      this.OCAFileGenerator = data.avrFileContent
-        ? new OCAFileGenerator(data.avrFileContent)
-        : null;
       // Transform data using the MeasurementItem class
       const enhancedMeasurements = Object.values(data.measurements).map(
         item => new MeasurementItem(item, this)
       );
       this.measurements(enhancedMeasurements);
-      // this.mergeMeasurements(data.measurements);
+      }
       this.selectedSpeaker(data.selectedSpeaker);
       this.targetCurve = data.targetCurve;
       this.rewVersion = data.rewVersion;
       this.selectedLfeFrequency(data.selectedLfeFrequency);
       this.selectedAlignFrequency(data.selectedAlignFrequency);
       this.selectedAverageMethod(data.selectedAverageMethod);
+      this.additionalBassGainValue(data.additionalBassGainValue || 0);
+      this.maxBoostIndividualValue(data.maxBoostIndividualValue || 0);
+      this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
     }
   }
 
@@ -2303,9 +2304,10 @@ class MeasurementViewModel {
       selectedLfeFrequency: this.selectedLfeFrequency(),
       selectedAlignFrequency: this.selectedAlignFrequency(),
       selectedAverageMethod: this.selectedAverageMethod(),
-      ...(this.OCAFileGenerator && {
-        avrFileContent: this.OCAFileGenerator.avrFileContent,
-      }),
+      additionalBassGainValue: this.additionalBassGainValue(),
+      maxBoostIndividualValue: this.maxBoostIndividualValue(),
+      maxBoostOverallValue: this.maxBoostOverallValue(),
+      avrFileContent: this.jsonAvrData(),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
