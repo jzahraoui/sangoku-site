@@ -822,6 +822,12 @@ class MeasurementViewModel {
           throw new Error(`No LFE found, please use sum subs button`);
         }
         const speakerItem = self.findMeasurementByUuid(self.selectedSpeaker());
+
+        if (!speakerItem) {
+          throw new Error(`Speaker not found`);
+        }
+        // TODO: check if speaker filter is created
+
         const result = await self.businessTools.produceAligned(
           selectedLfe,
           self.selectedAlignFrequency(),
