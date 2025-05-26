@@ -438,7 +438,7 @@
 
                 <div id="results" aria-live="polite" class="results-container"></div>
               </details>
-              
+
               <div class="button-group">
                 <button
                   class="button primary-button"
@@ -471,7 +471,9 @@
 
           <div class="control-group">
             <h2 data-i18n="tuning" class="section-title">Tuning</h2>
-            <h3 data-i18n="sub_alignment" class="subsection-title">Sub alignment with speaker</h3>
+            <h3 data-i18n="sub_alignment" class="subsection-title">
+              Sub alignment with speaker
+            </h3>
             <p data-i18n="sub_alignment_info" class="info-text">
               Align "LFE predicted" and all individual subs measurements with selected
               channel, the speaker must have a filter computed
@@ -513,9 +515,9 @@
               </button>
             </div>
           </div>
-          
+
           <div class="control-group">
-            <h2 data-i18n="oca_file" class="section-title">OCA file</h2>
+            <h2 class="section-title">Finalization</h2>
 
             <div class="settings-grid">
               <div class="setting-row">
@@ -530,12 +532,9 @@
                   value: lpfForLFE"
                 ></select>
               </div>
-              
+
               <div class="setting-row">
-                <label data-i18n="subwoofer_output_label" class="setting-label"
-                  >Selects which low frequency signals are sent to the subwoofer
-                  outputs:</label
-                >
+                <label data-i18n="subwoofer_output_label" class="setting-label"></label>
                 <select
                   class="combo-box"
                   data-bind="
@@ -546,44 +545,47 @@
                   value: subwooferOutput"
                 ></select>
               </div>
-              
+
               <div class="checkbox-group">
                 <label class="checkbox-container">
                   <input
-                    class="checkmark"
                     type="checkbox"
                     data-bind="
                     checked: enableDynamicEq,
                     enable: true"
                   />
-                  <span data-i18n="enable_dynamic_eq" class="checkbox-label">enableDynamicEq</span>
+                  <span data-i18n="enable_dynamic_eq" class="checkbox-label"
+                    >enableDynamicEq</span
+                  >
                   <span class="checkmark"></span>
                 </label>
                 <label class="checkbox-container">
                   <input
-                    class="checkmark"
                     type="checkbox"
                     data-bind="
                     checked: enableDynamicVolume,
                     enable: true"
                   />
-                  <span data-i18n="enable_dynamic_volume" class="checkbox-label">enableDynamicVolume</span>
+                  <span data-i18n="enable_dynamic_volume" class="checkbox-label"
+                    >enableDynamicVolume</span
+                  >
                   <span class="checkmark"></span>
                 </label>
                 <label class="checkbox-container">
                   <input
-                    class="checkmark"
                     type="checkbox"
                     data-bind="
                     checked: enableLowFrequencyContainment,
                     enable: true"
                   />
-                  <span data-i18n="enable_lfc" class="checkbox-label">enableLowFrequencyContainment</span>
+                  <span data-i18n="enable_lfc" class="checkbox-label"
+                    >enableLowFrequencyContainment</span
+                  >
                   <span class="checkmark"></span>
                 </label>
               </div>
             </div>
-            
+
             <div class="button-container">
               <button
                 class="button primary-button large-button"
@@ -592,9 +594,9 @@
                 disable: isProcessing,
                 css: { 'disabled': isProcessing }"
               >
-                <i class="fa fa-file-text"></i>
+                <i class="fa fa-file-export"></i>
                 <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Create OCA file'"
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Create OCA File'"
                 ></span>
               </button>
             </div>
@@ -642,11 +644,16 @@
                   <th data-i18n="measurement" class="column-header">Measurement</th>
                   <th class="distance-column">
                     <div class="distance-info">
-                      <span class="distance-label" data-bind="text: 'Distance (M)'"></span>
-                      <span class="warning-value"
+                      <span
+                        class="distance-label"
+                        data-bind="text: 'Distance (M)'"
+                      ></span>
+                      <span
+                        class="warning-value"
                         data-bind="text: 'Warn. ' + maxDistanceInMetersWarning().toFixed(2)"
                       ></span>
-                      <span class="critical-value"
+                      <span
+                        class="critical-value"
                         data-bind="text: 'Crit. ' + maxDistanceInMetersError().toFixed(2)"
                       ></span>
                     </div>
