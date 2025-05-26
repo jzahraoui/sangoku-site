@@ -950,8 +950,9 @@ class MeasurementViewModel {
         }
 
         // Create timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `${timestamp}_${self.OCAFileGenerator.versionEvo}.oca`;
+        const timestamp = new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-');
+        const model = OCAFile.model.replaceAll(' ', '-');
+        const filename = `${timestamp}_${self.targetCurve}_${model}.oca`;
 
         // Create blob
         const blob = new Blob([jsonData], {
