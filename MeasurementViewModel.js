@@ -152,6 +152,7 @@ class MeasurementViewModel {
     self.maxBoostOverallValue = ko.observable(0);
     self.minOverallValue = 0;
     self.maxOverallValue = 3;
+    self.loadedFileName = '';
 
     self.validateFile = function (file) {
       const maxSize = 70 * 1024 * 1024; // 70MB
@@ -333,6 +334,7 @@ class MeasurementViewModel {
         }
 
         const data = JSON.parse(fileContent);
+        self.loadedFileName = file.name;
         // Handle successful load
         await self.onFileLoaded(data, file.name);
       } catch (error) {
@@ -430,7 +432,7 @@ class MeasurementViewModel {
       try {
         if (newValue === false) {
           // Save to persistent storage first
-          await self.saveMeasurements();
+          self.saveMeasurements();
 
           if (self.isPolling() && self.inhibitGraphUpdates) {
             await self.apiService.updateAPI('inhibit-graph-updates', false);
@@ -998,12 +1000,13 @@ class MeasurementViewModel {
         // Title and timestamp
         const now = new Date();
         textData += `=======================================================\n`;
-        textData += `  SANGOKU AUDIO SETTINGS - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}\n`;
+        textData += `  ROOM CORRECTION HELPER - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}\n`;
         textData += `=======================================================\n\n`;
 
         // Basic settings section
         textData += `BASIC SETTINGS\n`;
         textData += `-------------\n`;
+        textData += `Loaded File:       ${self.loadedFileName}\n`;
         textData += `Target Curve:      ${self.targetCurve}\n`;
         textData += `Target Level:      ${await self.mainTargetLevel()} dB\n`;
         textData += `Average Method:    ${self.selectedAverageMethod()}\n`;
@@ -2412,6 +2415,7 @@ class MeasurementViewModel {
       this.additionalBassGainValue(data.additionalBassGainValue || 0);
       this.maxBoostIndividualValue(data.maxBoostIndividualValue || 0);
       this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
+      this.loadedFileName = data.loadedFileName || '';
     }
   }
 
@@ -2430,6 +2434,7 @@ class MeasurementViewModel {
       maxBoostIndividualValue: this.maxBoostIndividualValue(),
       maxBoostOverallValue: this.maxBoostOverallValue(),
       avrFileContent: this.jsonAvrData(),
+      loadedFileName: this.loadedFileName,
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
