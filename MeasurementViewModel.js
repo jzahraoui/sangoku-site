@@ -558,6 +558,39 @@ class MeasurementViewModel {
       }
     };
 
+    self.buttonResetApplication = async function () {
+      if (self.isProcessing()) return;
+      try {
+        self.status('Reseting...');
+
+        self.stopBackgroundPolling();
+
+        store.clear();
+
+        // Reset all application state
+        self.measurements([]);
+        self.jsonAvrData(null);
+
+        self.targetCurve = '';
+        self.rewVersion = '';
+        self.additionalBassGainValue(0);
+        self.maxBoostIndividualValue(0);
+        self.maxBoostOverallValue(0);
+        self.loadedFileName = '';
+
+        // Reset selectors to default values
+        self.selectedSpeaker('');
+        self.selectedLfeFrequency('250');
+        self.selectedAlignFrequency(0);
+        self.selectedAverageMethod('');
+        self.selectedMeasurementsFilter(true);
+
+        self.status(`${self.status()}\nReset successful`);
+      } catch (error) {
+        self.handleError(`Reset failed: ${error.message}`, error);
+      }
+    };
+
     self.buttoncreatesAverages = async function () {
       if (self.isProcessing()) return;
       try {

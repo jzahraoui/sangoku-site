@@ -15,10 +15,12 @@ class MeasurementItem {
       throw new Error('Invalid parameters for MeasurementItem creation');
     }
 
-    if (!parentViewModel.jsonAvrData()?.avr) {
+    // required for calculations using speed of sound
+    if (!parentViewModel.jsonAvrData().avr) {
       throw new Error('No AVR data loaded');
     }
 
+    self.jsonAvrData = parentViewModel.jsonAvrData();
     self.upperFrequencyBound = 16000;
     self.lowerFrequencyBound = 15;
     self.leftWindowWidthMilliseconds = 30;
@@ -82,9 +84,9 @@ class MeasurementItem {
     );
 
     self.channelDetails = ko.computed(() => {
-      const foundChannel = parentViewModel
-        .jsonAvrData()
-        .detectedChannels.find(channel => channel.commandId === self.channelName());
+      const foundChannel = self.jsonAvrData?.detectedChannels.find(
+        channel => channel.commandId === self.channelName()
+      );
       if (foundChannel) {
         return CHANNEL_TYPES.getByChannelIndex(foundChannel.enChannelType);
       }
@@ -159,15 +161,13 @@ class MeasurementItem {
 
     // Create a computed observable for the channel detection check
     self.isChannelDetected = ko.computed(function () {
-      if (!self.parentViewModel.jsonAvrData() || !self.channelDetails()) {
+      if (!self.jsonAvrData || !self.channelDetails()) {
         return false;
       }
       if (!self.isSelected()) {
         return false;
       }
-      return self.parentViewModel
-        .jsonAvrData()
-        .detectedChannels.some(
+      return self.jsonAvrData.detectedChannels.some(
           m => m.enChannelType === self.channelDetails().channelIndex
         );
     });
@@ -262,13 +262,13 @@ class MeasurementItem {
   _computeInMeters(valueInSeconds) {
     const failSafeValue =
       typeof valueInSeconds === 'number' && isFinite(valueInSeconds) ? valueInSeconds : 0;
-    return failSafeValue * this.parentViewModel.jsonAvrData().avr.speedOfSound;
+    return failSafeValue * this.jsonAvrData.avr.speedOfSound;
   }
 
   _computeInSeconds(valueInMeters) {
     const failSafeValue =
       typeof valueInMeters === 'number' && isFinite(valueInMeters) ? valueInMeters : 0;
-    return failSafeValue / this.parentViewModel.jsonAvrData().avr.speedOfSound;
+    return failSafeValue / this.jsonAvrData.avr.speedOfSound;
   }
 
   _computeDistanceInMeters(valueInSeconds) {

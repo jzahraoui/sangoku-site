@@ -89,7 +89,8 @@
               <summary data-i18n="avr_config"></summary>
 
               <!-- File Content Editor -->
-              <div class="avr-config-section" data-bind="if: jsonAvrData">
+              <!-- ko if: jsonAvrData -->
+              <div class="avr-config-section">
                 <h3 data-i18n="file_details"></h3>
 
                 <div class="avr-details">
@@ -166,6 +167,7 @@
                   </tbody>
                 </table>
               </div>
+              <!-- /ko -->
             </details>
           </div>
 
@@ -202,6 +204,18 @@
             >
               <span
                 data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"
+              ></span>
+            </button>
+            <button
+              class="button"
+              data-bind="
+              click: buttonResetApplication,
+              disable: isProcessing,
+              css: { 'disabled': isProcessing }"
+              data-tooltip="Click to reset all application settings to default (including measurements, filters, and all other settings)"
+            >
+              <span
+                data-bind="text: isProcessing() ? 'Processing...' : 'Reset Application'"
               ></span>
             </button>
           </div>
