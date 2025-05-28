@@ -37,7 +37,7 @@ export default class RewApi {
           .pop()
           .replace(/\.[^/.]+$/, '')
           .replace(/\s+/g, '');
-        return tcName ? `tc${tcName}` : '';
+        return tcName ? `${tcName}` : '';
       }
     } catch (error) {
       const message = error.message || 'Error checking target curve';
