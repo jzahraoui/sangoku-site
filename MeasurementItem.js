@@ -1043,6 +1043,10 @@ class MeasurementItem {
     if (!filter.isFilter) {
       throw new Error(`Invalid filter: ${filter}`);
     }
+    // check if the filter is already associated
+    if (this.associatedFilter === filter.uuid) {
+      this.deleteAssociatedFilter();
+    }
     this.associatedFilter = filter.uuid;
   }
 
