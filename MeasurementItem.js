@@ -1290,6 +1290,16 @@ class MeasurementItem {
     return minimumPhase;
   }
 
+  async createExcessPhaseCopy() {
+    return await this.genericCommand('Excess phase version', {
+      'include cal': true,
+      'append lf tail': false,
+      'append hf tail': false,
+      'frequency warping': false,
+      'replicate data': true,
+    });
+  }
+
   static cleanFloat32Value(value, precision = 7) {
     // Handle non-numeric values and NaN
     const num = Number(value);
