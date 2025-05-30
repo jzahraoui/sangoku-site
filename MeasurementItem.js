@@ -658,7 +658,7 @@ class MeasurementItem {
     const referenceLevel = 75;
     const defaulParameters = {
       frequencyHz: 1000,
-      spanOctaves: 1,
+      spanOctaves: 0,
     };
     // first align the SPL to get the reference level
     const alignResult = await this.parentViewModel.processCommands(
