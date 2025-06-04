@@ -2441,13 +2441,13 @@ class MeasurementViewModel {
     const data = store.load();
     if (data) {
       if (data.avrFileContent) {
-      // avrFileContent must be loaded before measurements as they needs the informations
-      this.jsonAvrData(data.avrFileContent);
-      // Transform data using the MeasurementItem class
-      const enhancedMeasurements = Object.values(data.measurements).map(
-        item => new MeasurementItem(item, this)
-      );
-      this.measurements(enhancedMeasurements);
+        // avrFileContent must be loaded before measurements as they needs the informations
+        this.jsonAvrData(data.avrFileContent);
+        // Transform data using the MeasurementItem class
+        const enhancedMeasurements = Object.values(data.measurements).map(
+          item => new MeasurementItem(item, this)
+        );
+        this.measurements(enhancedMeasurements);
       }
       this.selectedSpeaker(data.selectedSpeaker);
       this.targetCurve = data.targetCurve;
