@@ -275,7 +275,7 @@ class MeasurementItem {
     const valueInMeters =
       this._computeInMeters(valueInSeconds) +
       this.parentViewModel.DEFAULT_SHIFT_IN_METERS;
-    if (!valueInMeters) {
+    if (valueInMeters === undefined || valueInMeters === null) {
       throw new Error(
         `Failed to compute distance in meters for ${this.displayMeasurementTitle()}`
       );
