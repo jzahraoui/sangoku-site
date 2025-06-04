@@ -614,6 +614,11 @@ class MeasurementItem {
     return true;
   }
 
+  async setZeroAtIrPeak() {
+    await this.addIROffsetSeconds(this.timeOfIRPeakSeconds);
+    return true;
+  }
+
   static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
     try {
       // Find the result with matching UUID

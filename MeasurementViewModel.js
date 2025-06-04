@@ -710,20 +710,8 @@ class MeasurementViewModel {
         self.isProcessing(true);
         self.status('Align peaks...');
 
-        const firstMeasurement = self.uniqueSpeakersMeasurements()[0];
-        const firstMeasurementPeak = firstMeasurement.timeOfIRPeakSeconds;
-        console.debug(
-          `peak time target ${firstMeasurement.displayMeasurementTitle()}: ${(firstMeasurementPeak * 1000).toFixed(2)}ms`
-        );
-
         for (const measurement of self.uniqueSpeakersMeasurements()) {
-          // skip first measurement
-          if (measurement.uuid === firstMeasurement.uuid) continue;
-          const offset = -firstMeasurementPeak + measurement.timeOfIRPeakSeconds;
-          console.debug(
-            `${measurement.displayMeasurementTitle()} -> ${(offset * 1000).toFixed(2)}ms`
-          );
-          await measurement.addIROffsetSeconds(offset);
+          await measurement.setZeroAtIrPeak();
           // apply SPLoffset to other measurement positions
           await measurement.copyCumulativeIRShiftToOther();
         }
