@@ -863,6 +863,9 @@ class MeasurementViewModel {
         }
         // TODO: check if speaker filter is created
 
+        // set at crossover frequency
+        self.selectedAlignFrequency(speakerItem.crossover());
+
         const result = await self.businessTools.produceAligned(
           selectedLfe,
           self.selectedAlignFrequency(),
