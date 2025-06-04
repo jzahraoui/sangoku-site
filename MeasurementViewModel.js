@@ -744,10 +744,10 @@ class MeasurementViewModel {
           };
         } else {
           alignSplOptions = {
-          frequencyHz: 2500,
-          spanOctaves: 5,
-          targetdB: 'average',
-        };
+            frequencyHz: 2500,
+            spanOctaves: 5,
+            targetdB: 'average',
+          };
         }
 
         // delete previous target curve
@@ -802,9 +802,9 @@ class MeasurementViewModel {
         const subsMeasurementsUuids = self.uniqueSubsMeasurements().map(m => m.uuid);
 
         if (subsMeasurementsUuids.length !== 0) {
-        await self.processCommands('Smooth', subsMeasurementsUuids, {
-          smoothing: 'Psy',
-        });
+          await self.processCommands('Smooth', subsMeasurementsUuids, {
+            smoothing: 'Psy',
+          });
         }
 
         self.status(`${self.status()} \nSPL alignment successful `);
@@ -1368,12 +1368,18 @@ class MeasurementViewModel {
 
         const optimizedSubsSum = optimizer.getFinalSubSum();
 
-        const optimizedSubsSumPeak = self.getMaxFromArray(optimizedSubsSum.magnitude);
-
-        const detectOptimizedSubs = self.detectSubwooferCutoff(
-          optimizedSubsSum.freqs,
-          optimizedSubsSum.magnitude,
-          targetLevelAtFreq - optimizedSubsSumPeak
+        const targetData = await subsMeasurements[0].getTargetResponse('SPL', 12);
+        const measurementLowCutoff = MeasurementItem.findCutoff(
+          true,
+          targetData,
+          optimizedSubsSum,
+          -2
+        );
+        const measurementHighCutoff = MeasurementItem.findCutoff(
+          false,
+          targetData,
+          optimizedSubsSum,
+          0
         );
 
         const maximisedSum = await self.sendToREW(optimizedSubsSum, maximisedSumTitle);
@@ -1386,12 +1392,12 @@ class MeasurementViewModel {
         // await self.sendToREW(optimizerResults.bestSum, 'test');
 
         self.status(
-          `${self.status()} \nCreating EQ filters for sub sumation ${detectOptimizedSubs.lowCutoff}Hz - ${detectOptimizedSubs.highCutoff}Hz`
+          `${self.status()} \nCreating EQ filters for sub sumation ${measurementLowCutoff}Hz - ${measurementHighCutoff}Hz`
         );
 
         await self.apiService.postSafe(`eq/match-target-settings`, {
-          startFrequency: detectOptimizedSubs.lowCutoff,
-          endFrequency: detectOptimizedSubs.highCutoff,
+          startFrequency: measurementLowCutoff,
+          endFrequency: measurementHighCutoff,
           individualMaxBoostdB: self.maxBoostIndividualValue(),
           overallMaxBoostdB: self.maxBoostOverallValue(),
           flatnessTargetdB: 1,
@@ -1413,6 +1419,7 @@ class MeasurementViewModel {
         }
 
         await maximisedSum.setTargetLevel(firstMeasurementLevel);
+        await maximisedSum.resetTargetSettings();
         await maximisedSum.eqCommands('Match target');
 
         const filters = await maximisedSum.getFilters();
