@@ -220,12 +220,9 @@ class MeasurementViewModel {
             StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
         }));
 
-        const fisrtChannel = data.detectedChannels[0];
-        const firstChannelDistance =
-          fisrtChannel.channelReport.distance || fisrtChannel.customDistance;
-
-        if (firstChannelDistance) {
-          self.DEFAULT_SHIFT_IN_METERS = firstChannelDistance;
+        // new alignments method set impulse response to 0ms
+        if (!filename.endsWith('.avr')) {
+          self.DEFAULT_SHIFT_IN_METERS = 0;
         }
 
         const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
