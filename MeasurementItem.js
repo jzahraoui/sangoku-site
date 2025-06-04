@@ -128,8 +128,8 @@ class MeasurementItem {
         hasSingleSub
           ? response?.position() === self.position()
           : response?.title() ===
-              self.parentViewModel.DEFAULT_LFE_PREDICTED + self.position()
-          );
+            self.parentViewModel.DEFAULT_LFE_PREDICTED + self.position()
+      );
     });
     self.displayMeasurementTitle = ko.computed(
       () => `${self.measurementIndex()}: ${self.title()}`
@@ -170,8 +170,8 @@ class MeasurementItem {
         return false;
       }
       return self.jsonAvrData.detectedChannels.some(
-          m => m.enChannelType === self.channelDetails().channelIndex
-        );
+        m => m.enChannelType === self.channelDetails().channelIndex
+      );
     });
     self.exceedsDistance = ko.computed(function () {
       // Check if parent view model exists
@@ -1271,16 +1271,16 @@ class MeasurementItem {
       );
     }
 
-        const customInterPassFrequency = 120;
+    const customInterPassFrequency = 120;
 
     // target level is supposed to already be adjusted by SPL alignment
     if (useWokingSettings) {
-    await this.applyWorkingSettings();
+      await this.applyWorkingSettings();
     }
 
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
-      await this.resetTargetSettings();
+    await this.resetTargetSettings();
     await this.detectFallOff();
 
     const customStartFrequency = Math.max(
@@ -1333,7 +1333,7 @@ class MeasurementItem {
     await this.setAllFiltersAuto(true);
 
     if (useWokingSettings) {
-    await this.removeWorkingSettings();
+      await this.removeWorkingSettings();
     }
 
     const isFiltersOk = await this.checkFilterGain();
