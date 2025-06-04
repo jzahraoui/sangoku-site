@@ -788,9 +788,11 @@ class MeasurementViewModel {
 
         const subsMeasurementsUuids = self.uniqueSubsMeasurements().map(m => m.uuid);
 
+        if (subsMeasurementsUuids.length !== 0) {
         await self.processCommands('Smooth', subsMeasurementsUuids, {
           smoothing: 'Psy',
         });
+        }
 
         self.status(`${self.status()} \nSPL alignment successful `);
       } catch (error) {
