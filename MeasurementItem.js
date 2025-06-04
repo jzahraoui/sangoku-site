@@ -28,6 +28,8 @@ class MeasurementItem {
     self.individualMaxBoostValue = 3;
     self.overallBoostValue = 6;
     self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
+    self.dectedFallOffLow = -1;
+    self.dectedFallOffHigh = -1;
 
     self.defaultSmoothingValue = 'Psy';
 
@@ -504,7 +506,10 @@ class MeasurementItem {
     const startFreq = commandResult.startFreq;
     const freqStep = commandResult.freqStep;
     const magnitude = MeasurementItem.decodeRewBase64(commandResult.magnitude);
-    const phase = MeasurementItem.decodeRewBase64(commandResult.phase);
+    let phase;
+    if (commandResult.phase) {
+      phase = MeasurementItem.decodeRewBase64(commandResult.phase);
+    }
 
     let freqs;
     if (freqStep) {
@@ -520,6 +525,66 @@ class MeasurementItem {
     const endFreq = freqs[freqs.length - 1];
 
     return { freqs, magnitude, phase, startFreq, endFreq, freqStep };
+  }
+
+  /**
+   * Use the target curve frequency response to detect the frequency cutoff points.
+   * Strore them in this.dectedFallOffLow and this.dectedFallOffHigh
+   *
+   * @returns {boolean} true if the cutoff points are detected, false otherwise
+   */
+  async detectFallOff(threshold = -3, ppo = 12) {
+    // Reset detection values
+    this.dectedFallOffLow = -1;
+    this.dectedFallOffHigh = -1;
+
+    // Get measurement data
+    const measurementData = await this.getFrequencyResponse('SPL', 'None', ppo);
+
+    if (!measurementData.freqs?.length || !measurementData.magnitude?.length) {
+      throw new Error(`Invalid frequency response data for ${this.title()}`);
+    }
+
+    // Get target curve data
+    const targetCurve = await this.eqCommands('Generate target measurement');
+    const targetCurveData = await targetCurve.getFrequencyResponse('SPL', 'None', ppo);
+    await targetCurve.delete(); // delete the target curve after use
+
+    const getFrequencyIndex = (freq, freqs) =>
+      freqs.findIndex(measureFreq => Math.abs(measureFreq - freq) / freq < 0.1);
+
+    // Find cutoff points by comparing measurement to target curve
+    const findCutoff = (frequencies, isLowFreq) => {
+      const freqRange = isLowFreq ? freq => freq <= 1000 : freq => freq >= 1000;
+
+      const indices = isLowFreq
+        ? [...Array(targetCurveData.freqs.length).keys()]
+        : [...Array(targetCurveData.freqs.length).keys()].reverse();
+
+      for (const i of indices) {
+        const freq = targetCurveData.freqs[i];
+
+        if (!freqRange(freq)) continue;
+
+        const measurementFreqIndex = getFrequencyIndex(freq, measurementData.freqs);
+        if (measurementFreqIndex === -1) continue;
+
+        const diff =
+          measurementData.magnitude[measurementFreqIndex] - targetCurveData.magnitude[i];
+
+        if (diff > threshold) {
+          return Math.round(freq);
+        }
+      }
+
+      return -1;
+    };
+
+    // Find low and high frequency cutoffs
+    this.dectedFallOffLow = findCutoff(targetCurveData.freqs, true);
+    this.dectedFallOffHigh = findCutoff(targetCurveData.freqs, false);
+
+    return this.dectedFallOffLow !== -1 || this.dectedFallOffHigh !== -1;
   }
 
   async getTargetResponse(unit = 'SPL', ppo = null) {
@@ -1193,51 +1258,32 @@ class MeasurementItem {
       );
     }
 
-    let customStartFrequency = this.lowerFrequencyBound;
-    let customInterPassFrequency = 180;
+        const customInterPassFrequency = 120;
 
     // target level is supposed to already be adjusted by SPL alignment
     await this.applyWorkingSettings();
 
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
-
-    if (this.crossover()) {
-      // 2 octaves below the crossover frequency
-      const belowCrossover = Math.max(20, Math.round(this.crossover() / 4));
-      await this.setTargetSettings({
-        shape: 'Driver',
-        lowPassCrossoverType: 'None',
-        highPassCrossoverType: 'BU2',
-        highPassCutoffHz: belowCrossover,
-      });
-
-      if (this.crossover() > 60) {
-        await this.setSingleFilter({
-          index: 21,
-          type: 'High pass',
-          enabled: true,
-          frequency: belowCrossover,
-          shape: 'BU',
-          slopedBPerOctave: 12,
-        });
-      }
-      customInterPassFrequency = Math.max(60, Math.round(this.crossover() / 1.5));
-    } else {
       await this.resetTargetSettings();
-    }
+    await this.detectFallOff();
 
-    // do not use high pass filter at cuttOffFrequency
+    const customStartFrequency = Math.max(
+      this.lowerFrequencyBound,
+      this.dectedFallOffLow
+    );
+    // do not use min because dectedFallOffHigh can be -1 if not detected
+    const customEndFrequency = Math.max(this.upperFrequencyBound, this.dectedFallOffHigh);
 
     // must be set seaparatly to be taken into account
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      endFrequency: this.upperFrequencyBound,
+      endFrequency: customEndFrequency,
     });
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: customInterPassFrequency,
-      endFrequency: this.upperFrequencyBound,
-      individualMaxBoostdB: this.individualMaxBoostValue,
-      overallMaxBoostdB: this.overallBoostValue,
+      startFrequency: customStartFrequency,
+      endFrequency: customEndFrequency,
+      individualMaxBoostdB: 0,
+      overallMaxBoostdB: 0,
       flatnessTargetdB: 1,
       allowNarrowFiltersBelow200Hz: false,
       varyQAbove200Hz: false,
@@ -1251,10 +1297,19 @@ class MeasurementItem {
     // set filters auto to off to prevent overwriting by the second pass
     await this.setAllFiltersAuto(false);
 
+    const filters = await this.getFilters();
+    const availableSlots = this.countFiltersSlotsAvailable(filters);
+    if (availableSlots < 2) {
+      throw new Error(
+        `Not enough filter slots available for ${this.displayMeasurementTitle()}. Please remove some filters.`
+      );
+    }
+
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: customStartFrequency,
-      individualMaxBoostdB: 0,
-      overallMaxBoostdB: 0,
+      startFrequency: customInterPassFrequency,
+      endFrequency: customEndFrequency,
+      individualMaxBoostdB: this.individualMaxBoostValue,
+      overallMaxBoostdB: this.overallBoostValue,
     });
 
     await this.eqCommands('Match target');
