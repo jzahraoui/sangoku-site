@@ -16,7 +16,7 @@ class MeasurementItem {
     }
 
     // required for calculations using speed of sound
-    if (!parentViewModel.jsonAvrData().avr) {
+    if (!parentViewModel.jsonAvrData()?.avr) {
       throw new Error('No AVR data loaded');
     }
 
