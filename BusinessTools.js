@@ -313,7 +313,8 @@ class BusinessTools {
       throw new Error(`Cannot find predicted LFE`);
     }
     if (cuttOffFrequency === 0) {
-      throw new Error('no cuttoff frequency');
+      cuttOffFrequency = 120; // default value
+      console.debug('no cuttoff frequency');
     }
     if (!PredictedLfe.haveImpulseResponse) {
       throw new Error('Invalid PredictedLfe object or missing cumulativeIRShiftSeconds');
