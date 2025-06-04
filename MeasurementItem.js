@@ -1245,7 +1245,7 @@ class MeasurementItem {
     return 'OK';
   }
 
-  async createStandardFilter() {
+  async createStandardFilter(useWokingSettings = true) {
     if (this.isFilter) {
       throw new Error(
         `Operation not permitted on a filter ${this.displayMeasurementTitle()}`
@@ -1261,7 +1261,9 @@ class MeasurementItem {
         const customInterPassFrequency = 120;
 
     // target level is supposed to already be adjusted by SPL alignment
+    if (useWokingSettings) {
     await this.applyWorkingSettings();
+    }
 
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
@@ -1317,7 +1319,9 @@ class MeasurementItem {
     // retore filters auto to on for next iteration
     await this.setAllFiltersAuto(true);
 
+    if (useWokingSettings) {
     await this.removeWorkingSettings();
+    }
 
     const isFiltersOk = await this.checkFilterGain();
     if (isFiltersOk !== 'OK') {
