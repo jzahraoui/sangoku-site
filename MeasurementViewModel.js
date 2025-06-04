@@ -728,6 +728,9 @@ class MeasurementViewModel {
         self.status('Computing SPL alignment...');
         await self.loadData();
         const workingMeasurements = self.uniqueSpeakersMeasurements();
+        if (workingMeasurements.length === 0) {
+          throw new Error('No measurements found for SPL alignment');
+        }
         const workingMeasurementsUuids = workingMeasurements.map(m => m.uuid);
         const firstMeasurement = workingMeasurements[0];
         const previousTargetcurveTitle = `Target ${firstMeasurement.title()}`;
