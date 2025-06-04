@@ -1245,6 +1245,19 @@ class MeasurementItem {
     return 'OK';
   }
 
+  countFiltersSlotsAvailable(filters) {
+    if (!filters || !Array.isArray(filters)) {
+      throw new Error(`Invalid filters: ${filters}`);
+    }
+
+    // count the number of filters that are not None
+    const slots = filters.filter(
+      filter => filter.isAuto === true && filter.index <= 20
+    ).length;
+
+    return slots;
+  }
+
   async createStandardFilter(useWokingSettings = true) {
     if (this.isFilter) {
       throw new Error(
