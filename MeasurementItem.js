@@ -29,7 +29,7 @@ class MeasurementItem {
     self.overallBoostValue = 6;
     self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
     self.dectedFallOffLow = -1;
-    self.dectedFallOffHigh = -1;
+    self.dectedFallOffHigh = +Infinity;
 
     self.defaultSmoothingValue = 'Psy';
 
@@ -536,58 +536,63 @@ class MeasurementItem {
   async detectFallOff(threshold = -3, ppo = 12) {
     // Reset detection values
     this.dectedFallOffLow = -1;
-    this.dectedFallOffHigh = -1;
+    this.dectedFallOffHigh = +Infinity;
 
-    // Get measurement data
+    // Get measurement and target curve data
     const measurementData = await this.getFrequencyResponse('SPL', 'None', ppo);
 
     if (!measurementData.freqs?.length || !measurementData.magnitude?.length) {
       throw new Error(`Invalid frequency response data for ${this.title()}`);
     }
 
-    // Get target curve data
-    const targetCurve = await this.eqCommands('Generate target measurement');
-    const targetCurveData = await targetCurve.getFrequencyResponse('SPL', 'None', ppo);
-    await targetCurve.delete(); // delete the target curve after use
-
-    const getFrequencyIndex = (freq, freqs) =>
-      freqs.findIndex(measureFreq => Math.abs(measureFreq - freq) / freq < 0.1);
-
-    // Find cutoff points by comparing measurement to target curve
-    const findCutoff = (frequencies, isLowFreq) => {
-      const freqRange = isLowFreq ? freq => freq <= 1000 : freq => freq >= 1000;
-
-      const indices = isLowFreq
-        ? [...Array(targetCurveData.freqs.length).keys()]
-        : [...Array(targetCurveData.freqs.length).keys()].reverse();
-
-      for (const i of indices) {
-        const freq = targetCurveData.freqs[i];
-
-        if (!freqRange(freq)) continue;
-
-        const measurementFreqIndex = getFrequencyIndex(freq, measurementData.freqs);
-        if (measurementFreqIndex === -1) continue;
-
-        const diff =
-          measurementData.magnitude[measurementFreqIndex] - targetCurveData.magnitude[i];
-
-        if (diff > threshold) {
-          return Math.round(freq);
-        }
-      }
-
-      return -1;
-    };
+    const targetCurveData = await this.getTargetResponse('SPL', ppo);
 
     // Find low and high frequency cutoffs
-    this.dectedFallOffLow = findCutoff(targetCurveData.freqs, true);
-    this.dectedFallOffHigh = findCutoff(targetCurveData.freqs, false);
+    this.dectedFallOffLow = MeasurementItem.findCutoff(
+      true,
+      targetCurveData,
+      measurementData,
+      threshold
+    );
+    this.dectedFallOffHigh = MeasurementItem.findCutoff(
+      false,
+      targetCurveData,
+      measurementData,
+      threshold
+    );
 
-    return this.dectedFallOffLow !== -1 || this.dectedFallOffHigh !== -1;
+    return this.dectedFallOffLow !== -1 && this.dectedFallOffHigh !== +Infinity;
   }
 
-  async getTargetResponse(unit = 'SPL', ppo = null) {
+  // Find cutoff points by comparing measurement to target curve
+  static findCutoff(isLowFreq, targetCurveData, measurementData, threshold = -3) {
+    const freqLimit = isLowFreq ? 500 : 100;
+    const indices = [...Array(targetCurveData.freqs.length).keys()];
+
+    if (!isLowFreq) indices.reverse();
+
+    for (const i of indices) {
+      const freq = targetCurveData.freqs[i];
+      if ((isLowFreq && freq > freqLimit) || (!isLowFreq && freq < freqLimit)) continue;
+
+      const measurementIdx = measurementData.freqs.findIndex(
+        measureFreq => Math.abs(measureFreq - freq) / freq < 0.1
+      );
+
+      if (measurementIdx === -1) continue;
+
+      if (
+        measurementData.magnitude[measurementIdx] - targetCurveData.magnitude[i] >
+        threshold
+      ) {
+        return Math.round(freq);
+      }
+    }
+
+    return isLowFreq ? -1 : +Infinity;
+  }
+
+  async getTargetResponse(unit = 'SPL', ppo = 96) {
     let url = `target-response?unit=${unit}`;
     if (ppo) {
       // default is 96 PPO
@@ -1281,14 +1286,14 @@ class MeasurementItem {
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
     await this.resetTargetSettings();
-    await this.detectFallOff();
+    await this.detectFallOff(-5);
 
     const customStartFrequency = Math.max(
       this.lowerFrequencyBound,
       this.dectedFallOffLow
     );
     // do not use min because dectedFallOffHigh can be -1 if not detected
-    const customEndFrequency = Math.max(this.upperFrequencyBound, this.dectedFallOffHigh);
+    const customEndFrequency = Math.min(this.upperFrequencyBound, this.dectedFallOffHigh);
 
     // must be set seaparatly to be taken into account
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
