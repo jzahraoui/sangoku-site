@@ -1149,7 +1149,7 @@ class MeasurementItem {
       refTimems: this.timeOfIRPeakSeconds * 1000,
       addFDW: false,
       addMTW: true,
-      mtwTimesms: [9000, 3000, 200, 60, 20, 5, 1.5, 0.5, 0.2, 0.1],
+      mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.1],
     });
   }
 
