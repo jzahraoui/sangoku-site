@@ -734,11 +734,21 @@ class MeasurementViewModel {
         const workingMeasurementsUuids = workingMeasurements.map(m => m.uuid);
         const firstMeasurement = workingMeasurements[0];
         const previousTargetcurveTitle = `Target ${firstMeasurement.title()}`;
-        const alignSplOptions = {
+
+        let alignSplOptions;
+        if (workingMeasurementsUuids.length === 1) {
+          alignSplOptions = {
+            frequencyHz: 2500,
+            spanOctaves: 5,
+            targetdB: self.DEFAULT_TARGET_LEVEL,
+          };
+        } else {
+          alignSplOptions = {
           frequencyHz: 2500,
           spanOctaves: 5,
           targetdB: 'average',
         };
+        }
 
         // delete previous target curve
         const previousTargetcurve = self
