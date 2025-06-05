@@ -178,7 +178,7 @@ class RewController {
 
       const popup = document.getElementById('descriptionPopup');
       const popupDescription = document.getElementById('popupDescription');
-      const closeBtn = document.querySelector('.close-btn');
+      const closeBtn = document.querySelector('#descriptionPopup .close-btn'); // More specific selector
 
       // Add click event to all code links
       document.querySelectorAll('.code-link').forEach(link => {
@@ -194,34 +194,42 @@ class RewController {
               console.error('Error fetching description:', error);
               popupDescription.textContent = 'Failed to load description.';
             });
-          popup.style.display = 'block';
+          if (popup) popup.style.display = 'block';
         });
       });
 
       // Close popup when clicking the close button
-      closeBtn.addEventListener('click', function () {
-        popup.style.display = 'none';
-      });
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function () {
+          if (popup) popup.style.display = 'none';
+        });
+      }
 
       // Close popup when clicking outside
-      popup.addEventListener('click', function (e) {
-        if (e.target === popup) {
-          popup.style.display = 'none';
-        }
-      });
+      if (popup) {
+        popup.addEventListener('click', function (e) {
+          if (e.target === this) {
+            popup.style.display = 'none';
+          }
+        });
+      }
 
       // thumnail mamangement
       const thumbnails = document.querySelectorAll('.thumbnail');
       const thumbnailPopup = document.getElementById('imagePopup');
       const fullImage = document.getElementById('fullImage');
-      const thumbnailCloseBtn = document.querySelector('.close-btn');
+      // Use a more specific selector for the close button inside the image popup
+      const thumbnailCloseBtn = thumbnailPopup
+        ? thumbnailPopup.querySelector('.close-btn')
+        : null;
 
       // Function to handle popup visibility - DRY principle
       const togglePopup = show => {
-        thumbnailPopup.style.display = show ? 'block' : 'none';
+        if (thumbnailPopup) thumbnailPopup.style.display = show ? 'block' : 'none';
       };
       thumbnails.forEach(thumb => {
         thumb.addEventListener('click', function () {
+          if (!thumbnailPopup || !fullImage) return;
           // Preload image before showing popup
           const img = new Image();
           img.onload = () => {
@@ -234,29 +242,37 @@ class RewController {
       });
 
       // Close thumbnailPopup when clicking the close button
-      thumbnailCloseBtn.addEventListener('click', () => {
-        thumbnailPopup.style.display = 'none';
-      });
+      if (thumbnailCloseBtn && thumbnailPopup) {
+        thumbnailCloseBtn.addEventListener('click', () => {
+          thumbnailPopup.style.display = 'none';
+        });
+      }
 
       // Close popup when clicking outside
-      thumbnailPopup.addEventListener('click', e => {
-        if (e.target === thumbnailPopup) {
-          thumbnailPopup.style.display = 'none';
-        }
-      });
-      thumbnailPopup.addEventListener(
-        'touchstart',
-        e => {
+      if (thumbnailPopup) {
+        thumbnailPopup.addEventListener('click', e => {
           if (e.target === thumbnailPopup) {
-            closePopup();
+            thumbnailPopup.style.display = 'none';
           }
-        },
-        { passive: true }
-      );
+        });
+        thumbnailPopup.addEventListener(
+          'touchstart',
+          e => {
+            if (e.target === thumbnailPopup) {
+              thumbnailPopup.style.display = 'none';
+            }
+          },
+          { passive: true }
+        );
+      }
 
       // Close on escape key
       document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && thumbnailPopup.style.display === 'block') {
+        if (
+          thumbnailPopup &&
+          e.key === 'Escape' &&
+          thumbnailPopup.style.display === 'block'
+        ) {
           thumbnailPopup.style.display = 'none';
         }
       });
@@ -271,6 +287,13 @@ class RewController {
 
       // Handle navigation
       function navigateToPage(page) {
+        if (
+          !appContent ||
+          !documentationContent ||
+          !ressourceContent ||
+          !changeLogContent
+        )
+          return;
         appContent.style.display = 'none';
         documentationContent.style.display = 'none';
         ressourceContent.style.display = 'none';
@@ -438,6 +461,7 @@ class RewController {
 
       // Filter commits based on search and author filter
       function filterCommits() {
+        if (!commitList || !searchInput || !authorFilter) return;
         const searchTerm = searchInput.value.toLowerCase();
         const selectedAuthor = authorFilter.value;
 
@@ -505,6 +529,7 @@ class RewController {
 
       // Fetch commits from GitHub API
       async function fetchCommits() {
+        if (!commitList || !loading || !error || !searchInput || !authorFilter) return;
         try {
           const response = await fetch(
             'https://api.github.com/repos/jzahraoui/sangoku-site/commits'
@@ -518,7 +543,9 @@ class RewController {
 
           // Populate author filter
           allCommits.forEach(commit => {
-            authors.add(commit.commit.author.name);
+            if (commit.commit.author && commit.commit.author.name) {
+              authors.add(commit.commit.author.name);
+            }
           });
 
           authors.forEach(author => {
@@ -537,8 +564,8 @@ class RewController {
           authorFilter.addEventListener('change', filterCommits);
         } catch (err) {
           console.error('Error fetching commits:', err);
-          loading.style.display = 'none';
-          error.style.display = 'block';
+          if (loading) loading.style.display = 'none';
+          if (error) error.style.display = 'block';
         }
       }
 
