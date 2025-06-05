@@ -2384,11 +2384,13 @@ class MeasurementViewModel {
     }
 
     try {
+      // Use a standard octave range (1 octave = factor of 2)
+      const octaveRange = 1; // Number of octaves to span in each direction
       // one octave below frequency
-      const lowFrequency = frequency / 2;
+      const lowFrequency = Math.max(frequency / Math.pow(2, octaveRange), 20);
 
       // one octave above frequency
-      const highFrequency = frequency * 2;
+      const highFrequency = Math.min(frequency * Math.pow(2, octaveRange), 500);
 
       const optimizerConfig = {
         frequency: {
@@ -2403,14 +2405,29 @@ class MeasurementViewModel {
         delay: {
           min: -maxSearchRange / 1000,
           max: -minSearchRange / 1000,
-          step: 0.00001, // 0.01ms
+          step: this.jsonAvrData().avr.minDistAccuracy || 0.00001, // 0.01ms
+        },
+        allPass: {
+          enabled: false,
+          frequency: {
+            min: 10, // Hz
+            max: 500, // Hz
+            step: 10, // Hz
+          },
+          q: {
+            min: 0.1,
+            max: 0.5,
+            step: 0.1,
+          },
         },
       };
 
       const channelAFrequencyResponse = await channelA.getFrequencyResponse();
       channelAFrequencyResponse.measurement = channelA.uuid;
+      channelAFrequencyResponse.name = channelA.displayMeasurementTitle();
       const channelBFrequencyResponse = await channelB.getFrequencyResponse();
       channelBFrequencyResponse.measurement = channelB.uuid;
+      channelBFrequencyResponse.name = channelB.displayMeasurementTitle();
 
       const frequencyResponses = [channelAFrequencyResponse, channelBFrequencyResponse];
 
