@@ -1250,6 +1250,110 @@ class MeasurementItem {
     return 'OK';
   }
 
+  /**
+   * !!! WARNING !!! set IR oversampling to None in the Analysis settings
+   *
+   * Creates a FIR (Finite Impulse Response) filter from the measurement.
+   * This method performs several operations including smoothing, phase correction,
+   * and amplitude correction to generate an appropriate filter.
+   *
+   * @throws {Error} If the operation is attempted on an existing filter
+   * @throws {Error} If the operation is attempted on a sub-measurement
+   * @throws {Error} If the filter creation process fails
+   *
+   * The process includes:
+   * - Smoothing the measurement
+   * - Creating a predicted measurement
+   * - Generating amplitude correction
+   * - Setting IR windows
+   * - Creating and applying phase correction
+   * - Combining phase and amplitude corrections
+   *
+   * @returns {Promise<boolean>} Returns true if the filter was successfully created
+   */
+  async createFIR() {
+    if (this.isFilter) {
+      throw new Error(
+        `Operation not permitted on a filter ${this.displayMeasurementTitle()}`
+      );
+    }
+
+    if (this.isSub()) {
+      throw new Error(
+        `Operation not permitted on a sub ${this.displayMeasurementTitle()}`
+      );
+    }
+
+    // phase correction to lower frequency can cause ringing fil
+    const startFrequency = 400;
+    const stopFrequency = 20000;
+    const toBeDeleted = [];
+
+    try {
+      await this.removeWorkingSettings();
+      await this.genericCommand('Smooth', { smoothing: 'Var' });
+
+      await this.createStandardFilter(false);
+      const preview = await this.producePredictedMeasurement();
+      toBeDeleted.push(preview.uuid);
+
+      const amplitudeCorrection = await this.eqCommands('Generate filters measurement');
+      toBeDeleted.push(amplitudeCorrection.uuid);
+
+      await preview.setZeroAtIrPeak();
+      await preview.resetSmoothing();
+      await preview.setIrWindows({
+        leftWindowType: 'Rectangular',
+        rightWindowType: 'Rectangular',
+        leftWindowWidthms: this.leftWindowWidthMilliseconds,
+        rightWindowWidthms: this.rightWindowWidthMilliseconds,
+        addFDW: true,
+        addMTW: false,
+        fdwWidthCycles: 6,
+      });
+
+      const excessPhase = await preview.createExcessPhaseCopy();
+      toBeDeleted.push(excessPhase.uuid);
+
+      await excessPhase.resetSmoothing();
+
+      const phaseCorrection = await this.parentViewModel.doArithmeticOperation(
+        excessPhase.uuid,
+        this.uuid,
+        {
+          function: 'Invert A phase',
+          lowerLimit: startFrequency,
+          upperLimit: stopFrequency,
+        }
+      );
+      toBeDeleted.push(phaseCorrection.uuid);
+
+      const finalFIR = await this.parentViewModel.doArithmeticOperation(
+        phaseCorrection.uuid,
+        amplitudeCorrection.uuid,
+        { function: 'A * B' }
+      );
+
+      // TODO: add spl residual to filter but do not overpass the max allowed boost
+      const cxText = this.crossover() ? `X@${this.crossover()}Hz` : 'FB';
+      await finalFIR.setTitle(`Filter ${this.title()} ${cxText}`);
+
+      finalFIR.isFilter = true;
+
+      this.setAssociatedFilter(finalFIR);
+
+      return true;
+    } catch (error) {
+      throw new Error(`Filter creation failed: ${error.message}`, { cause: error });
+    } finally {
+      await this.removeWorkingSettings();
+      // clean up temporary measurements
+      for (const uuid of toBeDeleted) {
+        await this.parentViewModel.removeMeasurementUuid(uuid);
+      }
+    }
+  }
+
   countFiltersSlotsAvailable(filters) {
     if (!filters || !Array.isArray(filters)) {
       throw new Error(`Invalid filters: ${filters}`);
