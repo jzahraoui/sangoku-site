@@ -160,6 +160,9 @@ class MeasurementItem {
     self.isSelected = ko.computed(
       () => self.parentViewModel.currentSelectedPosition() === self.position()
     );
+    self.getOtherGroupMember = ko.computed(() =>
+      CHANNEL_TYPES.getGroupMembers(self.channelDetails()?.group)
+    );
 
     // Create a computed observable for the channel detection check
     self.isChannelDetected = ko.computed(function () {
@@ -428,6 +431,10 @@ class MeasurementItem {
   }
 
   async generateFilterMeasurement() {
+    if (this.associatedFilterItem()) {
+      return this.associatedFilterItem();
+    }
+
     const filter = await this.eqCommands('Generate filters measurement');
     filter.isFilter = true;
 
@@ -439,6 +446,7 @@ class MeasurementItem {
     await filter.addSPLOffsetDB(this.splresidual());
     const cxText = this.crossover() ? `X@${this.crossover()}Hz` : 'FB';
     await filter.setTitle(`Filter ${this.title()} ${cxText}`);
+    this.setAssociatedFilter(filter);
     return filter;
   }
 
@@ -713,6 +721,7 @@ class MeasurementItem {
     }
   }
 
+  // TODO: sometime a bug that move to 75dB
   async setSPLOffsetDB(newValue) {
     // check if the value is a number
     if (isNaN(newValue)) {
@@ -1120,9 +1129,11 @@ class MeasurementItem {
     }
     // check if the filter is already associated
     if (this.associatedFilter === filter.uuid) {
-      this.deleteAssociatedFilter();
+      return true;
     }
+    await this.deleteAssociatedFilter();
     this.associatedFilter = filter.uuid;
+    return true;
   }
 
   async setAssociatedFilterUuid(filterUuid) {
