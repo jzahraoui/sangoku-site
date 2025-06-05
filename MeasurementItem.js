@@ -25,7 +25,7 @@ class MeasurementItem {
     self.lowerFrequencyBound = 15;
     self.leftWindowWidthMilliseconds = 30;
     self.rightWindowWidthMilliseconds = 1000;
-    self.individualMaxBoostValue = 3;
+    self.individualMaxBoostValue = 6;
     self.overallBoostValue = 6;
     self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
     self.dectedFallOffLow = -1;
