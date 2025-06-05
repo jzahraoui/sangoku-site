@@ -225,6 +225,8 @@ export default class OCAFileGenerator {
       const rightWindowWidthRaw = ((sampleCount - 1) * 1000) / freq;
       const rightWindowWidth = this.cleanFloat32Value(rightWindowWidthRaw);
 
+      // Blackman window tested. Provide worse ETC graph.
+      // moving IR to center of the window is totally worse because of mangling the IR by odd
       await filterItem.setIrWindows({
         leftWindowType: 'Rectangular',
         rightWindowType: 'Rectangular',

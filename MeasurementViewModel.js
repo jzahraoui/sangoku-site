@@ -759,6 +759,7 @@ class MeasurementViewModel {
         }
 
         await firstMeasurement.resetTargetSettings();
+        // working settings must match filter settings
         for (const work of workingMeasurements) {
           await work.applyWorkingSettings();
         }

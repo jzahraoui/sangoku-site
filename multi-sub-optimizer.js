@@ -689,6 +689,7 @@ class MultiSubOptimizer {
     return (weightedCoherenceSum / totalWeightingFactor) * 100; // Scale to percentage
   }
 
+  // TODO: adjut basicweightPower to get more consistent results
   calculateFrequencyWeights(frequencies) {
     const minFreq = Math.min(...frequencies);
     const maxFreq = Math.max(...frequencies);
