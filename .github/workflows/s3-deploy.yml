@@ -37,8 +37,8 @@ jobs:
         run: |
           S3_BUCKET="s3-apo-to-camilla-cloudfront-ec1"
 
+          # do not use delete option to avoid ressources deletion
           aws s3 sync \
-            --delete \
             --no-progress \
             --exact-timestamp \
             dist/ s3://${S3_BUCKET}/
