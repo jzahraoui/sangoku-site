@@ -131,3 +131,7 @@ dist
 
 work/
 ressources/
+public/img
+public/ressources
+dist/
+coverage/

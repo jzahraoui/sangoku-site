@@ -7,6 +7,9 @@ import AdyTools from './ady-tools.js';
 import MqxTools from './mqx-tools.js';
 import MultiSubOptimizer from './multi-sub-optimizer.js';
 import AvrCaracteristics from './avr-caracteristics.js';
+import ko from 'knockout';
+import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
 
 const store = new PersistentStore('myAppData');
 
@@ -692,6 +695,7 @@ class MeasurementViewModel {
         for (const [position, subResponses] of Object.entries(
           self.byPositionsGroupedSubsMeasurements()
         )) {
+          self.status(`${self.status()} \nProcessing position ${position}`);
           await self.produceSumProcess(self, subResponses);
         }
       } catch (error) {

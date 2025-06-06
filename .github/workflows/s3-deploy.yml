@@ -19,29 +19,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
 
-      - name: minify javascript
-        run: |
-          # Install uglify-js globally
-          npm install -g uglify-js
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20' # Specify the Node.js version you need
+          cache: 'npm' # Cache npm packages for faster builds
 
-          # Find and minify JS files, excluding already minified ones
-          find . -type f -name "*.js" -not -name "*.min.js" | while read -r file; do
-            echo "Processing: $file"
-            
-            # Create temporary file
-            temp_file="${file}.temp"
-            
-            # Minify with error handling
-            if uglifyjs "$file" --compress --mangle --output "$temp_file"; then
-              # Replace original with minified version
-              mv "$temp_file" "$file"
-              echo "Successfully minified: $file"
-            else
-              echo "Error minifying: $file"
-              rm -f "$temp_file"
-              exit 1
-            fi
-          done
+      - name: Install dependencies
+        run: |
+          npm ci
+
+      - name: Build
+        run: |
+          npm run build
 
       - name: Copy files to S3
         run: |
@@ -51,19 +41,11 @@ jobs:
             --delete \
             --no-progress \
             --exact-timestamp \
-            --exclude ".git/**" \
-            --exclude "node_modules/**" \
-            --exclude "work/**" \
-            --exclude "ressources/**" \
-            --exclude ".github/**" \
-            --exclude eslint.config.mjs \
-            --exclude .gitignore \
-            --cache-control "max-age=3600" \
-            . s3://${S3_BUCKET}/
+            dist/ s3://${S3_BUCKET}/
 
       - name: Invalidate CloudFront
         run: |
-          echo "invilidate CloudFront cache"
+          echo "invalidate CloudFront cache"
           COMMAND_OUTPUT=$(aws cloudfront create-invalidation \
             --distribution-id "${{ secrets.DISTRIBUTION_ID }}" \
             --paths '/*')

@@ -1,5 +1,6 @@
 import { CHANNEL_TYPES } from './audyssey.js';
-import './lib/decimal.min.js';
+import 'decimal.js';
+import ko from 'knockout';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;

@@ -1,0 +1,50 @@
+{
+  "name": "sangoku-site",
+  "version": "1.0.56",
+  "description": "Room Correction Helper - Audio calibration and optimization tool",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "versionCommit": "script/release-vite.sh",
+    "publish": "script/publish-vite.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jzahraoui/sangoku-site.git"
+  },
+  "keywords": [
+    "audio",
+    "room-correction",
+    "equalization",
+    "audyssey",
+    "subwoofer"
+  ],
+  "author": "Sangoku",
+  "license": "GNU Affero General Public License",
+  "bugs": {
+    "url": "https://github.com/jzahraoui/sangoku-site/issues"
+  },
+  "homepage": "https://github.com/jzahraoui/sangoku-site#application",
+  "dependencies": {
+    "decimal.js": "^10.4.3",
+    "file-saver": "^2.0.5",
+    "js-yaml": "^4.1.0",
+    "jszip": "^3.10.1",
+    "knockout": "^3.5.1",
+    "mathjs": "^12.1.0"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "browserslist": [
+    ">1%",
+    "not dead",
+    "not op_mini all"
+  ]
+}

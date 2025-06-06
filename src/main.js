@@ -2,6 +2,10 @@ import RewApi from './rew-api.js';
 import apo2camilla from './apo2camilla.js';
 import MeasurementViewModel from './MeasurementViewModel.js';
 import translations from './translations.js';
+import ko from 'knockout';
+import { saveAs } from 'file-saver';
+import JSZip from 'jszip';
+import jsyaml from 'js-yaml';
 
 /**
  * LanguageManager is responsible for managing the language settings of the application.
@@ -152,25 +156,25 @@ class RewController {
 
       const appContent = document.getElementById('appContent');
       const documentationContent = document.getElementById('documentationContent');
-      const ressourceContent = document.getElementById('resourcesContent');
+      const resourcesContent = document.getElementById('resourcesContent');
       const changeLogContent = document.getElementById('changeLogContent');
 
       // Load resources content
-      await fetch('resources.html')
+      await fetch('/resources.html')
         .then(response => response.text())
         .then(data => {
-          ressourceContent.innerHTML = data;
+          resourcesContent.innerHTML = data;
         });
 
       // Load documentation content
-      await fetch('documentation.html')
+      await fetch('/documentation.html')
         .then(response => response.text())
         .then(data => {
           documentationContent.innerHTML = data;
         });
 
       // Load change log content
-      await fetch('change-log.html')
+      await fetch('/change-log.html')
         .then(response => response.text())
         .then(data => {
           changeLogContent.innerHTML = data;
@@ -290,22 +294,26 @@ class RewController {
         if (
           !appContent ||
           !documentationContent ||
-          !ressourceContent ||
+          !resourcesContent ||
           !changeLogContent
         )
           return;
         appContent.style.display = 'none';
         documentationContent.style.display = 'none';
-        ressourceContent.style.display = 'none';
+        resourcesContent.style.display = 'none';
         changeLogContent.style.display = 'none';
         if (page === 'documentation') {
           documentationContent.style.display = 'block';
         } else if (page === 'resources') {
-          ressourceContent.style.display = 'block';
+          resourcesContent.style.display = 'block';
         } else if (page === 'changelog') {
           changeLogContent.style.display = 'block';
-        } else {
+        } else if (page === 'application') {
           appContent.style.display = 'block';
+        } else {
+          console.error('Unknown page:', page);
+          appContent.style.display = 'block'; // Default to application page
+          page = 'application';
         }
         // Update URL without refresh
         history.pushState({ page }, '', `#${page}`);
@@ -318,7 +326,7 @@ class RewController {
 
       // Handle initial load
       const hash = window.location.hash.slice(1);
-      navigateToPage(hash || '');
+      navigateToPage(hash || 'application');
 
       // Handle collapsible sections
       const collapsibles = document.querySelectorAll('.collapsible');
