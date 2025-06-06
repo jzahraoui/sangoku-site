@@ -84,9 +84,6 @@ class MeasurementViewModel {
     // Observable for the selected value
     self.gobalCrossover = ko.observable();
 
-    // Observable for the selected value
-    self.selectedAlignFrequency = ko.observable();
-
     // Array of frequency options
     self.alingFrequencies = [
       { value: 0, text: 'N/A' },
@@ -581,7 +578,6 @@ class MeasurementViewModel {
         // Reset selectors to default values
         self.selectedSpeaker('');
         self.selectedLfeFrequency('250');
-        self.selectedAlignFrequency(0);
         self.selectedAverageMethod('');
         self.selectedMeasurementsFilter(true);
 
@@ -868,12 +864,9 @@ class MeasurementViewModel {
         }
         // TODO: check if speaker filter is created
 
-        // set at crossover frequency
-        self.selectedAlignFrequency(speakerItem.crossover());
-
         const result = await self.businessTools.produceAligned(
           selectedLfe,
-          self.selectedAlignFrequency(),
+          speakerItem.crossover(),
           speakerItem,
           self.uniqueSubsMeasurements()
         );
@@ -891,7 +884,7 @@ class MeasurementViewModel {
           await predictedLfe.setInverted(selectedLfe.inverted());
         }
 
-        self.lpfForLFE(Math.max(120, self.selectedAlignFrequency()));
+        self.lpfForLFE(Math.max(120, speakerItem.crossover()));
 
         self.status(result);
       } catch (error) {
@@ -1031,9 +1024,9 @@ class MeasurementViewModel {
         }
         self.targetCurve = await self.apiService.checkTargetCurve();
         self.rewVersion = await this.apiService.checkVersion();
-        const selectedSpeakerText =
-          self.findMeasurementByUuid(self.selectedSpeaker())?.displayMeasurementTitle() ||
-          'None';
+        const selectedSpeaker = self.findMeasurementByUuid(self.selectedSpeaker());
+        const selectedSpeakerText = selectedSpeaker?.displayMeasurementTitle() || 'None';
+        const selectedSpeakerCrossover = selectedSpeaker?.crossover() || 'None';
 
         // Generate a text file containing all the settings and parameters
         let textData = '';
@@ -1071,7 +1064,7 @@ class MeasurementViewModel {
         textData += `Max Boost Individual:     ${self.maxBoostIndividualValue()} dB\n`;
         textData += `Max Boost Overall:        ${self.maxBoostOverallValue()} dB\n`;
 
-        textData += `Align Frequency:          ${self.selectedAlignFrequency()} Hz\n`;
+        textData += `Align Frequency:          ${selectedSpeakerCrossover}\n`;
         textData += `Selected Speaker:         ${selectedSpeakerText}\n`;
 
         textData += `LPF for LFE:              ${self.lpfForLFE()} Hz\n`;
@@ -2475,7 +2468,6 @@ class MeasurementViewModel {
       this.targetCurve = data.targetCurve;
       this.rewVersion = data.rewVersion;
       this.selectedLfeFrequency(data.selectedLfeFrequency);
-      this.selectedAlignFrequency(data.selectedAlignFrequency);
       this.selectedAverageMethod(data.selectedAverageMethod);
       this.additionalBassGainValue(data.additionalBassGainValue || 0);
       this.maxBoostIndividualValue(data.maxBoostIndividualValue || 0);
@@ -2495,7 +2487,6 @@ class MeasurementViewModel {
       targetCurve: this.targetCurve,
       rewVersion: this.rewVersion,
       selectedLfeFrequency: this.selectedLfeFrequency(),
-      selectedAlignFrequency: this.selectedAlignFrequency(),
       selectedAverageMethod: this.selectedAverageMethod(),
       additionalBassGainValue: this.additionalBassGainValue(),
       maxBoostIndividualValue: this.maxBoostIndividualValue(),
