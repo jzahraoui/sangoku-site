@@ -525,7 +525,8 @@ class MeasurementItem {
       freqs = Array.from({ length: magnitude.length }, (_, i) =>
         MeasurementItem.cleanFloat32Value(startFreq + i * freqStep)
       );
-    } else if (ppo) {
+    } else {
+      ppo = ppo || 96; // default PPO if not provided
       freqs = Array.from({ length: magnitude.length }, (_, i) =>
         MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
       );
