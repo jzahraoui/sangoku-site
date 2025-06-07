@@ -133,5 +133,6 @@ work/
 ressources/
 public/img
 public/ressources
+public/assets
 dist/
 coverage/
