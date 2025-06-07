@@ -666,7 +666,7 @@ class MeasurementItem {
 
   async addIROffsetSeconds(amountToAdd) {
     // 2 decimals on ms value
-    amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 5);
+    amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 7);
     if (amountToAdd === 0) {
       return true;
     }
