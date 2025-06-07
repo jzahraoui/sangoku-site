@@ -67,37 +67,8 @@ class MeasurementViewModel {
     // Observable for the selected value
     self.selectedLfeFrequency = ko.observable('250');
 
-    // Array of frequency options
-    self.LfeFrequencies = [
-      { value: 80, text: '80Hz' },
-      { value: 90, text: '90Hz' },
-      { value: 100, text: '100Hz' },
-      { value: 110, text: '110Hz' },
-      { value: 120, text: '120Hz' },
-      { value: 150, text: '150Hz' },
-      { value: 180, text: '180Hz' },
-      { value: 200, text: '200Hz' },
-      { value: 250, text: '250Hz' },
-    ];
-
     // Observable for the selected value
     self.gobalCrossover = ko.observable();
-
-    // Array of frequency options
-    self.alingFrequencies = [
-      { value: 0, text: 'N/A' },
-      { value: 40, text: '40Hz' },
-      { value: 60, text: '60Hz' },
-      { value: 80, text: '80Hz' },
-      { value: 90, text: '90Hz' },
-      { value: 100, text: '100Hz' },
-      { value: 110, text: '110Hz' },
-      { value: 120, text: '120Hz' },
-      { value: 150, text: '150Hz' },
-      { value: 180, text: '180Hz' },
-      { value: 200, text: '200Hz' },
-      { value: 250, text: '250Hz' },
-    ];
 
     // Array of frequency options
     self.speakerTypeChoices = [
@@ -195,6 +166,39 @@ class MeasurementViewModel {
 
     // Observable array to store JSON data
     self.jsonAvrData = ko.observable();
+
+    // Array of frequency options with fallback values
+    self.alingFrequencies = ko.computed(() => {
+      const indexes = self.jsonAvrData()?.avr?.frequencyIndexes;
+      return (
+        indexes || [
+          { value: 0, text: 'N/A' },
+          { value: 40, text: '40Hz' },
+          { value: 60, text: '60Hz' },
+          { value: 80, text: '80Hz' },
+          { value: 90, text: '90Hz' },
+          { value: 100, text: '100Hz' },
+          { value: 120, text: '120Hz' },
+          { value: 150, text: '150Hz' },
+          { value: 200, text: '200Hz' },
+        ]
+      );
+    });
+
+    self.LfeFrequencies = ko.computed(() => {
+      const freqs = self.jsonAvrData()?.avr?.lfeFrequencies;
+      return (
+        freqs || [
+          { value: 80, text: '80Hz' },
+          { value: 90, text: '90Hz' },
+          { value: 100, text: '100Hz' },
+          { value: 120, text: '120Hz' },
+          { value: 150, text: '150Hz' },
+          { value: 200, text: '200Hz' },
+          { value: 250, text: '250Hz' },
+        ]
+      );
+    });
 
     self.additionalBassGainValue = ko.observable(0);
     self.minadditionalBassGainValue = -6;
