@@ -349,6 +349,7 @@ class AvrCaracteristics {
     this.multEQType = this.multEQDetails.name;
     this.multEQSpecs = this.multEQDetails.specs;
     this.multEQDescription = AvrCaracteristics.getDescription(this.multEQType);
+    this.isFourSubwooferModel = this.isFourSubwooferModel(this.targetModelName);
   }
 
   /**
@@ -414,6 +415,7 @@ class AvrCaracteristics {
       multEQType: this.multEQType,
       multEQSpecs: this.multEQSpecs,
       multEQDescription: this.multEQDescription,
+      isFourSubwooferModel: this.isFourSubwooferModel,
     };
   }
 
