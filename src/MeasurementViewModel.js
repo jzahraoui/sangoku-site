@@ -1153,28 +1153,27 @@ class MeasurementViewModel {
 
         // Helper function to process chunks of measurements
         async function processMeasurementChunk(measurements) {
-          return Promise.all(
-            measurements.map(async measurement => {
-              await measurement.resetAll();
-              const frequencyResponse = await measurement.getFrequencyResponse();
-              const subName = measurement.channelName().replace('SW', 'SUB');
-              const localFilename = `POS${measurement.position()}-${subName}.txt`;
+          for (const measurement of measurements) {
+            await measurement.resetAll();
+            const frequencyResponse = await measurement.getFrequencyResponse();
+            await measurement.applyWorkingSettings();
+            const subName = measurement.channelName().replace('SW', 'SUB');
+            const localFilename = `POS${measurement.position()}-${subName}.txt`;
 
-              const filecontent = frequencyResponse.freqs.reduce((acc, freq, i) => {
-                if (freq >= minFreq && freq <= maxFreq) {
-                  const line = `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
-                  return acc ? `${acc}\n${line}` : line;
-                }
-                return acc;
-              }, '');
-
-              if (!filecontent) {
-                throw new Error(`no file content for ${localFilename}`);
+            const filecontent = frequencyResponse.freqs.reduce((acc, freq, i) => {
+              if (freq >= minFreq && freq <= maxFreq) {
+                const line = `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
+                return acc ? `${acc}\n${line}` : line;
               }
+              return acc;
+            }, '');
 
-              frequencyResponses.push(jszip.file(localFilename, filecontent));
-            })
-          );
+            if (!filecontent) {
+              throw new Error(`no file content for ${localFilename}`);
+            }
+
+            frequencyResponses.push(jszip.file(localFilename, filecontent));
+          }
         }
 
         // Process measurements in chunks of 4
