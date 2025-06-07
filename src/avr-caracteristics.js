@@ -5,175 +5,9 @@ class AvrCaracteristics {
     DEFAULT: 343,
   };
 
-  static FREQUENCY_INDEXES = {
-    BASE: [40, 60, 80, 90, 100, 110, 120, 150, 200, 250],
-    get EXTENDED() {
-      const extendedArray = [...this.BASE];
-      extendedArray.splice(8, 0, 180);
-      return extendedArray;
-    },
-  };
-
   static DAC_MODELS = Object.freeze({
     SOFT_ROLL_IDENTIFIERS: ['NR', 'SR', 'AV7', 'AV8', 'AV1', 'CINEMA'],
     SWITCHABLE_FILTER_MODELS: ['AV10', 'CINEMA 30'],
-  });
-
-  static MODEL_LISTS = Object.freeze({
-    LEGACY_SPEED_OF_SOUND: [
-      '-S720W',
-      '-S920W',
-      'X1300W',
-      'X2300W',
-      'X3300W',
-      'NR1607',
-      'SR5011',
-      'SR6011',
-      'C-A110',
-      'X3700H',
-      'X4700H',
-      'X6500H',
-      'X6700H',
-      'X8500H',
-      'R-A110',
-      '-S730H',
-      '-S740H',
-      '-S750H',
-      '-S760H',
-      '-S930H',
-      '-S940H',
-      '-S950H',
-      '-S960H',
-      'X1400H',
-      'X1500H',
-      'X1600H',
-      'X1700H',
-      'X2400H',
-      'X2500H',
-      'X2600H',
-      'X2700H',
-      'X3400H',
-      'X3500H',
-      'X3600H',
-      'X3700H',
-      'X4300H',
-      'X4400H',
-      'X4500H',
-      'X6300H',
-      'X6400H',
-      'X6500H',
-      'X6700H',
-      'X8500H',
-      'AV7703',
-      'AV7704',
-      'AV7705',
-      'AV7706',
-      'AV8805',
-      'NR1608',
-      'NR1609',
-      'NR1710',
-      'NR1711',
-      'SR5012',
-      'SR5013',
-      'SR5014',
-      'SR5015',
-      'SR6012',
-      'SR6013',
-      'SR6014',
-      'SR6015',
-      'SR7011',
-      'SR7012',
-      'SR7013',
-      'SR7015',
-      'SR8012',
-      'SR8015',
-    ],
-
-    CIRRUS_LOGIC_DSP: [
-      '-S720W',
-      '-S920W',
-      'X1300W',
-      'X2300W',
-      'X3300W',
-      'NR1607',
-      'SR5011',
-      '-S730H',
-      '-S740H',
-      '-S750H',
-      '-S760H',
-      '-S930H',
-      '-S940H',
-      '-S950H',
-      '-S960H',
-      'X1400H',
-      'X1500H',
-      'X1600H',
-      'X1700H',
-      'X2400H',
-      'X2500H',
-      'X2600H',
-      'X2700H',
-      'X3400H',
-      'X3500H',
-      'X3600H',
-      'NR1608',
-      'NR1609',
-      'NR1710',
-      'NR1711',
-      'SR5012',
-      'SR5013',
-      'SR5014',
-      'SR5015',
-      'SR6013',
-      'SR6014',
-      '-S770H',
-      '-S970H',
-      'X1800H',
-      'X2800H',
-      'EMA 60',
-      'MA 70s',
-    ],
-
-    LEGACY_MODELS: [
-      '-S720W',
-      '-S920W',
-      'X1300W',
-      'X2300W',
-      'X3300W',
-      'NR1607',
-      'SR5011',
-      'SR6011',
-      'X6500H',
-      '-S730H',
-      '-S740H',
-      '-S930H',
-      '-S940H',
-      'X1400H',
-      'X1500H',
-      'X2400H',
-      'X2500H',
-      'X3400H',
-      'X3500H',
-      'X4300H',
-      'X4400H',
-      'X4500H',
-      'X6300H',
-      'X6400H',
-      'X6500H',
-      'AV7703',
-      'AV7704',
-      'AV7705',
-      'NR1608',
-      'NR1609',
-      'SR5012',
-      'SR5013',
-      'SR6012',
-      'SR6013',
-      'SR7011',
-      'SR7012',
-      'SR7013',
-      'SR8012',
-    ],
   });
 
   static EQ_TYPES = Object.freeze({
@@ -227,6 +61,245 @@ class AvrCaracteristics {
     },
   });
 
+  // Static set of models that use Cirrus DSP
+  static GRIFFIN_LITE_MODEL_PREFIXES = [
+    'Denon AVR-X8500H',
+    'Denon AVC-X8500H',
+    'Marantz AV8805',
+    'Denon AVR-A110',
+    'Denon AVC-A110',
+    'Denon AVR-X6700H',
+    'Denon AVC-X6700H',
+    'Denon AVR-X4700H',
+    'Denon AVC-X4700H',
+    'Marantz AV7706',
+    'Marantz SR8015',
+    'Marantz SR7015',
+    'Marantz AV 10',
+    'Denon AVR-A1H',
+    'Denon AVC-A1H',
+    'Denon AVR-X3800H',
+    'Denon AVC-X3800H',
+    'Denon AVR-X4800H',
+    'Denon AVC-X4800H',
+    'Marantz CINEMA 50',
+    'Marantz CINEMA 40',
+    'Denon AVR-X6800H',
+    'Denon AVC-X6800H',
+    'Marantz CINEMA 30',
+    'Denon AVR-A10H',
+    'Denon AVC-A10H',
+  ];
+
+  static FOUR_SUBWOOFER_MODELS = new Set([
+    'Marantz AV 10',
+    'Denon AVR-A1H',
+    'Denon AVC-A1H',
+    'Denon AVR-X3800H',
+    'Denon AVC-X3800H',
+    'Denon AVR-X4800H',
+    'Denon AVC-X4800H',
+    'Marantz CINEMA 50',
+    'Marantz CINEMA 40',
+    'Denon AVC-X6800H',
+    'Denon AVR-X6800H',
+    'Marantz CINEMA 30',
+    'Denon AVR-A10H',
+    'Denon AVC-A10H',
+  ]);
+
+  static NO_ZONE2_PREOUT_MODELS = new Set([
+    'Denon AVR-S960H',
+    'Denon AVR-S760H',
+    'Denon AVR-X1700H',
+    'AVR-S970H',
+  ]);
+
+  static CIRRUS_DSP_MODELS = new Set([
+    'Marantz SR6013',
+    'Marantz SR6014',
+    'Denon AVR-X3400H',
+    'Denon AVR-X3500H',
+    'Denon AVR-X3600H',
+    'Marantz SR5013',
+    'Marantz SR5014',
+    'Marantz NR1608',
+    'Marantz NR1609',
+    'Denon AVR-X2400H',
+    'Denon AVR-X2500H',
+    'Denon AVR-X2600H',
+    'Denon AVR-S930H',
+    'Denon AVR-S940H',
+    'Denon AVR-S950H',
+    'Denon AVR-X1400H',
+    'Denon AVR-X1500H',
+    'Denon AVR-X1600H',
+    'Denon AVR-S730H',
+    'Denon AVR-S740H',
+    'Denon AVR-S750H',
+    'Marantz NR1710',
+    'Marantz SR5012',
+    '*AVR-S720W',
+    '*AVR-S920W',
+    '*AVR-X1300W',
+    '*AVR-X2300W',
+    '*AVR-X3300W',
+    '*NR1607',
+    '*SR5011',
+    'Denon AVR-S960H',
+    'Denon AVR-X2700H',
+    'Marantz SR5015',
+    'Marantz NR1711',
+    'Denon AVR-S760H',
+    'Denon AVR-X1700H',
+    'Denon AVR-S970H',
+    'Denon AVR-X2800H',
+    'Marantz CINEMA 70s',
+    'Marantz CINEMA 60',
+    'Denon AVR-S770H',
+    'Denon AVR-X1800H',
+  ]);
+
+  static FY20_MODELS = new Set([
+    'Denon AVR-S750H',
+    'Denon AVR-S950H',
+    'Denon AVR-X1600H',
+    'Denon AVR-X2600H',
+    'Denon AVR-X3600H',
+    'Marantz NR1710',
+    'Marantz SR5014',
+    'Marantz SR6014',
+  ]);
+
+  static FY21_MODELS = new Set([
+    'Denon AVR-S960H',
+    'Denon AVR-X2700H',
+    'Denon AVR-X3700H',
+    'Denon AVC-X3700H',
+    'Denon AVR-X4700H',
+    'Denon AVC-X4700H',
+    'Denon AVR-X6700H',
+    'Denon AVC-X6700H',
+    'Marantz NR1711',
+    'Marantz SR5015',
+    'Marantz SR6015',
+    'Marantz SR7015',
+    'Marantz SR8015',
+    'Marantz AV7706',
+  ]);
+
+  static FY21_FLAGSHIP_MODELS = new Set([
+    'Denon AVR-X8500H',
+    'Denon AVC-X8500H',
+    'Marantz AV8805',
+    'Denon AVR-A110',
+    'Denon AVC-A110',
+    'Denon AVR-X8500HA',
+    'Denon AVC-X8500HA',
+    'Marantz AV8805A',
+  ]);
+
+  static FY22_MODELS = new Set(['Denon AVR-S760H', 'Denon AVR-X1700H']);
+
+  static FY23_MODELS = new Set([
+    'Denon AVR-S970H',
+    'Denon AVR-X2800H',
+    'Denon AVR-X3800H',
+    'Denon AVC-X3800H',
+    'Denon AVR-X4800H',
+    'Denon AVC-X4800H',
+    'Marantz CINEMA 70s',
+    'Marantz CINEMA 60',
+    'Marantz CINEMA 50',
+    'Marantz CINEMA 40',
+  ]);
+
+  static FY2023_FLAGSHIP_MODELS = new Set([
+    'Marantz AV 10',
+    'Denon AVR-A1H',
+    'Denon AVC-A1H',
+  ]);
+
+  static CY2023_MODELS = new Set([
+    'Denon AVR-S770H',
+    'Denon AVR-X1800H',
+    'Denon AVC-X6800H',
+    'Denon AVR-X6800H',
+    'Marantz CINEMA 30',
+  ]);
+
+  static CY2024_MODELS = new Set(['Denon AVR-A10H', 'Denon AVC-A10H']);
+
+  static OLD_MODEL_DISTANCE_CONVERSION = new Set([
+    '*AVR-S720W',
+    '*AVR-S920W',
+    '*AVR-X1300W',
+    '*AVR-X2300W',
+    '*AVR-X3300W',
+    '*NR1607',
+    '*SR5011',
+    '*SR6011',
+    'Denon AVC-A110',
+    'Denon AVC-X3700H',
+    'Denon AVC-X4700H',
+    'Denon AVC-X6500H',
+    'Denon AVC-X6700H',
+    'Denon AVC-X8500H',
+    'Denon AVR-A110',
+    'Denon AVR-S730H',
+    'Denon AVR-S740H',
+    'Denon AVR-S750H',
+    'Denon AVR-S760H',
+    'Denon AVR-S930H',
+    'Denon AVR-S940H',
+    'Denon AVR-S950H',
+    'Denon AVR-S960H',
+    'Denon AVR-X1400H',
+    'Denon AVR-X1500H',
+    'Denon AVR-X1600H',
+    'Denon AVR-X1700H',
+    'Denon AVR-X2400H',
+    'Denon AVR-X2500H',
+    'Denon AVR-X2600H',
+    'Denon AVR-X2700H',
+    'Denon AVR-X3400H',
+    'Denon AVR-X3500H',
+    'Denon AVR-X3600H',
+    'Denon AVR-X3700H',
+    'Denon AVR-X4300H',
+    'Denon AVR-X4400H',
+    'Denon AVR-X4500H',
+    'Denon AVR-X4700H',
+    'Denon AVR-X6300H',
+    'Denon AVR-X6400H',
+    'Denon AVR-X6500H',
+    'Denon AVR-X6700H',
+    'Denon AVR-X8500H',
+    'Marantz AV7703',
+    'Marantz AV7704',
+    'Marantz AV7705',
+    'Marantz AV7706',
+    'Marantz AV8805',
+    'Marantz NR1608',
+    'Marantz NR1609',
+    'Marantz NR1710',
+    'Marantz NR1711',
+    'Marantz SR5012',
+    'Marantz SR5013',
+    'Marantz SR5014',
+    'Marantz SR5015',
+    'Marantz SR6012',
+    'Marantz SR6013',
+    'Marantz SR6014',
+    'Marantz SR6015',
+    'Marantz SR7011',
+    'Marantz SR7012',
+    'Marantz SR7013',
+    'Marantz SR7015',
+    'Marantz SR8012',
+    'Marantz SR8015',
+  ]);
+
   /**
    * Finds and returns an EQ type by its ID
    * @param {number} id - The ID of the EQ type to find
@@ -264,13 +337,14 @@ class AvrCaracteristics {
     this.enMultEQType = enMultEQType;
     this.modelSuffix = this.targetModelName.slice(-6);
     this.validateModelConfig();
-    this.hasExtendedFrequency = this.hasExtendedFreq();
-    this.hasCirrusLogicDsp = this.getHasCirrusLogicDsp();
+    this.hasExtendedFrequency = this.hasExtendedFreq(this.targetModelName);
+    this.hasCirrusLogicDsp = this.getHasCirrusLogicDsp(this.targetModelName);
     this.hasSwitchableDacFilter = this.hasSwitchableDacFilter();
     this.hasSoftRollDac = this.hasSoftRollDac();
     this.speedOfSound = this.getSpeedOfSound();
     this.minDistAccuracy = this.getMinDistAccuracy();
-    this.frequencyIndexes = this.getFrequencyIndexes(this.hasExtendedFrequency);
+    this.frequencyIndexes = this.getFrequencyIndexes(this.targetModelName);
+    this.lfeFrequencies = this.getLfeFrequencies(this.targetModelName);
     this.multEQDetails = this.configureMultEQ();
     this.multEQType = this.multEQDetails.name;
     this.multEQSpecs = this.multEQDetails.specs;
@@ -283,14 +357,9 @@ class AvrCaracteristics {
    * @private
    */
   validateModelConfig() {
-    if (!this.modelSuffix) {
-      throw new Error('Invalid model suffix');
-    }
-
     if (
-      !AvrCaracteristics.MODEL_LISTS.LEGACY_MODELS.includes(this.modelSuffix) &&
-      !AvrCaracteristics.MODEL_LISTS.CIRRUS_LOGIC_DSP.includes(this.modelSuffix) &&
-      !AvrCaracteristics.MODEL_LISTS.LEGACY_SPEED_OF_SOUND.includes(this.modelSuffix)
+      !this.isFY20AboveAVR(this.targetModelName) &&
+      !this.isOldModelForDistanceConversion(this.targetModelName)
     ) {
       console.warn(`Unknown model: ${this.targetModelName}`);
     }
@@ -328,13 +397,6 @@ class AvrCaracteristics {
           "use 'Remove soft roll-off' optimization option for correct high frequency reproduction"
       );
     }
-
-    if (this.hasSoftRollDac) {
-      console.info(
-        'Model has DAC with high frequency soft roll - ' +
-          "use 'Remove soft roll-off' optimization option for correct high frequency reproduction"
-      );
-    }
   }
 
   toJSON() {
@@ -348,20 +410,49 @@ class AvrCaracteristics {
       speedOfSound: this.speedOfSound,
       minDistAccuracy: this.minDistAccuracy,
       frequencyIndexes: this.frequencyIndexes,
+      lfeFrequencies: this.lfeFrequencies,
       multEQType: this.multEQType,
       multEQSpecs: this.multEQSpecs,
       multEQDescription: this.multEQDescription,
     };
   }
 
-  hasExtendedFreq() {
-    return !this.isLegacyModel();
+  // Helper function to check if model supports additional frequencies
+  hasExtendedFreq(modelName) {
+    return this.isFY20AboveAVR(modelName);
   }
 
-  getFrequencyIndexes(hasExtendedFreq) {
-    return hasExtendedFreq
-      ? AvrCaracteristics.FREQUENCY_INDEXES.EXTENDED
-      : AvrCaracteristics.FREQUENCY_INDEXES.BASE;
+  getFrequencyIndexes(modelName) {
+    const frequencies = [];
+
+    // Add standard frequencies
+    frequencies.push({ value: 0, text: 'N/A' });
+    frequencies.push({ value: 40, text: '40Hz' });
+    frequencies.push({ value: 60, text: '60Hz' });
+    frequencies.push({ value: 80, text: '80Hz' });
+    frequencies.push({ value: 90, text: '90Hz' });
+    frequencies.push({ value: 100, text: '100Hz' });
+    frequencies.push({ value: 110, text: '110Hz' });
+    frequencies.push({ value: 120, text: '120Hz' });
+    frequencies.push({ value: 150, text: '150Hz' });
+
+    // Check if we need to add 180Hz option based on model type
+    if (modelName && this.hasExtendedFreq(modelName)) {
+      frequencies.push({ value: 180, text: '180Hz' });
+    }
+
+    // Add final frequencies
+    frequencies.push({ value: 200, text: '200Hz' });
+    frequencies.push({ value: 250, text: '250Hz' });
+
+    return frequencies;
+  }
+
+  getLfeFrequencies(modelName) {
+    const frequencies = this.getFrequencyIndexes(modelName);
+
+    // remove the first 3 elements (0Hz, 40Hz, 60Hz)
+    return frequencies.slice(3);
   }
 
   hasSoftRollDac() {
@@ -377,17 +468,19 @@ class AvrCaracteristics {
   }
 
   getSpeedOfSound() {
-    return AvrCaracteristics.MODEL_LISTS.LEGACY_SPEED_OF_SOUND.includes(this.modelSuffix)
+    return this.isOldModelForDistanceConversion(this.targetModelName)
       ? AvrCaracteristics.SPEED_OF_SOUND.LEGACY
       : AvrCaracteristics.SPEED_OF_SOUND.DEFAULT;
   }
 
-  getHasCirrusLogicDsp() {
-    return AvrCaracteristics.MODEL_LISTS.CIRRUS_LOGIC_DSP.includes(this.modelSuffix);
+  getHasCirrusLogicDsp(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.CIRRUS_DSP_MODELS.has(modelName);
   }
 
-  isLegacyModel() {
-    return AvrCaracteristics.MODEL_LISTS.LEGACY_MODELS.includes(this.modelSuffix);
+  isOldModelForDistanceConversion(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.OLD_MODEL_DISTANCE_CONVERSION.has(modelName);
   }
 
   getMinDistAccuracy() {
@@ -395,6 +488,99 @@ class AvrCaracteristics {
     const DIVISION_FACTOR = 2;
     const result = ACCURACY_FACTOR / this.getSpeedOfSound() / DIVISION_FACTOR;
     return Number(result.toFixed(7));
+  }
+
+  /**
+   * Checks if the model name corresponds to a Griffin Lite AVR
+   * @param {string} modelName - The device model name to check
+   * @returns {boolean} - True if the model is a Griffin Lite AVR, false otherwise
+   */
+  isGriffinLiteAVR(modelName) {
+    if (!modelName) return false;
+
+    for (const prefix of AvrCaracteristics.GRIFFIN_LITE_MODEL_PREFIXES) {
+      if (modelName.startsWith(prefix)) return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Determines if a model supports four subwoofers
+   * @param {string} modelName - The model name to check
+   * @returns {boolean} - True if the model supports four subwoofers
+   */
+  isFourSubwooferModel(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.FOUR_SUBWOOFER_MODELS.has(modelName);
+  }
+
+  /**
+   * Determines if a model is FY20 or newer AVR
+   * @param {string} modelName - The model name to check
+   * @returns {boolean} - True if the model is FY20 or newer AVR
+   */
+  isFY20AboveAVR(modelName) {
+    return (
+      this.isFY20AVR(modelName) ||
+      this.isFY21AVR(modelName) ||
+      this.isFlagshipFY21(modelName) ||
+      this.isFY22AVR(modelName) ||
+      this.isFY23Model(modelName) ||
+      this.isCY2023AVR(modelName) ||
+      this.isFY23FlagshipAVR(modelName) ||
+      this.isCY2024AVR(modelName)
+    );
+  }
+
+  isFY20AVR(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.FY20_MODELS.has(modelName);
+  }
+
+  isFY21AVR(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.FY21_MODELS.has(modelName);
+  }
+
+  isFlagshipFY21(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.FY21_FLAGSHIP_MODELS.has(modelName);
+  }
+
+  isFY22AVR(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.FY22_MODELS.has(modelName);
+  }
+
+  isFY23Model(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.FY23_MODELS.has(modelName);
+  }
+
+  isCY2023AVR(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.CY2023_MODELS.has(modelName);
+  }
+
+  isFY23FlagshipAVR(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.FY2023_FLAGSHIP_MODELS.has(modelName);
+  }
+
+  isCY2024AVR(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.CY2024_MODELS.has(modelName);
+  }
+
+  isPreAmpModel(modelName) {
+    if (!modelName) return false;
+    return modelName.startsWith('Marantz AV');
+  }
+
+  isNoZone2PreOutAVR(modelName) {
+    if (!modelName) return false;
+    return AvrCaracteristics.NO_ZONE2_PREOUT_MODELS.has(modelName);
   }
 }
 
