@@ -14,13 +14,12 @@ import JSZip from 'jszip';
 const store = new PersistentStore('myAppData');
 
 class MeasurementViewModel {
+  static DEFAULT_TARGET_LEVEL = 75;
+
   constructor(apiService) {
     const self = this;
-    self.DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
     self.UNKNOWN_GROUP_NAME = 'UNKNOWN';
-    self.DEFAULT_CROSSOVER_VALUE = 80;
     self.DEFAULT_SHIFT_IN_METERS = 3;
-    self.DEFAULT_TARGET_LEVEL = 75;
     self.inhibitGraphUpdates = true;
 
     self.EQ_SETTINGS = {
@@ -124,6 +123,60 @@ class MeasurementViewModel {
       { value: 'Magn plus phase average', text: 'RMS + phase avg.' },
       { value: 'dB plus phase average', text: 'dB + phase avg.' },
     ];
+
+    // Array of smoothing options
+    self.smoothingChoices = [
+      { value: '1/1', text: '1/1 Octave' },
+      { value: '1/2', text: '1/2 Octave' },
+      { value: '1/3', text: '1/3 Octave' },
+      { value: '1/6', text: '1/6 Octave' },
+      { value: '1/12', text: '1/12 Octave' },
+      { value: '1/24', text: '1/24 Octave' },
+      { value: '1/48', text: '1/48 Octave' },
+      { value: 'Var', text: 'Variable' },
+      { value: 'Psy', text: 'Psychoacoustic' },
+      { value: 'ERB', text: 'ERB' },
+      { value: 'None', text: 'None' },
+    ];
+
+    self.selectedSmoothingMethod = ko.observable('None');
+
+    self.irWindowsChoices = [
+      {
+        value: 0,
+        text: 'None',
+        config: {
+          leftWindowType: 'Rectangular',
+          rightWindowType: 'Rectangular',
+          leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
+          rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
+          addFDW: false,
+          addMTW: false,
+        },
+      },
+      {
+        value: 1,
+        text: 'Optimized MTW',
+        config: {
+          leftWindowType: 'Rectangular',
+          rightWindowType: 'Rectangular',
+          leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
+          rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
+          addFDW: false,
+          addMTW: true,
+          mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.1],
+        },
+      },
+    ];
+
+    self.selectedIrWindows = ko.observable(1);
+
+    // get seletced IR window config
+    self.selectedIrWindowsConfig = ko.computed(() => {
+      const selected = self.selectedIrWindows();
+      const found = self.irWindowsChoices.find(choice => choice.value === selected);
+      return found ? found.config : null;
+    });
 
     // Subscribe to changes in global crossover
     self.gobalCrossover.subscribe(function (newValue) {
@@ -740,7 +793,7 @@ class MeasurementViewModel {
           alignSplOptions = {
             frequencyHz: 2500,
             spanOctaves: 5,
-            targetdB: self.DEFAULT_TARGET_LEVEL,
+            targetdB: MeasurementViewModel.DEFAULT_TARGET_LEVEL,
           };
         } else {
           alignSplOptions = {
@@ -764,10 +817,6 @@ class MeasurementViewModel {
           await work.applyWorkingSettings();
         }
 
-        await self.processCommands('Smooth', workingMeasurementsUuids, {
-          smoothing: '1/1',
-        });
-
         const alignResult = await self.processCommands(
           'Align SPL',
           [...workingMeasurementsUuids],
@@ -789,7 +838,6 @@ class MeasurementViewModel {
           );
           work.splOffsetdB(work.splOffsetdBUnaligned() + alignOffset);
           work.alignSPLOffsetdB(alignOffset);
-          await work.removeWorkingSettings();
         }
 
         // copy SPL alignment level to other measurements positions
@@ -804,7 +852,7 @@ class MeasurementViewModel {
 
         if (subsMeasurementsUuids.length !== 0) {
           await self.processCommands('Smooth', subsMeasurementsUuids, {
-            smoothing: 'Psy',
+            smoothing: self.selectedSmoothingMethod(),
           });
         }
 
@@ -1316,11 +1364,13 @@ class MeasurementViewModel {
           await measurement.setInverted(false);
           // why is this needed?
           await measurement.resetFilters();
+          await measurement.removeWorkingSettings();
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
           frequencyResponse.name = measurement.displayMeasurementTitle();
           frequencyResponse.position = measurement.position();
           frequencyResponses.push(frequencyResponse);
+          await measurement.applyWorkingSettings();
         }
 
         self.status(`${self.status()} \nSarting lookup...`);
@@ -1641,7 +1691,9 @@ class MeasurementViewModel {
       // Case: Multiple subwoofers
       if (uniqueSubs.length > 1) {
         const position = self.currentSelectedPosition();
-        return position ? `${self.DEFAULT_LFE_PREDICTED}${position}` : undefined;
+        return position
+          ? `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`
+          : undefined;
       }
 
       return undefined;
@@ -1655,7 +1707,9 @@ class MeasurementViewModel {
       } else {
         return self
           .measurements()
-          .filter(response => response?.title().startsWith(self.DEFAULT_LFE_PREDICTED));
+          .filter(response =>
+            response?.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED)
+          );
       }
     });
 
@@ -1705,13 +1759,15 @@ class MeasurementViewModel {
     let highFrequency = 0;
 
     for (const measurement of subsMeasurements) {
-      await measurement.resetSmoothing();
+      await measurement.removeWorkingSettings();
       await measurement.resetTargetSettings();
 
       const frequencyResponse = await measurement.getFrequencyResponse('SPL', '1/2', 6);
       frequencyResponse.measurement = measurement.uuid;
       frequencyResponse.name = measurement.displayMeasurementTitle();
       frequencyResponse.position = measurement.position();
+      await measurement.applyWorkingSettings();
+
       const detect = self.detectSubwooferCutoff(
         frequencyResponse.freqs,
         frequencyResponse.magnitude,
@@ -1791,7 +1847,7 @@ class MeasurementViewModel {
   async mainTargetLevel() {
     const firstMeasurement = this.uniqueMeasurements()[0];
     if (!firstMeasurement) {
-      return this.DEFAULT_TARGET_LEVEL;
+      return MeasurementViewModel.DEFAULT_TARGET_LEVEL;
     }
     const level = await firstMeasurement.getTargetLevel();
     return Number(level.toFixed(2));
@@ -1939,9 +1995,11 @@ class MeasurementViewModel {
       }
       const frequencyResponses = [];
       for (const measurement of measurementList) {
+        await measurement.removeWorkingSettings();
         const frequencyResponse = await measurement.getFrequencyResponse();
         frequencyResponse.uuid = measurement.uuid;
         frequencyResponses.push(frequencyResponse);
+        await measurement.applyWorkingSettings();
       }
 
       const optimizer = new MultiSubOptimizer(frequencyResponses);
@@ -2023,7 +2081,7 @@ class MeasurementViewModel {
     self.status(`${self.status()} \nUsing: \n${subResponsesTitles.join('\r\n')}`);
     // get first subsList element position
     const position = subsList[0].position();
-    const resultTitle = self.DEFAULT_LFE_PREDICTED + position;
+    const resultTitle = MeasurementItem.DEFAULT_LFE_PREDICTED + position;
 
     const previousSubSum = self.measurements().find(item => item.title() === resultTitle);
     // remove previous

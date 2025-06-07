@@ -513,15 +513,14 @@ class BusinessTools {
       // set title
       const finalTitle = `${this.RESULT_PREFIX}${item.title()} FB_P${item.position()}`;
       await predictedSubChannel.setTitle(finalTitle);
-      await predictedSubChannel.defaultSmoothing();
+      await predictedSubChannel.applyWorkingSettings();
       return true;
     }
     if (item.isUnknownChannel) {
       return true;
     }
 
-    await item.resetSmoothing();
-    await item.resetIrWindows();
+    await item.removeWorkingSettings();
 
     const predictedChannel = await item.producePredictedMeasurement();
 
@@ -535,8 +534,7 @@ class BusinessTools {
         throw new Error(`Cannot find predicted LFE for position ${item.position()}`);
       }
 
-      await relatedLfeMeasurement.resetSmoothing();
-      await relatedLfeMeasurement.resetIrWindows();
+      await relatedLfeMeasurement.removeWorkingSettings();
 
       const { PredictedLfeFiltered, predictedSpeakerFiltered } =
         await this.applyCuttOffFilter(
@@ -556,15 +554,15 @@ class BusinessTools {
       await this.viewModel.removeMeasurement(PredictedLfeFiltered);
       await this.viewModel.removeMeasurement(predictedSpeakerFiltered);
 
-      await relatedLfeMeasurement.defaultSmoothing();
+      await relatedLfeMeasurement.applyWorkingSettings();
     }
     // set title
     const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB';
     const finalTitle = `${this.RESULT_PREFIX}${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
 
-    await finalPredcition.defaultSmoothing();
-    await item.defaultSmoothing();
+    await finalPredcition.applyWorkingSettings();
+    await item.applyWorkingSettings();
 
     return true;
   }
@@ -606,14 +604,14 @@ class BusinessTools {
       }
 
       for (const measurementItem of itemList) {
-        await measurementItem.resetSmoothing();
-        await measurementItem.resetIrWindows();
+        await measurementItem.removeWorkingSettings();
         await measurementItem.resetTargetSettings();
         const rollResponse = await measurementItem.producePredictedMeasurement();
         if (!rollResponse) {
           throw new Error(`Cannot generate predicted measurement`);
         }
         generatedPredictedUuids.push(rollResponse.uuid);
+        await measurementItem.applyWorkingSettings();
       }
 
       let lastAlignedSum = await this.viewModel.doArithmeticOperation(
@@ -634,7 +632,7 @@ class BusinessTools {
       }
       const titles = itemList.map(item => item.displayMeasurementTitle());
       await lastAlignedSum.setTitle(title, `sum from:\n${titles.join('\n')}`);
-      await lastAlignedSum.resetIrWindows();
+      await lastAlignedSum.applyWorkingSettings();
 
       return lastAlignedSum;
     } catch (error) {

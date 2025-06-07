@@ -6,6 +6,10 @@ class MeasurementItem {
   static AVR_MAX_GAIN = 12;
   static MODEL_DISTANCE_LIMIT = 6.0;
   static MODEL_DISTANCE_CRITICAL_LIMIT = 7.35;
+  static DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
+  static DEFAULT_CROSSOVER_VALUE = 80;
+  static leftWindowWidthMilliseconds = 30;
+  static rightWindowWidthMilliseconds = 1000;
 
   static measurementType = { SPEAKERS: 0, SUB: 1, FILTER: 2, AVERAGE: 3 };
 
@@ -24,15 +28,11 @@ class MeasurementItem {
     self.jsonAvrData = parentViewModel.jsonAvrData();
     self.upperFrequencyBound = 16000;
     self.lowerFrequencyBound = 15;
-    self.leftWindowWidthMilliseconds = 30;
-    self.rightWindowWidthMilliseconds = 1000;
     self.individualMaxBoostValue = 6;
     self.overallBoostValue = 6;
     self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
     self.dectedFallOffLow = -1;
     self.dectedFallOffHigh = +Infinity;
-
-    self.defaultSmoothingValue = 'Psy';
 
     self.parentViewModel = parentViewModel;
     // Original data
@@ -68,7 +68,7 @@ class MeasurementItem {
     const isSW = item.title.startsWith('SW');
     const defaultCrossover = isSW
       ? 0
-      : item.crossover || self.parentViewModel.DEFAULT_CROSSOVER_VALUE;
+      : item.crossover || MeasurementItem.DEFAULT_CROSSOVER_VALUE;
     const defaultSpeakerType = isSW ? 'E' : item.speakerType || 'S';
 
     // Observable properties
@@ -128,8 +128,7 @@ class MeasurementItem {
       return predictedLfeMeasurements.find(response =>
         hasSingleSub
           ? response?.position() === self.position()
-          : response?.title() ===
-            self.parentViewModel.DEFAULT_LFE_PREDICTED + self.position()
+          : response?.title() === MeasurementItem.DEFAULT_LFE_PREDICTED + self.position()
       );
     });
     self.displayMeasurementTitle = ko.computed(
@@ -217,7 +216,7 @@ class MeasurementItem {
         return;
       } else if (newValue === 'S') {
         if (self.crossover() === 0) {
-          self.crossover(self.parentViewModel.DEFAULT_CROSSOVER_VALUE); //default value
+          self.crossover(MeasurementItem.DEFAULT_CROSSOVER_VALUE); //default value
         }
       } else {
         self.crossover(0);
@@ -325,40 +324,21 @@ class MeasurementItem {
   }
 
   async defaultSmoothing() {
-    await this.genericCommand('Smooth', { smoothing: this.defaultSmoothingValue });
+    await this.genericCommand('Smooth', {
+      smoothing: this.parentViewModel.selectedSmoothingMethod(),
+    });
   }
 
   async resetIrWindows() {
-    // Check if cumulative IR distance exists and is valid
-    if (!this.haveImpulseResponse) {
-      return true;
-    }
-
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      '/ir-windows',
-      this.uuid
-    );
-
     const defaultSettings = {
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
-      leftWindowWidthms: this.leftWindowWidthMilliseconds,
-      rightWindowWidthms: this.rightWindowWidthMilliseconds,
+      leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
+      rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
+      refTimems: this.timeOfIRPeakSeconds * 1000,
       addFDW: false,
       addMTW: false,
     };
-
-    // compare commandResult with defaultSettings
-    if (
-      commandResult.leftWindowType === defaultSettings.leftWindowType &&
-      commandResult.rightWindowType === defaultSettings.rightWindowType &&
-      commandResult.leftWindowWidthms === defaultSettings.leftWindowWidthms &&
-      commandResult.rightWindowWidthms === defaultSettings.rightWindowWidthms &&
-      commandResult.addFDW === defaultSettings.addFDW &&
-      commandResult.addMTW === defaultSettings.addMTW
-    ) {
-      return true;
-    }
 
     await this.setIrWindows(defaultSettings);
   }
@@ -418,6 +398,29 @@ class MeasurementItem {
   }
 
   async setIrWindows(irWindowsObject) {
+    // Check if cumulative IR distance exists and is valid
+    if (!this.haveImpulseResponse) {
+      return true;
+    }
+
+    const commandResult = await this.parentViewModel.apiService.fetchSafe(
+      '/ir-windows',
+      this.uuid
+    );
+
+    // compare commandResult with defaultSettings
+    if (
+      commandResult.leftWindowType === irWindowsObject.leftWindowType &&
+      commandResult.rightWindowType === irWindowsObject.rightWindowType &&
+      commandResult.leftWindowWidthms === irWindowsObject.leftWindowWidthms &&
+      commandResult.rightWindowWidthms === irWindowsObject.rightWindowWidthms &&
+      commandResult.refTimems === irWindowsObject.refTimems &&
+      commandResult.addFDW === irWindowsObject.addFDW &&
+      commandResult.addMTW === irWindowsObject.addMTW
+    ) {
+      return true;
+    }
+
     await this.parentViewModel.apiService.postSafe(
       `measurements/${this.uuid}/ir-windows`,
       irWindowsObject
@@ -603,27 +606,15 @@ class MeasurementItem {
   }
 
   async getTargetResponse(unit = 'SPL', ppo = 96) {
-    let url = `target-response?unit=${unit}`;
-    if (ppo) {
-      // default is 96 PPO
-      url += `&ppo=${ppo}`;
-    }
+    let url = `target-response?unit=${unit}&ppo=${ppo}`;
     const commandResult = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
 
     const startFreq = commandResult.startFreq;
-    const freqStep = commandResult.freqStep;
     const magnitude = MeasurementItem.decodeRewBase64(commandResult.magnitude);
 
-    let freqs;
-    if (freqStep) {
-      freqs = Array.from({ length: magnitude.length }, (_, i) =>
-        MeasurementItem.cleanFloat32Value(startFreq + i * freqStep)
-      );
-    } else if (ppo) {
-      freqs = Array.from({ length: magnitude.length }, (_, i) =>
-        MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
-      );
-    }
+    const freqs = Array.from({ length: magnitude.length }, (_, i) =>
+      MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
+    );
 
     const endFreq = freqs[freqs.length - 1];
 
@@ -1222,18 +1213,9 @@ class MeasurementItem {
         `Operation not permitted on a filter ${this.displayMeasurementTitle()}`
       );
     }
-    await this.resetSmoothing();
+    await this.defaultSmoothing();
     await this.resetRoomCurveSettings();
-    await this.setIrWindows({
-      leftWindowType: 'Rectangular',
-      rightWindowType: 'Rectangular',
-      leftWindowWidthms: this.leftWindowWidthMilliseconds,
-      rightWindowWidthms: this.rightWindowWidthMilliseconds,
-      refTimems: this.timeOfIRPeakSeconds * 1000,
-      addFDW: false,
-      addMTW: true,
-      mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.1],
-    });
+    await this.setIrWindows(this.parentViewModel.selectedIrWindowsConfig());
   }
 
   async removeWorkingSettings() {
@@ -1243,7 +1225,7 @@ class MeasurementItem {
       );
     }
     await this.resetIrWindows();
-    await this.defaultSmoothing();
+    await this.resetSmoothing();
   }
 
   async checkFilterGain() {
@@ -1304,7 +1286,6 @@ class MeasurementItem {
 
     try {
       await this.removeWorkingSettings();
-      await this.genericCommand('Smooth', { smoothing: 'Var' });
 
       await this.createStandardFilter(false);
       const preview = await this.producePredictedMeasurement();
@@ -1318,8 +1299,9 @@ class MeasurementItem {
       await preview.setIrWindows({
         leftWindowType: 'Rectangular',
         rightWindowType: 'Rectangular',
-        leftWindowWidthms: this.leftWindowWidthMilliseconds,
-        rightWindowWidthms: this.rightWindowWidthMilliseconds,
+        leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
+        rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
+        refTimems: this.timeOfIRPeakSeconds * 1000,
         addFDW: true,
         addMTW: false,
         fdwWidthCycles: 6,
@@ -1359,7 +1341,7 @@ class MeasurementItem {
     } catch (error) {
       throw new Error(`Filter creation failed: ${error.message}`, { cause: error });
     } finally {
-      await this.removeWorkingSettings();
+      await this.applyWorkingSettings();
       // clean up temporary measurements
       for (const uuid of toBeDeleted) {
         await this.parentViewModel.removeMeasurementUuid(uuid);
@@ -1398,6 +1380,8 @@ class MeasurementItem {
     // target level is supposed to already be adjusted by SPL alignment
     if (useWokingSettings) {
       await this.applyWorkingSettings();
+    } else {
+      await this.removeWorkingSettings();
     }
 
     // must have only lower band filter to be able to use the high pass filter
@@ -1453,8 +1437,8 @@ class MeasurementItem {
     // retore filters auto to on for next iteration
     await this.setAllFiltersAuto(true);
 
-    if (useWokingSettings) {
-      await this.removeWorkingSettings();
+    if (!useWokingSettings) {
+      await this.applyWorkingSettings();
     }
 
     const isFiltersOk = await this.checkFilterGain();

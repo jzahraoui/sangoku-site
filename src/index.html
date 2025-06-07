@@ -225,6 +225,30 @@
           <div class="control-group">
             <h2 data-i18n="speakers_tools"></h2>
 
+            <div>
+              <h3>Smoothing/Windowing:</h3>
+              <select
+                class="combo-box"
+                style="width: 120px"
+                data-bind="
+                options: smoothingChoices,
+                optionsText: 'text',
+                optionsValue: 'value',
+                value: selectedSmoothingMethod,
+                "
+              ></select>
+              <select
+                class="combo-box"
+                style="width: 120px"
+                data-bind="
+                options: irWindowsChoices,
+                optionsText: 'text',
+                optionsValue: 'value',
+                value: selectedIrWindows,
+                "
+              ></select>
+            </div>
+
             <h3 data-i18n="averaging_positions"></h3>
             <p class="warning-text" data-i18n="warning_text"></p>
 
