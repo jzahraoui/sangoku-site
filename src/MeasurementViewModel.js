@@ -200,6 +200,7 @@ class MeasurementViewModel {
       );
     });
 
+    // subwoofer filter options
     self.additionalBassGainValue = ko.observable(0);
     self.minadditionalBassGainValue = -12;
     self.maxadditionalBassGainValue = 12;
@@ -210,6 +211,14 @@ class MeasurementViewModel {
     self.minOverallValue = 0;
     self.maxOverallValue = 3;
     self.loadedFileName = '';
+
+    // speaker filter options
+    self.individualMaxBoostValue = ko.observable(3);
+    self.individualMaxBoostValueMin = 0;
+    self.individualMaxBoostValueMax = 6;
+    self.overallBoostValue = ko.observable(3);
+    self.overallBoostValueMin = 0;
+    self.overallBoostValueMax = 6;
 
     self.validateFile = function (file) {
       const maxSize = 70 * 1024 * 1024; // 70MB

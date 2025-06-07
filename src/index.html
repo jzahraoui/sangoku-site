@@ -256,6 +256,44 @@
               ></select>
             </div>
 
+            <h3>Filter settings:</h3>
+            <div style="display: flex; flex-direction: column">
+              <div class="number-input">
+                <label style="width: 150px; text-align: left"
+                  >Individual max boost:</label
+                >
+                <input
+                  type="number"
+                  data-bind="
+                      value: individualMaxBoostValue,
+                      valueUpdate: 'afterkeydown',
+                      attr: {
+                          min: individualMaxBoostValueMin,
+                          max: individualMaxBoostValueMax,
+                          step: 1
+                      }"
+                  required
+                  title="Enter a number between 0 and 6"
+                />
+              </div>
+              <div class="number-input">
+                <label style="width: 150px; text-align: left">Overall max boost:</label>
+                <input
+                  type="number"
+                  data-bind="
+                      value: overallBoostValue,
+                      valueUpdate: 'afterkeydown',
+                      attr: {
+                          min: overallBoostValueMin,
+                          max: overallBoostValueMax,
+                          step: 1
+                      }"
+                  required
+                  title="Enter a number between 0 and 6"
+                />
+              </div>
+            </div>
+
             <h3 data-i18n="averaging_positions"></h3>
             <p class="warning-text" data-i18n="warning_text"></p>
 

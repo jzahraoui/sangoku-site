@@ -28,8 +28,6 @@ class MeasurementItem {
     self.jsonAvrData = parentViewModel.jsonAvrData();
     self.upperFrequencyBound = 16000;
     self.lowerFrequencyBound = 15;
-    self.individualMaxBoostValue = 6;
-    self.overallBoostValue = 6;
     self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
     self.dectedFallOffLow = -1;
     self.dectedFallOffHigh = +Infinity;
@@ -1425,8 +1423,8 @@ class MeasurementItem {
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
       startFrequency: customInterPassFrequency,
       endFrequency: customEndFrequency,
-      individualMaxBoostdB: this.individualMaxBoostValue,
-      overallMaxBoostdB: this.overallBoostValue,
+      individualMaxBoostdB: this.parentViewModel.individualMaxBoostValue(),
+      overallMaxBoostdB: this.parentViewModel.overallBoostValue(),
     });
 
     await this.eqCommands('Match target');
