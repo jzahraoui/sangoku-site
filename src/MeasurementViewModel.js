@@ -201,8 +201,8 @@ class MeasurementViewModel {
     });
 
     self.additionalBassGainValue = ko.observable(0);
-    self.minadditionalBassGainValue = -6;
-    self.maxadditionalBassGainValue = 6;
+    self.minadditionalBassGainValue = -12;
+    self.maxadditionalBassGainValue = 12;
     self.maxBoostIndividualValue = ko.observable(0);
     self.minIndividualValue = 0;
     self.maxIndividualValue = 6;
