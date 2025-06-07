@@ -772,6 +772,13 @@ class MeasurementViewModel {
           await measurement.copyCumulativeIRShiftToOther();
         }
 
+        if (self.uniqueSubsMeasurements().length > 0) {
+          const sub = self.uniqueSubsMeasurements()[0];
+          await sub.setZeroAtIrPeak();
+          await this.setSameDelayToAll(self.uniqueSubsMeasurements());
+          await sub.copyCumulativeIRShiftToOther();
+        }
+
         self.status('Align peaks successful');
       } catch (error) {
         self.handleError(`Sum failed: ${error.message}`, error);
