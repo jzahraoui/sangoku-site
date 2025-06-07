@@ -15,11 +15,11 @@ const store = new PersistentStore('myAppData');
 
 class MeasurementViewModel {
   static DEFAULT_TARGET_LEVEL = 75;
+  static DEFAULT_SHIFT_IN_METERS = 3;
 
   constructor(apiService) {
     const self = this;
     self.UNKNOWN_GROUP_NAME = 'UNKNOWN';
-    self.DEFAULT_SHIFT_IN_METERS = 3;
     self.inhibitGraphUpdates = true;
 
     self.EQ_SETTINGS = {
@@ -278,9 +278,9 @@ class MeasurementViewModel {
         }));
 
         // new alignments method set impulse response to 0ms
-        if (!filename.endsWith('.avr')) {
-          self.DEFAULT_SHIFT_IN_METERS = 0;
-        }
+        const shiftInMeters = !filename.endsWith('.avr')
+          ? 0
+          : MeasurementViewModel.DEFAULT_SHIFT_IN_METERS;
 
         const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
         data.avr = avr.toJSON();
@@ -332,6 +332,7 @@ class MeasurementViewModel {
               );
               const measurementItem = new MeasurementItem(item, self);
               measurementItem.IRPeakValue = max;
+              measurementItem.shiftInMeters = shiftInMeters;
               await self.addMeasurement(measurementItem);
               if (max >= 1) {
                 console.warn(
@@ -2543,7 +2544,6 @@ class MeasurementViewModel {
       this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
       this.loadedFileName = data.loadedFileName || '';
       data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
-      this.DEFAULT_SHIFT_IN_METERS = data.defaultShift || 3;
     }
   }
 
@@ -2563,7 +2563,6 @@ class MeasurementViewModel {
       avrFileContent: this.jsonAvrData(),
       loadedFileName: this.loadedFileName,
       isPolling: this.isPolling(),
-      defaultShift: this.DEFAULT_SHIFT_IN_METERS,
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
