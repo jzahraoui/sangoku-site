@@ -1264,8 +1264,7 @@ class MeasurementViewModel {
       }
       if (self.uniqueSubsMeasurements().length === 1) {
         self.buttonSingleSubOptimizer(self.uniqueSubsMeasurements()[0]);
-      }
-      if (self.uniqueSubsMeasurements().length > 1) {
+      } else if (self.uniqueSubsMeasurements().length > 1) {
         self.buttonMultiSubOptimizer();
       }
     };
