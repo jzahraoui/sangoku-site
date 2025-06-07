@@ -284,6 +284,8 @@ class MeasurementViewModel {
 
         const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
         data.avr = avr.toJSON();
+        // load data to prevent bug when avr data is not loaded
+        self.jsonAvrData(data);
 
         // Check if we have any measurements meaning we have a ady file
         if (data.detectedChannels?.[0].responseData?.[0]) {
