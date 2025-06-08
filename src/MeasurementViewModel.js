@@ -1176,7 +1176,13 @@ class MeasurementViewModel {
         if (self.enableLowFrequencyContainment()) {
           textData += `  LFC Level:        ${self.lowFrequencyContainmentLevel()}\n`;
         }
-        textData += `Version:           ${version}\n\n`;
+        textData += `\n`;
+
+        // Version information
+        textData += `VERSION INFORMATION\n`;
+        textData += `-------------------\n`;
+        textData += `REW Version:       ${self.rewVersion}\n`;
+        textData += `RCH Version:       ${version}\n\n`;
 
         // Save to persistent store
         const reducedMeasurements = self.uniqueMeasurements().map(item => item.toJSON());
