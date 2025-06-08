@@ -1126,8 +1126,7 @@ class MeasurementViewModel {
         textData += `Loaded File:       ${self.loadedFileName}\n`;
         textData += `Target Curve:      ${self.targetCurve}\n`;
         textData += `Target Level:      ${await self.mainTargetLevel()} dB\n`;
-        textData += `Average Method:    ${self.selectedAverageMethod()}\n`;
-        textData += `REW Version:       ${self.rewVersion}\n\n`;
+        textData += `Average Method:    ${self.selectedAverageMethod()}\n\n`;
 
         // AVR Info section
         textData += `AVR INFORMATION\n`;
