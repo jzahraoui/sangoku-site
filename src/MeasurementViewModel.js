@@ -1103,6 +1103,10 @@ class MeasurementViewModel {
           .uniqueSubsMeasurements()
           .find(item => item.revertLfeFrequency !== 0);
         const revertLfeFrequency = subWithFreq?.revertLfeFrequency;
+        // retreive version from index.html
+        const version = document
+          .querySelector('footer .version')
+          .textContent.replace('Version ', '');
 
         // function to add "Hz" suffix to frequency values
         const addHzSuffix = freq => (freq ? `${freq} Hz` : 'None');
@@ -1164,7 +1168,7 @@ class MeasurementViewModel {
         if (self.enableLowFrequencyContainment()) {
           textData += `  LFC Level:        ${self.lowFrequencyContainmentLevel()}\n`;
         }
-        textData += `Version:           Sangoku_custom\n\n`;
+        textData += `Version:           ${version}\n\n`;
 
         // Save to persistent store
         const reducedMeasurements = self.uniqueMeasurements().map(item => item.toJSON());
