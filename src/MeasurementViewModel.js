@@ -1132,10 +1132,18 @@ class MeasurementViewModel {
         // AVR Info section
         textData += `AVR INFORMATION\n`;
         textData += `--------------\n`;
-        textData += `Model:                ${avrData.targetModelName}\n`;
-        textData += `MultEQ Type:          ${avrData.avr.multEQDescription}\n`;
-        textData += `Has Cirrus Logic DSP: ${avrData.hasCirrusLogicDsp ? 'Yes' : 'No'}\n`;
-        textData += `Speed of Sound:       ${avrData.avr.speedOfSound} m/s\n\n`;
+        textData += `Model:                    ${avrData.targetModelName}\n`;
+        textData += `MultEQ Type:              ${avrData.avr.multEQType}\n`;
+        textData += `Has Cirrus Logic DSP:     ${avrData.hasCirrusLogicDsp ? 'Yes' : 'No'}\n`;
+        textData += `Speed of Sound:           ${avrData.avr.speedOfSound} m/s\n\n`;
+
+        // Speaker settings section
+        textData += `SPEAKER SETTINGS\n`;
+        textData += `----------------\n`;
+        textData += `Smoothing Method:         ${self.selectedSmoothingMethod()}\n`;
+        textData += `Windowing:                ${self.selectedIrWindows()}\n`;
+        textData += `Individual Max Boost:     ${self.individualMaxBoostValue()} dB\n`;
+        textData += `Overall Max Boost:        ${self.overallBoostValue()} dB\n\n`;
 
         // Subwoofer settings section
         textData += `SUBWOOFER SETTINGS\n`;
