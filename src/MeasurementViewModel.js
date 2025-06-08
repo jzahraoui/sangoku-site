@@ -1097,7 +1097,15 @@ class MeasurementViewModel {
         self.rewVersion = await this.apiService.checkVersion();
         const selectedSpeaker = self.findMeasurementByUuid(self.selectedSpeaker());
         const selectedSpeakerText = selectedSpeaker?.displayMeasurementTitle() || 'None';
-        const selectedSpeakerCrossover = selectedSpeaker?.crossover() || 'None';
+        const selectedSpeakerCrossover = selectedSpeaker?.crossover();
+        // find if we have revert LFE frequency
+        const subWithFreq = self
+          .uniqueSubsMeasurements()
+          .find(item => item.revertLfeFrequency !== 0);
+        const revertLfeFrequency = subWithFreq?.revertLfeFrequency;
+
+        // function to add "Hz" suffix to frequency values
+        const addHzSuffix = freq => (freq ? `${freq} Hz` : 'None');
 
         // Generate a text file containing all the settings and parameters
         let textData = '';
@@ -1129,13 +1137,13 @@ class MeasurementViewModel {
         textData += `SUBWOOFER SETTINGS\n`;
         textData += `------------------\n`;
         textData += `Number of Subs:           ${self.uniqueSubsMeasurements().length}\n`;
-        textData += `Revert LFE Filter Freq:   ${self.selectedLfeFrequency()} Hz\n`;
+        textData += `Revert LFE Filter Freq:   ${addHzSuffix(revertLfeFrequency)}\n`;
 
         textData += `Additional Bass Gain:     ${self.additionalBassGainValue()} dB\n`;
         textData += `Max Boost Individual:     ${self.maxBoostIndividualValue()} dB\n`;
         textData += `Max Boost Overall:        ${self.maxBoostOverallValue()} dB\n`;
 
-        textData += `Align Frequency:          ${selectedSpeakerCrossover}\n`;
+        textData += `Align Frequency:          ${addHzSuffix(selectedSpeakerCrossover)}\n`;
         textData += `Selected Speaker:         ${selectedSpeakerText}\n`;
 
         textData += `LPF for LFE:              ${self.lpfForLFE()} Hz\n`;
