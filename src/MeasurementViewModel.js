@@ -114,7 +114,7 @@ class MeasurementViewModel {
 
     self.irWindowsChoices = [
       {
-        value: 0,
+        value: 'None',
         text: 'None',
         config: {
           leftWindowType: 'Rectangular',
@@ -126,7 +126,7 @@ class MeasurementViewModel {
         },
       },
       {
-        value: 1,
+        value: 'Optimized MTW',
         text: 'Optimized MTW',
         config: {
           leftWindowType: 'Rectangular',
@@ -140,7 +140,7 @@ class MeasurementViewModel {
       },
     ];
 
-    self.selectedIrWindows = ko.observable(1);
+    self.selectedIrWindows = ko.observable('Optimized MTW');
 
     // get seletced IR window config
     self.selectedIrWindowsConfig = ko.computed(() => {
