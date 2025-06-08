@@ -28,102 +28,109 @@ class BusinessTools {
   }
 
   async revertLfeFilterProccessList(subResponses, freq, replaceOriginal = false) {
-    // TODO: check why do not interrupt on errors
     try {
-      if (!subResponses || subResponses.length === 0) {
+      if (!subResponses?.length) {
         throw new Error('No subwoofer measurements found');
       }
+
+      // Create low-pass filter using first measurement
+      const lowPassFilter = await this.createLowPassFilter(subResponses[0], freq);
       const resultsUuids = [];
-      // use the fist measurement to creates the filter to ensure the same Frequency is used
-      const measurement = subResponses[0];
-      const saveCurrentsFilters = await measurement.getFilters();
-      const LowPassFilterSet = [];
-      // clear all filters
-      for (let i = 1; i < 21; i++) {
-        LowPassFilterSet.push({
-          index: i,
-          type: 'None',
-          enabled: true,
-          isAuto: false,
-        });
-      }
-      // set the low pass
-      LowPassFilterSet.push({
-        index: 21,
-        type: 'Low pass',
-        enabled: true,
-        isAuto: false,
-        frequency: freq,
-        shape: 'L-R',
-        slopedBPerOctave: 24,
-      });
-      LowPassFilterSet.push({
-        index: 22,
-        type: 'None',
-        enabled: true,
-        isAuto: false,
-      });
 
-      // push the low pass filter on the first measurement
-      await measurement.setFilters(LowPassFilterSet);
-
-      const lowPassFilter = await measurement.generateFilterMeasurement();
-
-      // restore measurement filter to left it as it was
-      await measurement.setFilters(saveCurrentsFilters);
-
+      // Process each subwoofer response
       for (const subResponse of subResponses) {
-        if (!subResponse) {
-          throw new Error(`Subwoofer measurement not found: ${subResponse.title()}`);
-        }
-        // remove inversion to keep original status
-        const subResponseInverted = subResponse.inverted();
+        // Save original state
+        const originalState = {
+          inverted: subResponse.inverted(),
+          delay: subResponse.cumulativeIRShiftSeconds(),
+          filters: await subResponse.getFilters(),
+        };
+
+        // Reset state for division operation
         await subResponse.setInverted(false);
-        // reverse delay if previous iteration changed it because it will not be into cumulativeIRShift
-        const subResponseDelay = subResponse.cumulativeIRShiftSeconds();
         await subResponse.setcumulativeIRShiftSeconds(0);
-        // backup original filters
-        const saveCurrentsFilters = await subResponse.getFilters();
-        // create the new measurement with canceled LFE filter effect
+
+        // Create new measurement with canceled LFE filter effect
         const division = await this.viewModel.doArithmeticOperation(
           subResponse.uuid,
           lowPassFilter.uuid,
-          {
-            function: 'A / B',
-            upperLimit: '500',
-          }
+          { function: 'A / B', upperLimit: '500' }
         );
-        if (replaceOriginal) {
-          // delete original
-          await this.viewModel.removeMeasurement(subResponse);
-        } else {
-          // restore inversion
-          await subResponse.setInverted(subResponseInverted);
-          // restore delay
-          await subResponse.setcumulativeIRShiftSeconds(subResponseDelay);
+
+        // Handle original measurement
+        if (!replaceOriginal) {
+          // Restore original state
+          await subResponse.setInverted(originalState.inverted);
+          await subResponse.setcumulativeIRShiftSeconds(originalState.delay);
         }
-        // update the title
-        const subResponseTitle = replaceOriginal
+
+        // Set new measurement properties
+        const newTitle = replaceOriginal
           ? subResponse.title()
           : subResponse.title() + this.LPF_REVERTED_SUFFIX;
-        await division.setTitle(subResponseTitle);
 
-        // apply inversion
-        await division.setInverted(subResponseInverted);
-        // apply delay
-        await division.setcumulativeIRShiftSeconds(subResponseDelay);
-        // apply filters
-        await division.setFilters(saveCurrentsFilters);
+        await division.setTitle(newTitle);
+        await division.setInverted(originalState.inverted);
+        await division.setcumulativeIRShiftSeconds(originalState.delay);
+        await division.setFilters(originalState.filters);
+        division.revertLfeFrequency = freq;
 
         resultsUuids.push(division.uuid);
       }
-      // Delete filter
-      console.debug(`Deleting LP filter ${lowPassFilter.title()}`);
+
+      // Clean up the temporary filter
       await this.viewModel.removeMeasurement(lowPassFilter);
+      if (replaceOriginal) {
+        // Remove original sub responses if replacing
+        for (const subResponse of subResponses) {
+          await this.viewModel.removeMeasurement(subResponse);
+        }
+      }
       return resultsUuids;
     } catch (error) {
       throw new Error(`${error.message}`, { cause: error });
     }
+  }
+
+  async createLowPassFilter(measurement, freq) {
+    // Save current filters
+    const originalFilters = await measurement.getFilters();
+
+    // Create low-pass filter configuration
+    const lowPassFilterSet = Array.from({ length: 20 }, (_, i) => ({
+      index: i + 1,
+      type: 'None',
+      enabled: true,
+      isAuto: false,
+    }));
+
+    // Add low-pass filter at index 21
+    lowPassFilterSet.push({
+      index: 21,
+      type: 'Low pass',
+      enabled: true,
+      isAuto: false,
+      frequency: freq,
+      shape: 'L-R',
+      slopedBPerOctave: 24,
+    });
+
+    // Add empty filter at index 22
+    lowPassFilterSet.push({
+      index: 22,
+      type: 'None',
+      enabled: true,
+      isAuto: false,
+    });
+
+    // Apply filters and generate filter measurement
+    await measurement.setFilters(lowPassFilterSet);
+    const filter = await measurement.generateFilterMeasurement();
+
+    // Restore original filters
+    await measurement.setFilters(originalFilters);
+
+    return filter;
   }
 
   // Process grouped responses and create UUID arrays

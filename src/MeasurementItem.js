@@ -57,6 +57,7 @@ class MeasurementItem {
     self.measurementType = MeasurementItem.measurementType.SPEAKERS;
     self.IRPeakValue = item.IRPeakValue || 0;
     self.shiftInMeters = item.shiftInMeters !== undefined ? item.shiftInMeters : 3;
+    self.revertLfeFrequency = item.revertLfeFrequency || 0;
 
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
