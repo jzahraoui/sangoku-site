@@ -210,7 +210,12 @@ class MeasurementViewModel {
     self.maxBoostOverallValue = ko.observable(0);
     self.minOverallValue = 0;
     self.maxOverallValue = 3;
-    self.loadedFileName = '';
+    self.loadedFileName = ko.observable('');
+    self.shiftInMeters = ko.computed(function () {
+      return !self.loadedFileName().endsWith('.avr')
+        ? 0
+        : MeasurementViewModel.DEFAULT_SHIFT_IN_METERS;
+    });
 
     // speaker filter options
     self.individualMaxBoostValue = ko.observable(3);
@@ -286,11 +291,6 @@ class MeasurementViewModel {
             StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
         }));
 
-        // new alignments method set impulse response to 0ms
-        const shiftInMeters = !filename.endsWith('.avr')
-          ? 0
-          : MeasurementViewModel.DEFAULT_SHIFT_IN_METERS;
-
         const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
         data.avr = avr.toJSON();
         // load data to prevent bug when avr data is not loaded
@@ -341,7 +341,6 @@ class MeasurementViewModel {
               );
               const measurementItem = new MeasurementItem(item, self);
               measurementItem.IRPeakValue = max;
-              measurementItem.shiftInMeters = shiftInMeters;
               await self.addMeasurement(measurementItem);
               if (max >= 1) {
                 console.warn(
@@ -400,7 +399,7 @@ class MeasurementViewModel {
         }
 
         const data = JSON.parse(fileContent);
-        self.loadedFileName = file.name;
+        self.loadedFileName(file.name);
         // Handle successful load
         await self.onFileLoaded(data, file.name);
       } catch (error) {
@@ -642,7 +641,7 @@ class MeasurementViewModel {
         self.additionalBassGainValue(0);
         self.maxBoostIndividualValue(0);
         self.maxBoostOverallValue(0);
-        self.loadedFileName = '';
+        self.loadedFileName('');
 
         // Reset selectors to default values
         self.selectedSpeaker('');
@@ -1123,7 +1122,7 @@ class MeasurementViewModel {
         // Basic settings section
         textData += `BASIC SETTINGS\n`;
         textData += `-------------\n`;
-        textData += `Loaded File:       ${self.loadedFileName}\n`;
+        textData += `Loaded File:       ${self.loadedFileName()}\n`;
         textData += `Target Curve:      ${self.targetCurve}\n`;
         textData += `Target Level:      ${await self.mainTargetLevel()} dB\n`;
         textData += `Average Method:    ${self.selectedAverageMethod()}\n\n`;
@@ -2576,7 +2575,7 @@ class MeasurementViewModel {
       this.additionalBassGainValue(data.additionalBassGainValue || 0);
       this.maxBoostIndividualValue(data.maxBoostIndividualValue || 0);
       this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
-      this.loadedFileName = data.loadedFileName || '';
+      this.loadedFileName(data.loadedFileName || '');
       data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
     }
   }
@@ -2595,7 +2594,7 @@ class MeasurementViewModel {
       maxBoostIndividualValue: this.maxBoostIndividualValue(),
       maxBoostOverallValue: this.maxBoostOverallValue(),
       avrFileContent: this.jsonAvrData(),
-      loadedFileName: this.loadedFileName,
+      loadedFileName: this.loadedFileName(),
       isPolling: this.isPolling(),
     };
     // Convert observables to plain objects

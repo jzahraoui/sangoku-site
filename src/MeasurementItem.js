@@ -56,7 +56,6 @@ class MeasurementItem {
     self.associatedFilter = item.associatedFilter;
     self.measurementType = MeasurementItem.measurementType.SPEAKERS;
     self.IRPeakValue = item.IRPeakValue || 0;
-    self.shiftInMeters = item.shiftInMeters !== undefined ? item.shiftInMeters : 3;
     self.revertLfeFrequency = item.revertLfeFrequency || 0;
 
     // store value on object creation and make it immuable
@@ -277,7 +276,8 @@ class MeasurementItem {
   }
 
   _computeDistanceInMeters(valueInSeconds) {
-    const valueInMeters = this._computeInMeters(valueInSeconds) + this.shiftInMeters;
+    const valueInMeters =
+      this._computeInMeters(valueInSeconds) + this.parentViewModel.shiftInMeters();
     if (valueInMeters === undefined || valueInMeters === null) {
       throw new Error(
         `Failed to compute distance in meters for ${this.displayMeasurementTitle()}`
@@ -287,7 +287,7 @@ class MeasurementItem {
   }
 
   _computeDistanceInSeconds(valueInMeters) {
-    return this._computeInSeconds(valueInMeters - this.shiftInMeters);
+    return this._computeInSeconds(valueInMeters - this.parentViewModel.shiftInMeters());
   }
 
   async toggleInversion() {
@@ -1632,7 +1632,6 @@ class MeasurementItem {
       haveImpulseResponse: this.haveImpulseResponse,
       associatedFilter: this.associatedFilter,
       IRPeakValue: this.IRPeakValue,
-      shiftInMeters: this.shiftInMeters,
     };
   }
 
