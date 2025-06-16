@@ -1489,7 +1489,7 @@ class MeasurementViewModel {
           optimizer.theoreticalMaxResponse,
           MeasurementViewModel.maximisedSumTitle + ' Theo'
         );
-        // DEBUG to check it this is the same
+        // DEBUG to check if this is the same
         // await self.sendToREW(optimizerResults.bestSum, 'test');
 
         // reserve filter emplacement 20 for all pass
