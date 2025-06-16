@@ -1,6 +1,7 @@
 import { CHANNEL_TYPES } from './audyssey.js';
 import 'decimal.js';
 import ko from 'knockout';
+import FrequencyResponse from './FrequencyResponse.js';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
@@ -511,29 +512,13 @@ class MeasurementItem {
     }
     const commandResult = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
 
-    const startFreq = commandResult.startFreq;
-    const freqStep = commandResult.freqStep;
-    const magnitude = MeasurementItem.decodeRewBase64(commandResult.magnitude);
-    let phase;
-    if (commandResult.phase) {
-      phase = MeasurementItem.decodeRewBase64(commandResult.phase);
-    }
+    // Create a CommandResult object from the raw API response
+    const frequencyResponse = new FrequencyResponse(commandResult);
 
-    let freqs;
-    if (freqStep) {
-      freqs = Array.from({ length: magnitude.length }, (_, i) =>
-        MeasurementItem.cleanFloat32Value(startFreq + i * freqStep)
-      );
-    } else {
-      ppo = ppo || 96; // default PPO if not provided
-      freqs = Array.from({ length: magnitude.length }, (_, i) =>
-        MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
-      );
-    }
+    // Process the frequency response data
+    const res = frequencyResponse.processFrequencyResponse(ppo);
 
-    const endFreq = freqs[freqs.length - 1];
-
-    return { freqs, magnitude, phase, startFreq, endFreq, freqStep };
+    return res;
   }
 
   /**
