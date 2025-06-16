@@ -238,6 +238,7 @@ class MultiSubOptimizer {
         endFreq: filteredFreqs[filteredFreqs.length - 1],
         startFreq: filteredFreqs[0],
         param: MultiSubOptimizer.EMPTY_CONFIG,
+        ppo: frequencyResponse.ppo,
       };
     });
 
@@ -752,6 +753,7 @@ class MultiSubOptimizer {
 
     const freqs = subs[0].freqs;
     const freqStep = subs[0].freqStep;
+    const ppo = subs[0].ppo;
     const combinedMagnitude = new Array(freqs.length);
     const combinedPhase = new Array(freqs.length);
 
@@ -771,7 +773,7 @@ class MultiSubOptimizer {
       combinedPhase[freqIndex] = polarSum.phaseDegrees;
     }
 
-    return { freqs, magnitude: combinedMagnitude, phase: combinedPhase, freqStep };
+    return { freqs, magnitude: combinedMagnitude, phase: combinedPhase, freqStep, ppo };
   }
 
   calculateResponseWithParams(sub) {
@@ -784,6 +786,7 @@ class MultiSubOptimizer {
       phase: [],
       freqStep: sub.freqStep,
       param: sub.param,
+      ppo: sub.ppo,
     };
     const { gain, delay, polarity, allPass } = sub.param || {};
 

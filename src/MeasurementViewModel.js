@@ -2081,6 +2081,7 @@ class MeasurementViewModel {
       freqStep: optimizedSubsSum.freqStep,
       magnitude: encodedMagnitudeData,
       phase: encodedPhaseData,
+      ppo: optimizedSubsSum.ppo,
     };
     await this.apiService.postSafe('import/frequency-response-data', options);
 
@@ -2093,6 +2094,10 @@ class MeasurementViewModel {
     if (!maximisedSum) {
       throw new Error('Error creating maximised sum');
     }
+
+    await maximisedSum.applyWorkingSettings();
+    await maximisedSum.setTargetLevel(await this.mainTargetLevel());
+    await maximisedSum.resetTargetSettings();
 
     return maximisedSum;
   }
