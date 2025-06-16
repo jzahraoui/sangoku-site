@@ -2558,6 +2558,10 @@ class MeasurementViewModel {
       this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
       this.loadedFileName(data.loadedFileName || '');
       data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
+      this.selectedSmoothingMethod(data.selectedSmoothingMethod || 'None');
+      this.selectedIrWindows(data.selectedIrWindows || 'Optimized MTW');
+      this.individualMaxBoostValue(data.individualMaxBoostValue || 3);
+      this.overallBoostValue(data.overallBoostValue || 3);
     }
   }
 
@@ -2577,6 +2581,10 @@ class MeasurementViewModel {
       avrFileContent: this.jsonAvrData(),
       loadedFileName: this.loadedFileName(),
       isPolling: this.isPolling(),
+      selectedSmoothingMethod: this.selectedSmoothingMethod(),
+      selectedIrWindows: this.selectedIrWindows(),
+      individualMaxBoostValue: this.individualMaxBoostValue(),
+      overallBoostValue: this.overallBoostValue(),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
