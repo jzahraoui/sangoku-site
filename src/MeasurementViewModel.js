@@ -1407,13 +1407,12 @@ class MeasurementViewModel {
           await measurement.setInverted(false);
           // why is this needed?
           await measurement.resetFilters();
-          await measurement.removeWorkingSettings();
+          await measurement.applyWorkingSettings();
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
           frequencyResponse.name = measurement.displayMeasurementTitle();
           frequencyResponse.position = measurement.position();
           frequencyResponses.push(frequencyResponse);
-          await measurement.applyWorkingSettings();
         }
 
         self.status(`${self.status()} \nSarting lookup...`);
