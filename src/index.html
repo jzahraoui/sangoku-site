@@ -546,34 +546,6 @@
 
                 <div id="results" aria-live="polite" class="results-container"></div>
               </details>
-
-              <div class="button-group">
-                <button
-                  class="button primary-button"
-                  data-bind="
-                click: buttonproduceSubSum,
-                disable: isProcessing,
-                css: { 'disabled': isProcessing }"
-                >
-                  <i class="fa fa-plus-circle"></i>
-                  <span
-                    data-bind="text: isProcessing() ? 'Processing...' : 'Sum Subs'"
-                  ></span>
-                </button>
-                <button
-                  class="button secondary-button"
-                  data-bind="
-                click: buttonproduceSubSumAllPositions,
-                disable: isProcessing,
-                css: { 'disabled': isProcessing }"
-                >
-                  <i class="fa fa-list"></i>
-                  <span
-                    data-bind="text: isProcessing() ? 'Processing...' : 'All pos. Sum Subs'"
-                  ></span>
-                </button>
-              </div>
-              <p data-i18n="create_sum_result" class="help-text">Create sum result</p>
             </div>
           </div>
 
