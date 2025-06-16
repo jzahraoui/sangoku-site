@@ -1300,7 +1300,26 @@ class MeasurementViewModel {
       if (self.uniqueSubsMeasurements().length === 1) {
         self.buttonSingleSubOptimizer(self.uniqueSubsMeasurements()[0]);
       } else if (self.uniqueSubsMeasurements().length > 1) {
-        self.buttonMultiSubOptimizer();
+        const maximisedSum = self
+          .measurements()
+          .find(item => item.title() === MeasurementViewModel.maximisedSumTitle);
+
+        if (!maximisedSum) {
+          self.handleError('No maximised sum found');
+          return;
+        }
+        await self.equalizeSub(self, maximisedSum);
+
+        const filters = await maximisedSum.getFilters();
+
+        self.status(`${self.status()} \nApply calculated filters to each sub`);
+
+        const subsMeasurements = self.uniqueSubsMeasurements();
+
+        for (const sub of subsMeasurements) {
+          await sub.setFilters(filters);
+          await sub.copyFiltersToOther();
+        }
       }
     };
 
@@ -1352,7 +1371,6 @@ class MeasurementViewModel {
         await self.loadData();
 
         const subsMeasurements = self.uniqueSubsMeasurements();
-        const firstMeasurementLevel = await self.mainTargetLevel();
         const frequencyResponses = [];
         const { lowFrequency, highFrequency, targetLevelAtFreq } =
           await self.adjustSubwooferSPLLevels(self, subsMeasurements);
@@ -1446,8 +1464,31 @@ class MeasurementViewModel {
             }
             // reverse delay if previous iteration and apply specified delay
             await subMeasurement.addIROffsetSeconds(sub.param.delay);
+            await subMeasurement.copyCumulativeIRShiftToOther();
 
             await subMeasurement.addSPLOffsetDB(sub.param.gain);
+            await subMeasurement.copySplOffsetDeltadBToOther();
+
+            // allpass settings
+            if (sub.param.allPass.enabled) {
+              const allPassFilter = {
+                index: 20,
+                enabled: true,
+                isAuto: false,
+                frequency: sub.param.allPass.frequency,
+                q: sub.param.allPass.q,
+                type: 'All pass',
+              };
+              await subMeasurement.setSingleFilter(allPassFilter);
+            } else {
+              const allPassFilter = {
+                index: 20,
+                enabled: true,
+                isAuto: true,
+                type: 'None',
+              };
+              await subMeasurement.setSingleFilter(allPassFilter);
+            }
           } catch (error) {
             throw new Error(
               `Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`
@@ -1463,44 +1504,17 @@ class MeasurementViewModel {
 
         const optimizedSubsSum = optimizer.getFinalSubSum();
 
-        const targetData = await subsMeasurements[0].getTargetResponse('SPL', 12);
-        const measurementLowCutoff = MeasurementItem.findCutoff(
-          true,
-          targetData,
+        const maximisedSum = await self.sendToREW(
           optimizedSubsSum,
-          -2
+          MeasurementViewModel.maximisedSumTitle
         );
-        const measurementHighCutoff = MeasurementItem.findCutoff(
-          false,
-          targetData,
-          optimizedSubsSum,
-          0
-        );
-
-        const maximisedSum = await self.sendToREW(optimizedSubsSum, maximisedSumTitle);
 
         await self.sendToREW(
           optimizer.theoreticalMaxResponse,
-          maximisedSumTitle + ' Theo'
+          MeasurementViewModel.maximisedSumTitle + ' Theo'
         );
         // DEBUG to check it this is the same
         // await self.sendToREW(optimizerResults.bestSum, 'test');
-
-        self.status(
-          `${self.status()} \nCreating EQ filters for sub sumation ${measurementLowCutoff}Hz - ${measurementHighCutoff}Hz`
-        );
-
-        await self.apiService.postSafe(`eq/match-target-settings`, {
-          startFrequency: measurementLowCutoff,
-          endFrequency: measurementHighCutoff,
-          individualMaxBoostdB: self.maxBoostIndividualValue(),
-          overallMaxBoostdB: self.maxBoostOverallValue(),
-          flatnessTargetdB: 1,
-          allowNarrowFiltersBelow200Hz: false,
-          varyQAbove200Hz: false,
-          allowLowShelf: false,
-          allowHighShelf: false,
-        });
 
         // reserve filter emplacement 20 for all pass
         if (optimizerConfig.allPass.enabled) {
@@ -1511,55 +1525,6 @@ class MeasurementViewModel {
             type: 'None',
           };
           await maximisedSum.setSingleFilter(maximisedSumFilter);
-        }
-
-        await maximisedSum.setTargetLevel(firstMeasurementLevel);
-        await maximisedSum.resetTargetSettings();
-        await maximisedSum.eqCommands('Match target');
-
-        const filters = await maximisedSum.getFilters();
-
-        //await self.removeMeasurement(maximisedSum);
-
-        self.status(`${self.status()} \nApply calculated filters to each sub`);
-
-        for (const sub of subsMeasurements) {
-          // find the optimized sub for this measurement
-          const optimizedSub = optimizedSubs.find(
-            optimizedSub => optimizedSub.measurement === sub.uuid
-          );
-
-          let subFilters = [...filters];
-
-          // allpass settings
-          if (optimizedSub?.param.allPass.enabled) {
-            const allPassFilter = {
-              index: 20,
-              enabled: true,
-              isAuto: false,
-              frequency: optimizedSub.param.allPass.frequency,
-              q: optimizedSub.param.allPass.q,
-              type: 'All pass',
-            };
-
-            // find index of filter with index = 20
-            const index = subFilters.findIndex(filter => filter.index === 20);
-            // replace filter with index = 20
-            if (index === -1) {
-              throw new Error(`Filter not found for index 20`);
-            } else {
-              subFilters[index] = allPassFilter;
-            }
-          }
-          await sub.setFilters(subFilters);
-          await sub.copyFiltersToOther();
-          await sub.copyCumulativeIRShiftToOther();
-          await sub.copySplOffsetDeltadBToOther();
-        }
-
-        const isFiltersOk = await maximisedSum.checkFilterGain();
-        if (isFiltersOk !== 'OK') {
-          throw new Error(isFiltersOk);
         }
 
         self.status(`${self.status()} \nMultiSubOptimizer successfull`);
