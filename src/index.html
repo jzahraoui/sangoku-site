@@ -473,17 +473,41 @@
                   <span class="checkmark"></span>
                 </label>
               </div>
-              <button
-                class="button"
-                data-bind="
-                click: buttonChooseSubOptimizer,
-                disable: isProcessing,
-                css: { 'disabled': isProcessing }"
-              >
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Optimize Sub'"
-                ></span>
-              </button>
+              <div>
+                <button
+                  class="button"
+                  data-bind="
+                    click: buttonMultiSubOptimizer,
+                    disable: isProcessing() || uniqueSubsMeasurements().length <= 1,
+                    css: { 'disabled': isProcessing }"
+                >
+                  <span
+                    data-bind="text: isProcessing() ? 'Processing...' : 'Align Sub'"
+                  ></span>
+                </button>
+                <button
+                  class="button"
+                  data-bind="
+                    click: buttonEqualizeSub,
+                    disable: isProcessing(),
+                    css: { 'disabled': isProcessing }"
+                >
+                  <span
+                    data-bind="text: isProcessing() ? 'Processing...' : 'Equalize Sub'"
+                  ></span>
+                </button>
+                <button
+                  class="button"
+                  data-bind="
+                    click: buttonproduceSubSum,
+                    disable: isProcessing(),
+                    css: { 'disabled': isProcessing }"
+                >
+                  <span
+                    data-bind="text: isProcessing() ? 'Processing...' : 'Preview Sub'"
+                  ></span>
+                </button>
+              </div>
             </div>
             <div data-bind="visible: uniqueSubsMeasurements().length > 1">
               <h4 data-i18n="option3">3. Import your config from MSO</h4>
