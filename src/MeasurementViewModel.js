@@ -748,28 +748,6 @@ class MeasurementViewModel {
       }
     };
 
-    self.buttonproduceSubSumAllPositions = async function () {
-      if (self.isProcessing()) return;
-      try {
-        self.isProcessing(true);
-        self.status('Computing sum...');
-
-        // target level must be correct to ensure accurate predicted measurements
-        await self.setTargetLevelToAll();
-
-        for (const [position, subResponses] of Object.entries(
-          self.byPositionsGroupedSubsMeasurements()
-        )) {
-          self.status(`${self.status()} \nProcessing position ${position}`);
-          await self.produceSumProcess(self, subResponses);
-        }
-      } catch (error) {
-        self.handleError(`Sum failed: ${error.message}`, error);
-      } finally {
-        self.isProcessing(false);
-      }
-    };
-
     self.buttonAlignPeaks = async function () {
       if (self.isProcessing()) return;
       try {
