@@ -1345,6 +1345,18 @@ class MeasurementViewModel {
         await self.loadData();
 
         const subsMeasurements = self.uniqueSubsMeasurements();
+
+        if (subsMeasurements.length === 0) {
+          self.handleError('No subwoofers found');
+          return;
+        }
+        if (subsMeasurements.length === 1) {
+          self.handleError(
+            'Only one subwoofer found, please use single sub optimizer button'
+          );
+          return;
+        }
+
         const frequencyResponses = [];
         const { lowFrequency, highFrequency, targetLevelAtFreq } =
           await self.adjustSubwooferSPLLevels(self, subsMeasurements);
