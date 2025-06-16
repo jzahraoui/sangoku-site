@@ -1772,6 +1772,39 @@ class MeasurementViewModel {
     });
   }
 
+  async equalizeSub(self, subMeasurement) {
+    const firstMeasurementLevel = await self.mainTargetLevel();
+    await subMeasurement.applyWorkingSettings();
+    await subMeasurement.setTargetLevel(firstMeasurementLevel);
+    await subMeasurement.resetTargetSettings();
+    await subMeasurement.detectFallOff(-3);
+
+    self.status(
+      `${self.status()} \nCreating EQ filters for sub sumation ${subMeasurement.dectedFallOffLow}Hz - ${subMeasurement.dectedFallOffHigh}Hz`
+    );
+
+    await self.apiService.postSafe(`eq/match-target-settings`, {
+      startFrequency: subMeasurement.dectedFallOffLow,
+      endFrequency: subMeasurement.dectedFallOffHigh,
+      individualMaxBoostdB: self.maxBoostIndividualValue(),
+      overallMaxBoostdB: self.maxBoostOverallValue(),
+      flatnessTargetdB: 1,
+      allowNarrowFiltersBelow200Hz: false,
+      varyQAbove200Hz: false,
+      allowLowShelf: false,
+      allowHighShelf: false,
+    });
+
+    await subMeasurement.eqCommands('Match target');
+
+    const isFiltersOk = await subMeasurement.checkFilterGain();
+    if (isFiltersOk !== 'OK') {
+      throw new Error(isFiltersOk);
+    }
+
+    return true;
+  }
+
   async setSameDelayToAll(measurements) {
     if (measurements.length <= 1) {
       return;
