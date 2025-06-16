@@ -16,6 +16,7 @@ const store = new PersistentStore('myAppData');
 class MeasurementViewModel {
   static DEFAULT_TARGET_LEVEL = 75;
   static DEFAULT_SHIFT_IN_METERS = 3;
+  static maximisedSumTitle = 'LFE Max Sum';
 
   constructor(apiService) {
     const self = this;
@@ -1350,7 +1351,6 @@ class MeasurementViewModel {
 
         await self.loadData();
 
-        const maximisedSumTitle = 'LFE Max Sum';
         const subsMeasurements = self.uniqueSubsMeasurements();
         const firstMeasurementLevel = await self.mainTargetLevel();
         const frequencyResponses = [];
@@ -1401,7 +1401,9 @@ class MeasurementViewModel {
 
         const previousMaxSum = self
           .measurements()
-          .filter(item => item.title().startsWith(maximisedSumTitle));
+          .filter(item =>
+            item.title().startsWith(MeasurementViewModel.maximisedSumTitle)
+          );
         for (const item of previousMaxSum) {
           await item.delete();
         }
