@@ -885,7 +885,26 @@ class MeasurementViewModel {
         self.isProcessing(true);
         self.status('Computing sum...');
 
-        await self.produceSumProcess(self, self.uniqueSubsMeasurements());
+        // Ensure accurate predicted measurements with correct target level
+        await self.setTargetLevelToAll();
+
+        // Process each position's subwoofer measurements
+        const positionGroups = self.byPositionsGroupedSubsMeasurements();
+        for (const [position, subResponses] of Object.entries(positionGroups)) {
+          self.status(`${self.status()} \nProcessing position ${position}`);
+
+          // Handle based on number of subwoofers
+          if (subResponses.length === 0) continue;
+
+          if (subResponses.length === 1) {
+            // Single subwoofer case - create preview and copy to other positions
+            await self.businessTools.createMeasurementPreview(subResponses[0]);
+            await subResponses[0].copyAllToOther();
+          } else {
+            // Multiple subwoofers case - produce sum
+            await self.produceSumProcess(self, subResponses);
+          }
+        }
       } catch (error) {
         self.handleError(`Sum failed: ${error.message}`, error);
       } finally {
@@ -1270,7 +1289,7 @@ class MeasurementViewModel {
       }
     };
 
-    self.buttonChooseSubOptimizer = async function () {
+    self.buttonEqualizeSub = async function () {
       if (self.uniqueSubsMeasurements().length === 0) {
         self.handleError('No subwoofers found');
         return;
