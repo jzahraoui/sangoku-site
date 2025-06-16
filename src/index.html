@@ -186,7 +186,7 @@
               class="button"
               data-bind="
               click: buttoncheckREWButton,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
               data-tooltip="Click to connect or disconnect to REW"
             >
@@ -196,7 +196,7 @@
               class="button"
               data-bind="
               click: renameMeasurement,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
               data-tooltip="Click to rename the measurements for homogenity"
             >
@@ -206,7 +206,7 @@
               class="button"
               data-bind="
               click: buttonresetREWButton,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
               data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)"
             >
@@ -218,7 +218,7 @@
               class="button"
               data-bind="
               click: buttonResetApplication,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
               data-tooltip="Click to reset all application settings to default (including measurements, filters, and all other settings)"
             >
@@ -242,6 +242,7 @@
                 optionsText: 'text',
                 optionsValue: 'value',
                 value: selectedSmoothingMethod,
+                event: { change: $root.saveMeasurements },
                 "
               ></select>
               <select
@@ -252,6 +253,7 @@
                 optionsText: 'text',
                 optionsValue: 'value',
                 value: selectedIrWindows,
+                event: { change: $root.saveMeasurements },
                 "
               ></select>
             </div>
@@ -271,7 +273,9 @@
                           min: individualMaxBoostValueMin,
                           max: individualMaxBoostValueMax,
                           step: 1
-                      }"
+                      },                      
+                      event: { change: $root.saveMeasurements },
+                      "
                   required
                   title="Enter a number between 0 and 6"
                 />
@@ -287,7 +291,9 @@
                           min: overallBoostValueMin,
                           max: overallBoostValueMax,
                           step: 1
-                      }"
+                      },                      
+                      event: { change: $root.saveMeasurements },
+                      "
                   required
                   title="Enter a number between 0 and 6"
                 />
@@ -338,7 +344,7 @@
               class="button"
               data-bind="
               click: buttoncreatesAverages,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
             >
               <span
@@ -351,7 +357,7 @@
               class="button"
               data-bind="
               click: buttonAlignPeaks,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
             >
               <span
@@ -362,7 +368,7 @@
               class="button"
               data-bind="
               click: buttonAlignSPL,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
             >
               <span
@@ -400,7 +406,7 @@
               class="button"
               data-bind="
             click: buttonrevertLfeFilter,
-            disable: isProcessing,
+            disable: isProcessing(),
             css: { 'disabled': isProcessing }"
             >
               <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
@@ -520,7 +526,7 @@
                   class="button"
                   data-bind="
                 click: buttonCreatesMsoExports,
-                disable: isProcessing,
+                disable: isProcessing(),
                 css: { 'disabled': isProcessing }"
                 >
                   <span
@@ -574,7 +580,7 @@
                 class="button action-button"
                 data-bind="
               click: buttonproduceAlignedButton,
-              disable: isProcessing,
+              disable: isProcessing(),
               css: { 'disabled': isProcessing }"
               >
                 <i class="fa fa-magic"></i>
@@ -660,7 +666,7 @@
                 class="button primary-button large-button"
                 data-bind="
                 click: buttoncreateOCAButton,
-                disable: isProcessing,
+                disable: isProcessing(),
                 css: { 'disabled': isProcessing }"
               >
                 <i class="fa fa-file-export"></i>
@@ -673,7 +679,7 @@
                 class="button primary-button large-button"
                 data-bind="
                 click: buttoncreateSetting,
-                disable: isProcessing,
+                disable: isProcessing(),
                 css: { 'disabled': isProcessing }"
               >
                 <i class="fa fa-file-export"></i>
@@ -759,7 +765,7 @@
                       class="preview-btn action-button"
                       data-bind="
                     click: buttongenratesPreview,
-                    disable: isProcessing,
+                    disable: isProcessing(),
                     css: { 'disabled': isProcessing }"
                     >
                       <span
@@ -772,7 +778,7 @@
                       class="preview-btn"
                       data-bind="
                     click: buttongeneratesFilters,
-                    disable: isProcessing,
+                    disable: isProcessing(),
                     css: { 'disabled': isProcessing }"
                     >
                       <span
