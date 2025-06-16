@@ -1329,32 +1329,9 @@ class MeasurementViewModel {
         self.isProcessing(true);
         self.status('Sub Optimizer...');
 
-        const { lowFrequency, highFrequency, targetLevelAtFreq } =
-          await self.adjustSubwooferSPLLevels(self, [subMeasurement]);
-
-        self.status(
-          `${self.status()} \nCreating EQ filters for sub ${lowFrequency}Hz - ${highFrequency}Hz`
-        );
-
-        await self.apiService.postSafe(`eq/match-target-settings`, {
-          startFrequency: lowFrequency,
-          endFrequency: highFrequency,
-          individualMaxBoostdB: self.maxBoostIndividualValue(),
-          overallMaxBoostdB: self.maxBoostOverallValue(),
-          flatnessTargetdB: 1,
-          allowNarrowFiltersBelow200Hz: false,
-          varyQAbove200Hz: false,
-          allowLowShelf: false,
-          allowHighShelf: false,
-        });
-
-        await subMeasurement.eqCommands('Match target');
+        await self.adjustSubwooferSPLLevels(self, [subMeasurement]);
+        await this.equalizeSub(self, subMeasurement);
         await subMeasurement.copyFiltersToOther();
-
-        const isFiltersOk = await subMeasurement.checkFilterGain();
-        if (isFiltersOk !== 'OK') {
-          throw new Error(isFiltersOk);
-        }
       } catch (error) {
         self.handleError(`Sub Optimizer failed: ${error.message}`, error);
       } finally {
