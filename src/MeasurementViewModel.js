@@ -1414,8 +1414,6 @@ class MeasurementViewModel {
 
         for (const measurement of subsMeasurements) {
           await measurement.setInverted(false);
-          // why is this needed?
-          await measurement.resetFilters();
           await measurement.applyWorkingSettings();
           const frequencyResponse = await measurement.getFrequencyResponse();
           frequencyResponse.measurement = measurement.uuid;
