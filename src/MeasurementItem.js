@@ -879,24 +879,27 @@ class MeasurementItem {
     return measurementFilters;
   }
 
-  async setFilters(filters) {
+  async setFilters(filters, overwrite = true) {
     if (!filters) {
       throw new Error(`Invalid filter: ${filters}`);
     }
     if (filters.length !== 22) {
       console.debug(`Invalid filter length: ${filters.length} expected 22`);
     }
-    const currentFilters = await this.getFilters();
+    const currentFilters = await this.getFilters().then(response =>
+      response.filter(f => overwrite || f.isAuto)
+    );
 
     const filtersCleaned = [];
     for (const filter of filters) {
       const index = filter.index;
       const found = currentFilters.find(f => f.index === index);
       if (!found) {
-        throw new Error(`Invalid filter index: ${index}`);
+        console.warn(`Filter with index ${index} not found in current filters`);
+        continue;
       }
       // set auto to false if type is all pass
-      if (filter.type === 'All pass' || filter.index > 20) {
+      if (filter.type === 'All pass' || index > 20) {
         filter.isAuto = false;
         found.isAuto = false;
       }

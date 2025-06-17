@@ -1314,8 +1314,11 @@ class MeasurementViewModel {
         const subsMeasurements = self.uniqueSubsMeasurements();
 
         for (const sub of subsMeasurements) {
-          await sub.setFilters(filters);
+          // do not overwrite the all pass filter if set
+          await sub.setFilters(filters, false);
           await sub.copyFiltersToOther();
+          // ensure that cumulative IR shift and inversion is copied to other positions
+          await sub.copyCumulativeIRShiftToOther();
         }
       }
     };
