@@ -932,6 +932,12 @@ class MeasurementViewModel {
           speakerItem,
           self.uniqueSubsMeasurements()
         );
+
+        if (!result) {
+          throw new Error('Alignement search failed, no result found');
+        }
+
+        // copy cumulative IR shift to other positions
         for (const sub of self.uniqueSubsMeasurements()) {
           // copy to other positions
           await sub.copyCumulativeIRShiftToOther();
