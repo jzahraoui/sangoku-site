@@ -593,46 +593,31 @@ class BusinessTools {
   }
 
   async createsSum(itemList, deletePredicted = true, title) {
-    if (!Array.isArray(itemList)) {
-      throw new Error('Parameter must be an array');
-    }
-    if (itemList.length < 2) {
-      throw new Error('Parameter must contains at least 2 elements');
+    if (!Array.isArray(itemList) || itemList.length < 1) {
+      throw new Error('Parameter must be a non-empty array');
     }
 
-    let generatedPredictedUuids = [];
-    let intermediateSumUuids = [];
+    const generatedPredicted = [];
+    const intermediateSumUuids = [];
 
     try {
-      if (!Array.isArray(itemList)) {
-        throw new Error('Parameter must be an array');
-      }
-      if (itemList.length < 2) {
-        throw new Error('Parameter must contains at least 2 elements');
-      }
-
       for (const measurementItem of itemList) {
         await measurementItem.removeWorkingSettings();
         await measurementItem.resetTargetSettings();
         const rollResponse = await measurementItem.producePredictedMeasurement();
         if (!rollResponse) {
-          throw new Error(`Cannot generate predicted measurement`);
+          throw new Error('Cannot generate predicted measurement');
         }
-        generatedPredictedUuids.push(rollResponse.uuid);
+        generatedPredicted.push(rollResponse);
         await measurementItem.applyWorkingSettings();
       }
 
-      let lastAlignedSum = await this.viewModel.doArithmeticOperation(
-        generatedPredictedUuids[0],
-        generatedPredictedUuids[1],
-        { function: 'A + B' }
-      );
+      let lastAlignedSum = generatedPredicted[0];
 
-      // Loop through each UUID and process
-      for (let i = 2; i < generatedPredictedUuids.length; i++) {
+      for (let i = 1; i < generatedPredicted.length; i++) {
         const newAlignedSum = await this.viewModel.doArithmeticOperation(
-          generatedPredictedUuids[i],
           lastAlignedSum.uuid,
+          generatedPredicted[i].uuid,
           { function: 'A + B' }
         );
         intermediateSumUuids.push(lastAlignedSum.uuid);
@@ -644,16 +629,15 @@ class BusinessTools {
 
       return lastAlignedSum;
     } catch (error) {
-      throw new Error(`Error creating sum:${error.message}`, { cause: error });
+      throw new Error(`Error creating sum: ${error.message}`, { cause: error });
     } finally {
       for (const uuid of intermediateSumUuids) {
         await this.viewModel.removeMeasurementUuid(uuid);
       }
 
-      if (deletePredicted && generatedPredictedUuids.length) {
-        // cleanup of equalised sub measurements usded to create the sum
-        for (const uuid of generatedPredictedUuids) {
-          await this.viewModel.removeMeasurementUuid(uuid);
+      if (deletePredicted && generatedPredicted.length > 1) {
+        for (const item of generatedPredicted) {
+          await this.viewModel.removeMeasurement(item);
         }
       }
     }

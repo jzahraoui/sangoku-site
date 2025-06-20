@@ -121,15 +121,14 @@ class MeasurementItem {
     self.measurementIndex = ko.computed(
       () => self.parentViewModel.measurements().indexOf(self) + 1
     );
-    self.relatedLfeMeasurement = ko.computed(function () {
-      const predictedLfeMeasurements = self.parentViewModel.allPredictedLfeMeasurement();
-      const hasSingleSub = self.parentViewModel.uniqueSubsMeasurements().length === 1;
-
-      return predictedLfeMeasurements.find(response =>
-        hasSingleSub
-          ? response?.position() === self.position()
-          : response?.title() === MeasurementItem.DEFAULT_LFE_PREDICTED + self.position()
-      );
+    self.relatedLfeMeasurement = ko.computed(() => {
+      return self.parentViewModel
+        .allPredictedLfeMeasurement()
+        .find(
+          response =>
+            response?.title() ===
+            `${MeasurementItem.DEFAULT_LFE_PREDICTED}${self.position()}`
+        );
     });
     self.displayMeasurementTitle = ko.computed(
       () => `${self.measurementIndex()}: ${self.title()}`

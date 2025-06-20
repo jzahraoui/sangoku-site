@@ -896,14 +896,8 @@ class MeasurementViewModel {
           // Handle based on number of subwoofers
           if (subResponses.length === 0) continue;
 
-          if (subResponses.length === 1) {
-            // Single subwoofer case - create preview and copy to other positions
-            await self.businessTools.createMeasurementPreview(subResponses[0]);
-            await subResponses[0].copyAllToOther();
-          } else {
-            // Multiple subwoofers case - produce sum
-            await self.produceSumProcess(self, subResponses);
-          }
+          // Multiple subwoofers case - produce sum
+          await self.produceSumProcess(self, subResponses);
         }
       } catch (error) {
         self.handleError(`Sum failed: ${error.message}`, error);
@@ -1677,39 +1671,20 @@ class MeasurementViewModel {
       const uniqueSubs = self.uniqueSubsMeasurements();
 
       // Early return if no measurements
-      if (!uniqueSubs || uniqueSubs.length === 0) {
-        return undefined;
-      }
+      if (!uniqueSubs?.length) return undefined;
 
-      // Case: Single subwoofer
-      if (uniqueSubs.length === 1) {
-        const firstSub = uniqueSubs[0];
-        return firstSub?.title() || undefined;
-      }
+      const position = self.currentSelectedPosition();
+      if (!position) return undefined;
 
-      // Case: Multiple subwoofers
-      if (uniqueSubs.length > 1) {
-        const position = self.currentSelectedPosition();
-        return position
-          ? `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`
-          : undefined;
-      }
-
-      return undefined;
+      return `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
     });
 
     self.allPredictedLfeMeasurement = ko.computed(() => {
-      const uniqueSubs = self.uniqueSubsMeasurements();
-      // Case: Single subwoofer
-      if (uniqueSubs.length === 1) {
-        return self.subsMeasurements();
-      } else {
-        return self
-          .measurements()
-          .filter(response =>
-            response?.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED)
-          );
-      }
+      return self
+        .measurements()
+        .filter(response =>
+          response?.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED)
+        );
     });
 
     self.predictedLfeMeasurement = ko.computed(() => {
@@ -2109,7 +2084,7 @@ class MeasurementViewModel {
     if (!subsList?.length) {
       throw new Error(`No subs found`);
     }
-    if (subsList.length < 2) {
+    if (subsList.length < 1) {
       throw new Error(`Not enough subs found to compute sum`);
     }
     const subResponsesTitles = subsList.map(response =>
