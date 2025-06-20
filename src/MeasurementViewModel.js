@@ -2093,7 +2093,7 @@ class MeasurementViewModel {
     self.status(`${self.status()} \nUsing: \n${subResponsesTitles.join('\r\n')}`);
     // get first subsList element position
     const position = subsList[0].position();
-    const resultTitle = MeasurementItem.DEFAULT_LFE_PREDICTED + position;
+    const resultTitle = `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
 
     const previousSubSum = self.measurements().find(item => item.title() === resultTitle);
     // remove previous
