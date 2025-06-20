@@ -312,7 +312,13 @@ class BusinessTools {
    * @param {Array} subResponses - Array of subwoofer response objects
    * @returns {string} A message describing the alignment results
    */
-  async produceAligned(PredictedLfe, cuttOffFrequency = 120, speakerItem, subResponses) {
+  async produceAligned(
+    PredictedLfe,
+    cuttOffFrequency = 120,
+    speakerItem,
+    subResponses,
+    checkResult = false
+  ) {
     if (!speakerItem) {
       throw new Error(`Please select a speaker item`);
     }
@@ -320,6 +326,7 @@ class BusinessTools {
       throw new Error(`Cannot find predicted LFE`);
     }
     if (cuttOffFrequency === 0) {
+      // if all speakers are full range, no cuttoff frequency
       cuttOffFrequency = 120; // default value
       console.debug('no cuttoff frequency');
     }
@@ -327,51 +334,50 @@ class BusinessTools {
       throw new Error('Invalid PredictedLfe object or missing cumulativeIRShiftSeconds');
     }
 
-    const cxText = cuttOffFrequency ? `X@${cuttOffFrequency}Hz` : 'FB';
-    const maxForwardSearchMs = 2;
-    let totalOffset = 0;
-    let mustBeInverted = false;
     const mustBeDeleted = [];
     try {
+      const cxText = `X@${cuttOffFrequency}Hz`;
+      const cutoffPeriod = 1 / cuttOffFrequency; // period in seconds
+      const maxForwardSearch = cutoffPeriod / 2;
+      const maxForwardSearchMs = maxForwardSearch * 1000; // max forward search in milliseconds, half period of the cuttOffFrequency
+      // delay is 1/4 of the cutoff period
+      const delay = cutoffPeriod / 4;
       // Front Left predicted equalized measurement
       const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
-      // TODO: manage the case of only one sub
 
       const { PredictedLfeFiltered, predictedSpeakerFiltered } =
         await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
 
       // Store filtered measurements for cleanup in finally block
-      mustBeDeleted.push(PredictedLfeFiltered);
-      mustBeDeleted.push(predictedSpeakerFiltered);
-      mustBeDeleted.push(predictedFrontLeft);
+      mustBeDeleted.push(
+        PredictedLfeFiltered,
+        predictedSpeakerFiltered,
+        predictedFrontLeft
+      );
 
       // get the sub impulse closer to the front left, better method than cros corr align
       const distanceToSpeakerPeak =
         PredictedLfeFiltered.timeOfIRPeakSeconds -
         predictedSpeakerFiltered.timeOfIRPeakSeconds;
 
-      const distanceToSpeakerPeakMeters =
-        PredictedLfe._computeInMeters(distanceToSpeakerPeak);
+      let finalDistance = distanceToSpeakerPeak - delay;
+
+      const distanceToSpeakerPeakMeters = PredictedLfe._computeInMeters(finalDistance);
 
       const neededDistanceMeter =
         PredictedLfe.distanceInMeters() + distanceToSpeakerPeakMeters;
 
       // Calculate and apply adjustment to stay within maximum distance
-      const overheadOffsetMs =
-        PredictedLfe._computeInSeconds(
-          this.viewModel.maxDistanceInMetersError() - neededDistanceMeter
-        ) * 1000;
+      const overheadOffset =
+        this.viewModel.maxDistanceInMetersError() - neededDistanceMeter;
 
       // correction to prevent exceeding max distance
-      let finalDistance = distanceToSpeakerPeak;
-      if (overheadOffsetMs < 0) {
-        finalDistance += overheadOffsetMs / 1000;
+      if (overheadOffset < 0) {
+        finalDistance += PredictedLfe._computeInSeconds(overheadOffset);
       }
 
       // Apply initial offset to align impulse peaks
       await PredictedLfeFiltered.addIROffsetSeconds(finalDistance);
-      // Update total offset with initial alignment
-      totalOffset += finalDistance;
 
       // compute subwoofer aligment
       const { shiftDelay, isBInverted } = await this.viewModel.findAligment(
@@ -388,12 +394,9 @@ class BusinessTools {
         await PredictedLfe.toggleInversion();
         await PredictedLfeFiltered.toggleInversion();
       }
-      mustBeInverted = isBInverted;
+      await PredictedLfeFiltered.addIROffsetSeconds(-shiftDelay);
 
-      const checkResult = false;
       if (checkResult) {
-        await PredictedLfeFiltered.addIROffsetSeconds(-shiftDelay);
-
         const finalPredcitionCompare = await this.viewModel.doArithmeticOperation(
           PredictedLfeFiltered.uuid,
           predictedSpeakerFiltered.uuid,
@@ -406,35 +409,33 @@ class BusinessTools {
         );
       }
 
-      totalOffset -= shiftDelay;
+      const totalOffset = PredictedLfeFiltered.cumulativeIRShiftSeconds();
+      const delayMs = delay * 1000;
       const debugMessage = `Subwoofer aligment: ${(totalOffset * 1000).toFixed(
         2
-      )}ms (from previous position ${(distanceToSpeakerPeak * 1000).toFixed(
+      )}ms (from previous position ${((distanceToSpeakerPeak - delay) * 1000).toFixed(
         2
-      )}ms - alignment tool result ${(shiftDelay * 1000).toFixed(2)}ms)`;
+      )}ms - alignment tool result ${(shiftDelay * 1000).toFixed(
+        2
+      )}ms) - search from ${delayMs.toFixed(2)}ms to ${(delayMs + maxForwardSearchMs).toFixed(2)}ms`;
 
       console.debug(debugMessage);
 
-      const newDistance = PredictedLfe._computeDistanceInMeters(
-        PredictedLfe.cumulativeIRShiftSeconds() + totalOffset
-      ).toFixed(2);
+      await PredictedLfe.addIROffsetSeconds(totalOffset);
+      await this.applyTimeOffsetToSubs(totalOffset, subResponses, isBInverted);
 
       const shiftDistance = PredictedLfe._computeInMeters(totalOffset).toFixed(2);
 
-      const resultMessage = `Subwoofer deplaced by: ${shiftDistance}m, new distance: ${newDistance}m (alignment:${(shiftDelay * 1000).toFixed(2)}ms)`;
+      const resultMessage = `Subwoofer deplaced by: ${shiftDistance}m (alignment:${((delay + shiftDelay) * 1000).toFixed(2)}ms)`;
 
       return resultMessage;
     } catch (error) {
-      // cancel the offset applied to the sub
-      totalOffset = 0;
       throw new Error(`${error.message}`, { cause: error });
     } finally {
       // cleanup of predicted measurements
       for (const measurement of mustBeDeleted) {
         await this.viewModel.removeMeasurement(measurement);
       }
-      await PredictedLfe.addIROffsetSeconds(totalOffset);
-      await this.applyTimeOffsetToSubs(totalOffset, subResponses, mustBeInverted);
     }
   }
 
