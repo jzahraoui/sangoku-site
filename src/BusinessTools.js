@@ -571,7 +571,7 @@ class BusinessTools {
   }
 
   async applyTimeOffsetToSubs(offset, subResponses, mustBeInverted) {
-    if (subResponses.length < 2) {
+    if (subResponses.length < 1) {
       return;
     }
     try {
