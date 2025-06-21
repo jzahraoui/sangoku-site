@@ -1539,7 +1539,11 @@ class MeasurementViewModel {
       if (self.isProcessing()) return;
       try {
         self.isProcessing(true);
-        await self.businessTools.createMeasurementPreview(measurement);
+        if (measurement.isSub()) {
+          await self.produceSumProcess(self, [measurement]);
+        } else {
+          await self.businessTools.createMeasurementPreview(measurement);
+        }
         await measurement.copyAllToOther();
       } catch (error) {
         self.handleError(`Preview generation failed: ${error.message}`, error);

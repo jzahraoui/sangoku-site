@@ -517,11 +517,6 @@ class BusinessTools {
   async createMeasurementPreview(item) {
     // skip subs
     if (item.isSub()) {
-      const predictedSubChannel = await item.producePredictedMeasurement();
-      // set title
-      const finalTitle = `${this.RESULT_PREFIX}${item.title()} FB_P${item.position()}`;
-      await predictedSubChannel.setTitle(finalTitle);
-      await predictedSubChannel.applyWorkingSettings();
       return true;
     }
     if (item.isUnknownChannel) {
