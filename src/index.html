@@ -120,7 +120,7 @@
                     <span class="detail-label">Speed of Sound:</span>
                     <span
                       class="detail-value"
-                      data-bind="text: jsonAvrData().avr.speedOfSound"
+                      data-bind="text: jsonAvrData().avr.speedOfSound + ' m/s'"
                     ></span>
                   </div>
                   <div class="avr-detail-row">
@@ -731,18 +731,25 @@
                   <th data-i18n="measurement" class="column-header">Measurement</th>
                   <th class="distance-column">
                     <div class="distance-info">
-                      <span
-                        class="distance-label"
-                        data-bind="text: 'Distance (M)'"
-                      ></span>
-                      <span
+                      <div>
+                        Distance
+                        <select class="combo-box" data-bind="value: distanceUnit">
+                          <option value="M">Meters</option>
+                          <option value="ms">Milliseconds</option>
+                          <option value="ft">Feet</option>
+                        </select>
+                      </div>
+                      <div
+                        data-bind="text: (jsonAvrData() && jsonAvrData().avr && jsonAvrData().avr.speedOfSound) ? jsonAvrData().avr.speedOfSound + ' m/s' : 'N/A'"
+                      ></div>
+                      <div
                         class="warning-value"
-                        data-bind="text: 'Warn. ' + maxDistanceInMetersWarning().toFixed(2)"
-                      ></span>
-                      <span
+                        data-bind="text: 'Warn. ' + maxDistanceInMetersWarning().toFixed(2) + ' m' "
+                      ></div>
+                      <div
                         class="critical-value"
-                        data-bind="text: 'Crit. ' + maxDistanceInMetersError().toFixed(2)"
-                      ></span>
+                        data-bind="text: 'Crit. ' + maxDistanceInMetersError().toFixed(2) + ' m' "
+                      ></div>
                     </div>
                   </th>
                   <th data-i18n="trim_db" class="column-header">Trim (dB)</th>
@@ -806,7 +813,7 @@
                     data-bind="text: channelName(), css: { success: isChannelDetected() } "
                   ></td>
                   <td data-bind="text: displayMeasurementTitle()"></td>
-                  <td data-bind="text: distanceInMeters(), css: exceedsDistance"></td>
+                  <td data-bind="text: distanceInUnits(), css: exceedsDistance"></td>
                   <td
                     data-bind="text: splForAvr().toFixed(1), css: { error: splIsAboveLimit() }"
                   ></td>

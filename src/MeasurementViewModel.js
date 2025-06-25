@@ -217,6 +217,7 @@ class MeasurementViewModel {
         ? 0
         : MeasurementViewModel.DEFAULT_SHIFT_IN_METERS;
     });
+    self.distanceUnit = ko.observable('M');
 
     // speaker filter options
     self.individualMaxBoostValue = ko.observable(3);

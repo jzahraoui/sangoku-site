@@ -136,6 +136,20 @@ class MeasurementItem {
     self.distanceInMeters = ko.computed(() =>
       self._computeDistanceInMeters(self.cumulativeIRShiftSeconds())
     );
+    self.distanceInMilliSeconds = ko.computed(() =>
+      (self.cumulativeIRShiftSeconds() * 1000).toFixed(2)
+    );
+    self.distanceInUnits = ko.computed(() => {
+      if (self.parentViewModel.distanceUnit() === 'M') {
+        return self.distanceInMeters();
+      } else if (self.parentViewModel.distanceUnit() === 'ms') {
+        return self.distanceInMilliSeconds();
+      } else if (self.parentViewModel.distanceUnit() === 'ft') {
+        return (self.distanceInMeters() * 3.28084).toFixed(2); // Convert meters to feet
+      }
+      throw new Error(`Unknown distance unit: ${self.parentViewModel.distanceUnit()}`);
+    });
+
     self.splOffsetdBUnaligned = ko.computed(
       () => self.splOffsetdB() - self.alignSPLOffsetdB()
     );
@@ -1264,7 +1278,7 @@ class MeasurementItem {
 
     // phase correction to lower frequency can cause ringing fil
     const startFrequency = 400;
-    const stopFrequency = 20000;
+    const stopFrequency = 2000;
     const toBeDeleted = [];
 
     try {
