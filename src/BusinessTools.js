@@ -600,9 +600,6 @@ class BusinessTools {
         await measurementItem.removeWorkingSettings();
         await measurementItem.resetTargetSettings();
         const rollResponse = await measurementItem.producePredictedMeasurement();
-        if (!rollResponse) {
-          throw new Error('Cannot generate predicted measurement');
-        }
         generatedPredicted.push(rollResponse);
         await measurementItem.applyWorkingSettings();
       }

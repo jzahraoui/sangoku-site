@@ -1181,11 +1181,21 @@ class MeasurementItem {
     if (wasInverted) {
       await this.setInverted(false);
     }
+    // save current IR shift
+    const currentCumulativeIRShift = this.cumulativeIRShiftSeconds();
+    await this.resetcumulativeIRShiftSeconds();
+
     const PredictedFiltered = await this.eqCommands('Generate predicted measurement');
+    if (!PredictedFiltered) {
+      throw new Error('Cannot generate predicted measurement');
+    }
     if (wasInverted) {
       await this.setInverted(true);
       await PredictedFiltered.setInverted(true);
     }
+
+    await PredictedFiltered.setcumulativeIRShiftSeconds(currentCumulativeIRShift);
+    await this.setcumulativeIRShiftSeconds(currentCumulativeIRShift);
 
     PredictedFiltered.setTitle(`predicted ${this.title()}`);
 
