@@ -26,6 +26,8 @@ class MeasurementItem {
       throw new Error('No AVR data loaded');
     }
 
+    self.isProcessing = ko.observable(false);
+
     self.jsonAvrData = parentViewModel.jsonAvrData();
     self.upperFrequencyBound = 16000;
     self.lowerFrequencyBound = 15;
@@ -247,6 +249,40 @@ class MeasurementItem {
         }
       }
     });
+
+    self.buttonCreateFilter = async function () {
+      if (self.isProcessing()) return;
+      try {
+        self.isProcessing(true);
+
+        await self.createStandardFilter();
+      } catch (error) {
+        throw new Error(`Filter creation failed: ${error.message}`, {
+          cause: error,
+        });
+      } finally {
+        self.isProcessing(false);
+      }
+    };
+
+    self.previewMeasurement = async function () {
+      if (self.isProcessing()) return;
+      try {
+        self.isProcessing(true);
+        if (self.isSub()) {
+          await parentViewModel.produceSumProcess(self, [self]);
+        } else {
+          await parentViewModel.businessTools.createMeasurementPreview(self);
+        }
+        await self.copyAllToOther();
+      } catch (error) {
+        throw new Error(`Preview creation failed: ${error.message}`, {
+          cause: error,
+        });
+      } finally {
+        self.isProcessing(false);
+      }
+    };
   }
 
   async refresh() {
@@ -1294,7 +1330,7 @@ class MeasurementItem {
     try {
       await this.removeWorkingSettings();
 
-      await this.createStandardFilter(false);
+      await this.createStandardFilter(false, false);
       const preview = await this.producePredictedMeasurement();
       toBeDeleted.push(preview.uuid);
 
@@ -1369,7 +1405,7 @@ class MeasurementItem {
     return slots;
   }
 
-  async createStandardFilter(useWokingSettings = true) {
+  async createStandardFilter(useWokingSettings = true, copyFiltersToOther = true) {
     if (this.isFilter) {
       throw new Error(
         `Operation not permitted on a filter ${this.displayMeasurementTitle()}`
@@ -1451,6 +1487,10 @@ class MeasurementItem {
     const isFiltersOk = await this.checkFilterGain();
     if (isFiltersOk !== 'OK') {
       throw new Error(isFiltersOk);
+    }
+
+    if (copyFiltersToOther) {
+      await this.copyFiltersToOther();
     }
 
     return true;

@@ -764,7 +764,7 @@ class MeasurementViewModel {
         if (self.uniqueSubsMeasurements().length > 0) {
           const sub = self.uniqueSubsMeasurements()[0];
           await sub.setZeroAtIrPeak();
-          await this.setSameDelayToAll(self.uniqueSubsMeasurements());
+          await self.setSameDelayToAll(self.uniqueSubsMeasurements());
           await sub.copyCumulativeIRShiftToOther();
         }
 
@@ -861,20 +861,6 @@ class MeasurementViewModel {
         self.status(`${self.status()} \nSPL alignment successful `);
       } catch (error) {
         self.handleError(`SPL alignment: ${error.message}`, error);
-      } finally {
-        self.isProcessing(false);
-      }
-    };
-
-    self.buttonCreateFilter = async function (measurement) {
-      if (self.isProcessing()) return;
-      try {
-        self.isProcessing(true);
-
-        await measurement.createStandardFilter();
-        await measurement.copyFiltersToOther();
-      } catch (error) {
-        self.handleError(`Filter compute failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
       }
@@ -992,7 +978,6 @@ class MeasurementViewModel {
           // display progression in the status
           self.status(`Generating filter for channel ${item.channelName()}`);
           await item.createStandardFilter();
-          await item.copyFiltersToOther();
         }
 
         self.status('Filters generated successfully');
@@ -1092,7 +1077,7 @@ class MeasurementViewModel {
           throw new Error(`Please load avr file first`);
         }
         self.targetCurve = await self.apiService.checkTargetCurve();
-        self.rewVersion = await this.apiService.checkVersion();
+        self.rewVersion = await self.apiService.checkVersion();
         const selectedSpeaker = self.findMeasurementByUuid(self.selectedSpeaker());
         const selectedSpeakerText = selectedSpeaker?.displayMeasurementTitle() || 'None';
         const selectedSpeakerCrossover = selectedSpeaker?.crossover();
@@ -1331,7 +1316,7 @@ class MeasurementViewModel {
         self.status('Sub Optimizer...');
 
         await self.adjustSubwooferSPLLevels(self, [subMeasurement]);
-        await this.equalizeSub(self, subMeasurement);
+        await self.equalizeSub(self, subMeasurement);
         await subMeasurement.copyFiltersToOther();
       } catch (error) {
         self.handleError(`Sub Optimizer failed: ${error.message}`, error);
@@ -1531,23 +1516,6 @@ class MeasurementViewModel {
         self.status('Copy succeful');
       } catch (error) {
         self.handleError(`Copy failed: ${error.message}`, error);
-      } finally {
-        self.isProcessing(false);
-      }
-    };
-
-    self.previewMeasurement = async function (measurement) {
-      if (self.isProcessing()) return;
-      try {
-        self.isProcessing(true);
-        if (measurement.isSub()) {
-          await self.produceSumProcess(self, [measurement]);
-        } else {
-          await self.businessTools.createMeasurementPreview(measurement);
-        }
-        await measurement.copyAllToOther();
-      } catch (error) {
-        self.handleError(`Preview generation failed: ${error.message}`, error);
       } finally {
         self.isProcessing(false);
       }

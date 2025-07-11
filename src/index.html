@@ -847,43 +847,40 @@
                   <td>
                     <!-- ko if: ($parent.uniqueSubsMeasurements().length === 1 || !isSub()) && position() !== 0 -->
                     <button
-                      class="preview-btn"
+                      class="button"
                       data-bind="
-                    click: $parent.previewMeasurement,
-                    disable: $parent.isProcessing,
-                    css: { 'disabled': $parent.isProcessing }"
+                    click: previewMeasurement,
+                    disable: isProcessing(),
+                    css: { 'disabled': isProcessing }"
+                      data-tooltip="Create preview"
                     >
-                      <span
-                        data-bind="text: $parent.isProcessing() ? 'Processing...' : 'Preview'"
-                      ></span>
+                      <i class="fa fa-line-chart"></i>
                     </button>
                     <!-- /ko -->
                   </td>
                   <td data-bind="css: { success: associatedFilterItem() }">
                     <!-- ko if: !isSub() && position() !== 0 -->
                     <button
-                      class="preview-btn"
+                      class="button"
                       data-bind="
-                    click: $parent.buttonCreateFilter,
-                    disable: $parent.isProcessing,
-                    css: { 'disabled': $parent.isProcessing }"
+                    click: buttonCreateFilter,
+                    disable: isProcessing(),
+                    css: { 'disabled': isProcessing }"
+                      data-tooltip="Create speaker filter"
                     >
-                      <span
-                        data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"
-                      ></span>
+                      <i class="fa fa-wave-square"></i>
                     </button>
                     <!-- /ko -->
                     <!-- ko if: isSub() && $parent.uniqueSubsMeasurements().length === 1 && position() !== 0 -->
                     <button
-                      class="preview-btn"
+                      class="button"
                       data-bind="
                       click: $parent.buttonSingleSubOptimizer,
                       disable: $parent.isProcessing,
                       css: { 'disabled': $parent.isProcessing }"
+                      data-tooltip="Create Sub filter"
                     >
-                      <span
-                        data-bind="text: $parent.isProcessing() ? 'Processing...' : 'create'"
-                      ></span>
+                      <i class="fa fa-wave-square"></i>
                     </button>
                     <!-- /ko -->
                   </td>
