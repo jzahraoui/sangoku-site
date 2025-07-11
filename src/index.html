@@ -841,9 +841,19 @@
                     value: speakerType"
                     ></select>
                   </td>
-                  <td
-                    data-bind="text: inverted() ? 'Yes' : 'No', css: { warning: inverted() }"
-                  ></td>
+                  <td>
+                    <button
+                      class="button"
+                      data-bind="
+                      click: toggleInversion,
+                      css: { warning: inverted() }"
+                      data-tooltip="Toggle phase inversion"
+                    >
+                      <i
+                        data-bind="css: inverted() ? 'fa fa-arrow-down' : 'fa fa-arrow-up'"
+                      ></i>
+                    </button>
+                  </td>
                   <td>
                     <!-- ko if: ($parent.uniqueSubsMeasurements().length === 1 || !isSub()) && position() !== 0 -->
                     <button
