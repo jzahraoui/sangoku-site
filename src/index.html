@@ -841,7 +841,7 @@
                     value: speakerType"
                     ></select>
                   </td>
-                  <td>
+                  <td style="text-align: center">
                     <button
                       class="button"
                       data-bind="
@@ -854,7 +854,7 @@
                       ></i>
                     </button>
                   </td>
-                  <td>
+                  <td style="text-align: center">
                     <!-- ko if: ($parent.uniqueSubsMeasurements().length === 1 || !isSub()) && position() !== 0 -->
                     <button
                       class="button"
@@ -868,7 +868,10 @@
                     </button>
                     <!-- /ko -->
                   </td>
-                  <td data-bind="css: { success: associatedFilterItem() }">
+                  <td
+                    style="text-align: center"
+                    data-bind="css: { success: associatedFilterItem() }"
+                  >
                     <!-- ko if: !isSub() && position() !== 0 -->
                     <button
                       class="button"
