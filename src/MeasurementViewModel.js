@@ -1686,13 +1686,23 @@ class MeasurementViewModel {
     await subMeasurement.resetTargetSettings();
     await subMeasurement.detectFallOff(-3);
 
+    const customStartFrequency = Math.max(
+      this.lowerFrequencyBound(),
+      subMeasurement.dectedFallOffLow
+    );
+    // do not use min because dectedFallOffHigh can be -1 if not detected
+    const customEndFrequency = Math.min(
+      this.upperFrequencyBound(),
+      subMeasurement.dectedFallOffHigh
+    );
+
     self.status(
-      `${self.status()} \nCreating EQ filters for sub sumation ${subMeasurement.dectedFallOffLow}Hz - ${subMeasurement.dectedFallOffHigh}Hz`
+      `${self.status()} \nCreating EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`
     );
 
     await self.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: subMeasurement.dectedFallOffLow,
-      endFrequency: subMeasurement.dectedFallOffHigh,
+      startFrequency: customStartFrequency,
+      endFrequency: customEndFrequency,
       individualMaxBoostdB: self.maxBoostIndividualValue(),
       overallMaxBoostdB: self.maxBoostOverallValue(),
       flatnessTargetdB: 1,
