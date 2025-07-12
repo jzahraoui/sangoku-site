@@ -915,10 +915,16 @@ class MeasurementItem {
   }
 
   async getFilters() {
+    const autoDisableTypes = new Set(['LP', 'HP', 'HS', 'LS', 'All pass']);
     const measurementFilters = await this.parentViewModel.apiService.fetchSafe(
       'filters',
       this.uuid
     );
+    measurementFilters.forEach(filter => {
+      if (autoDisableTypes.has(filter.type)) {
+        filter.isAuto = false;
+      }
+    });
     return measurementFilters;
   }
 
