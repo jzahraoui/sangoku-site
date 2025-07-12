@@ -29,8 +29,6 @@ class MeasurementItem {
     self.isProcessing = ko.observable(false);
 
     self.jsonAvrData = parentViewModel.jsonAvrData();
-    self.upperFrequencyBound = 16000;
-    self.lowerFrequencyBound = 15;
     self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
     self.dectedFallOffLow = -1;
     self.dectedFallOffHigh = +Infinity;
@@ -1433,11 +1431,14 @@ class MeasurementItem {
     await this.detectFallOff(-5);
 
     const customStartFrequency = Math.max(
-      this.lowerFrequencyBound,
+      this.parentViewModel.lowerFrequencyBound(),
       this.dectedFallOffLow
     );
     // do not use min because dectedFallOffHigh can be -1 if not detected
-    const customEndFrequency = Math.min(this.upperFrequencyBound, this.dectedFallOffHigh);
+    const customEndFrequency = Math.min(
+      this.parentViewModel.upperFrequencyBound(),
+      this.dectedFallOffHigh
+    );
 
     // must be set seaparatly to be taken into account
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {

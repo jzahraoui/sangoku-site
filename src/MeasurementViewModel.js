@@ -46,6 +46,8 @@ class MeasurementViewModel {
     self.error = ko.observable('');
     self.status = ko.observable('');
     self.selectedItem = ko.observable(null);
+    self.upperFrequencyBound = ko.observable(16000);
+    self.lowerFrequencyBound = ko.observable(15);
 
     // Computed
     self.hasStatus = ko.computed(() => !self.error() && self.status() !== '');
@@ -2526,6 +2528,8 @@ class MeasurementViewModel {
       this.selectedIrWindows(data.selectedIrWindows || 'Optimized MTW');
       this.individualMaxBoostValue(data.individualMaxBoostValue || 3);
       this.overallBoostValue(data.overallBoostValue || 3);
+      this.upperFrequencyBound(data.upperFrequencyBound || 16000);
+      this.lowerFrequencyBound(data.lowerFrequencyBound || 15);
     }
   }
 
@@ -2549,6 +2553,8 @@ class MeasurementViewModel {
       selectedIrWindows: this.selectedIrWindows(),
       individualMaxBoostValue: this.individualMaxBoostValue(),
       overallBoostValue: this.overallBoostValue(),
+      upperFrequencyBound: this.upperFrequencyBound(),
+      lowerFrequencyBound: this.lowerFrequencyBound(),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
