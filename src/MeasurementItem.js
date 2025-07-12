@@ -255,9 +255,7 @@ class MeasurementItem {
 
         await self.createStandardFilter();
       } catch (error) {
-        throw new Error(`Filter creation failed: ${error.message}`, {
-          cause: error,
-        });
+        parentViewModel.handleError(`Filter creation failed: ${error.message}`);
       } finally {
         self.isProcessing(false);
       }
@@ -274,9 +272,7 @@ class MeasurementItem {
         }
         await self.copyAllToOther();
       } catch (error) {
-        throw new Error(`Preview creation failed: ${error.message}`, {
-          cause: error,
-        });
+        parentViewModel.handleError(`Preview creation failed: ${error.message}`);
       } finally {
         self.isProcessing(false);
       }
