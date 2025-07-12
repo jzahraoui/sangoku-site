@@ -298,6 +298,54 @@
                   title="Enter a number between 0 and 6"
                 />
               </div>
+              <!-- double range slider to select lowerFrequencyBound and upperFrequencyBound -->
+              <div>
+                <label style="width: 150px; text-align: left">Frequency Range:</label>
+                <div>
+                  <div class="dual-range-input">
+                    <input
+                      type="range"
+                      min="1"
+                      max="4.30"
+                      step="0.01"
+                      id="min"
+                      data-bind="
+                        value: Math.log10(lowerFrequencyBound()),
+                        event: { 
+                          input: function() { 
+                            var newVal = Math.round(Math.pow(10, parseFloat($element.value))); 
+                            lowerFrequencyBound(newVal);
+                          } 
+                        }
+                      "
+                    />
+                    <input
+                      type="range"
+                      min="1"
+                      max="4.30"
+                      step="0.01"
+                      id="max"
+                      data-bind="
+                        value: Math.log10(upperFrequencyBound()),
+                        event: {
+                          input: function() { 
+                            var newVal = Math.round(Math.pow(10, parseFloat($element.value)));
+                            upperFrequencyBound(newVal);
+                          } 
+                        } 
+                      "
+                    />
+                  </div>
+
+                  <div class="filter-controls">
+                    <span>10 Hz</span>
+                    <span
+                      data-bind="text: lowerFrequencyBound() + ' - ' + upperFrequencyBound() + ' Hz'"
+                    ></span>
+                    <span>20000 Hz</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <h3 data-i18n="averaging_positions"></h3>
@@ -924,6 +972,7 @@
       <!-- Scripts -->
       <script type="module" src="main.js"></script>
       <link rel="stylesheet" href="assets/css/fontawesome.min.css" />
+      <link rel="stylesheet" href="assets/css/index.css" />
     </main>
 
     <footer>

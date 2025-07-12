@@ -6,6 +6,7 @@ import ko from 'knockout';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import jsyaml from 'js-yaml';
+import DualRangeInput from '@stanko/dual-range-input';
 
 /**
  * LanguageManager is responsible for managing the language settings of the application.
@@ -144,6 +145,11 @@ class RewController {
       ko.applyBindings(window.viewModel);
 
       window.viewModel.restore();
+
+      const $min = document.querySelector('#min');
+      const $max = document.querySelector('#max');
+
+      new DualRangeInput($min, $max, 2);
 
       //window.addEventListener('beforeunload', () => viewModel.saveMeasurements());
 
