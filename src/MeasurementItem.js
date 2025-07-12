@@ -1455,7 +1455,9 @@ class MeasurementItem {
       allowNarrowFiltersBelow200Hz: false,
       varyQAbove200Hz: false,
       allowLowShelf: false,
-      allowHighShelf: false,
+      allowHighShelf: true,
+      highShelfMin: -3,
+      highShelfMax: 3,
     });
 
     await this.eqCommands('Match target');
