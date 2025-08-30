@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "versionCommit": "script/release-vite.sh",
-    "publish": "script/publish-vite.sh"
+    "publish": "script/publish-vite.sh",
+    "clean": "rm -rf dist && rm -rf node_modules"
   },
   "repository": {
     "type": "git",
