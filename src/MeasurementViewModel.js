@@ -1339,8 +1339,10 @@ class MeasurementViewModel {
         }
 
         const frequencyResponses = [];
-        const { lowFrequency, highFrequency, targetLevelAtFreq } =
-          await self.adjustSubwooferSPLLevels(self, subsMeasurements);
+        const { lowFrequency, highFrequency } = await self.adjustSubwooferSPLLevels(
+          self,
+          subsMeasurements
+        );
 
         // set the same delay for all subwoofers
         await self.setSameDelayToAll(subsMeasurements);
@@ -1724,7 +1726,7 @@ class MeasurementViewModel {
     }
   }
 
-  async adjustSubwooferSPLLevels(self, subsMeasurements) {
+  async adjustSubwooferSPLLevels(self, subsMeasurements, targetLevelFreq = 40) {
     if (subsMeasurements.length === 0) {
       return;
     }
@@ -1735,7 +1737,10 @@ class MeasurementViewModel {
     const firstMeasurement = subsMeasurements[0];
 
     // Find the level of target curve at 40Hz
-    const targetLevelAtFreq = await self.getTargetLevelAtFreq(40, firstMeasurement);
+    const targetLevelAtFreq = await self.getTargetLevelAtFreq(
+      targetLevelFreq,
+      firstMeasurement
+    );
 
     // adjut target level according to the number of subs
     const numbersOfSubs = subsMeasurements.length;
