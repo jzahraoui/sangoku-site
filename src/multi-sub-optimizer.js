@@ -404,6 +404,76 @@ class MultiSubOptimizer {
     return efficiencySum / count;
   }
 
+  updateBestSolutions(evaluated, bestWithAllPass, bestWithoutAllPass) {
+    const highest = evaluated[0];
+    let highestWithoutAllPass, highestWithAllPass;
+    if (highest.hasAllPass) {
+      highestWithAllPass = highest;
+      highestWithoutAllPass = evaluated.find(individual => !individual.hasAllPass);
+    } else {
+      highestWithAllPass = evaluated.find(individual => individual.hasAllPass);
+      highestWithoutAllPass = highest;
+    }
+
+    if (highestWithAllPass?.score > bestWithAllPass.score) {
+      Object.assign(bestWithAllPass, highestWithAllPass);
+    }
+    if (highestWithoutAllPass?.score > bestWithoutAllPass.score) {
+      Object.assign(bestWithoutAllPass, highestWithoutAllPass);
+    }
+  }
+
+  runGeneticLoop(subToOptimize, previousValidSum, theo, population, options) {
+    const { generations, populationSize, eliteCount, tournamentSize, mutationRate, mutationAmount, maxNoImprovementGenerations, bestWithAllPass, bestWithoutAllPass } = options;
+    let generationsWithoutImprovement = 0;
+    let previousBestScore = 0;
+    let bestInRun = null;
+
+    for (let generation = 0; generation < generations; generation++) {
+      const adaptiveMutation = mutationAmount * (1 - generation / generations);
+      const evaluated = population.map(param => {
+        subToOptimize.param = param;
+        return this.evaluateParameters(subToOptimize, previousValidSum, theo);
+      });
+
+      evaluated.sort((a, b) => b.score - a.score);
+      const highest = evaluated[0];
+
+      this.updateBestSolutions(evaluated, bestWithAllPass, bestWithoutAllPass);
+
+      if (highest.score > previousBestScore) {
+        previousBestScore = highest.score;
+        generationsWithoutImprovement = 0;
+        bestInRun = highest;
+      } else {
+        generationsWithoutImprovement++;
+      }
+
+      if (
+        generationsWithoutImprovement >= maxNoImprovementGenerations &&
+        generation >= 20
+      ) {
+        console.debug(
+          `Early stopping at generation ${generation} - no improvement for ${maxNoImprovementGenerations} generations`
+        );
+        break;
+      }
+
+      if (generation === generations - 1) break;
+
+      population = this.createNextGeneration(
+        evaluated,
+        populationSize,
+        eliteCount,
+        tournamentSize,
+        mutationRate,
+        adaptiveMutation
+      );
+    }
+
+    return bestInRun;
+  }
+
   // Helper method to optimize a single sub
   optimizeSingleSub(subToOptimize, previousValidSum, options = {}) {
     // Set defaults with the genetic algorithm as the default approach
@@ -476,73 +546,13 @@ class MultiSubOptimizer {
         );
 
         // Add early stopping criteria
-        let generationsWithoutImprovement = 0;
-        let previousBestScore = 0;
-        let bestInRun = null;
-        // Main genetic algorithm loop
-        for (let generation = 0; generation < generations; generation++) {
-          const adaptiveMutation = mutationAmount * (1 - generation / generations);
-          // Evaluate fitness for all individuals
-          const evaluated = population.map(param => {
-            subToOptimize.param = param;
-            return this.evaluateParameters(subToOptimize, previousValidSum, theo);
-          });
-
-          // Sort by fitness
-          evaluated.sort((a, b) => b.score - a.score);
-
-          const highest = evaluated[0];
-          // best evaluated item without all-pass
-          let highestWithoutAllPass = { score: -Infinity };
-          let highestWithAllPass = { score: -Infinity };
-          if (highest.hasAllPass) {
-            highestWithAllPass = highest;
-            highestWithoutAllPass = evaluated.find(individual => !individual.hasAllPass);
-          } else {
-            highestWithAllPass = evaluated.find(individual => individual.hasAllPass);
-            highestWithoutAllPass = highest;
-          }
-
-          if (highestWithAllPass?.score > bestWithAllPass.score) {
-            bestWithAllPass = highestWithAllPass;
-          }
-          if (highestWithoutAllPass?.score > bestWithoutAllPass.score) {
-            bestWithoutAllPass = highestWithoutAllPass;
-          }
-
-          // Track improvement
-          if (highest.score > previousBestScore) {
-            previousBestScore = highest.score;
-            generationsWithoutImprovement = 0;
-            bestInRun = highest;
-          } else {
-            generationsWithoutImprovement++;
-          }
-
-          // Early stopping if no improvement for 7 generations and we've done at least 20 generations
-          if (
-            generationsWithoutImprovement >= maxNoImprovementGenerations &&
-            generation >= 20
-          ) {
-            console.debug(
-              `Early stopping at generation ${generation} - no improvement for ${maxNoImprovementGenerations} generations`
-            );
-            break;
-          }
-
-          // Stop if on the last generation
-          if (generation === generations - 1) break;
-
-          // Create next generation
-          population = this.createNextGeneration(
-            evaluated,
-            populationSize,
-            eliteCount,
-            tournamentSize,
-            mutationRate,
-            adaptiveMutation
-          );
-        }
+        const bestInRun = this.runGeneticLoop(
+          subToOptimize,
+          previousValidSum,
+          theo,
+          population,
+          { generations, populationSize, eliteCount, tournamentSize, mutationRate, mutationAmount, maxNoImprovementGenerations, bestWithAllPass, bestWithoutAllPass }
+        );
 
         // Track the best overall solution across runs
         if (!bestOverall || bestInRun.score > bestOverall.score) {
@@ -682,7 +692,6 @@ class MultiSubOptimizer {
     // Normalize the final score by the total weighting factor.
     // Avoid division by zero if the total weight is negligible.
     if (totalWeightingFactor < 1e-9) {
-      // console.debug('Total weighting factor near zero in calculateAlignmentScore');
       return 0;
     }
 
