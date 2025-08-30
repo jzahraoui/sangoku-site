@@ -49,10 +49,7 @@ class MeasurementItem {
     self.clockAdjustmentPPM = item.clockAdjustmentPPM;
     self.timeOfIRStartSeconds = item.timeOfIRStartSeconds;
     self.timeOfIRPeakSeconds = item.timeOfIRPeakSeconds;
-    self.haveImpulseResponse = Object.prototype.hasOwnProperty.call(
-      item,
-      'cumulativeIRShiftSeconds'
-    );
+    self.haveImpulseResponse = Object.hasOwn(item, 'cumulativeIRShiftSeconds');
     self.isFilter = item.isFilter || false;
     self.associatedFilter = item.associatedFilter;
     self.measurementType = MeasurementItem.measurementType.SPEAKERS;
@@ -195,9 +192,9 @@ class MeasurementItem {
         return 'normal';
       }
 
-      var maxErrorDistance = self.parentViewModel.maxDistanceInMetersError();
-      var maxWarningDistance = self.parentViewModel.maxDistanceInMetersWarning();
-      var currentDistance = self.distanceInMeters();
+      const maxErrorDistance = self.parentViewModel.maxDistanceInMetersError();
+      const maxWarningDistance = self.parentViewModel.maxDistanceInMetersWarning();
+      const currentDistance = self.distanceInMeters();
 
       // Check for invalid values
       if (isNaN(maxErrorDistance) || isNaN(maxWarningDistance)) {
@@ -241,10 +238,8 @@ class MeasurementItem {
         return;
       } else if (newValue === 0) {
         self.speakerType('L');
-      } else {
-        if (self.speakerType() === 'L') {
-          self.speakerType('S');
-        }
+      } else if (self.speakerType() === 'L') {
+        self.speakerType('S');
       }
     });
 
@@ -416,13 +411,10 @@ class MeasurementItem {
     );
 
     // compare commandResult with defaultSettings
-    if (
+    return (
       commandResult.manufacturer === this.defaulEqtSettings.manufacturer &&
       commandResult.model === this.defaulEqtSettings.model
-    ) {
-      return true;
-    }
-    return false;
+    );
   }
 
   async ResetEqualiser() {
@@ -653,7 +645,7 @@ class MeasurementItem {
     // refreshed every seconds when connected
     //this.refresh();
     if (inverted === this.inverted()) {
-      return true;
+      return false;
     }
     await this.toggleInversion();
     return true;
@@ -661,7 +653,7 @@ class MeasurementItem {
 
   async setTitle(newTitle, notescontent) {
     if (newTitle === this.title()) {
-      return true;
+      return false;
     }
     await this.parentViewModel.apiService.fetchREW(this.uuid, 'PUT', {
       title: newTitle,
@@ -692,7 +684,7 @@ class MeasurementItem {
     // 2 decimals on ms value
     amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 7);
     if (amountToAdd === 0) {
-      return true;
+      return false;
     }
     const before = (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
     await this.genericCommand('Offset t=0', {
@@ -813,7 +805,7 @@ class MeasurementItem {
   async addSPLOffsetDBOld(amountToAdd) {
     amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 2);
     if (amountToAdd === 0) {
-      return true;
+      return false;
     }
     await this.genericCommand('Add SPL offset', { offset: amountToAdd });
     this.splOffsetdB(this.splOffsetdB() + amountToAdd);
@@ -1129,7 +1121,7 @@ class MeasurementItem {
     };
 
     if (this.compareObjects(currentFilters, emptyFilter.filters)) {
-      return true;
+      return false;
     }
 
     await this.setFilters(emptyFilter.filters);
