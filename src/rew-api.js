@@ -118,7 +118,8 @@ export default class RewApi {
 
   async fetchREW(indice = null, method = 'GET', body = null, retry = 3) {
     try {
-      const requestUrl = `measurements${indice !== null ? `/${indice}` : ''}`;
+      const indicePath = indice !== null ? `/${indice}` : '';
+      const requestUrl = `measurements${indicePath}`;
       const requestOptions = {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -133,7 +134,8 @@ export default class RewApi {
 
   async fetchSafe(requestUrl, indice = null, parameters = null) {
     try {
-      const url = `measurements${indice ? `/${indice}` : ''}/${requestUrl}`;
+      const indicePath = indice !== null ? `/${indice}` : '';
+      const url = `measurements${indicePath}/${requestUrl}`;
       const options = {
         method: parameters ? 'POST' : 'GET',
         headers: { 'Content-Type': 'application/json' },
@@ -212,7 +214,7 @@ export default class RewApi {
     }
   }
 
-  async postSafe(requestUrl, parameters, expectedMessage = null, retries = 0) {
+  async postSafe(requestUrl, parameters, retries = 0) {
     try {
       const fetchOptions = {
         method: 'POST',
@@ -360,7 +362,6 @@ export default class RewApi {
         ) {
           throw new Error(`API does not give a "Complete" status`);
         }
-        //console.debug(`Process ${expectedProcess.processName} completed`);
       }
 
       let processExpectedResponse;
