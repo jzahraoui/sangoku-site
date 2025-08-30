@@ -163,14 +163,13 @@ export default class OCAFileGenerator {
       if (
         !item ||
         typeof item !== 'object' ||
-        !Object.prototype.hasOwnProperty.call(item, 'distanceInMeters')
+        !Object.hasOwn(item, 'distanceInMeters')
       ) {
         throw new Error('rensponses must contains extended values');
       }
 
       let itemFilter;
       try {
-        //const itemMinimumPhase =  await item.createMinimumPhaseCopy();
         itemFilter = await item.generateFilterMeasurement();
         let filterCaracteristics;
         if (item.isSub()) {
