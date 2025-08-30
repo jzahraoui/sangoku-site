@@ -312,7 +312,7 @@ class BusinessTools {
    * @param {Array} subResponses - Array of subwoofer response objects
    * @returns {string} A message describing the alignment results
    */
-  async produceAligned(PredictedLfe, cuttOffFrequency = 120, speakerItem, subResponses) {
+  async produceAligned(PredictedLfe, cuttOffFrequency, speakerItem, subResponses) {
     this.validateInputs(PredictedLfe, speakerItem, cuttOffFrequency);
 
     const mustBeDeleted = [];
@@ -345,8 +345,10 @@ class BusinessTools {
     if (!speakerItem) throw new Error(`Please select a speaker item`);
     if (!PredictedLfe) throw new Error(`Cannot find predicted LFE`);
     if (cuttOffFrequency === 0) {
-      cuttOffFrequency = 120;
-      console.debug('all speakers are full range, no cuttoff frequency');
+      console.debug('Speaker are full range, no cuttoff frequency');
+    }
+    if (cuttOffFrequency < 20 || cuttOffFrequency > 250) {
+      throw new Error('CuttOffFrequency must be between 20Hz and 250Hz');
     }
     if (!PredictedLfe.haveImpulseResponse) {
       throw new Error('Invalid PredictedLfe object or missing cumulativeIRShiftSeconds');
