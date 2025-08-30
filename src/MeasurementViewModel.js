@@ -505,13 +505,11 @@ class MeasurementViewModel {
 
           if (self.isPolling() && self.inhibitGraphUpdates) {
             await self.apiService.updateAPI('inhibit-graph-updates', false);
-            // await self.apiService.updateAPI('blocking', false);
           }
         } else if (newValue === true) {
           self.error('');
           if (self.isPolling() && self.inhibitGraphUpdates) {
             await self.apiService.updateAPI('inhibit-graph-updates', true);
-            // await self.apiService.updateAPI('blocking', true);
           }
         }
       } catch (error) {
@@ -558,15 +556,9 @@ class MeasurementViewModel {
     self.buttoncheckREWButton = async function () {
       if (self.isProcessing()) return;
       try {
-        //self.isProcessing(true);
-        //self.status("Pulling...");
-        //await self.loadData();
         self.toggleBackgroundPolling();
-        //self.status(`${self.rewVersion}: ${self.measurements().length} measurements founds`);
       } catch (error) {
         self.handleError(`Pulling failed: ${error.message}`, error);
-      } finally {
-        //self.isProcessing(false);
       }
     };
 
@@ -913,7 +905,6 @@ class MeasurementViewModel {
         if (!speakerItem) {
           throw new Error(`Speaker not found`);
         }
-        // TODO: check if speaker filter is created
 
         const result = await self.businessTools.produceAligned(
           selectedLfe,
@@ -1226,7 +1217,6 @@ class MeasurementViewModel {
         self.isProcessing(true);
         self.status('Exports Subs...');
 
-        const frequencyResponses = [];
         const jszip = new JSZip();
         const zipFilename = `MSO-${self.jsonAvrData().model}.zip`;
         const minFreq = 5; // minimum frequency in Hz
@@ -1253,7 +1243,7 @@ class MeasurementViewModel {
               throw new Error(`no file content for ${localFilename}`);
             }
 
-            frequencyResponses.push(jszip.file(localFilename, filecontent));
+            jszip.file(localFilename, filecontent);
           }
         }
 
@@ -2129,7 +2119,6 @@ class MeasurementViewModel {
     const mergedMeasurements = Object.entries(data).map(([key, item]) => {
       const existingMeasurement = currentMeasurements.find(m => m.uuid === item.uuid);
       if (existingMeasurement) {
-        //console.debug(`Update existing measurement: ${key}: ${item.title}`);
         return this.updateObservableObject(existingMeasurement, item);
       }
       console.debug(`Create new measurement: ${key}: ${item.title}`);
@@ -2389,8 +2378,6 @@ class MeasurementViewModel {
       await this.apiService.postSafe(`alignment-tool/max-positive-delay`, maxSearchRange);
       await this.apiService.postSafe('alignment-tool/uuid-a', channelA.uuid);
       await this.apiService.postSafe('alignment-tool/uuid-b', channelB.uuid);
-      // await this.apiService.postSafe(`alignment-tool/mode`, "Phase");
-      // const AlignResults = await postAlign('Align phase', frequency);
       await this.apiService.postSafe(`alignment-tool/mode`, 'Impulse');
       const AlignResults = await this.apiService.postAlign('Align IRs', frequency);
 
@@ -2496,13 +2483,11 @@ class MeasurementViewModel {
         throw new Error('No results found');
       }
 
-      const isBInverted = optimizedResults.polarity === -1 ? true : false;
+      const isBInverted = optimizedResults.polarity === -1;
       const shiftDelay = -optimizedResults.delay;
 
       if (createSum) {
         const bestSumFullRange = optimizer.getFinalSubSum();
-        // await this.sendToREW(optimizerResults.bestSum, sumTitle + 'New');
-        // await this.sendToREW(optimizerResults.optimizedSubs[0], sumTitle + 'New');
         await this.sendToREW(bestSumFullRange, sumTitle + 'N');
       }
 
