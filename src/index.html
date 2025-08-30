@@ -61,10 +61,7 @@
 
           <div class="control-group">
             <h2>
-              <span data-i18n="import_avr"> </span>
-              <a data-description="odd_manual.html" href="#" class="code-link"
-                >download</a
-              >
+              <span data-i18n="import_avr">Import AVR</span>
             </h2>
             <div
               class="dropzone"
@@ -92,7 +89,7 @@
               <!-- File Content Editor -->
               <!-- ko if: jsonAvrData -->
               <div class="avr-config-section">
-                <h3 data-i18n="file_details"></h3>
+                <h3 data-i18n="file_details">File Details</h3>
 
                 <div class="avr-details">
                   <div class="avr-detail-row">
@@ -161,7 +158,7 @@
                 </div>
 
                 <!-- Channels Editor -->
-                <h3 data-i18n="detected_channels"></h3>
+                <h3 data-i18n="detected_channels">Detected Channels</h3>
                 <table style="width: 150px" class="measurements-table">
                   <thead>
                     <tr>
@@ -230,7 +227,7 @@
 
           <!-- Speakers Controls -->
           <div class="control-group">
-            <h2 data-i18n="speakers_tools"></h2>
+            <h2 data-i18n="speakers_tools">Speaker Tools</h2>
 
             <div>
               <h3>Smoothing/Windowing:</h3>
@@ -247,7 +244,7 @@
               ></select>
               <select
                 class="combo-box"
-                style="width: 120px"
+                style="width: 150px"
                 data-bind="
                 options: irWindowsChoices,
                 optionsText: 'text',
@@ -261,10 +258,11 @@
             <h3>Filter settings:</h3>
             <div style="display: flex; flex-direction: column">
               <div class="number-input">
-                <label style="width: 150px; text-align: left"
+                <label for="individualMaxBoost" style="width: 150px; text-align: left"
                   >Individual max boost:</label
                 >
                 <input
+                  id="individualMaxBoost"
                   type="number"
                   data-bind="
                       value: individualMaxBoostValue,
@@ -281,8 +279,11 @@
                 />
               </div>
               <div class="number-input">
-                <label style="width: 150px; text-align: left">Overall max boost:</label>
+                <label for="overallMaxBoost" style="width: 150px; text-align: left"
+                  >Overall max boost:</label
+                >
                 <input
+                  id="overallMaxBoost"
                   type="number"
                   data-bind="
                       value: overallBoostValue,
@@ -300,7 +301,9 @@
               </div>
               <!-- double range slider to select lowerFrequencyBound and upperFrequencyBound -->
               <div>
-                <label style="width: 150px; text-align: left">Frequency Range:</label>
+                <label style="width: 150px; text-align: left" for="min"
+                  >Frequency Range:</label
+                >
                 <div>
                   <div class="dual-range-input">
                     <input
@@ -348,7 +351,7 @@
               </div>
             </div>
 
-            <h3 data-i18n="averaging_positions"></h3>
+            <h3 data-i18n="averaging_positions">Averaging between all positions</h3>
             <p class="warning-text" data-i18n="warning_text"></p>
 
             <div class="radio-group">
@@ -399,7 +402,7 @@
                 data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"
               ></span>
             </button>
-            <h3 data-i18n="alignment_inside"></h3>
+            <h3 data-i18n="alignment_inside">Alignment inside the selected position</h3>
             <p data-i18n="alignment_note"></p>
             <button
               class="button"
@@ -426,9 +429,9 @@
           </div>
           <!-- MSO Config Import Section -->
           <div class="control-group">
-            <h2 data-i18n="sub_tools"></h2>
+            <h2 data-i18n="sub_tools">SubWoofers Tools</h2>
 
-            <h3 data-i18n="revert_avr_filter"></h3>
+            <h3 data-i18n="revert_avr_filter">(Optional) Revert AVR low pass filter:</h3>
             <p data-i18n="revert_avr_info"></p>
 
             <label class="checkbox-container">
@@ -467,26 +470,26 @@
 
             <div style="display: flex; flex-direction: column">
               <div class="number-input">
-                <label style="width: 150px; text-align: left">Additional gain:</label>
+                <label for="additionalGain" style="width: 150px; text-align: left"
+                  >Additional gain:</label
+                >
                 <input
+                  id="additionalGain"
                   type="number"
-                  data-bind="
-                      value: additionalBassGainValue,
-                      valueUpdate: 'afterkeydown',
-                      attr: {
-                          min: minadditionalBassGainValue,
-                          max: maxadditionalBassGainValue,
-                          step: 1
-                      }"
                   required
                   title="Enter a number between -12 and 12"
+                  data-bind="
+                  value: additionalBassGainValue, 
+                  valueUpdate: 'afterkeydown', 
+                  attr: { min: minadditionalBassGainValue, max: maxadditionalBassGainValue, step: 1 }"
                 />
               </div>
               <div class="number-input">
-                <label style="width: 150px; text-align: left"
+                <label for="individualMaxBoostSub" style="width: 150px; text-align: left"
                   >Individual max boost:</label
                 >
                 <input
+                  id="individualMaxBoostSub"
                   type="number"
                   data-bind="
                       value: maxBoostIndividualValue,
@@ -501,8 +504,11 @@
                 />
               </div>
               <div class="number-input">
-                <label style="width: 150px; text-align: left">Overall max boost:</label>
+                <label for="overallMaxBoostSub" style="width: 150px; text-align: left"
+                  >Overall max boost:</label
+                >
                 <input
+                  id="overallMaxBoostSub"
                   type="number"
                   data-bind="
                       value: maxBoostOverallValue,
@@ -643,31 +649,39 @@
             <h2 class="section-title">Finalization</h2>
 
             <div class="settings-grid">
-              <div class="setting-row">
-                <label data-i18n="lfe_crossover" class="setting-label"></label>
-                <select
-                  class="combo-box"
-                  data-bind="
-                  options: LfeFrequencies,
-                  optionsText: 'text',
-                  optionsValue: 'value',
-                  event: { change: $root.saveMeasurements },
-                  value: lpfForLFE"
-                ></select>
-              </div>
+              <label
+                for="lfeCrossoverSelect"
+                data-i18n="lfe_crossover"
+                class="setting-label"
+                >LFE Crossover</label
+              >
+              <select
+                id="lfeCrossoverSelect"
+                class="combo-box"
+                data-bind="
+                options: LfeFrequencies, 
+                optionsText: 'text', 
+                optionsValue: 'value', 
+                event: { change: $root.saveMeasurements }, 
+                value: lpfForLFE"
+              ></select>
 
-              <div class="setting-row">
-                <label data-i18n="subwoofer_output_label" class="setting-label"></label>
-                <select
-                  class="combo-box"
-                  data-bind="
+              <label
+                for="subwooferOutputSelect"
+                data-i18n="subwoofer_output_label"
+                class="setting-label"
+                >Subwoofer Output</label
+              >
+              <select
+                id="subwooferOutputSelect"
+                class="combo-box"
+                data-bind="
                   options: subwooferOutputChoice,
                   optionsText: 'text',
                   optionsValue: 'value',
                   event: { change: $root.saveMeasurements },
                   value: subwooferOutput"
-                ></select>
-              </div>
+              ></select>
 
               <div class="checkbox-group">
                 <label class="checkbox-container">
@@ -781,7 +795,11 @@
                     <div class="distance-info">
                       <div>
                         Distance
-                        <select class="combo-box" data-bind="value: distanceUnit">
+                        <select
+                          id="distanceUnitSelect"
+                          class="combo-box"
+                          data-bind="value: distanceUnit"
+                        >
                           <option value="M">Meters</option>
                           <option value="ms">Milliseconds</option>
                           <option value="ft">Feet</option>
@@ -803,7 +821,7 @@
                   <th data-i18n="trim_db" class="column-header">Trim (dB)</th>
                   <th class="crossover-column">
                     <select
-                      id="crossoverSelect"
+                      id="globalCrossoverSelect"
                       class="combo-box crossover-select"
                       data-bind="
                     options: alingFrequencies,
@@ -847,14 +865,12 @@
                 <tr>
                   <td>
                     <label class="checkbox-container">
-                      <input
-                        type="checkbox"
-                        disabled
-                        data-bind="
-                  checked: isSelected"
-                      />
+                      <input type="checkbox" disabled data-bind="checked: isSelected" />
                       <span class="checkmark"></span>
-                      <span data-bind="text: displayPositionText()"></span>
+                      <span
+                        class="checkbox-label"
+                        data-bind="text: displayPositionText()"
+                      ></span>
                     </label>
                   </td>
                   <td
