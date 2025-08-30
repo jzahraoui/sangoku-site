@@ -458,7 +458,7 @@ const CHANNEL_TYPES = {
       value => value?.code === code && typeof value === 'object'
     );
 
-    if (!matchingResults.length === 0) {
+    if (matchingResults.length === 0) {
       // return default SWMode channel if code is not found
       return this.EnChannelType_SWMode;
     }
