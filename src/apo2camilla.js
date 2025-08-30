@@ -73,25 +73,19 @@ class FilterConverter {
         // if the invert factor is related to the current channel, then is affected
         if (currentChannel && currentChannel.apoChannel === channel) {
           currentChannel.invertFactor = invertFactor;
-        } else {
-          if (filters.some(filter => filter.apoChannel === channel)) {
-            filters.find(filter => filter.apoChannel === channel).invertFactor =
-              invertFactor;
-          } else {
-            const apoChannel = channel;
-            const msoChannel = channelMap[apoChannel];
-            if (msoChannel) {
-              currentChannel = {
-                apoChannel: apoChannel,
-                Channel: msoChannel,
-                invertFactor: invertFactor,
-                gainDb: 0,
-                delayMs: 0,
-                filters: [],
-              };
-              filters.push(currentChannel);
-            }
-          }
+        } else if (filters.some(filter => filter.apoChannel === channel)) {
+          filters.find(filter => filter.apoChannel === channel).invertFactor =
+            invertFactor;
+        } else if (channelMap[channel]) {
+          currentChannel = {
+            apoChannel: channel,
+            Channel: channelMap[channel],
+            invertFactor: invertFactor,
+            gainDb: 0,
+            delayMs: 0,
+            filters: [],
+          };
+          filters.push(currentChannel);
         }
         continue;
       }
@@ -144,7 +138,6 @@ class FilterConverter {
       if (trimmedLine.toLowerCase().startsWith('preamp:')) {
         const gain = parseFloat(trimmedLine.split(' ')[1]);
         currentChannel.gainDb = gain;
-        continue;
       }
     }
     return filters;
