@@ -429,15 +429,15 @@ const CHANNEL_TYPES = {
 
   // Helper methods
   getByMeasurementOrder(order) {
-    return Object.entries(this).find(
-      ([key, value]) => value.measurementOrder === order && typeof value === 'object'
-    )?.[1];
+    return Object.values(this).find(
+      value => value.measurementOrder === order && typeof value === 'object'
+    );
   },
 
   getByChannelIndex(index) {
-    return Object.entries(this).find(
-      ([key, value]) => value.channelIndex === index && typeof value === 'object'
-    )?.[1];
+    return Object.values(this).find(
+      value => value.channelIndex === index && typeof value === 'object'
+    );
   },
 
   getByCode(code) {
