@@ -42,6 +42,40 @@ class MqxTools {
     return [...new Set(positions)];
   }
 
+  processPositions(avrChannel, channelGuid, channelName, positionList, distancePoisitionGuid) {
+    for (const position of positionList) {
+      const positionNumber = positionList.indexOf(position);
+      const positionName = this.fileContent.PositionNames[position];
+      let identifier = `${channelName}_P${positionNumber}`;
+      if (positionName) {
+        identifier = `${identifier}_(${positionName})`;
+      }
+      const measurement = this.fileContent._measurements.find(
+        m => m.PositionGuid === position && m.ChannelGuid === channelGuid
+      );
+
+      if (!measurement?.Data) {
+        console.warn(`No data found for ${identifier}`);
+        continue;
+      }
+
+      if (position === distancePoisitionGuid) {
+        if (!measurement?.AvrDistanceMeters) {
+          console.warn(`No distance found for ${identifier}`);
+        } else {
+          avrChannel.channelReport.distance = measurement.AvrDistanceMeters;
+        }
+      }
+
+      const littleEndianData = measurement.Data;
+      const decodedFloat32Array = MeasurementItem.decodeRewBase64(
+        littleEndianData,
+        true
+      );
+      avrChannel.responseData[positionNumber] = decodedFloat32Array;
+    }
+  }
+
   async parse() {
     const distancePoisitionGuid = this.getDistancePoisitionGuid();
     const positionList = this.getPositionList();
@@ -95,38 +129,7 @@ class MqxTools {
 
       avrChannel.responseData = {};
 
-      for (const position of positionList) {
-        const positionNumber = positionList.indexOf(position);
-        const positionName = this.fileContent.PositionNames[position];
-        let identifier = `${channelName}_P${positionNumber}`;
-        if (positionName) {
-          identifier = `${identifier}_(${positionName})`;
-        }
-        const measurement = this.fileContent._measurements.find(
-          m => m.PositionGuid === position && m.ChannelGuid === channelGuid
-        );
-
-        if (!measurement?.Data) {
-          console.warn(`No data found for ${identifier}`);
-          continue;
-        }
-
-        if (position === distancePoisitionGuid) {
-          if (!measurement?.AvrDistanceMeters) {
-            console.warn(`No distance found for ${identifier}`);
-          } else {
-            avrChannel.channelReport.distance = measurement.AvrDistanceMeters;
-          }
-        }
-
-        // Convert the little endian data to big endian
-        const littleEndianData = measurement.Data;
-        const decodedFloat32Array = MeasurementItem.decodeRewBase64(
-          littleEndianData,
-          true
-        );
-        avrChannel.responseData[positionNumber] = decodedFloat32Array;
-      }
+      this.processPositions(avrChannel, channelGuid, channelName, positionList, distancePoisitionGuid);
     }
   }
 }
