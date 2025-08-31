@@ -993,7 +993,7 @@ class MeasurementItem {
     const sortedStringify = obj =>
       JSON.stringify(
         Object.keys(obj)
-          .sort()
+          .sort((a, b) => a.localeCompare(b))
           .reduce((sorted, key) => {
             sorted[key] = obj[key];
             return sorted;
