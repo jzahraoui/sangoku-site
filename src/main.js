@@ -151,14 +151,14 @@ class RewController {
 
       new DualRangeInput($min, $max, 2);
 
-      //window.addEventListener('beforeunload', () => viewModel.saveMeasurements());
+      window.addEventListener('beforeunload', () => window.viewModel.saveMeasurements());
 
       // Handle visibility change
-      // document.addEventListener('visibilitychange', () => {
-      //   if (document.visibilityState === 'hidden') {
-      //     viewModel.saveMeasurements();
-      //   }
-      // });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+          window.viewModel.saveMeasurements();
+        }
+      });
 
       const appContent = document.getElementById('appContent');
       const documentationContent = document.getElementById('documentationContent');
