@@ -244,7 +244,7 @@ export default class OCAFileGenerator {
 
       try {
         trimmedFilter = await filterItem.genericCommand('Trim IR to windows');
-        filterImpulseResponse = await trimmedFilter.getImpulseResponse(freq);
+        filterImpulseResponse = await trimmedFilter.getImpulseResponse(freq, 'percent', true, true);
 
         filter = this.transformIR(filterImpulseResponse, sampleCount, invert);
       } finally {
