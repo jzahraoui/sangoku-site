@@ -294,8 +294,12 @@ class MultiSubOptimizer {
 
   findOptimalParameters(preparedSubs) {
     // Early validation
-    if (!preparedSubs?.length || preparedSubs.length < 2) {
-      return [];
+    if (!preparedSubs?.length) {
+      throw new Error('No subwoofer measurements provided for optimization');
+    }
+
+    if (preparedSubs?.length < 2) {
+      throw new Error('At least 2 subwoofers are required for optimization');
     }
 
     // Initialize reference sub
