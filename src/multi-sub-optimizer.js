@@ -424,7 +424,17 @@ class MultiSubOptimizer {
   }
 
   runGeneticLoop(subToOptimize, previousValidSum, theo, population, options) {
-    const { generations, populationSize, eliteCount, tournamentSize, mutationRate, mutationAmount, maxNoImprovementGenerations, bestWithAllPass, bestWithoutAllPass } = options;
+    const {
+      generations,
+      populationSize,
+      eliteCount,
+      tournamentSize,
+      mutationRate,
+      mutationAmount,
+      maxNoImprovementGenerations,
+      bestWithAllPass,
+      bestWithoutAllPass,
+    } = options;
     let generationsWithoutImprovement = 0;
     let previousBestScore = 0;
     let bestInRun = null;
@@ -551,7 +561,17 @@ class MultiSubOptimizer {
           previousValidSum,
           theo,
           population,
-          { generations, populationSize, eliteCount, tournamentSize, mutationRate, mutationAmount, maxNoImprovementGenerations, bestWithAllPass, bestWithoutAllPass }
+          {
+            generations,
+            populationSize,
+            eliteCount,
+            tournamentSize,
+            mutationRate,
+            mutationAmount,
+            maxNoImprovementGenerations,
+            bestWithAllPass,
+            bestWithoutAllPass,
+          }
         );
 
         // Track the best overall solution across runs
@@ -839,11 +859,8 @@ class MultiSubOptimizer {
    */
   dipPenaltyScore(response) {
     if (
-      !response ||
-      !response.freqs ||
-      !response.magnitude ||
-      response.freqs.length !== response.magnitude.length ||
-      response.freqs.length === 0
+      response?.freqs?.length !== response?.magnitude?.length ||
+      response?.freqs?.length === 0
     ) {
       return 0; // Return 0 penalty for invalid input instead of -Infinity
     }
