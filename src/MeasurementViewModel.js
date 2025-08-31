@@ -1012,7 +1012,7 @@ class MeasurementViewModel {
           );
         }
         const avrData = self.jsonAvrData();
-        if (!avrData || !avrData.targetModelName) {
+        if (!avrData?.targetModelName) {
           throw new Error(`Please load avr file first`);
         }
         const OCAFile = new OCAFileGenerator(avrData);
@@ -1066,7 +1066,7 @@ class MeasurementViewModel {
         self.status('text generation...');
 
         const avrData = self.jsonAvrData();
-        if (!avrData || !avrData.targetModelName) {
+        if (!avrData?.targetModelName) {
           throw new Error(`Please load avr file first`);
         }
         self.targetCurve = await self.apiService.checkTargetCurve();

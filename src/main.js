@@ -557,7 +557,7 @@ class RewController {
 
           // Populate author filter
           allCommits.forEach(commit => {
-            if (commit.commit.author && commit.commit.author.name) {
+            if (commit.commit?.author?.name) {
               authors.add(commit.commit.author.name);
             }
           });
@@ -640,7 +640,7 @@ fileInputMso.addEventListener('change', e => {
 });
 
 function handleFiles(files) {
-  if (!files || !files.length) {
+  if (!files?.length) {
     results.innerHTML =
       '<div class="error">No files selected or invalid file input.</div>';
     return;

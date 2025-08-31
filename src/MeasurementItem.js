@@ -96,7 +96,7 @@ class MeasurementItem {
       const groupedMeasurements = self.parentViewModel.groupedMeasurements();
       const channelName = self.channelName();
 
-      if (!groupedMeasurements || !groupedMeasurements[channelName]) {
+      if (!groupedMeasurements?.[channelName]) {
         return 0;
       }
 
