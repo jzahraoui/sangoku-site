@@ -551,27 +551,12 @@ const CHANNEL_TYPES = {
   },
 
   getAllDistinctCodes() {
-    // Get all channel values
-    const channels = Object.values(CHANNEL_TYPES);
-
-    // Filter valid channels
-    const validChannels = channels.filter(
-      channel => channel && typeof channel === 'object' && channel.code
-    );
-
-    // Sort by measurement order
-    const sortedChannels = validChannels.sort(
-      (a, b) => a.measurementOrder - b.measurementOrder
-    );
-
-    // keep only codes
-    const validCodes = sortedChannels.map(channel => channel.code);
-
-    // Remove duplicates
-    const uniqueCodes = [...new Set(validCodes)];
-
-    // Return codes in sorted order
-    return uniqueCodes;
+    return [...new Set(
+      Object.values(CHANNEL_TYPES)
+        .filter(channel => channel && typeof channel === 'object' && channel.code)
+        .sort((a, b) => a.measurementOrder - b.measurementOrder)
+        .map(channel => channel.code)
+    )];
   },
 
   getMeasurementOrder(channelType) {
