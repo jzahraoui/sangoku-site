@@ -38,7 +38,7 @@ class AdyTools {
             ? await AdyTools.applyCal(measurementData, inv_micCal, this.samplingRate)
             : measurementData;
 
-          const filecontent = await this.createIRFileContent(
+          const filecontent = this.createIRFileContent(
             processedData,
             measurementName
           );
