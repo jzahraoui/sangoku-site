@@ -70,7 +70,7 @@ class AdyTools {
   // TODO: replace by Polar and Complex class methods
   static vectorDivision(impulseA, impulseB) {
     // Basic input validation
-    if (!impulseA ||!impulseA?.length || !impulseB?.length) {
+    if (!impulseA?.length || !impulseB?.length) {
       return [];
     }
 
