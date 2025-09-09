@@ -595,7 +595,11 @@ class MeasurementItem {
 
   // Find cutoff points by comparing measurement to target curve
   static findCutoff(isLowFreq, targetCurveData, measurementData, threshold = -3) {
-    const freqLimit = isLowFreq ? 500 : 100;
+    if (!targetCurveData?.freqs?.length || !measurementData?.freqs?.length) {
+      return isLowFreq ? -1 : +Infinity;
+    }
+
+    const freqLimit = isLowFreq ? 500 : 50;
     const indices = [...Array(targetCurveData.freqs.length).keys()];
 
     if (!isLowFreq) indices.reverse();
@@ -604,16 +608,18 @@ class MeasurementItem {
       const freq = targetCurveData.freqs[i];
       if ((isLowFreq && freq > freqLimit) || (!isLowFreq && freq < freqLimit)) continue;
 
-      const measurementIdx = measurementData.freqs.findIndex(
-        measureFreq => Math.abs(measureFreq - freq) / freq < 0.1
-      );
+      const measurementIdx = measurementData.freqs.reduce((bestIdx, measureFreq, idx) => {
+        const diff = Math.abs(measureFreq - freq);
+        return diff < Math.abs(measurementData.freqs[bestIdx] - freq) ? idx : bestIdx;
+      }, 0);
 
       if (measurementIdx === -1) continue;
 
-      if (
-        measurementData.magnitude[measurementIdx] - targetCurveData.magnitude[i] >
-        threshold
-      ) {
+      const measurementDataAtFreq = measurementData.magnitude[measurementIdx];
+      const targetCurveDataAtFreq = targetCurveData.magnitude[i];
+      const magnitudeDiff = Math.round(measurementDataAtFreq - targetCurveDataAtFreq);
+
+      if (magnitudeDiff >= threshold) {
         return Math.round(freq);
       }
     }
@@ -1422,7 +1428,7 @@ class MeasurementItem {
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
     await this.resetTargetSettings();
-    await this.detectFallOff(-5);
+    await this.detectFallOff(-6);
 
     const customStartFrequency = Math.max(
       this.parentViewModel.lowerFrequencyBound(),
