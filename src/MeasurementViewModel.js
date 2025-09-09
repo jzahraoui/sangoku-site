@@ -1946,15 +1946,14 @@ class MeasurementViewModel {
           )
         : frequencies[highIndex];
 
+    lowCutoff = Math.round(lowCutoff);
+    highCutoff = Math.floor(highCutoff);
+
     // find the center frequency by octaves bettween lowCutoff and highCutoff
-    const centerFrequency = this.roundToPrecision(Math.sqrt(lowCutoff * highCutoff), 1);
+    const centerFrequency = Math.round(Math.sqrt(lowCutoff * highCutoff));
 
     // count the number of octaves between low and high cutoff from center frequency and round to lowest integer
-    const octaves = Math.floor(Math.log2(highCutoff / centerFrequency) * 2);
-
-    // Round to nearest integer
-    highCutoff = Math.round(highCutoff);
-    lowCutoff = Math.round(lowCutoff);
+    const octaves = Math.round(Math.log2(highCutoff / centerFrequency) * 2);
 
     return {
       lowCutoff,
