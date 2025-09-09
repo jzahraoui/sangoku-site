@@ -2105,6 +2105,13 @@ class MeasurementViewModel {
 
       const data = await this.apiService.fetchREW();
 
+      const measurementsCount = Object.keys(data).length;
+      if (measurementsCount > 0 && !this.jsonAvrData()?.avr) {
+        throw new Error(
+          `${measurementsCount} Measurements detected in REW but no AVR information. please remove all measurements or load AVR information`
+        );
+      }
+
       this.mergeMeasurements(data);
     } catch (error) {
       throw new Error(`Failed to load data: ${error.message}`, {
