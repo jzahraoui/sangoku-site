@@ -1193,8 +1193,8 @@ class MeasurementItem {
     const filter = await this.getAssociatedFilterItem();
 
     const predictedResult = await this.parentViewModel.doArithmeticOperation(
-      this.uuid,
-      filter.uuid,
+      this,
+      filter,
       { function: 'A * B' }
     );
 
@@ -1354,8 +1354,8 @@ class MeasurementItem {
       await excessPhase.resetSmoothing();
 
       const phaseCorrection = await this.parentViewModel.doArithmeticOperation(
-        excessPhase.uuid,
-        this.uuid,
+        excessPhase,
+        this,
         {
           function: 'Invert A phase',
           lowerLimit: startFrequency,
@@ -1365,8 +1365,8 @@ class MeasurementItem {
       toBeDeleted.push(phaseCorrection.uuid);
 
       const finalFIR = await this.parentViewModel.doArithmeticOperation(
-        phaseCorrection.uuid,
-        amplitudeCorrection.uuid,
+        phaseCorrection,
+        amplitudeCorrection,
         { function: 'A * B' }
       );
 

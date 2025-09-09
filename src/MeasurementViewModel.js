@@ -2275,8 +2275,8 @@ class MeasurementViewModel {
   }
 
   // add measurement
-  async doArithmeticOperation(itemUuidA, itemUuidB, operationObject) {
-    if (!itemUuidA || !itemUuidB) {
+  async doArithmeticOperation(itemA, itemB, operationObject) {
+    if (!itemA || !itemB) {
       throw new Error('Arithmetic Operation: Invalid measurement item');
     }
 
@@ -2301,11 +2301,25 @@ class MeasurementViewModel {
       throw new Error(`Command ${operationObject.function} is not allowed`);
     }
 
+    // save current IR shift
+    const currentCumulativeIRShiftA = itemA.cumulativeIRShiftSeconds();
+    const currentCumulativeIRShiftB = itemB.cumulativeIRShiftSeconds();
+    const maxCumulativeIRShift = Math.max(
+      currentCumulativeIRShiftA,
+      currentCumulativeIRShiftB
+    );
+    await itemA.addIROffsetSeconds(-maxCumulativeIRShift);
+    await itemB.addIROffsetSeconds(-maxCumulativeIRShift);
+
     const operationResult = await this.processCommands(
       'Arithmetic',
-      [itemUuidA, itemUuidB],
+      [itemA.uuid, itemB.uuid],
       operationObject
     );
+
+    await itemA.addIROffsetSeconds(maxCumulativeIRShift);
+    await itemB.addIROffsetSeconds(maxCumulativeIRShift);
+    await operationResult.addIROffsetSeconds(maxCumulativeIRShift);
 
     // Save to persistent storage
     return operationResult;

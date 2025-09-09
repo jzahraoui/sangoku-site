@@ -52,8 +52,8 @@ class BusinessTools {
 
         // Create new measurement with canceled LFE filter effect
         const division = await this.viewModel.doArithmeticOperation(
-          subResponse.uuid,
-          lowPassFilter.uuid,
+          subResponse,
+          lowPassFilter,
           { function: 'A / B', upperLimit: '500' }
         );
 
@@ -552,8 +552,8 @@ class BusinessTools {
       await this.viewModel.removeMeasurement(predictedChannel);
 
       finalPredcition = await this.viewModel.doArithmeticOperation(
-        PredictedLfeFiltered.uuid,
-        predictedSpeakerFiltered.uuid,
+        PredictedLfeFiltered,
+        predictedSpeakerFiltered,
         { function: 'A + B' }
       );
       // cleanup of predicted measurements
@@ -611,8 +611,8 @@ class BusinessTools {
 
       for (let i = 1; i < generatedPredicted.length; i++) {
         const newAlignedSum = await this.viewModel.doArithmeticOperation(
-          lastAlignedSum.uuid,
-          generatedPredicted[i].uuid,
+          lastAlignedSum,
+          generatedPredicted[i],
           { function: 'A + B' }
         );
         intermediateSumUuids.push(lastAlignedSum.uuid);
