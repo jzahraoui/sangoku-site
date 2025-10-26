@@ -37,10 +37,14 @@ jobs:
         run: |
           S3_BUCKET="s3-apo-to-camilla-cloudfront-ec1"
 
-          # do not use delete option to avoid ressources deletion
           aws s3 sync \
             --no-progress \
             --exact-timestamp \
+            --exclude "ressources/*" \
+            --exclude "img/*" \
+            --exclude "css/*" \
+            --cache-control "max-age=3600" \
+            --delete \
             dist/ s3://${S3_BUCKET}/
 
       - name: Invalidate CloudFront
