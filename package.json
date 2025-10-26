@@ -39,7 +39,7 @@
     "mathjs": "^12.1.0"
   },
   "devDependencies": {
-    "vite": "^6.3.5"
+    "vite": "^6.3.6"
   },
   "engines": {
     "node": ">=16.0.0"
