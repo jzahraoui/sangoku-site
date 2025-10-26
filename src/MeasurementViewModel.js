@@ -214,11 +214,11 @@ class MeasurementViewModel {
     self.minOverallValue = 0;
     self.maxOverallValue = 3;
     self.loadedFileName = ko.observable('');
-    self.shiftInMeters = ko.computed(function () {
-      return !self.loadedFileName().endsWith('.avr')
-        ? 0
-        : MeasurementViewModel.DEFAULT_SHIFT_IN_METERS;
-    });
+    self.shiftInMeters = ko.computed(() =>
+      self.loadedFileName().endsWith('.avr')
+        ? MeasurementViewModel.DEFAULT_SHIFT_IN_METERS
+        : 0
+    );
     self.distanceUnit = ko.observable('M');
 
     // speaker filter options
@@ -230,18 +230,17 @@ class MeasurementViewModel {
     self.overallBoostValueMax = 6;
 
     self.validateFile = function (file) {
-      const maxSize = 70 * 1024 * 1024; // 70MB
+      const MAX_SIZE = 70 * 1024 * 1024;
+      const VALID_EXTENSIONS = ['.avr', '.ady', '.mqx'];
 
-      if (
-        !file.name.endsWith('.avr') &&
-        !file.name.endsWith('.ady') &&
-        !file.name.endsWith('.mqx')
-      ) {
-        self.handleError('Please select a .avr or .ady file');
+      const hasValidExtension = VALID_EXTENSIONS.some(ext => file.name.endsWith(ext));
+      if (!hasValidExtension) {
+        self.handleError('Please select a .avr, .ady, or .mqx file');
         return false;
       }
-      if (file.size > maxSize) {
-        self.handleError('File size exceeds 50MB limit');
+
+      if (file.size > MAX_SIZE) {
+        self.handleError('File size exceeds 70MB limit');
         return false;
       }
 
@@ -314,10 +313,8 @@ class MeasurementViewModel {
 
           // TODO: ampassign can be directionnal must be converted to standard
           if (self.isPolling()) {
-            const orderedImpulses = adyTools.impulses.sort((a, b) =>
-              a.name.localeCompare(b.name)
-            );
-            for (const processedResponse of orderedImpulses) {
+            adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
+            for (const processedResponse of adyTools.impulses) {
               const identifier = processedResponse.name;
               const response = processedResponse.data;
               const max = Math.max(...response.map(x => Math.abs(x)));
@@ -348,7 +345,9 @@ class MeasurementViewModel {
               await self.addMeasurement(measurementItem);
               if (max >= 1) {
                 console.warn(
-                  `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
+                  `${identifier} IR is above 1(${max.toFixed(
+                    2
+                  )}), please check your measurements`
                 );
               }
             }
@@ -388,14 +387,7 @@ class MeasurementViewModel {
           throw new Error('File validation failed');
         }
 
-        let fileContent = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('Error reading file'));
-
-          reader.readAsText(file);
-        });
+        let fileContent = await file.text();
 
         // if mqx file contain garbage after closing json, truncate after the closing brake corresponding to the fisrt open bracket
         if (file.name.endsWith('.mqx')) {
@@ -424,40 +416,35 @@ class MeasurementViewModel {
         throw new Error('Invalid file format: no JSON object found');
       }
 
+      const closingIndex = self.findClosingBrace(fileContent, firstOpen);
+      if (closingIndex === -1) {
+        throw new Error('Invalid JSON structure: unmatched braces');
+      }
+
+      return fileContent.slice(firstOpen, closingIndex + 1);
+    };
+
+    self.findClosingBrace = function (content, startIndex) {
       let openCount = 0;
       let inString = false;
       let escapeNext = false;
 
-      for (let i = firstOpen; i < fileContent.length; i++) {
-        const char = fileContent[i];
+      for (let i = startIndex; i < content.length; i++) {
+        const char = content[i];
 
-        // Handle string literals
         if (char === '"' && !escapeNext) {
           inString = !inString;
-          continue;
-        }
-
-        // Handle escape characters
-        if (char === '\\' && !escapeNext) {
+        } else if (char === '\\' && !escapeNext) {
           escapeNext = true;
           continue;
+        } else if (!inString) {
+          if (char === '{') openCount++;
+          else if (char === '}' && --openCount === 0) return i;
         }
         escapeNext = false;
-
-        // Only count braces when not in a string
-        if (!inString) {
-          if (char === '{') {
-            openCount++;
-          } else if (char === '}') {
-            openCount--;
-            if (openCount === 0) {
-              return fileContent.slice(firstOpen, i + 1);
-            }
-          }
-        }
       }
 
-      throw new Error('Invalid JSON structure: unmatched braces');
+      return -1;
     };
 
     // Drop handlers
@@ -536,7 +523,9 @@ class MeasurementViewModel {
             response.displayMeasurementTitle()
           );
           self.status(
-            `${self.status()} \nImporting to position: ${position}\n${subResponsesTitles.join('\r\n')}`
+            `${self.status()} \nImporting to position: ${position}\n${subResponsesTitles.join(
+              '\r\n'
+            )}`
           );
 
           await self.businessTools.importFilterInREW(REWconfigs, subResponses);
@@ -580,7 +569,10 @@ class MeasurementViewModel {
             continue;
           }
 
-          const newName = `${item.channelName()}_P${item.position().toString().padStart(2, '0')}`;
+          const newName = `${item.channelName()}_P${item
+            .position()
+            .toString()
+            .padStart(2, '0')}`;
 
           item.setTitle(newName);
         }
@@ -1038,8 +1030,11 @@ class MeasurementViewModel {
           throw new Error('No data to save');
         }
 
-        // Create timestamp
-        const timestamp = new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-');
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 16)
+          .replace('T', '-')
+          .replaceAll(':', '-');
         const model = OCAFile.model.replaceAll(' ', '-');
         const filename = `${timestamp}_${self.targetCurve}_${model}.oca`;
 
@@ -1109,7 +1104,9 @@ class MeasurementViewModel {
         textData += `--------------\n`;
         textData += `Model:                    ${avrData.targetModelName}\n`;
         textData += `MultEQ Type:              ${avrData.avr.multEQType}\n`;
-        textData += `Has Cirrus Logic DSP:     ${avrData.hasCirrusLogicDsp ? 'Yes' : 'No'}\n`;
+        textData += `Has Cirrus Logic DSP:     ${
+          avrData.hasCirrusLogicDsp ? 'Yes' : 'No'
+        }\n`;
         textData += `Speed of Sound:           ${avrData.avr.speedOfSound} m/s\n\n`;
 
         // Speaker settings section
@@ -1130,7 +1127,9 @@ class MeasurementViewModel {
         textData += `Max Boost Individual:     ${self.maxBoostIndividualValue()} dB\n`;
         textData += `Max Boost Overall:        ${self.maxBoostOverallValue()} dB\n`;
 
-        textData += `Align Frequency:          ${addHzSuffix(selectedSpeakerCrossover)}\n`;
+        textData += `Align Frequency:          ${addHzSuffix(
+          selectedSpeakerCrossover
+        )}\n`;
         textData += `Selected Speaker:         ${selectedSpeakerText}\n`;
 
         textData += `LPF for LFE:              ${self.lpfForLFE()} Hz\n`;
@@ -1139,15 +1138,21 @@ class MeasurementViewModel {
         // Dynamic settings section
         textData += `DYNAMIC SETTINGS\n`;
         textData += `----------------\n`;
-        textData += `Dynamic EQ:        ${self.enableDynamicEq() ? 'Enabled' : 'Disabled'}\n`;
+        textData += `Dynamic EQ:        ${
+          self.enableDynamicEq() ? 'Enabled' : 'Disabled'
+        }\n`;
         if (self.enableDynamicEq()) {
           textData += `  Reference Level:  ${self.dynamicEqRefLevel()} dB\n`;
         }
-        textData += `Dynamic Volume:    ${self.enableDynamicVolume() ? 'Enabled' : 'Disabled'}\n`;
+        textData += `Dynamic Volume:    ${
+          self.enableDynamicVolume() ? 'Enabled' : 'Disabled'
+        }\n`;
         if (self.enableDynamicVolume()) {
           textData += `  Volume Setting:   ${self.dynamicVolumeSetting()}\n`;
         }
-        textData += `LF Containment:    ${self.enableLowFrequencyContainment() ? 'Enabled' : 'Disabled'}\n`;
+        textData += `LF Containment:    ${
+          self.enableLowFrequencyContainment() ? 'Enabled' : 'Disabled'
+        }\n`;
         if (self.enableLowFrequencyContainment()) {
           textData += `  LFC Level:        ${self.lowFrequencyContainmentLevel()}\n`;
         }
@@ -1187,7 +1192,11 @@ class MeasurementViewModel {
           '+------------------------+---------------+----------+-------------+---------------------+----------+\n';
 
         // Create timestamp
-        const timestamp = new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-');
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 16)
+          .replace('T', '-')
+          .replaceAll(':', '-');
         const model = avrData.targetModelName.replaceAll(' ', '-');
         const filename = `${timestamp}_${self.targetCurve}_${model}.txt`;
 
@@ -1233,7 +1242,9 @@ class MeasurementViewModel {
 
             const filecontent = frequencyResponse.freqs.reduce((acc, freq, i) => {
               if (freq >= minFreq && freq <= maxFreq) {
-                const line = `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
+                const line = `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(
+                  3
+                )} ${frequencyResponse.phase[i].toFixed(4)}`;
                 return acc ? `${acc}\n${line}` : line;
               }
               return acc;
@@ -1378,10 +1389,14 @@ class MeasurementViewModel {
         };
 
         self.status(
-          `${self.status()} \nfrequency range: ${optimizerConfig.frequency.min}Hz - ${optimizerConfig.frequency.max}Hz`
+          `${self.status()} \nfrequency range: ${optimizerConfig.frequency.min}Hz - ${
+            optimizerConfig.frequency.max
+          }Hz`
         );
         self.status(
-          `${self.status()} delay range: ${optimizerConfig.delay.min * 1000}ms - ${optimizerConfig.delay.max * 1000}ms`
+          `${self.status()} delay range: ${optimizerConfig.delay.min * 1000}ms - ${
+            optimizerConfig.delay.max * 1000
+          }ms`
         );
 
         self.status(`${self.status()} \nDeleting previous settings...`);
@@ -1457,7 +1472,9 @@ class MeasurementViewModel {
             }
           } catch (error) {
             throw new Error(
-              `Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`
+              `Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${
+                error.message
+              }`
             );
           }
         }
@@ -1775,7 +1792,9 @@ class MeasurementViewModel {
         highFrequency = Math.round(detect.highCutoff);
       }
 
-      let logMessage = `\nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(1)}dB`;
+      let logMessage = `\nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(
+        1
+      )}dB`;
       logMessage += `(center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`;
 
       const alignResult = await self.processCommands('Align SPL', [measurement.uuid], {
@@ -1856,7 +1875,7 @@ class MeasurementViewModel {
 
   getMaxFromArray(array) {
     if (!Array.isArray(array)) {
-      throw new Error('Input is not an array');
+      throw new TypeError('Input is not an array');
     }
 
     let maxPeak = -Infinity;
@@ -1902,12 +1921,13 @@ class MeasurementViewModel {
     const magnitude = [];
 
     // Iterate through frequencies and keep only those within range
-    fullFrequencies.forEach((freq, index) => {
+    for (let index = 0; index < fullFrequencies.length; index++) {
+      const freq = fullFrequencies[index];
       if (freq >= low && freq <= high) {
         frequencies.push(freq);
         magnitude.push(fullMagnitude[index]);
       }
-    });
+    }
 
     // Find peak magnitude using array methods instead of loop
     const peakMagnitude = this.getMaxFromArray(
@@ -2164,7 +2184,7 @@ class MeasurementViewModel {
 
   // Helper function to handle observable properties
   updateObservableObject(target, source) {
-    Object.keys(source).forEach(key => {
+    for (const key of Object.keys(source)) {
       if (ko.isObservable(target[key])) {
         // If the property is an observable, update its value
         target[key](source[key]);
@@ -2175,7 +2195,7 @@ class MeasurementViewModel {
         // For non-observable properties, directly assign
         target[key] = source[key];
       }
-    });
+    }
     return target;
   }
 
@@ -2351,7 +2371,7 @@ class MeasurementViewModel {
       'Arithmetic',
     ];
 
-    if (allowedCommands.indexOf(commandName) === -1) {
+    if (!allowedCommands.includes(commandName)) {
       throw new Error(`Command ${commandName} is not allowed`);
     }
 
@@ -2363,19 +2383,18 @@ class MeasurementViewModel {
         0
       );
 
-      if (withoutResultCommands.indexOf(commandName) !== -1) {
+      if (withoutResultCommands.includes(commandName)) {
         return operationResult;
-      } else {
-        // TODO: REW bug ? return code 200 instead of 202 and no results in the response
-        if (!operationResult.results) {
-          throw new Error(
-            `Missing result from API response: ${JSON.stringify(operationResult)}`
-          );
-        }
-        const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
-        // Save to persistent storage
-        return await this.addMeasurementApi(operationResultUuid);
       }
+
+      if (!operationResult.results) {
+        throw new Error(
+          `Missing result from API response: ${JSON.stringify(operationResult)}`
+        );
+      }
+
+      const operationResultUuid = Object.values(operationResult.results)[0]?.UUID;
+      return await this.addMeasurementApi(operationResultUuid);
     } catch (error) {
       throw new Error(`Failed to create ${commandName} operation: ${error.message}`, {
         cause: error,
