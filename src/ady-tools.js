@@ -2,7 +2,7 @@ import * as math from 'mathjs';
 import JSZip from 'jszip';
 
 class AdyTools {
-  static SPL_OFFSET = 80.0;
+  static SPL_OFFSET = 80;
   static MIC_CALIBRATION_URL = 'ressources/mic-cal-imp.txt';
 
   constructor(fileContent) {
