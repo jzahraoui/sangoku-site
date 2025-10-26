@@ -105,23 +105,23 @@ class BusinessTools {
     }));
 
     // Add low-pass filter at index 21
-    lowPassFilterSet.push({
-      index: 21,
-      type: 'Low pass',
-      enabled: true,
-      isAuto: false,
-      frequency: freq,
-      shape: 'L-R',
-      slopedBPerOctave: 24,
-    });
-
-    // Add empty filter at index 22
-    lowPassFilterSet.push({
-      index: 22,
-      type: 'None',
-      enabled: true,
-      isAuto: false,
-    });
+    lowPassFilterSet.push(
+      {
+        index: 21,
+        type: 'Low pass',
+        enabled: true,
+        isAuto: false,
+        frequency: freq,
+        shape: 'L-R',
+        slopedBPerOctave: 24,
+      },
+      {
+        index: 22,
+        type: 'None',
+        enabled: true,
+        isAuto: false,
+      }
+    );
 
     // Apply filters and generate filter measurement
     await measurement.setFilters(lowPassFilterSet);
@@ -261,7 +261,7 @@ class BusinessTools {
       });
 
       // Return true if all criteria match (AND) or any criteria matches (OR)
-      return matchAll ? matches.every(match => match) : matches.some(match => match);
+      return matchAll ? matches.every(Boolean) : matches.some(Boolean);
     });
   }
 
@@ -418,7 +418,9 @@ class BusinessTools {
       cuttOffFrequency,
       maxForwardSearchMs,
       false,
-      `${this.RESULT_PREFIX}${predictedSpeakerFiltered.title()} X@${cuttOffFrequency}Hz_P${predictedSpeakerFiltered.position()}`,
+      `${
+        this.RESULT_PREFIX
+      }${predictedSpeakerFiltered.title()} X@${cuttOffFrequency}Hz_P${predictedSpeakerFiltered.position()}`,
       0
     );
 
@@ -439,7 +441,10 @@ class BusinessTools {
   }
 
   generateAlignmentResultMessage(shiftDistance, shiftDelay, delay) {
-    return `Subwoofer deplaced by: ${shiftDistance}m (alignment:${((delay + shiftDelay) * 1000).toFixed(2)}ms)`;
+    return `Subwoofer deplaced by: ${shiftDistance}m (alignment:${(
+      (delay + shiftDelay) *
+      1000
+    ).toFixed(2)}ms)`;
   }
 
   /**
@@ -564,7 +569,9 @@ class BusinessTools {
     }
     // set title
     const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB';
-    const finalTitle = `${this.RESULT_PREFIX}${item.title()} ${cxText}_P${item.position()}`;
+    const finalTitle = `${
+      this.RESULT_PREFIX
+    }${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
 
     await finalPredcition.applyWorkingSettings();
