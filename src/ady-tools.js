@@ -38,10 +38,7 @@ class AdyTools {
             ? await AdyTools.applyCal(measurementData, inv_micCal, this.samplingRate)
             : measurementData;
 
-          const filecontent = this.createIRFileContent(
-            processedData,
-            measurementName
-          );
+          const filecontent = this.createIRFileContent(processedData, measurementName);
           if (!filecontent) {
             throw new Error(`no file content for ${filename}`);
           }
@@ -179,10 +176,10 @@ class AdyTools {
       const floatArray = text
         .trim() // Remove leading/trailing whitespace
         .split(/\s+/) // Split on whitespace (space, tab, newline)
-        .filter(line => line) // Remove empty lines
-        .map(num => parseFloat(num)); // Convert strings to floats
+        .filter(Boolean) // Remove empty lines
+        .map(num => Number.parseFloat(num)); // Convert strings to floats
       // Validate the parsed data
-      if (floatArray.length === 0 || floatArray.some(isNaN)) {
+      if (floatArray.length === 0 || floatArray.some(Number.isNaN)) {
         throw new Error('Invalid data format received');
       }
 
@@ -205,7 +202,7 @@ class AdyTools {
         `measurement data for ${measurementName} is too long ${measurementData.length}`
       );
     }
-    if (measurementData.some(isNaN)) {
+    if (measurementData.some(Number.isNaN)) {
       throw new Error(
         `measurement data for ${measurementName} contains NaN ${measurementData}`
       );
@@ -235,11 +232,16 @@ class AdyTools {
       '* IR is not the min phase version',
       `* Dated: ${formattedDate}`,
       `* Measurement: ${measurementName}`,
-      `* Excitation: Imported Impulse Response, ${this.samplingRate.toFixed(1)} Hz sampling`,
+      `* Excitation: Imported Impulse Response, ${this.samplingRate.toFixed(
+        1
+      )} Hz sampling`,
       `${peakValue.toPrecision(18)} // Peak value before normalisation`,
       `${peakIndex} // Peak index`,
       `${measurementDataNumber.length} // Response length`,
-      `${SAMPLE_INTERVAL.toExponential(16).replace('e', 'E')} // Sample interval (seconds)`,
+      `${SAMPLE_INTERVAL.toExponential(16).replace(
+        'e',
+        'E'
+      )} // Sample interval (seconds)`,
       `${START_TIME} // Start time (seconds)`,
       `${AdyTools.SPL_OFFSET.toFixed(1)} // Data offset (dB)`,
       '* Data start',
@@ -269,7 +271,7 @@ class AdyTools {
 
   static invertIR(impulseResponse) {
     // Create a perfect impulse (Dirac delta)
-    const perfectImpulse = [...Array(impulseResponse.length).fill(0)];
+    const perfectImpulse = [...new Array(impulseResponse.length).fill(0)];
     perfectImpulse[0] = 1; // First sample is 1, rest are 0
 
     return AdyTools.vectorDivision(perfectImpulse, impulseResponse);
@@ -288,7 +290,7 @@ class AdyTools {
       const inv_micCal = AdyTools.invertIR(micCalData);
 
       // Validate the inverted data
-      if (!inv_micCal || inv_micCal.length === 0 || inv_micCal.some(isNaN)) {
+      if (!inv_micCal || inv_micCal.length === 0 || inv_micCal.some(Number.isNaN)) {
         throw new Error(
           'Failed to invert microphone calibration data: result is invalid'
         );
