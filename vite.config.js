@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 export default defineConfig({
   root: './src', // Set the root to the src directory
@@ -6,7 +7,7 @@ export default defineConfig({
     outDir: '../dist', // Output directory relative to root
     emptyOutDir: true, // Clean output dir before build
     rollupOptions: {
-      input: './src/index.html', // Entry HTML file
+      input: resolve(__dirname, 'src/index.html'), // Entry HTML file
       output: {
         manualChunks: {
           vendor: [
