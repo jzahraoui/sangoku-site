@@ -5,9 +5,9 @@
   "type": "module",
   "main": "main.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --host",
     "versionCommit": "script/release-vite.sh",
     "publish": "script/publish-vite.sh",
     "clean": "rm -rf dist && rm -rf node_modules"
