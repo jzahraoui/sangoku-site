@@ -493,6 +493,16 @@ class MultiSubOptimizer {
     return bestInRun;
   }
 
+  findBestCoarseParam(subToOptimize, previousValidSum, theo, testParamsList) {
+    let bestCoarse = null;
+    for (const param of testParamsList) {
+      subToOptimize.param = param;
+      const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
+      if (!bestCoarse || individual.score > bestCoarse.score) bestCoarse = individual;
+    }
+    return bestCoarse.param;
+  }
+
   createHybridPopulation(coarseBest, populationSize, withAllPassProbability) {
     const focusedCount = Math.floor(populationSize * 0.6);
     const randomCount = populationSize - focusedCount;
@@ -546,15 +556,12 @@ class MultiSubOptimizer {
     // Different optimization strategies
     if (method === 'genetic') {
       let bestOverall = null;
-      let bestCoarse = null;
-
-      for (const param of testParamsList) {
-        subToOptimize.param = param;
-        const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
-        if (!bestCoarse || individual.score > bestCoarse.score) bestCoarse = individual;
-      }
-
-      const coarseBest = bestCoarse.param;
+      const coarseBest = this.findBestCoarseParam(
+        subToOptimize,
+        previousValidSum,
+        theo,
+        testParamsList
+      );
 
       for (let run = 0; run < runs; run++) {
         const population = this.createHybridPopulation(
