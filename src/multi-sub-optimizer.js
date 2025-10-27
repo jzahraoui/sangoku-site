@@ -493,6 +493,19 @@ class MultiSubOptimizer {
     return bestInRun;
   }
 
+  runClassicOptimization(subToOptimize, previousValidSum, theo, testParamsList, bestWithAllPass, bestWithoutAllPass) {
+    for (const param of testParamsList) {
+      subToOptimize.param = param;
+      const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
+
+      if (individual.hasAllPass && individual.score > bestWithAllPass.score) {
+        Object.assign(bestWithAllPass, individual);
+      } else if (!individual.hasAllPass && individual.score > bestWithoutAllPass.score) {
+        Object.assign(bestWithoutAllPass, individual);
+      }
+    }
+  }
+
   findBestCoarseParam(subToOptimize, previousValidSum, theo, testParamsList) {
     let bestCoarse = null;
     for (const param of testParamsList) {
@@ -595,19 +608,14 @@ class MultiSubOptimizer {
         }
       }
     } else if (method === 'classic') {
-      for (const param of testParamsList) {
-        subToOptimize.param = param;
-        const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
-
-        if (individual.hasAllPass && individual.score > bestWithAllPass.score) {
-          bestWithAllPass = individual;
-        } else if (
-          !individual.hasAllPass &&
-          individual.score > bestWithoutAllPass.score
-        ) {
-          bestWithoutAllPass = individual;
-        }
-      }
+      this.runClassicOptimization(
+        subToOptimize,
+        previousValidSum,
+        theo,
+        testParamsList,
+        bestWithAllPass,
+        bestWithoutAllPass
+      );
     }
 
     // Compare all-pass vs non-all-pass solutions
