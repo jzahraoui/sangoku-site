@@ -256,7 +256,7 @@ class AdyTools {
     const measurementDataFloat = measurementData.map(value => {
       const num = Number(value);
       if (!Number.isFinite(num)) {
-        throw new Error('Measurement data contains invalid numbers');
+        throw new TypeError('Measurement data contains invalid numbers');
       }
       return num;
     });
