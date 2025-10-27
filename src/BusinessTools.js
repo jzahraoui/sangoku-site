@@ -325,12 +325,14 @@ class BusinessTools {
 
       const shiftDistance = PredictedLfe._computeInMeters(totalOffset).toFixed(2);
       return this.generateAlignmentResultMessage(shiftDistance, shiftDelay, delay);
-    } catch (error) {
-      throw new Error(`${error.message}`, { cause: error });
     } finally {
-      for (const measurement of mustBeDeleted) {
-        await this.viewModel.removeMeasurement(measurement);
-      }
+      await this.cleanupMeasurements(mustBeDeleted);
+    }
+  }
+
+  async cleanupMeasurements(measurements) {
+    for (const measurement of measurements) {
+      await this.viewModel.removeMeasurement(measurement);
     }
   }
 
