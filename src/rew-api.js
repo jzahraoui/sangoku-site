@@ -36,7 +36,7 @@ export default class RewApi {
           .split('/')
           .pop()
           .replace(/\.[^/.]+$/, '')
-          .replace(/\s+/g, '');
+          .replaceAll(/\s+/g, '');
         return tcName ? `${tcName}` : '';
       }
     } catch (error) {
