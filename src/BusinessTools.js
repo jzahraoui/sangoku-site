@@ -135,79 +135,72 @@ class BusinessTools {
 
   // Process grouped responses and create UUID arrays
   async processGroupedResponses(groupedResponse, avgMethod, deleteOriginal) {
-    try {
-      // Input validation
-      if (!groupedResponse || typeof groupedResponse !== 'object') {
-        throw new Error('Invalid groupedResponse input');
-      }
-      if (groupedResponse.length < 2) {
-        throw new Error('Parameter must contains at least 2 elements');
-      }
+    // Input validation
+    if (!groupedResponse || typeof groupedResponse !== 'object') {
+      throw new Error('Invalid groupedResponse input');
+    }
+    if (Object.keys(groupedResponse).length < 2) {
+      throw new Error('Parameter must contains at least 2 elements');
+    }
 
-      // Process each code group sequentially
-      for (const code of Object.keys(groupedResponse)) {
-        // Validate group exists and has items
-        if (!groupedResponse[code]?.items) {
-          console.warn(`Skipping empty group: ${code}`);
-          continue;
-        }
-
-        if (code === this.viewModel.UNKNOWN_GROUP_NAME) {
-          continue;
-        }
-
-        // exclude previous results and create array of UUIDs for the current code group
-        const usableItems = groupedResponse[code].items.filter(
-          item => !item.isAverage && !item.isPredicted
-        );
-
-        // Process the collected indices
-        if (!usableItems || usableItems.length < 2) {
-          throw new Error(`Need at least 2 measurements to make an average: ${code}`);
-        }
-
-        // remove inversion and gain for each item
-        for (const measurement of usableItems) {
-          await measurement.setInverted(false);
-        }
-
-        // Get UUIDs of usable items
-        const uuids = usableItems.map(item => item.uuid);
-
-        // Cross correlation alignment
-        console.debug(`${code}: ${uuids.length} measures cross corr align...`);
-        await this.viewModel.processCommands('Cross corr align', uuids);
-
-        // average processing
-        console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
-        const vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
-
-        // Update title
-        if (vectorAverage) {
-          console.debug(`${code}: measurements average title renaming...`);
-          await vectorAverage.setTitle(code + this.AVERAGE_SUFFIX);
-        } else {
-          throw new Error(`${code}: can not rename the average...`);
-        }
-
-        if (deleteOriginal === 'all') {
-          // Delete measurements - sequential processing
-          for (const uuid of uuids) {
-            await this.viewModel.removeMeasurementUuid(uuid);
-          }
-        }
-
-        if (deleteOriginal === 'all_but_1') {
-          // Delete all but the first measurement
-          for (let i = 1; i < uuids.length; i++) {
-            await this.viewModel.removeMeasurementUuid(uuids[i]);
-          }
-        }
+    // Process each code group sequentially
+    for (const code of Object.keys(groupedResponse)) {
+      if (!groupedResponse[code]?.items || code === this.viewModel.UNKNOWN_GROUP_NAME) {
+        continue;
       }
 
-      return true;
-    } catch (error) {
-      throw new Error(`${error.message}`, { cause: error });
+      // exclude previous results and create array of UUIDs for the current code group
+      const usableItems = groupedResponse[code].items.filter(
+        item => !item.isAverage && !item.isPredicted
+      );
+
+      // Process the collected indices
+      if (usableItems.length < 2) {
+        throw new Error(`Need at least 2 measurements to make an average: ${code}`);
+      }
+
+      // remove inversion and gain for each item
+      for (const measurement of usableItems) {
+        await measurement.setInverted(false);
+      }
+
+      // Get UUIDs of usable items
+      const uuids = usableItems.map(item => item.uuid);
+
+      // Cross correlation alignment
+      console.debug(`${code}: ${uuids.length} measures cross corr align...`);
+      await this.viewModel.processCommands('Cross corr align', uuids);
+
+      // average processing
+      console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
+      const vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
+
+      // Update title
+      if (!vectorAverage) {
+        throw new Error(`${code}: can not rename the average...`);
+      }
+
+      await vectorAverage.setTitle(code + this.AVERAGE_SUFFIX);
+
+      await this._deleteOriginalMeasurements(uuids, deleteOriginal);
+    }
+
+    return true;
+  }
+
+  async _deleteOriginalMeasurements(uuids, deleteOriginal) {
+    if (!deleteOriginal || uuids.length < 2) {
+      return;
+    }
+
+    if (deleteOriginal !== 'all' && deleteOriginal !== 'all_but_1') {
+      throw new Error(`Invalid deleteOriginal parameter: ${deleteOriginal}`);
+    }
+
+    const startIndex = deleteOriginal === 'all_but_1' ? 1 : 0;
+
+    for (let i = startIndex; i < uuids.length; i++) {
+      await this.viewModel.removeMeasurementUuid(uuids[i]);
     }
   }
 
