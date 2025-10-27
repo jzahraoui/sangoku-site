@@ -493,6 +493,60 @@ class MultiSubOptimizer {
     return bestInRun;
   }
 
+  runGeneticOptimization(subToOptimize, previousValidSum, theo, testParamsList, options) {
+    const {
+      runs,
+      populationSize,
+      withAllPassProbability,
+      generations,
+      eliteCount,
+      tournamentSize,
+      mutationRate,
+      mutationAmount,
+      maxNoImprovementGenerations,
+      bestWithAllPass,
+      bestWithoutAllPass,
+    } = options;
+
+    const coarseBest = this.findBestCoarseParam(
+      subToOptimize,
+      previousValidSum,
+      theo,
+      testParamsList
+    );
+
+    let bestOverall = null;
+    for (let run = 0; run < runs; run++) {
+      const population = this.createHybridPopulation(
+        coarseBest,
+        populationSize,
+        withAllPassProbability
+      );
+
+      const bestInRun = this.runGeneticLoop(
+        subToOptimize,
+        previousValidSum,
+        theo,
+        population,
+        {
+          generations,
+          populationSize,
+          eliteCount,
+          tournamentSize,
+          mutationRate,
+          mutationAmount,
+          maxNoImprovementGenerations,
+          bestWithAllPass,
+          bestWithoutAllPass,
+        }
+      );
+
+      if (!bestOverall || bestInRun.score > bestOverall.score) {
+        bestOverall = bestInRun;
+      }
+    }
+  }
+
   runClassicOptimization(subToOptimize, previousValidSum, theo, testParamsList, bestWithAllPass, bestWithoutAllPass) {
     for (const param of testParamsList) {
       subToOptimize.param = param;
@@ -568,45 +622,25 @@ class MultiSubOptimizer {
 
     // Different optimization strategies
     if (method === 'genetic') {
-      let bestOverall = null;
-      const coarseBest = this.findBestCoarseParam(
+      this.runGeneticOptimization(
         subToOptimize,
         previousValidSum,
         theo,
-        testParamsList
-      );
-
-      for (let run = 0; run < runs; run++) {
-        const population = this.createHybridPopulation(
-          coarseBest,
+        testParamsList,
+        {
+          runs,
           populationSize,
-          withAllPassProbability
-        );
-
-        // Add early stopping criteria
-        const bestInRun = this.runGeneticLoop(
-          subToOptimize,
-          previousValidSum,
-          theo,
-          population,
-          {
-            generations,
-            populationSize,
-            eliteCount,
-            tournamentSize,
-            mutationRate,
-            mutationAmount,
-            maxNoImprovementGenerations,
-            bestWithAllPass,
-            bestWithoutAllPass,
-          }
-        );
-
-        // Track the best overall solution across runs
-        if (!bestOverall || bestInRun.score > bestOverall.score) {
-          bestOverall = bestInRun;
+          withAllPassProbability,
+          generations,
+          eliteCount,
+          tournamentSize,
+          mutationRate,
+          mutationAmount,
+          maxNoImprovementGenerations,
+          bestWithAllPass,
+          bestWithoutAllPass,
         }
-      }
+      );
     } else if (method === 'classic') {
       this.runClassicOptimization(
         subToOptimize,
