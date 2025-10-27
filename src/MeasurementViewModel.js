@@ -1,3 +1,4 @@
+import RewApi from './rew-api.js';
 import MeasurementItem from './MeasurementItem.js';
 import PersistentStore from './PersistentStore.js';
 import BusinessTools from './BusinessTools.js';
@@ -18,7 +19,7 @@ class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
   static maximisedSumTitle = 'LFE Max Sum';
 
-  constructor(apiService) {
+  constructor() {
     const self = this;
     self.UNKNOWN_GROUP_NAME = 'UNKNOWN';
     self.inhibitGraphUpdates = true;
@@ -36,7 +37,8 @@ class MeasurementViewModel {
     );
 
     // API Service
-    self.apiService = apiService;
+    self.apiBaseUrl = ko.observable('');
+    self.apiService = null;
 
     self.businessTools = new BusinessTools(self);
 
@@ -2553,6 +2555,7 @@ class MeasurementViewModel {
         );
         this.measurements(enhancedMeasurements);
       }
+      this.apiBaseUrl(data.apiBaseUrl || 'http://localhost:4735');
       this.selectedSpeaker(data.selectedSpeaker);
       this.targetCurve = data.targetCurve;
       this.rewVersion = data.rewVersion;
@@ -2594,6 +2597,7 @@ class MeasurementViewModel {
       overallBoostValue: this.overallBoostValue(),
       upperFrequencyBound: this.upperFrequencyBound(),
       lowerFrequencyBound: this.lowerFrequencyBound(),
+      apiBaseUrl: this.apiBaseUrl(),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
@@ -2608,6 +2612,7 @@ class MeasurementViewModel {
 
     try {
       // Initial load
+      this.apiService = new RewApi(this.apiBaseUrl());
       await this.apiService.initializeAPI();
       this.rewVersion = await this.apiService.checkVersion();
       this.targetCurve = await this.apiService.checkTargetCurve();

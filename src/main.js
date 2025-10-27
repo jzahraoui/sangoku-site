@@ -1,4 +1,3 @@
-import RewApi from './rew-api.js';
 import apo2camilla from './apo2camilla.js';
 import MeasurementViewModel from './MeasurementViewModel.js';
 import translations from './translations.js';
@@ -138,8 +137,7 @@ class RewController {
     document.addEventListener('DOMContentLoaded', async () => {
       window.langManager = new LanguageManager();
 
-      const rewApi = new RewApi();
-      window.viewModel = new MeasurementViewModel(rewApi);
+      window.viewModel = new MeasurementViewModel();
 
       // Apply Knockout bindings
       ko.applyBindings(window.viewModel);

@@ -1,5 +1,8 @@
 export default class RewApi {
-  constructor(baseUrl = 'http://localhost:4735') {
+  constructor(baseUrl) {
+    if (!baseUrl) {
+      throw new Error('Base URL is required');
+    }
     this.baseUrl = baseUrl;
     this.speedDelay = 130;
     this.VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
