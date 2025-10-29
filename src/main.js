@@ -413,19 +413,14 @@ class RewController {
               '<i class="fas fa-spinner fa-spin"></i> Creating ZIP file...';
 
             // Add files to the zip
-            const fetchPromises = Array.from(links).map(link => {
+            const fetchPromises = Array.from(links).map(async link => {
               const url = link.getAttribute('href');
               const filename = url.split('/').pop();
-
-              return fetch(url)
-                .then(response => {
-                  if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
-                  return response.blob();
-                })
-                .then(blob => {
-                  zip.file(filename, blob);
-                  return filename;
-                });
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
+              const blob = await response.blob();
+              zip.file(filename, blob);
+              return filename;
             });
 
             // Wait for all files to be fetched and added to the zip
