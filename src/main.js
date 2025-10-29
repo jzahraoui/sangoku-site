@@ -52,15 +52,13 @@ class LanguageManager {
         NodeFilter.SHOW_ELEMENT,
         {
           acceptNode: node =>
-            node.hasAttribute('data-i18n')
-              ? NodeFilter.FILTER_ACCEPT
-              : NodeFilter.FILTER_REJECT,
+            node.dataset.i18n ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
         }
       );
 
       let element;
       while ((element = iterator.nextNode())) {
-        const key = element.getAttribute('data-i18n');
+        const key = element.dataset.i18n;
         const translation = currentTranslations[key];
 
         if (!translation) {
@@ -126,6 +124,12 @@ class LanguageManager {
       return key;
     }
   }
+}
+
+// Extract version tag from commit message if exists
+function extractVersionTag(message) {
+  const versionMatch = message.match(/(\d+\.\d+\.\d+)/);
+  return versionMatch ? versionMatch[0] : null;
 }
 
 class RewController {
@@ -194,7 +198,7 @@ class RewController {
       document.querySelectorAll('.code-link').forEach(link => {
         link.addEventListener('click', function (e) {
           e.preventDefault();
-          const description = this.getAttribute('data-description');
+          const description = this.dataset.description;
           fetch(description)
             .then(response => response.text())
             .then(text => {
@@ -466,12 +470,6 @@ class RewController {
 
       let allCommits = [];
       const authors = new Set();
-
-      // Extract version tag from commit message if exists
-      function extractVersionTag(message) {
-        const versionMatch = message.match(/(\d+\.\d+\.\d+)/);
-        return versionMatch ? versionMatch[0] : null;
-      }
 
       // Filter commits based on search and author filter
       function filterCommits() {
