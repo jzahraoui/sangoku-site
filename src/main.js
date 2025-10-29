@@ -292,12 +292,12 @@ class RewController {
       });
 
       // Handle navigation with buttons
-      document.querySelectorAll('.nav-button').forEach(button => {
+      for (const button of document.querySelectorAll('.nav-button')) {
         button.addEventListener('click', e => {
           const page = e.target.closest('.nav-button').dataset.page;
           navigateToPage(page);
         });
-      });
+      }
 
       // Handle navigation
       function navigateToPage(page) {
@@ -329,9 +329,9 @@ class RewController {
         history.pushState({ page }, '', `#${page}`);
 
         // Update active state of buttons
-        document.querySelectorAll('.nav-button').forEach(btn => {
+        for (const btn of document.querySelectorAll('.nav-button')) {
           btn.classList.toggle('active', btn.dataset.page === page);
-        });
+        }
       }
 
       // Handle initial load
@@ -516,7 +516,7 @@ class RewController {
         }
 
         // Render commits grouped by version
-        Object.entries(commitsByVersion).forEach(([version, commits]) => {
+        for (const [version, commits] of Object.entries(commitsByVersion)) {
           const fragment = document.createDocumentFragment();
           const commitEl = document.createElement('li');
           commitEl.className = 'commit';
@@ -526,17 +526,17 @@ class RewController {
           const messagesContainer = document.createElement('div');
           messagesContainer.className = 'commit-messages';
 
-          commits.forEach(commit => {
+          for (const commit of commits) {
             const message = document.createElement('div');
             message.className = 'commit-message';
             message.innerHTML = `- ${commit.commit.message.split('\n').join('<br>')}`;
             messagesContainer.appendChild(message);
-          });
+          }
 
           commitEl.appendChild(messagesContainer);
           fragment.appendChild(commitEl);
           commitList.appendChild(fragment);
-        });
+        }
       }
 
       // Fetch commits from GitHub API
@@ -554,18 +554,18 @@ class RewController {
           allCommits = await response.json();
 
           // Populate author filter
-          allCommits.forEach(commit => {
+          for (const commit of allCommits) {
             if (commit.commit?.author?.name) {
               authors.add(commit.commit.author.name);
             }
-          });
+          }
 
-          authors.forEach(author => {
+          for (const author of authors) {
             const option = document.createElement('option');
             option.value = author;
             option.textContent = author;
             authorFilter.appendChild(option);
-          });
+          }
 
           // Display commits
           loading.style.display = 'none';
@@ -670,12 +670,12 @@ async function handleFiles(files) {
     results.appendChild(successDiv);
 
     // Create download buttons
-    configs.forEach(({ config, channel }) => {
+    for (const { config, channel } of configs) {
       const button = document.createElement('button');
       button.textContent = `Download ${channel} Configuration`;
       button.onclick = () => downloadConfig(config, channel);
       results.appendChild(button);
-    });
+    }
 
     const REWconfigs = filterConverter.createREWConfiguration();
     await globalThis.viewModel.importMsoConfigInRew(REWconfigs);
