@@ -2142,9 +2142,7 @@ class MeasurementViewModel {
     const deletedKeys = [...existingKeys].filter(uuid => !newKeys.has(uuid));
     if (deletedKeys.length > 0) {
       for (const uuid of deletedKeys) {
-        const isDeleted = this.measurements.remove(function (item) {
-          return item.uuid === uuid;
-        });
+        const isDeleted = this.measurements.remove(item => item.uuid === uuid);
         if (isDeleted) console.debug(`removed: ${uuid}`);
       }
     }
@@ -2258,9 +2256,7 @@ class MeasurementViewModel {
       // First attempt to delete from API to ensure consistency
       await this.apiService.postDelete(itemUuid, 0);
 
-      this.measurements.remove(function (item) {
-        return item.uuid === itemUuid;
-      });
+      this.measurements.remove(item => item.uuid === itemUuid);
 
       console.debug(`measurement ${itemUuid} removed`);
 
