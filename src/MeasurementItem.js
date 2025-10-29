@@ -260,7 +260,7 @@ class MeasurementItem {
       try {
         this.isProcessing(true);
         if (this.isSub()) {
-          await parentViewModel.produceSumProcess(this, [this]);
+          await parentViewModel.produceSumProcess([this]);
         } else {
           await parentViewModel.businessTools.createMeasurementPreview(this);
         }
