@@ -249,22 +249,103 @@ class MeasurementViewModel {
       return true;
     };
 
+    self.processMqxFile = async function (data) {
+      if (!self.jsonAvrData()) {
+        throw new Error('Please load AVR data first');
+      }
+      const mqxTools = new MqxTools(data, self.jsonAvrData());
+      await mqxTools.parse();
+      return mqxTools.jsonAvrData;
+    };
+
+    self.normalizeChannelMapping = function (data) {
+      const StandardChannelMapping = {
+        59: 54,
+        60: 55,
+        62: 56,
+        63: 57,
+        58: 54,
+        61: 55,
+        64: 56,
+        47: 54,
+        49: 55,
+      };
+
+      // convert directionnal bass to standard
+      data.detectedChannels = data.detectedChannels.map(channel => ({
+        ...channel,
+        enChannelType:
+          StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
+      }));
+    };
+
+    self.processImpulseResponse = async function (processedResponse, adyTools) {
+      const identifier = processedResponse.name;
+      const response = processedResponse.data;
+      const max = Math.max(...response.map(x => Math.abs(x)));
+      const lastMeasurementIndex = self.measurements().length;
+      const encodedData = MeasurementItem.encodeRewToBase64(response);
+
+      if (!encodedData) {
+        throw new Error('Error encoding array');
+      }
+      const options = {
+        identifier,
+        startTime: 0,
+        sampleRate: adyTools.samplingRate,
+        splOffset: AdyTools.SPL_OFFSET,
+        applyCal: false,
+        data: encodedData,
+      };
+      await self.apiService.postSafe('import/impulse-response-data', options);
+
+      const item = await self.apiService.fetchREW(
+        lastMeasurementIndex + 1,
+        'GET',
+        null,
+        0
+      );
+      const measurementItem = new MeasurementItem(item, self);
+      measurementItem.IRPeakValue = max;
+      await self.addMeasurement(measurementItem);
+      if (max >= 1) {
+        console.warn(
+          `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
+        );
+      }
+    };
+
+    self.processAdyMeasurements = async function (data, filename, adyTools, zipContent) {
+      if (filename.endsWith('.ady')) {
+        adyTools.isDirectionalWhenMultiSubs();
+      }
+
+      // TODO: ampassign can be directionnal must be converted to standard
+      if (self.isPolling()) {
+        adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
+        for (const processedResponse of adyTools.impulses) {
+          await self.processImpulseResponse(processedResponse, adyTools);
+        }
+      }
+
+      const results = document.getElementById('resultsAvr');
+
+      // Create download buttons
+      const button = document.createElement('button');
+      button.textContent = `Download measurements zip`;
+      button.onclick = () => saveAs(zipContent, `${data.title}.zip`);
+      results.appendChild(button);
+    };
+
     self.onFileLoaded = async function (data, filename) {
       // clear error and load data to prevent buggy behavior
       self.error('');
       self.loadData();
-
-      // Handle the loaded JSON data
       self.status('Loaded file: ' + filename);
 
       try {
         if (filename.endsWith('.mqx')) {
-          if (!self.jsonAvrData()) {
-            throw new Error('Please load AVR data first');
-          }
-          const mqxTools = new MqxTools(data, self.jsonAvrData());
-          await mqxTools.parse();
-          data = mqxTools.jsonAvrData;
+          data = await self.processMqxFile(data, filename);
         }
 
         const results = document.getElementById('resultsAvr');
@@ -273,93 +354,26 @@ class MeasurementViewModel {
         }
         results.innerHTML = '';
 
-        const StandardChannelMapping = {
-          59: 54,
-          60: 55,
-          62: 56,
-          63: 57,
-          58: 54,
-          61: 55,
-          64: 56,
-          47: 54,
-          49: 55,
-        };
-
         if (!data.detectedChannels?.[0]) {
           throw new Error('No channels detected');
         }
 
-        // convert directionnal bass to standard
-        data.detectedChannels = data.detectedChannels.map(channel => ({
-          ...channel,
-          enChannelType:
-            StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
-        }));
+        self.normalizeChannelMapping(data);
 
         const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
         data.avr = avr.toJSON();
+
         // load data to prevent bug when avr data is not loaded
         self.jsonAvrData(data);
 
         // Check if we have any measurements meaning we have a ady file
         if (data.detectedChannels?.[0].responseData?.[0]) {
-          // create zip containing all measurements
           const hasCirrusLogicDsp = data.avr.hasCirrusLogicDsp;
           const needCal = hasCirrusLogicDsp || filename.endsWith('.mqx');
           const adyTools = new AdyTools(data);
+          // create zip containing all measurements
           const zipContent = await adyTools.parseContent(needCal);
-
-          if (filename.endsWith('.ady')) {
-            adyTools.isDirectionalWhenMultiSubs();
-          }
-
-          // TODO: ampassign can be directionnal must be converted to standard
-          if (self.isPolling()) {
-            adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
-            for (const processedResponse of adyTools.impulses) {
-              const identifier = processedResponse.name;
-              const response = processedResponse.data;
-              const max = Math.max(...response.map(x => Math.abs(x)));
-              const lastMeasurementIndex = self.measurements().length;
-              const encodedData = MeasurementItem.encodeRewToBase64(response);
-
-              if (!encodedData) {
-                throw new Error('Error encoding array');
-              }
-              const options = {
-                identifier: identifier,
-                startTime: 0,
-                sampleRate: adyTools.samplingRate,
-                splOffset: AdyTools.SPL_OFFSET,
-                applyCal: false,
-                data: encodedData,
-              };
-              await self.apiService.postSafe('import/impulse-response-data', options);
-
-              const item = await self.apiService.fetchREW(
-                lastMeasurementIndex + 1,
-                'GET',
-                null,
-                0
-              );
-              const measurementItem = new MeasurementItem(item, self);
-              measurementItem.IRPeakValue = max;
-              await self.addMeasurement(measurementItem);
-              if (max >= 1) {
-                console.warn(
-                  `${identifier} IR is above 1(${max.toFixed(
-                    2
-                  )}), please check your measurements`
-                );
-              }
-            }
-          }
-
-          // Create download buttons
-          const button = document.createElement('button');
-          button.textContent = `Download measurements zip`;
-          button.onclick = () => saveAs(zipContent, `${data.title}.zip`);
-          results.appendChild(button);
+          await self.processAdyMeasurements(data, filename, adyTools, zipContent);
         }
       } catch (error) {
         self.handleError(error.message);
@@ -1330,6 +1344,62 @@ class MeasurementViewModel {
       }
     };
 
+    self.createOptimizerConfig = function (lowFrequency, highFrequency) {
+      return {
+        frequency: { min: lowFrequency, max: highFrequency },
+        gain: { min: 0, max: 0, step: 0.1 },
+        delay: {
+          min: -0.002,
+          max: 0.002,
+          step: self.jsonAvrData().avr.minDistAccuracy || 0.00001,
+        },
+        allPass: {
+          enabled: self.useAllPassFiltersForSubs(),
+          frequency: { min: 10, max: 500, step: 10 },
+          q: { min: 0.1, max: 0.5, step: 0.1 },
+        },
+      };
+    };
+
+    self.applySubPolarity = async function (subMeasurement, polarity) {
+      if (polarity === -1) {
+        await subMeasurement.setInverted(true);
+      } else if (polarity === 1) {
+        await subMeasurement.setInverted(false);
+      } else {
+        throw new Error(
+          `Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`
+        );
+      }
+    };
+
+    self.applySubAllPassFilter = async function (subMeasurement, allPassParam) {
+      const allPassFilter = allPassParam.enabled
+        ? {
+            index: 20,
+            enabled: true,
+            isAuto: false,
+            frequency: allPassParam.frequency,
+            q: allPassParam.q,
+            type: 'All pass',
+          }
+        : { index: 20, enabled: true, isAuto: true, type: 'None' };
+      await subMeasurement.setSingleFilter(allPassFilter);
+    };
+
+    self.applyOptimizedSubSettings = async function (sub) {
+      const subMeasurement = self.findMeasurementByUuid(sub.measurement);
+      if (!subMeasurement) {
+        throw new Error(`Measurement not found for ${sub.measurement}`);
+      }
+      await self.applySubPolarity(subMeasurement, sub.param.polarity);
+      await subMeasurement.addIROffsetSeconds(sub.param.delay);
+      await subMeasurement.copyCumulativeIRShiftToOther();
+      await subMeasurement.addSPLOffsetDB(sub.param.gain);
+      await subMeasurement.copySplOffsetDeltadBToOther();
+      await self.applySubAllPassFilter(subMeasurement, sub.param.allPass);
+    };
+
     self.buttonMultiSubOptimizer = async function () {
       if (self.isProcessing()) return;
       try {
@@ -1351,7 +1421,6 @@ class MeasurementViewModel {
           return;
         }
 
-        const frequencyResponses = [];
         const { lowFrequency, highFrequency } = await self.adjustSubwooferSPLLevels(
           self,
           subsMeasurements
@@ -1360,36 +1429,7 @@ class MeasurementViewModel {
         // set the same delay for all subwoofers
         await self.setSameDelayToAll(subsMeasurements);
 
-        const optimizerConfig = {
-          frequency: {
-            min: lowFrequency, // Hz
-            max: highFrequency, // Hz
-          },
-          gain: {
-            min: 0, // dB
-            max: 0, // dB
-            step: 0.1, // dB
-          },
-          delay: {
-            min: -0.002, // 2ms
-            max: 0.002, // 2ms
-            step: self.jsonAvrData().avr.minDistAccuracy || 0.00001, // 0.01ms
-          },
-          allPass: {
-            enabled: self.useAllPassFiltersForSubs(),
-            frequency: {
-              min: 10, // Hz
-              max: 500, // Hz
-              step: 10, // Hz
-            },
-            q: {
-              min: 0.1,
-              max: 0.5,
-              step: 0.1,
-            },
-          },
-        };
-
+        const optimizerConfig = self.createOptimizerConfig(lowFrequency, highFrequency);
         self.status(
           `${self.status()} \nfrequency range: ${optimizerConfig.frequency.min}Hz - ${
             optimizerConfig.frequency.max
@@ -1412,6 +1452,7 @@ class MeasurementViewModel {
           await item.delete();
         }
 
+        const frequencyResponses = [];
         for (const measurement of subsMeasurements) {
           await measurement.setInverted(false);
           await measurement.applyWorkingSettings();
@@ -1426,59 +1467,8 @@ class MeasurementViewModel {
         const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
         const optimizerResults = optimizer.optimizeSubwoofers();
 
-        const optimizedSubs = optimizerResults.optimizedSubs;
-
-        // Apply each configuration sequentially
-        for (const sub of optimizedSubs) {
-          const subMeasurement = self.findMeasurementByUuid(sub.measurement);
-          if (!subMeasurement) {
-            throw new Error(`Measurement not found for ${sub.measurement}`);
-          }
-          try {
-            // invert
-            if (sub.param.polarity === -1) {
-              await subMeasurement.setInverted(true);
-            } else if (sub.param.polarity === 1) {
-              await subMeasurement.setInverted(false);
-            } else {
-              throw new Error(
-                `Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`
-              );
-            }
-            // reverse delay if previous iteration and apply specified delay
-            await subMeasurement.addIROffsetSeconds(sub.param.delay);
-            await subMeasurement.copyCumulativeIRShiftToOther();
-
-            await subMeasurement.addSPLOffsetDB(sub.param.gain);
-            await subMeasurement.copySplOffsetDeltadBToOther();
-
-            // allpass settings
-            if (sub.param.allPass.enabled) {
-              const allPassFilter = {
-                index: 20,
-                enabled: true,
-                isAuto: false,
-                frequency: sub.param.allPass.frequency,
-                q: sub.param.allPass.q,
-                type: 'All pass',
-              };
-              await subMeasurement.setSingleFilter(allPassFilter);
-            } else {
-              const allPassFilter = {
-                index: 20,
-                enabled: true,
-                isAuto: true,
-                type: 'None',
-              };
-              await subMeasurement.setSingleFilter(allPassFilter);
-            }
-          } catch (error) {
-            throw new Error(
-              `Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${
-                error.message
-              }`
-            );
-          }
+        for (const sub of optimizerResults.optimizedSubs) {
+          await self.applyOptimizedSubSettings(sub);
         }
 
         self.status(`${self.status()} \n${optimizer.logText}`);
