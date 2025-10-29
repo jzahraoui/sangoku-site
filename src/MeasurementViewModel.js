@@ -2302,7 +2302,7 @@ class MeasurementViewModel {
       'Invert B phase',
     ];
 
-    if (allowedCommands.indexOf(operationObject.function) === -1) {
+    if (!allowedCommands.includes(operationObject.function)) {
       throw new Error(`Command ${operationObject.function} is not allowed`);
     }
 

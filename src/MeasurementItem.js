@@ -846,7 +846,7 @@ class MeasurementItem {
       'Response copy',
       'Response magnitude copy',
     ];
-    if (allowedCommands.indexOf(commandName) === -1) {
+    if (!allowedCommands.includes(commandName)) {
       throw new Error(`Command ${commandName} is not allowed`);
     }
 
@@ -858,7 +858,7 @@ class MeasurementItem {
         0
       );
 
-      if (withoutResultCommands.indexOf(commandName) === -1) {
+      if (!withoutResultCommands.includes(commandName)) {
         const operationResultUuid = Object.values(commandResult.results || {})[0]?.UUID;
         // Save to persistent storage
         return await this.parentViewModel.addMeasurementApi(operationResultUuid);
@@ -887,7 +887,7 @@ class MeasurementItem {
       'Generate target measurement',
     ];
 
-    if (allowedCommands.indexOf(commandName) === -1) {
+    if (!allowedCommands.includes(commandName)) {
       throw new Error(`Command ${commandName} is not allowed`);
     }
 
@@ -900,7 +900,7 @@ class MeasurementItem {
         'eq/command'
       );
 
-      if (withoutResultCommands.indexOf(commandName) === -1) {
+      if (!withoutResultCommands.includes(commandName)) {
         const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
         // Save to persistent storage
         return await this.parentViewModel.addMeasurementApi(operationResultUuid);
