@@ -86,12 +86,12 @@ class LanguageManager {
       }
 
       // Handle Knockout bindings if available
-      if (typeof window.viewModel?.updateTranslations === 'function') {
-        window.viewModel.updateTranslations(this.currentLanguage);
+      if (typeof globalThis.viewModel?.updateTranslations === 'function') {
+        globalThis.viewModel.updateTranslations(this.currentLanguage);
       }
 
       // Dispatch event when translations are complete
-      window.dispatchEvent(
+      globalThis.dispatchEvent(
         new CustomEvent('translationsComplete', {
           detail: { language: this.currentLanguage },
         })
@@ -135,26 +135,28 @@ class RewController {
 
   initializeEventListeners() {
     document.addEventListener('DOMContentLoaded', async () => {
-      window.langManager = new LanguageManager();
+      globalThis.langManager = new LanguageManager();
 
-      window.viewModel = new MeasurementViewModel();
+      globalThis.viewModel = new MeasurementViewModel();
 
       // Apply Knockout bindings
-      ko.applyBindings(window.viewModel);
+      ko.applyBindings(globalThis.viewModel);
 
-      window.viewModel.restore();
+      globalThis.viewModel.restore();
 
       const $min = document.querySelector('#min');
       const $max = document.querySelector('#max');
 
       new DualRangeInput($min, $max, 2);
 
-      window.addEventListener('beforeunload', () => window.viewModel.saveMeasurements());
+      globalThis.addEventListener('beforeunload', () =>
+        globalThis.viewModel.saveMeasurements()
+      );
 
       // Handle visibility change
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-          window.viewModel.saveMeasurements();
+          globalThis.viewModel.saveMeasurements();
         }
       });
 
@@ -329,7 +331,7 @@ class RewController {
       }
 
       // Handle initial load
-      const hash = window.location.hash.slice(1);
+      const hash = globalThis.location.hash.slice(1);
       navigateToPage(hash || 'application');
 
       // Handle collapsible sections
@@ -587,7 +589,7 @@ class RewController {
   }
 }
 
-window.rewController = new RewController();
+globalThis.rewController = new RewController();
 
 async function downloadConfig(config, channel) {
   try {
@@ -680,9 +682,9 @@ function handleFiles(files) {
       });
 
       const REWconfigs = filterConverter.createREWConfiguration();
-      await window.viewModel.importMsoConfigInRew(REWconfigs);
+      await globalThis.viewModel.importMsoConfigInRew(REWconfigs);
       // delete all predicted lfe
-      for (const item of window.viewModel.allPredictedLfeMeasurement()) {
+      for (const item of globalThis.viewModel.allPredictedLfeMeasurement()) {
         await item.delete();
       }
     } catch (error) {
