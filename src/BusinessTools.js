@@ -12,9 +12,7 @@ class BusinessTools {
         .subsMeasurements()
         .filter(response => response.title().includes(this.LPF_REVERTED_SUFFIX));
       if (deletePrevious) {
-        for (const subResponse of previousSubResponses) {
-          await this.viewModel.removeMeasurement(subResponse);
-        }
+        await this.viewModel.removeMeasurements(previousSubResponses);
       }
 
       await this.revertLfeFilterProccessList(
@@ -82,9 +80,7 @@ class BusinessTools {
       await this.viewModel.removeMeasurement(lowPassFilter);
       if (replaceOriginal) {
         // Remove original sub responses if replacing
-        for (const subResponse of subResponses) {
-          await this.viewModel.removeMeasurement(subResponse);
-        }
+        await this.viewModel.removeMeasurements(subResponses);
       }
       return resultsUuids;
     } catch (error) {
@@ -326,13 +322,7 @@ class BusinessTools {
       const shiftDistance = PredictedLfe._computeInMeters(totalOffset).toFixed(2);
       return this.generateAlignmentResultMessage(shiftDistance, shiftDelay, delay);
     } finally {
-      await this.cleanupMeasurements(mustBeDeleted);
-    }
-  }
-
-  async cleanupMeasurements(measurements) {
-    for (const measurement of measurements) {
-      await this.viewModel.removeMeasurement(measurement);
+      await this.viewModel.removeMeasurements(mustBeDeleted);
     }
   }
 
@@ -361,7 +351,10 @@ class BusinessTools {
 
     const { PredictedLfeFiltered, predictedSpeakerFiltered } =
       await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
-    mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
+
+    if (cuttOffFrequency !== 0) {
+      mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
+    }
 
     const cutoffPeriod = 1 / cuttOffFrequency;
     const delay = cutoffPeriod / 4;
@@ -451,9 +444,7 @@ class BusinessTools {
    */
   async applyCuttOffFilter(sub, speaker, cuttOffFrequency) {
     if (cuttOffFrequency === 0) {
-      const PredictedLfeFiltered = sub;
-      const predictedSpeakerFiltered = speaker;
-      return { PredictedLfeFiltered, predictedSpeakerFiltered };
+      return { PredictedLfeFiltered: sub, predictedSpeakerFiltered: speaker };
     }
     // prenvent errors if the equaliser is not the Generic
     sub.ResetEqualiser();
@@ -557,8 +548,10 @@ class BusinessTools {
         { function: 'A + B' }
       );
       // cleanup of predicted measurements
-      await this.viewModel.removeMeasurement(PredictedLfeFiltered);
-      await this.viewModel.removeMeasurement(predictedSpeakerFiltered);
+      await this.viewModel.removeMeasurements([
+        PredictedLfeFiltered,
+        predictedSpeakerFiltered,
+      ]);
 
       await relatedLfeMeasurement.applyWorkingSettings();
     }
@@ -633,9 +626,7 @@ class BusinessTools {
       }
 
       if (deletePredicted && generatedPredicted.length > 1) {
-        for (const item of generatedPredicted) {
-          await this.viewModel.removeMeasurement(item);
-        }
+        await this.viewModel.removeMeasurements(generatedPredicted);
       }
     }
   }

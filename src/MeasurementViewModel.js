@@ -805,9 +805,7 @@ class MeasurementViewModel {
         const previousTargetcurve = this.measurements().filter(
           item => item.title() === previousTargetcurveTitle
         );
-        for (const item of previousTargetcurve) {
-          await this.removeMeasurement(item);
-        }
+        await this.removeMeasurements(previousTargetcurve);
 
         await firstMeasurement.resetTargetSettings();
         // working settings must match filter settings
@@ -2224,6 +2222,17 @@ class MeasurementViewModel {
     } catch (error) {
       this.handleError(`Failed to add measurement: ${error.message}`, error);
     }
+  }
+
+  async removeMeasurements(items) {
+    if (!items || items.length === 0) {
+      return false;
+    }
+
+    for (const item of items) {
+      await this.removeMeasurement(item);
+    }
+    return true;
   }
 
   async removeMeasurement(item) {
