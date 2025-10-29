@@ -599,7 +599,7 @@ class MeasurementItem {
     }
 
     const freqLimit = isLowFreq ? 500 : 50;
-    const indices = [...Array(targetCurveData.freqs.length).keys()];
+    const indices = [...new Array(targetCurveData.freqs.length).keys()];
 
     if (!isLowFreq) indices.reverse();
 
