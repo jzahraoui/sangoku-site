@@ -585,7 +585,7 @@ class BusinessTools {
     }
   }
 
-  async createsSum(itemList, deletePredicted = true, title) {
+  async createsSum(itemList, title, deletePredicted = true) {
     if (!Array.isArray(itemList) || itemList.length < 1) {
       throw new Error('Parameter must be a non-empty array');
     }

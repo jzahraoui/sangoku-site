@@ -2069,8 +2069,8 @@ class MeasurementViewModel {
     // create sum of all subwoofer measurements
     const newDefaultLfePredicted = await this.businessTools.createsSum(
       subsList,
-      true,
-      resultTitle
+      resultTitle,
+      true
     );
 
     this.status(
