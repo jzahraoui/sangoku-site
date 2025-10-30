@@ -38,7 +38,8 @@ export default class RewApi {
       await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
       await this.setBlocking(this.blocking);
     } catch (error) {
-      throw new Error('API initialization failed', { cause: error });
+      const message = error.message || 'API initialization failed';
+      throw new Error(message, { cause: error });
     }
   }
 
