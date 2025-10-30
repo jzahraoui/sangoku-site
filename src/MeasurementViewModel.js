@@ -496,25 +496,12 @@ class MeasurementViewModel {
     this.isProcessing = ko.observable(false);
 
     this.isProcessing.subscribe(async newValue => {
-      try {
-        if (newValue === false) {
-          // Save to persistent storage first
-          this.saveMeasurements();
-
-          if (this.isPolling() && this.inhibitGraphUpdates) {
-            await this.apiService.updateAPI('inhibit-graph-updates', false);
-          }
-        } else if (newValue === true) {
-          this.error('');
-          if (this.isPolling() && this.inhibitGraphUpdates) {
-            await this.apiService.updateAPI('inhibit-graph-updates', true);
-          }
-        }
-      } catch (error) {
-        throw new Error(`Error in isProcessing subscription: ${error.message}`, {
-          cause: error,
-        });
+      // inhibit Graph Updates only during processing
+      if (this.isPolling() && this.inhibitGraphUpdates) {
+        await this.apiService.setInhibitGraphUpdates(newValue);
       }
+      // Save to persistent when processing ends
+      newValue ? this.error('') : this.saveMeasurements();
     });
 
     this.currentSelectedPosition = ko.observable();
@@ -2591,7 +2578,7 @@ class MeasurementViewModel {
 
     try {
       // Initial load
-      this.apiService = new RewApi(this.apiBaseUrl());
+      this.apiService = new RewApi(this.apiBaseUrl(), false, true);
       await this.apiService.initializeAPI();
       this.rewVersion = await this.apiService.checkVersion();
       this.targetCurve = await this.apiService.checkTargetCurve();
