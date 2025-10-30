@@ -343,6 +343,7 @@ class MeasurementItem {
       await this.resetcumulativeIRShiftSeconds();
       await this.setInverted(false);
       await this.setTargetLevel(targetLevel);
+      await this.resetFilters();
     } catch (error) {
       throw new Error(
         `Failed to reset for response ${this.displayMeasurementTitle()}: ${
@@ -715,6 +716,9 @@ class MeasurementItem {
 
   static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
     try {
+      if (!responseData || !responseData.results) {
+        throw new Error('Invalid response data');
+      }
       // Find the result with matching UUID
       const result = Object.values(responseData.results).find(
         item => item.UUID === targetUUID
@@ -934,9 +938,14 @@ class MeasurementItem {
     if (filters.length !== 22) {
       console.debug(`Invalid filter length: ${filters.length} expected 22`);
     }
-    const currentFilters = await this.getFilters().then(response =>
-      response.filter(f => overwrite || f.isAuto)
-    );
+
+    const allFilters = await this.getFilters();
+
+    if (this.compareObjects(allFilters, filters)) {
+      return false;
+    }
+
+    const currentFilters = overwrite ? allFilters : allFilters.filter(f => f.isAuto);
 
     const filtersCleaned = [];
     for (const filter of filters) {
@@ -1116,8 +1125,6 @@ class MeasurementItem {
   }
 
   async resetFilters() {
-    const currentFilters = await this.getFilters();
-
     const emptyFilter = {
       filters: Array.from({ length: 22 }, (_, i) => ({
         index: i + 1,
@@ -1126,10 +1133,6 @@ class MeasurementItem {
         isAuto: true,
       })),
     };
-
-    if (this.compareObjects(currentFilters, emptyFilter.filters)) {
-      return false;
-    }
 
     await this.setFilters(emptyFilter.filters);
 
