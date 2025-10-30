@@ -1716,8 +1716,8 @@ class MeasurementViewModel {
 
     // Find the level of target curve at 40Hz
     const targetLevelAtFreq = await this.getTargetLevelAtFreq(
-      targetLevelFreq,
-      firstMeasurement
+      firstMeasurement,
+      targetLevelFreq
     );
 
     // adjut target level according to the number of subs
@@ -1787,7 +1787,7 @@ class MeasurementViewModel {
     return { lowFrequency, highFrequency, targetLevelAtFreq };
   }
 
-  async getTargetLevelAtFreq(targetFreq = 40, measurement) {
+  async getTargetLevelAtFreq(measurement, targetFreq = 40) {
     // Input validation
     if (!Number.isFinite(targetFreq) || targetFreq <= 0) {
       throw new Error('Target frequency must be a positive number');
