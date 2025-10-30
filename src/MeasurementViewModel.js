@@ -21,10 +21,6 @@ class MeasurementViewModel {
 
   UNKNOWN_GROUP_NAME = 'UNKNOWN';
   inhibitGraphUpdates = true;
-  EQ_SETTINGS = {
-    MANUFACTURER: 'Generic',
-    MODEL: 'Generic',
-  };
   pollingInterval = 1000; // 1 seconds
 
   constructor() {
@@ -604,7 +600,7 @@ class MeasurementViewModel {
       try {
         this.isProcessing(true);
         this.status('Reseting...');
-        const defaultSettings = { ...this.EQ_SETTINGS };
+        const defaultSettings = { ...MeasurementItem.defaulEqtSettings };
         this.status(`${this.status()}\nSet Generic EQ`);
         await this.apiService.postSafe(`eq/default-equaliser`, defaultSettings);
         this.status(`${this.status()}\nClear commands`);

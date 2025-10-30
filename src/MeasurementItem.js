@@ -13,6 +13,7 @@ class MeasurementItem {
   static rightWindowWidthMilliseconds = 1000;
 
   static measurementType = { SPEAKERS: 0, SUB: 1, FILTER: 2, AVERAGE: 3 };
+  static defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
 
   constructor(item, parentViewModel) {
     // Validate inputs
@@ -28,7 +29,6 @@ class MeasurementItem {
     this.isProcessing = ko.observable(false);
 
     this.jsonAvrData = parentViewModel.jsonAvrData();
-    this.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
     this.dectedFallOffLow = -1;
     this.dectedFallOffHigh = +Infinity;
 
@@ -411,8 +411,8 @@ class MeasurementItem {
 
     // compare commandResult with defaultSettings
     return (
-      commandResult.manufacturer === this.defaulEqtSettings.manufacturer &&
-      commandResult.model === this.defaulEqtSettings.model
+      commandResult.manufacturer === MeasurementItem.defaulEqtSettings.manufacturer &&
+      commandResult.model === MeasurementItem.defaulEqtSettings.model
     );
   }
 
@@ -424,7 +424,7 @@ class MeasurementItem {
 
     await this.parentViewModel.apiService.postSafe(
       `measurements/${this.uuid}/equaliser`,
-      this.defaulEqtSettings
+      MeasurementItem.defaulEqtSettings
     );
   }
 
