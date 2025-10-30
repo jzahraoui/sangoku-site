@@ -1,5 +1,5 @@
 export default class RewApi {
-  constructor(baseUrl) {
+  constructor(baseUrl, inhibitGraphUpdates = false, blocking = false) {
     if (!baseUrl) {
       throw new Error('Base URL is required');
     }
@@ -8,13 +8,35 @@ export default class RewApi {
     this.VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
     this.MAX_RETRIES = 5;
     this.MAX_RETRY_DELAY = 5;
+    this.blocking = blocking;
+    this.inhibitGraphUpdates = inhibitGraphUpdates;
+  }
+
+  async setBlocking(blocking = true) {
+    try {
+      await this.updateAPI('blocking', blocking);
+      this.blocking = blocking;
+    } catch (error) {
+      const message = error.message || 'Error enabling blocking';
+      throw new Error(message, { cause: error });
+    }
+  }
+
+  async setInhibitGraphUpdates(inhibit = true) {
+    try {
+      await this.updateAPI('inhibit-graph-updates', inhibit);
+      this.inhibitGraphUpdates = inhibit;
+    } catch (error) {
+      const message = error.message || 'Error setting inhibit graph updates';
+      throw new Error(message, { cause: error });
+    }
   }
 
   // Move API initialization to separate method
   async initializeAPI() {
     try {
-      await this.updateAPI('inhibit-graph-updates', false);
-      await this.updateAPI('blocking', false);
+      await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
+      await this.setBlocking(this.blocking);
     } catch (error) {
       throw new Error('API initialization failed', { cause: error });
     }
