@@ -6,7 +6,7 @@ class BusinessTools {
     this.AVERAGE_SUFFIX = 'avg';
   }
 
-  async revertLfeFilterProccess(deletePrevious = true, freq, replaceOriginal = false) {
+  async revertLfeFilterProccess(freq, replaceOriginal = false, deletePrevious = true) {
     try {
       const previousSubResponses = this.viewModel
         .subsMeasurements()

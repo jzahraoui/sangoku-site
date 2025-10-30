@@ -715,9 +715,9 @@ class MeasurementViewModel {
         this.status('Reverting LFE filter...');
 
         await this.businessTools.revertLfeFilterProccess(
-          true,
           this.selectedLfeFrequency(),
-          this.DeleteOriginalForLfeRevert()
+          this.DeleteOriginalForLfeRevert(),
+          true
         );
 
         this.status('LFE filter reverted successfully');
