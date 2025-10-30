@@ -716,7 +716,7 @@ class MeasurementItem {
 
   static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
     try {
-      if (!responseData || !responseData.results) {
+      if (!responseData?.results) {
         throw new Error('Invalid response data');
       }
       // Find the result with matching UUID
