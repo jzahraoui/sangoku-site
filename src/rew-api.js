@@ -371,17 +371,17 @@ export default class RewApi {
 
       this._validateExpectedProcess(data, expectedProcess);
 
-      const processID = data.message?.match(/.*ID \d+/);
+      const processName = this.safeParseJSON(data.message)?.processName;
 
-      if (response.status === 200 && (!processID || !url.startsWith('measurements'))) {
+      if (response.status === 200 && (!processName || !url.startsWith('measurements'))) {
         return data;
       }
 
       if (response.status === 200 || response.status === 202) {
         const processExpectedResponse =
           response.status === 200
-            ? { processName: processID[0], message: 'Completed' }
-            : this.buildExpectedResponse(url, processID, options);
+            ? { processName, message: 'Completed' }
+            : this.buildExpectedResponse(url, processName, options);
 
         return await this.fetchWithRetry(
           this.getResultUrl(url),
@@ -424,13 +424,13 @@ export default class RewApi {
     }
   }
 
-  buildExpectedResponse(url, processID, options) {
-    if (!processID) {
+  buildExpectedResponse(url, processName, options) {
+    if (!processName) {
       throw new Error('Invalid process ID in response');
     }
     if (url.startsWith('import')) {
-      if (processID) {
-        return { message: processID[0] };
+      if (processName) {
+        return { message: processName };
       }
       const body = this.parseRequestBody(options);
       if (!body) {
@@ -439,7 +439,7 @@ export default class RewApi {
       return { message: body.path || body.identifier };
     }
 
-    return { processName: processID[0], message: 'Completed' };
+    return { processName, message: 'Completed' };
   }
 
   // Helper methods
@@ -464,5 +464,12 @@ export default class RewApi {
       const message = error.message || 'Failed to parse request body';
       throw new Error(message, { cause: error });
     }
+  }
+
+  safeParseJSON(str) {
+    if (!str || typeof str !== 'string' || !str.trim().startsWith('{')) {
+      return null;
+    }
+    return JSON.parse(str);
   }
 }
