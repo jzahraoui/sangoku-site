@@ -543,6 +543,7 @@ class MeasurementViewModel {
     this.buttoncheckREWButton = async () => {
       if (this.isProcessing()) return;
       try {
+        this.error('');
         this.toggleBackgroundPolling();
       } catch (error) {
         this.handleError(`Pulling failed: ${error.message}`, error);
