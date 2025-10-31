@@ -352,9 +352,7 @@ class BusinessTools {
     const { PredictedLfeFiltered, predictedSpeakerFiltered } =
       await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
 
-    if (cuttOffFrequency !== 0) {
-      mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
-    }
+    mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
 
     const cutoffPeriod = 1 / cuttOffFrequency;
     const delay = cutoffPeriod / 4;
@@ -444,68 +442,42 @@ class BusinessTools {
    */
   async applyCuttOffFilter(sub, speaker, cuttOffFrequency) {
     if (cuttOffFrequency === 0) {
-      return { PredictedLfeFiltered: sub, predictedSpeakerFiltered: speaker };
+      const PredictedLfeFiltered = await sub.genericCommand('Response copy');
+      const predictedSpeakerFiltered = await speaker.genericCommand('Response copy');
+      return { PredictedLfeFiltered, predictedSpeakerFiltered };
     }
-    // prenvent errors if the equaliser is not the Generic
+
     sub.ResetEqualiser();
     speaker.ResetEqualiser();
 
-    try {
-      const emptyFilter = index => ({
-        index,
-        type: 'None',
-        enabled: true,
-        isAuto: false,
-      });
+    const applyFilterAndPredict = async (device, filterConfig) => {
+      const index = await device.getFreeXFilterIndex();
 
-      // apply low pass filter to LFE at cuttOffFrequency
-      const subFilter = index => ({
+      await device.setSingleFilter({
         index,
         enabled: true,
         isAuto: false,
-        frequency: cuttOffFrequency,
-        shape: 'L-R',
-        slopedBPerOctave: 24,
-        type: 'Low pass',
+        ...filterConfig,
       });
+      const predicted = await device.producePredictedMeasurement();
+      await device.setSingleFilter({ index, type: 'None', enabled: true, isAuto: false });
+      return predicted;
+    };
 
-      // apply high pass filter at cuttOffFrequency
-      const speakerFilter = index => ({
-        index,
-        enabled: true,
-        isAuto: false,
-        frequency: cuttOffFrequency,
-        shape: 'BU',
-        slopedBPerOctave: 12,
-        type: 'High pass',
-      });
+    const PredictedLfeFiltered = await applyFilterAndPredict(sub, {
+      type: 'Low pass',
+      frequency: cuttOffFrequency,
+      shape: 'L-R',
+      slopedBPerOctave: 24,
+    });
+    const predictedSpeakerFiltered = await applyFilterAndPredict(speaker, {
+      type: 'High pass',
+      frequency: cuttOffFrequency,
+      shape: 'BU',
+      slopedBPerOctave: 12,
+    });
 
-      const subFreeFilterIndex = await sub.getFreeXFilterIndex();
-      if (subFreeFilterIndex === -1) {
-        throw new Error(
-          `No free filter found for ${sub.title()}. please check X1, X2 filters`
-        );
-      }
-      await sub.setSingleFilter(subFilter(subFreeFilterIndex));
-      // generate predicted filtered measurement for sub
-      const PredictedLfeFiltered = await sub.producePredictedMeasurement();
-      await sub.setSingleFilter(emptyFilter(subFreeFilterIndex));
-
-      const speakerFreeFilterIndex = await speaker.getFreeXFilterIndex();
-      if (speakerFreeFilterIndex === -1) {
-        throw new Error(
-          `No free filter found for ${speaker.title()}. please check X1, X2 filters`
-        );
-      }
-      await speaker.setSingleFilter(speakerFilter(speakerFreeFilterIndex));
-      // generate predicted filtered measurement for speaker
-      const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
-      await speaker.setSingleFilter(emptyFilter(speakerFreeFilterIndex));
-
-      return { PredictedLfeFiltered, predictedSpeakerFiltered };
-    } catch (error) {
-      throw new Error(`${error.message}`, { cause: error });
-    }
+    return { PredictedLfeFiltered, predictedSpeakerFiltered };
   }
 
   async createMeasurementPreview(item) {
