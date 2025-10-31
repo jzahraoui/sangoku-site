@@ -359,6 +359,7 @@ class MeasurementItem {
   }
 
   async defaultSmoothing() {
+    // actually not possible to check current smoothing method
     await this.genericCommand('Smooth', {
       smoothing: this.parentViewModel.selectedSmoothingMethod(),
     });
@@ -429,6 +430,15 @@ class MeasurementItem {
     );
   }
 
+  static arraysMatchWithTolerance(arr1, arr2, tolerance = 0.01) {
+    return (
+      Array.isArray(arr1) &&
+      Array.isArray(arr2) &&
+      arr1.length === arr2.length &&
+      arr1.every((val, i) => Math.abs(val - arr2[i]) < tolerance)
+    );
+  }
+
   async setIrWindows(irWindowsObject) {
     // Check if cumulative IR distance exists and is valid
     if (!this.haveImpulseResponse) {
@@ -446,7 +456,10 @@ class MeasurementItem {
       commandResult.rightWindowType === irWindowsObject.rightWindowType &&
       commandResult.leftWindowWidthms === irWindowsObject.leftWindowWidthms &&
       commandResult.rightWindowWidthms === irWindowsObject.rightWindowWidthms &&
-      commandResult.refTimems === irWindowsObject.refTimems &&
+      MeasurementItem.arraysMatchWithTolerance(
+        commandResult.mtwTimesms,
+        irWindowsObject.mtwTimesms
+      ) &&
       commandResult.addFDW === irWindowsObject.addFDW &&
       commandResult.addMTW === irWindowsObject.addMTW
     ) {
@@ -790,6 +803,7 @@ class MeasurementItem {
         targetdB: referenceLevel + offset,
       }
     );
+    //check results
     const finalAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
       finalAlignResult,
       this.uuid
@@ -799,14 +813,13 @@ class MeasurementItem {
         `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`
       );
     }
+    // Apply changes to local object
     this.splOffsetdB(this.splOffsetdBUnaligned() + newValue);
     this.alignSPLOffsetdB(newValue);
   }
 
   async addSPLOffsetDB(amountToAdd) {
-    const initalOffset = this.splOffsetDeltadB();
-    const newLevel = initalOffset + amountToAdd;
-    this.setSPLOffsetDB(newLevel);
+    this.setSPLOffsetDB(this.splOffsetDeltadB() + amountToAdd);
   }
 
   async setSPLOffsetDBOld(newValue) {
@@ -995,14 +1008,13 @@ class MeasurementItem {
     }
 
     const filters = await this.getFilters();
+    const freeIndex = [20, 21].find(i => filters[i]?.type === 'None');
 
-    if (filters[20]?.type === 'None') {
-      return 21;
-    } else if (filters[21]?.type === 'None') {
-      return 22;
+    if (freeIndex === undefined) {
+      throw new Error(`No free filter index found: ${this.displayMeasurementTitle()}`);
     }
 
-    return -1;
+    return freeIndex + 1;
   }
 
   compareObjects(obj1, obj2) {
@@ -1141,14 +1153,14 @@ class MeasurementItem {
   }
 
   async getAssociatedFilterItem() {
-    if (!this.associatedFilterItem()) {
-      console.warn(
-        `Associated filter not found: ${this.displayMeasurementTitle()}, creating a new one`
-      );
-      return await this.createUserFilter();
+    if (this.associatedFilterItem()) {
+      return this.associatedFilterItem();
     }
 
-    return this.associatedFilterItem();
+    console.warn(
+      `Associated filter not found: ${this.displayMeasurementTitle()}, creating a new one`
+    );
+    return await this.createUserFilter();
   }
 
   async setAssociatedFilter(filter) {
