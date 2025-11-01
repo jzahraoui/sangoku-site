@@ -381,7 +381,7 @@ class MeasurementItem {
 
   async resetTargetSettings() {
     const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      '/target-settings',
+      'target-settings',
       this.uuid
     );
 
@@ -407,7 +407,7 @@ class MeasurementItem {
 
   async isdefaultEqualiser() {
     const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      '/equaliser',
+      'equaliser',
       this.uuid
     );
 
@@ -446,7 +446,7 @@ class MeasurementItem {
     }
 
     const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      '/ir-windows',
+      'ir-windows',
       this.uuid
     );
 
@@ -872,7 +872,7 @@ class MeasurementItem {
         commandName,
         this.uuid,
         commandData,
-        0
+        2
       );
 
       if (!withoutResultCommands.includes(commandName)) {
