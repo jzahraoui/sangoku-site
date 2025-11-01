@@ -32,8 +32,8 @@ class MeasurementViewModel {
     );
 
     // API Service
-    this.apiBaseUrl = ko.observable('');
-    this.apiService = null;
+    this.apiBaseUrl = ko.observable('http://localhost:4735');
+    this.apiService = new RewApi(this.apiBaseUrl(), this.inhibitGraphUpdates);
 
     this.businessTools = new BusinessTools(this);
 
@@ -2011,7 +2011,7 @@ class MeasurementViewModel {
       phase: encodedPhaseData,
       ppo: optimizedSubsSum.ppo,
     };
-    await this.apiService.postSafe('import/frequency-response-data', options);
+    await this.apiService.postSafe('import/frequency-response-data', options, 2);
 
     // trick to retreive the imported measurement
     await this.loadData();
@@ -2522,7 +2522,7 @@ class MeasurementViewModel {
         );
         this.measurements(enhancedMeasurements);
       }
-      this.apiBaseUrl(data.apiBaseUrl || 'http://localhost:4735');
+      data.apiBaseUrl && this.apiBaseUrl(data.apiBaseUrl);
       this.selectedSpeaker(data.selectedSpeaker);
       this.targetCurve = data.targetCurve;
       this.rewVersion = data.rewVersion;
@@ -2533,12 +2533,14 @@ class MeasurementViewModel {
       this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
       this.loadedFileName(data.loadedFileName || '');
       data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
-      this.selectedSmoothingMethod(data.selectedSmoothingMethod || 'None');
-      this.selectedIrWindows(data.selectedIrWindows || 'Optimized MTW');
-      this.individualMaxBoostValue(data.individualMaxBoostValue || 3);
-      this.overallBoostValue(data.overallBoostValue || 3);
-      this.upperFrequencyBound(data.upperFrequencyBound || 16000);
-      this.lowerFrequencyBound(data.lowerFrequencyBound || 15);
+      data.selectedSmoothingMethod &&
+        this.selectedSmoothingMethod(data.selectedSmoothingMethod);
+      data.selectedIrWindows && this.selectedIrWindows(data.selectedIrWindows);
+      data.individualMaxBoostValue &&
+        this.individualMaxBoostValue(data.individualMaxBoostValue);
+      data.overallBoostValue && this.overallBoostValue(data.overallBoostValue);
+      data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
+      data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
     }
   }
 
