@@ -934,8 +934,7 @@ class MeasurementViewModel {
         for (const item of this.uniqueSpeakersMeasurements()) {
           // display progression in the status
           this.status(`Generating preview for ${item.displayMeasurementTitle()}`);
-          await this.businessTools.createMeasurementPreview(item);
-          await item.copyAllToOther();
+          await item.previewMeasurement();
         }
 
         this.status('Preview generated successfully');
@@ -1711,7 +1710,7 @@ class MeasurementViewModel {
     }
 
     const minFrequency = 10;
-    const maxFrequency = 19990;
+    const maxFrequency = 10000;
 
     const firstMeasurement = subsMeasurements[0];
 
@@ -1722,8 +1721,9 @@ class MeasurementViewModel {
     );
 
     // adjut target level according to the number of subs
+    // Using 20 for voltage addition (coherent/in-phase summation)
     const numbersOfSubs = subsMeasurements.length;
-    const overhead = 10 * Math.log10(numbersOfSubs);
+    const overhead = 20 * Math.log10(numbersOfSubs);
     const targetLevel =
       targetLevelAtFreq - overhead + Number(this.additionalBassGainValue());
 
@@ -1746,13 +1746,8 @@ class MeasurementViewModel {
         -18
       );
 
-      // if detect low frequency is lower than previous lowFrequency
-      if (detect.lowCutoff < lowFrequency) {
-        lowFrequency = Math.round(detect.lowCutoff);
-      }
-      if (detect.highCutoff > highFrequency) {
-        highFrequency = Math.round(detect.highCutoff);
-      }
+      lowFrequency = Math.min(lowFrequency, Math.round(detect.lowCutoff));
+      highFrequency = Math.max(highFrequency, Math.round(detect.highCutoff));
 
       let logMessage = `\nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(
         1
@@ -1778,12 +1773,8 @@ class MeasurementViewModel {
       await measurement.copySplOffsetDeltadBToOther();
     }
 
-    if (lowFrequency < minFrequency) {
-      lowFrequency = minFrequency;
-    }
-    if (highFrequency > maxFrequency) {
-      highFrequency = maxFrequency;
-    }
+    lowFrequency = Math.max(lowFrequency, minFrequency);
+    highFrequency = Math.min(highFrequency, maxFrequency);
 
     return { lowFrequency, highFrequency, targetLevelAtFreq };
   }
@@ -2581,7 +2572,7 @@ class MeasurementViewModel {
 
     try {
       // Initial load
-      this.apiService = new RewApi(this.apiBaseUrl(), false, false);
+      this.apiService = new RewApi(this.apiBaseUrl(), this.inhibitGraphUpdates, false);
       await this.apiService.initializeAPI();
       this.rewVersion = await this.apiService.checkVersion();
       this.targetCurve = await this.apiService.checkTargetCurve();
