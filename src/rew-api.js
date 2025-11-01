@@ -400,17 +400,25 @@ export default class RewApi {
   }
 
   extractProcessID(data, url) {
-    const idregex = /[^]*?ID \d+/;
+    const idregex = /ID \d+/;
+
+    const extractMatch = (str) => {
+      if (!str) return null;
+      const match = idregex.exec(str);
+      if (!match) return null;
+      const idIndex = str.indexOf(match[0]);
+      return str.substring(0, idIndex + match[0].length);
+    };
 
     if (typeof data === 'string') {
-      return idregex.exec(data)?.[0];
+      return extractMatch(data);
     }
 
-    const messageMatch = data.message ? idregex.exec(data.message)?.[0] : null;
+    const messageMatch = extractMatch(data.message);
     if (messageMatch) return messageMatch;
 
-    if (url !== 'measurements/process-result' && data.processName) {
-      return idregex.exec(data.processName)?.[0];
+    if (url !== 'measurements/process-result') {
+      return extractMatch(data.processName);
     }
 
     return null;
