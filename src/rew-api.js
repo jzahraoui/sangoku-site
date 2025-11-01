@@ -400,7 +400,7 @@ export default class RewApi {
   }
 
   extractProcessID(data, url) {
-    const idregex = /.+?ID \d+/;
+    const idregex = /[^]*?ID \d+/;
 
     if (typeof data === 'string') {
       return idregex.exec(data)?.[0];
