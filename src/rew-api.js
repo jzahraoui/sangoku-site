@@ -257,7 +257,7 @@ export default class RewApi {
     }
   }
 
-  async putSafe(requestUrl, parameters, retries = 0) {
+  async putSafe(requestUrl, parameters, retries = 2) {
     try {
       const fetchOptions = {
         method: 'PUT',
@@ -369,7 +369,7 @@ export default class RewApi {
 
       this.validateExpectedProcess(expectedProcess, data);
 
-      const processID = data.message?.match(/.*ID \d+/);
+      const processID = options.method === 'POST' && this.extractProcessID(data, url);
 
       // Handle 200: Check if polling is needed for measurements
       if (response.status === 200) {
@@ -378,7 +378,7 @@ export default class RewApi {
 
       // Handle 202: Async process, poll for completion
       if (response.status === 202) {
-        return this.handleStatus202(url, options, processID, MAX_PULLING_RETRY);
+        return this.handleStatus202(url, processID, MAX_PULLING_RETRY);
       }
 
       return data;
@@ -399,50 +399,63 @@ export default class RewApi {
     }
   }
 
-  validateExpectedProcess(expectedProcess, data) {
-    if (!expectedProcess?.processName) return;
+  extractProcessID(data, url) {
+    const idregex = /.*ID \d+/;
 
-    if (data.processName !== expectedProcess.processName) {
+    if (typeof data === 'string') {
+      return idregex.exec(data)?.[0];
+    }
+
+    const messageMatch = data.message ? idregex.exec(data.message)?.[0] : null;
+    if (messageMatch) return messageMatch;
+
+    if (url !== 'measurements/process-result' && data.processName) {
+      return idregex.exec(data.processName)?.[0];
+    }
+
+    return null;
+  }
+
+  validateExpectedProcess(expectedProcess, data) {
+    if (!expectedProcess) return;
+
+    if (typeof expectedProcess === 'string') {
+      if (data !== expectedProcess) {
+        throw new Error(
+          `The API response does not concern the expected process ID: expected:\n${expectedProcess} received:\n${data}`
+        );
+      }
+      return;
+    }
+
+    if (expectedProcess.processName && data.processName !== expectedProcess.processName) {
       throw new Error(
         `The API response does not concern the expected process ID: expected ${expectedProcess.processName} received ${data.processName}`
       );
     }
 
-    const receivedMessage = data.message || data;
-    if (!receivedMessage.toUpperCase().includes(expectedProcess.message.toUpperCase())) {
-      throw new Error('API does not give a "Complete" status');
+    if (expectedProcess.message) {
+      const receivedMessage = data.message || data;
+      if (
+        !receivedMessage.toUpperCase().includes(expectedProcess.message.toUpperCase())
+      ) {
+        throw new Error('API does not give a "Complete" status');
+      }
     }
   }
 
   async handleStatus200(url, processID, data, maxRetries) {
-    if (!processID || !url.startsWith('measurements')) {
+    if (!processID) {
       return data;
     }
 
-    const processExpectedResponse = {
-      processName: processID[0],
-      message: 'Completed',
-    };
-
-    return await this.fetchWithRetry(
-      this.getResultUrl(url),
-      { method: 'GET' },
-      maxRetries,
-      processExpectedResponse
-    );
-  }
-
-  async handleStatus202(url, options, processID, maxRetries) {
     let processExpectedResponse;
 
     if (url.startsWith('import')) {
-      processExpectedResponse = this.buildImportExpectedResponse(options, processID);
-    } else {
-      if (!processID) {
-        throw new Error('Invalid process ID in response');
-      }
+      processExpectedResponse = processID;
+    } else if (!url.startsWith('import')) {
       processExpectedResponse = {
-        processName: processID[0],
+        processName: processID,
         message: 'Completed',
       };
     }
@@ -455,17 +468,28 @@ export default class RewApi {
     );
   }
 
-  buildImportExpectedResponse(options, processID) {
-    if (processID) {
-      return { message: processID[0] };
+  async handleStatus202(url, processID, maxRetries) {
+    if (!processID) {
+      throw new Error('Invalid process ID in response');
+    }
+    let processExpectedResponse;
+
+    if (url.startsWith('import')) {
+      processExpectedResponse = processID;
+    } else {
+      processExpectedResponse = {
+        processName: processID,
+        message: 'Completed',
+      };
     }
 
-    const body = this.parseRequestBody(options);
-    if (!body) {
-      throw new Error('Missing or invalid body for import request');
-    }
-
-    return { message: body.path || body.identifier };
+    const resultUrl = this.getResultUrl(url);
+    return await this.fetchWithRetry(
+      resultUrl,
+      { method: 'GET' },
+      maxRetries,
+      processExpectedResponse
+    );
   }
 
   // Helper methods
@@ -477,19 +501,6 @@ export default class RewApi {
       return url;
     }
     return 'measurements/process-result';
-  }
-
-  // Helper function to safely parse request body
-  parseRequestBody(options) {
-    if (!options.body) {
-      return null;
-    }
-    try {
-      return JSON.parse(options.body);
-    } catch (error) {
-      const message = error.message || 'Failed to parse request body';
-      throw new Error(message, { cause: error });
-    }
   }
 
   safeParseJSON(str) {
