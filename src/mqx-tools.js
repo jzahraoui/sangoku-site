@@ -13,7 +13,7 @@ class MqxTools {
     this.jsonAvrData = jsonAvrData;
     this.currentDate = new Date();
     this.samplingRate = 48000;
-    this.SPL_OFFSET = 80.0;
+    this.SPL_OFFSET = 80;
   }
 
   getDistancePoisitionGuid() {
@@ -27,7 +27,7 @@ class MqxTools {
 
   getPositionList() {
     if (!Array.isArray(this.fileContent?._measurements)) {
-      throw new Error('No measurements data found');
+      throw new TypeError('No measurements data found');
     }
 
     // Filter out invalid measurements and extract unique position GUIDs
@@ -42,14 +42,20 @@ class MqxTools {
     return [...new Set(positions)];
   }
 
-  processPositions(avrChannel, channelGuid, channelName, positionList, distancePoisitionGuid) {
-    for (const position of positionList) {
-      const positionNumber = positionList.indexOf(position);
+  processPositions(
+    avrChannel,
+    channelGuid,
+    channelName,
+    positionList,
+    distancePoisitionGuid
+  ) {
+    for (let positionNumber = 0; positionNumber < positionList.length; positionNumber++) {
+      const position = positionList[positionNumber];
       const positionName = this.fileContent.PositionNames[position];
-      let identifier = `${channelName}_P${positionNumber}`;
-      if (positionName) {
-        identifier = `${identifier}_(${positionName})`;
-      }
+      const identifier = positionName
+        ? `${channelName}_P${positionNumber}_(${positionName})`
+        : `${channelName}_P${positionNumber}`;
+
       const measurement = this.fileContent._measurements.find(
         m => m.PositionGuid === position && m.ChannelGuid === channelGuid
       );
@@ -59,19 +65,13 @@ class MqxTools {
         continue;
       }
 
-      if (position === distancePoisitionGuid) {
-        if (!measurement?.AvrDistanceMeters) {
-          console.warn(`No distance found for ${identifier}`);
-        } else {
-          avrChannel.channelReport.distance = measurement.AvrDistanceMeters;
-        }
+      if (position === distancePoisitionGuid && measurement.AvrDistanceMeters) {
+        avrChannel.channelReport.distance = measurement.AvrDistanceMeters;
+      } else if (position === distancePoisitionGuid) {
+        console.warn(`No distance found for ${identifier}`);
       }
 
-      const littleEndianData = measurement.Data;
-      const decodedFloat32Array = MeasurementItem.decodeRewBase64(
-        littleEndianData,
-        true
-      );
+      const decodedFloat32Array = MeasurementItem.decodeRewBase64(measurement.Data, true);
       avrChannel.responseData[positionNumber] = decodedFloat32Array;
     }
   }
@@ -87,18 +87,18 @@ class MqxTools {
     // Debug logging
     console.debug('Available channels:', JSON.stringify(avrChannelList));
 
-    const AvrOriginatingDesignationList = Array.from(
-      new Set(
-        Object.values(this.fileContent._channelDataMap).map(m =>
-          CHANNEL_TYPES.getStandardSubwooferName(m.Metadata.AvrOriginatingDesignation)
-        )
+    const AvrOriginatingDesignationList = new Set(
+      Object.values(this.fileContent._channelDataMap).map(m =>
+        CHANNEL_TYPES.getStandardSubwooferName(m.Metadata.AvrOriginatingDesignation)
       )
     );
     const missingChannels = avrChannelList.filter(
-      channel => !AvrOriginatingDesignationList.includes(channel)
+      channel => !AvrOriginatingDesignationList.has(channel)
     );
     if (missingChannels.length !== 0) {
-      throw new Error(`${missingChannels.length} channel(s) are missing, please ensure all AVR detected channels are present in mqx file,
+      throw new Error(`${
+        missingChannels.length
+      } channel(s) are missing, please ensure all AVR detected channels are present in mqx file,
         missing are: ${missingChannels.join(', ')}`);
     }
 
@@ -129,7 +129,13 @@ class MqxTools {
 
       avrChannel.responseData = {};
 
-      this.processPositions(avrChannel, channelGuid, channelName, positionList, distancePoisitionGuid);
+      this.processPositions(
+        avrChannel,
+        channelGuid,
+        channelName,
+        positionList,
+        distancePoisitionGuid
+      );
     }
   }
 }

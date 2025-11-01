@@ -1,12 +1,13 @@
 #!/bin/bash
 
 # Exit immediately if a command exits with a non-zero status
-set -e
+set -eou pipefail
 
 # Configuration
 PROJECT="apo-to-camilla"
 STACK_NAME_CLOUDFRONT="cfn-$PROJECT-cloudfront"
-HOME_DIR="$HOME/audio/sangoku-site/dist"
+APP_FOLDER="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+HOME_DIR="$APP_FOLDER/dist"
 S3_BUCKET="s3://s3-$PROJECT-cloudfront-ec1/"
 AWS_PROFILE="experiatis"
 AWS_DEFAULT_REGION="eu-central-1"
@@ -15,17 +16,17 @@ DRYRUN=0
 # Parse command line arguments
 while getopts "dp:r:h" opt; do
   case $opt in
-  d) DRYRUN=1 ;;
-  p) AWS_PROFILE="$OPTARG" ;;
-  r) AWS_DEFAULT_REGION="$OPTARG" ;;
-  h)
-    echo "Usage: $0 [-d] [-p profile] [-r region]"
-    echo "  -d: Dry run mode"
-    echo "  -p: AWS profile (default: experiatis)"
-    echo "  -r: AWS region (default: eu-central-1)"
-    exit 0
-    ;;
-  *) exit 1 ;;
+    d) DRYRUN=1 ;;
+    p) AWS_PROFILE="$OPTARG" ;;
+    r) AWS_DEFAULT_REGION="$OPTARG" ;;
+    h)
+      echo "Usage: $0 [-d] [-p profile] [-r region]"
+      echo "  -d: Dry run mode"
+      echo "  -p: AWS profile (default: experiatis)"
+      echo "  -r: AWS region (default: eu-central-1)"
+      exit 0
+      ;;
+    *) exit 1 ;;
   esac
 done
 
@@ -33,11 +34,12 @@ done
 export AWS_PROFILE AWS_DEFAULT_REGION
 
 # Function to sync files to S3
-sync_to_s3() {
+sync_to_s3()
+{
   echo "Syncing files to S3 bucket..."
   local cmd="aws s3 sync --delete --no-progress --size-only --cache-control \"max-age=3600\" \"$HOME_DIR/\" \"$S3_BUCKET\""
 
-  if [ "$DRYRUN" = 1 ]; then
+  if [[ "$DRYRUN" = 1 ]]; then
     cmd="$cmd --dryrun"
   fi
 
@@ -46,14 +48,15 @@ sync_to_s3() {
 }
 
 # Function to invalidate CloudFront cache
-invalidate_cache() {
+invalidate_cache()
+{
   echo "Getting distribution ID from CloudFormation..."
   local distribution_id
   distribution_id=$(aws cloudformation list-exports \
     --query "Exports[?Name=='$STACK_NAME_CLOUDFRONT-Distribution'].Value" --output text)
 
   echo "Invalidating CloudFront cache..."
-  if [ "$DRYRUN" = 0 ]; then
+  if [[ "$DRYRUN" = 0 ]]; then
     local invalidation_output
     invalidation_output=$(aws cloudfront create-invalidation \
       --distribution-id "$distribution_id" \
@@ -74,7 +77,8 @@ invalidate_cache() {
 }
 
 # Main execution
-main() {
+main()
+{
   sync_to_s3
   invalidate_cache
 

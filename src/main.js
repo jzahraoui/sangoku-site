@@ -1,4 +1,3 @@
-import RewApi from './rew-api.js';
 import apo2camilla from './apo2camilla.js';
 import MeasurementViewModel from './MeasurementViewModel.js';
 import translations from './translations.js';
@@ -53,15 +52,13 @@ class LanguageManager {
         NodeFilter.SHOW_ELEMENT,
         {
           acceptNode: node =>
-            node.hasAttribute('data-i18n')
-              ? NodeFilter.FILTER_ACCEPT
-              : NodeFilter.FILTER_REJECT,
+            node.dataset.i18n ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT,
         }
       );
 
       let element;
       while ((element = iterator.nextNode())) {
-        const key = element.getAttribute('data-i18n');
+        const key = element.dataset.i18n;
         const translation = currentTranslations[key];
 
         if (!translation) {
@@ -87,12 +84,12 @@ class LanguageManager {
       }
 
       // Handle Knockout bindings if available
-      if (typeof window.viewModel?.updateTranslations === 'function') {
-        window.viewModel.updateTranslations(this.currentLanguage);
+      if (typeof globalThis.viewModel?.updateTranslations === 'function') {
+        globalThis.viewModel.updateTranslations(this.currentLanguage);
       }
 
       // Dispatch event when translations are complete
-      window.dispatchEvent(
+      globalThis.dispatchEvent(
         new CustomEvent('translationsComplete', {
           detail: { language: this.currentLanguage },
         })
@@ -129,6 +126,12 @@ class LanguageManager {
   }
 }
 
+// Extract version tag from commit message if exists
+function extractVersionTag(message) {
+  const versionMatch = message.match(/(\d+\.\d+\.\d+)/);
+  return versionMatch ? versionMatch[0] : null;
+}
+
 class RewController {
   constructor() {
     this.initializeEventListeners();
@@ -136,27 +139,28 @@ class RewController {
 
   initializeEventListeners() {
     document.addEventListener('DOMContentLoaded', async () => {
-      window.langManager = new LanguageManager();
+      globalThis.langManager = new LanguageManager();
 
-      const rewApi = new RewApi();
-      window.viewModel = new MeasurementViewModel(rewApi);
+      globalThis.viewModel = new MeasurementViewModel();
 
       // Apply Knockout bindings
-      ko.applyBindings(window.viewModel);
+      ko.applyBindings(globalThis.viewModel);
 
-      window.viewModel.restore();
+      globalThis.viewModel.restore();
 
       const $min = document.querySelector('#min');
       const $max = document.querySelector('#max');
 
       new DualRangeInput($min, $max, 2);
 
-      window.addEventListener('beforeunload', () => window.viewModel.saveMeasurements());
+      globalThis.addEventListener('beforeunload', () =>
+        globalThis.viewModel.saveMeasurements()
+      );
 
       // Handle visibility change
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') {
-          window.viewModel.saveMeasurements();
+          globalThis.viewModel.saveMeasurements();
         }
       });
 
@@ -191,10 +195,10 @@ class RewController {
       const closeBtn = document.querySelector('#descriptionPopup .close-btn'); // More specific selector
 
       // Add click event to all code links
-      document.querySelectorAll('.code-link').forEach(link => {
+      for (const link of document.querySelectorAll('.code-link')) {
         link.addEventListener('click', function (e) {
           e.preventDefault();
-          const description = this.getAttribute('data-description');
+          const description = this.dataset.description;
           fetch(description)
             .then(response => response.text())
             .then(text => {
@@ -206,7 +210,7 @@ class RewController {
             });
           if (popup) popup.style.display = 'block';
         });
-      });
+      }
 
       // Close popup when clicking the close button
       if (closeBtn) {
@@ -237,7 +241,7 @@ class RewController {
       const togglePopup = show => {
         if (thumbnailPopup) thumbnailPopup.style.display = show ? 'block' : 'none';
       };
-      thumbnails.forEach(thumb => {
+      for (const thumb of thumbnails) {
         thumb.addEventListener('click', function () {
           if (!thumbnailPopup || !fullImage) return;
           // Preload image before showing popup
@@ -249,7 +253,7 @@ class RewController {
           img.src = this.dataset.full;
           thumbnailPopup.style.display = 'block';
         });
-      });
+      }
 
       // Close thumbnailPopup when clicking the close button
       if (thumbnailCloseBtn && thumbnailPopup) {
@@ -288,12 +292,12 @@ class RewController {
       });
 
       // Handle navigation with buttons
-      document.querySelectorAll('.nav-button').forEach(button => {
+      for (const button of document.querySelectorAll('.nav-button')) {
         button.addEventListener('click', e => {
           const page = e.target.closest('.nav-button').dataset.page;
           navigateToPage(page);
         });
-      });
+      }
 
       // Handle navigation
       function navigateToPage(page) {
@@ -325,19 +329,19 @@ class RewController {
         history.pushState({ page }, '', `#${page}`);
 
         // Update active state of buttons
-        document.querySelectorAll('.nav-button').forEach(btn => {
+        for (const btn of document.querySelectorAll('.nav-button')) {
           btn.classList.toggle('active', btn.dataset.page === page);
-        });
+        }
       }
 
       // Handle initial load
-      const hash = window.location.hash.slice(1);
+      const hash = globalThis.location.hash.slice(1);
       navigateToPage(hash || 'application');
 
       // Handle collapsible sections
       const collapsibles = document.querySelectorAll('.collapsible');
 
-      collapsibles.forEach(collapsible => {
+      for (const collapsible of collapsibles) {
         collapsible.addEventListener('click', function () {
           this.classList.toggle('active');
           const content = this.nextElementSibling;
@@ -348,12 +352,12 @@ class RewController {
             content.style.maxHeight = content.scrollHeight + 'px';
           }
         });
-      });
+      }
 
       // Handle ZIP downloads with real implementation using JSZip
       const downloadAllButtons = document.querySelectorAll('.download-all-button');
 
-      downloadAllButtons.forEach(button => {
+      for (const button of downloadAllButtons) {
         button.addEventListener('click', async function (e) {
           e.preventDefault();
 
@@ -409,19 +413,14 @@ class RewController {
               '<i class="fas fa-spinner fa-spin"></i> Creating ZIP file...';
 
             // Add files to the zip
-            const fetchPromises = Array.from(links).map(link => {
+            const fetchPromises = Array.from(links).map(async link => {
               const url = link.getAttribute('href');
               const filename = url.split('/').pop();
-
-              return fetch(url)
-                .then(response => {
-                  if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
-                  return response.blob();
-                })
-                .then(blob => {
-                  zip.file(filename, blob);
-                  return filename;
-                });
+              const response = await fetch(url);
+              if (!response.ok) throw new Error(`Failed to fetch ${filename}`);
+              const blob = await response.blob();
+              zip.file(filename, blob);
+              return filename;
             });
 
             // Wait for all files to be fetched and added to the zip
@@ -438,7 +437,7 @@ class RewController {
             downloadLink.download = `${zipFilename}.zip`;
             document.body.appendChild(downloadLink);
             downloadLink.click();
-            document.body.removeChild(downloadLink);
+            downloadLink.remove();
 
             // Update status
             statusDiv.innerHTML = '<i class="fas fa-check"></i> Download complete!';
@@ -447,7 +446,7 @@ class RewController {
             // Remove status after a delay
             setTimeout(() => {
               if (statusDiv.parentNode) {
-                statusDiv.parentNode.removeChild(statusDiv);
+                statusDiv.remove();
               }
             }, 3000);
           } catch (error) {
@@ -456,7 +455,7 @@ class RewController {
             statusDiv.style.color = '#dc3545';
           }
         });
-      });
+      }
 
       const commitList = document.getElementById('commitList');
       const loading = document.getElementById('loading');
@@ -466,12 +465,6 @@ class RewController {
 
       let allCommits = [];
       const authors = new Set();
-
-      // Extract version tag from commit message if exists
-      function extractVersionTag(message) {
-        const versionMatch = message.match(/(\d+\.\d+\.\d+)/);
-        return versionMatch ? versionMatch[0] : null;
-      }
 
       // Filter commits based on search and author filter
       function filterCommits() {
@@ -500,7 +493,7 @@ class RewController {
         const commitsByVersion = {};
         let versionTag;
 
-        filteredCommits.forEach(commit => {
+        for (const commit of filteredCommits) {
           const versionTagRead = extractVersionTag(commit.commit.message);
           // If a version tag is found, update the versionTag variable
           if (versionTagRead) {
@@ -508,17 +501,17 @@ class RewController {
           }
           commit.versionTag = versionTag;
 
-          if (!commit.commit.message.startsWith('feat:')) return;
+          if (!commit.commit.message.startsWith('feat:')) continue;
 
           // Group by version tag
           if (!commitsByVersion[versionTag]) {
             commitsByVersion[versionTag] = [];
           }
           commitsByVersion[versionTag].push(commit);
-        });
+        }
 
         // Render commits grouped by version
-        Object.entries(commitsByVersion).forEach(([version, commits]) => {
+        for (const [version, commits] of Object.entries(commitsByVersion)) {
           const fragment = document.createDocumentFragment();
           const commitEl = document.createElement('li');
           commitEl.className = 'commit';
@@ -528,17 +521,17 @@ class RewController {
           const messagesContainer = document.createElement('div');
           messagesContainer.className = 'commit-messages';
 
-          commits.forEach(commit => {
+          for (const commit of commits) {
             const message = document.createElement('div');
             message.className = 'commit-message';
             message.innerHTML = `- ${commit.commit.message.split('\n').join('<br>')}`;
             messagesContainer.appendChild(message);
-          });
+          }
 
           commitEl.appendChild(messagesContainer);
           fragment.appendChild(commitEl);
           commitList.appendChild(fragment);
-        });
+        }
       }
 
       // Fetch commits from GitHub API
@@ -556,18 +549,18 @@ class RewController {
           allCommits = await response.json();
 
           // Populate author filter
-          allCommits.forEach(commit => {
+          for (const commit of allCommits) {
             if (commit.commit?.author?.name) {
               authors.add(commit.commit.author.name);
             }
-          });
+          }
 
-          authors.forEach(author => {
+          for (const author of authors) {
             const option = document.createElement('option');
             option.value = author;
             option.textContent = author;
             authorFilter.appendChild(option);
-          });
+          }
 
           // Display commits
           loading.style.display = 'none';
@@ -589,7 +582,7 @@ class RewController {
   }
 }
 
-window.rewController = new RewController();
+globalThis.rewController = new RewController();
 
 async function downloadConfig(config, channel) {
   try {
@@ -639,7 +632,7 @@ fileInputMso.addEventListener('change', e => {
   handleFiles(e.target.files);
 });
 
-function handleFiles(files) {
+async function handleFiles(files) {
   if (!files?.length) {
     results.innerHTML =
       '<div class="error">No files selected or invalid file input.</div>';
@@ -647,55 +640,46 @@ function handleFiles(files) {
   }
 
   const file = files[0];
-  const reader = new FileReader();
 
-  reader.onload = async e => {
+  try {
+    const content = await file.text();
+    let filterConverter;
     try {
-      const content = e.target.result;
-      let filterConverter;
-      try {
-        filterConverter = new apo2camilla(content);
-      } catch (error) {
-        console.error(`Error initializing FilterConverter: ${error.message}`, error);
-        results.innerHTML = `<div class="error">Error initializing FilterConverter: ${error.message}</div>`;
-        return;
-      }
-
-      const configs = filterConverter.createCamillaDspConfig();
-
-      // Clear loading state
-      results.innerHTML = '';
-
-      // Show success message
-      const successDiv = document.createElement('div');
-      successDiv.className = 'success';
-      successDiv.textContent =
-        'Conversion successful! Click buttons below to download configurations:';
-      results.appendChild(successDiv);
-
-      // Create download buttons
-      configs.forEach(({ config, channel }) => {
-        const button = document.createElement('button');
-        button.textContent = `Download ${channel} Configuration`;
-        button.onclick = () => downloadConfig(config, channel);
-        results.appendChild(button);
-      });
-
-      const REWconfigs = filterConverter.createREWConfiguration();
-      await window.viewModel.importMsoConfigInRew(REWconfigs);
-      // delete all predicted lfe
-      for (const item of window.viewModel.allPredictedLfeMeasurement()) {
-        await item.delete();
-      }
+      filterConverter = new apo2camilla(content);
     } catch (error) {
-      console.error(error);
-      results.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+      console.error(`Error initializing FilterConverter: ${error.message}`, error);
+      results.innerHTML = `<div class="error">Error initializing FilterConverter: ${error.message}</div>`;
+      return;
     }
-  };
 
-  reader.onerror = () => {
-    results.innerHTML = '<div class="error">Error reading file</div>';
-  };
+    const configs = filterConverter.createCamillaDspConfig();
 
-  reader.readAsText(file);
+    // Clear loading state
+    results.innerHTML = '';
+
+    // Show success message
+    const successDiv = document.createElement('div');
+    successDiv.className = 'success';
+    successDiv.textContent =
+      'Conversion successful! Click buttons below to download configurations:';
+    results.appendChild(successDiv);
+
+    // Create download buttons
+    for (const { config, channel } of configs) {
+      const button = document.createElement('button');
+      button.textContent = `Download ${channel} Configuration`;
+      button.onclick = () => downloadConfig(config, channel);
+      results.appendChild(button);
+    }
+
+    const REWconfigs = filterConverter.createREWConfiguration();
+    await globalThis.viewModel.importMsoConfigInRew(REWconfigs);
+    // delete all predicted lfe
+    for (const item of globalThis.viewModel.allPredictedLfeMeasurement()) {
+      await item.delete();
+    }
+  } catch (error) {
+    console.error(error);
+    results.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+  }
 }

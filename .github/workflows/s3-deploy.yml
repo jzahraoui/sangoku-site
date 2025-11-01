@@ -8,19 +8,21 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4.3.0
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@00943011d9042930efac3dcd3a170e4273319bc8
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-central-1
 
       - name: Install Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '20' # Specify the Node.js version you need
           cache: 'npm' # Cache npm packages for faster builds
@@ -34,27 +36,33 @@ jobs:
           npm run build
 
       - name: Copy files to S3
+        env:
+          S3_BUCKET: 's3-apo-to-camilla-cloudfront-ec1'
         run: |
-          S3_BUCKET="s3-apo-to-camilla-cloudfront-ec1"
-
-          # do not use delete option to avoid ressources deletion
           aws s3 sync \
             --no-progress \
-            --exact-timestamp \
+            --exact-timestamps \
+            --exclude "ressources/*" \
+            --exclude "img/*" \
+            --exclude "css/*" \
+            --cache-control "max-age=3600" \
+            --delete \
             dist/ s3://${S3_BUCKET}/
 
       - name: Invalidate CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ secrets.DISTRIBUTION_ID }}
         run: |
           echo "invalidate CloudFront cache"
           COMMAND_OUTPUT=$(aws cloudfront create-invalidation \
-            --distribution-id "${{ secrets.DISTRIBUTION_ID }}" \
+            --distribution-id "$DISTRIBUTION_ID" \
             --paths '/*')
 
           echo "wait for invalidation to complete..."
           INVALIDATION_ID=$(echo "${COMMAND_OUTPUT}" | jq -r '.Invalidation.Id')
 
           aws cloudfront wait invalidation-completed \
-            --distribution-id "${{ secrets.DISTRIBUTION_ID }}" \
+            --distribution-id "$DISTRIBUTION_ID" \
             --id "${INVALIDATION_ID}"
           echo "CloudFront cache invalidated."
 

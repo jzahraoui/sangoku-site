@@ -1,19 +1,45 @@
 export default class RewApi {
-  constructor(baseUrl = 'http://localhost:4735') {
+  constructor(baseUrl, inhibitGraphUpdates = false, blocking = false) {
+    if (!baseUrl) {
+      throw new Error('Base URL is required');
+    }
     this.baseUrl = baseUrl;
     this.speedDelay = 130;
     this.VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
     this.MAX_RETRIES = 5;
     this.MAX_RETRY_DELAY = 5;
+    this.blocking = blocking;
+    this.inhibitGraphUpdates = inhibitGraphUpdates;
+  }
+
+  async setBlocking(blocking = true) {
+    try {
+      await this.updateAPI('blocking', blocking);
+      this.blocking = blocking;
+    } catch (error) {
+      const message = error.message || 'Error enabling blocking';
+      throw new Error(message, { cause: error });
+    }
+  }
+
+  async setInhibitGraphUpdates(inhibit = true) {
+    try {
+      await this.updateAPI('inhibit-graph-updates', inhibit);
+      this.inhibitGraphUpdates = inhibit;
+    } catch (error) {
+      const message = error.message || 'Error setting inhibit graph updates';
+      throw new Error(message, { cause: error });
+    }
   }
 
   // Move API initialization to separate method
   async initializeAPI() {
     try {
-      await this.updateAPI('inhibit-graph-updates', false);
-      await this.updateAPI('blocking', false);
+      await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
+      await this.setBlocking(this.blocking);
     } catch (error) {
-      throw new Error('API initialization failed', { cause: error });
+      const message = error.message || 'API initialization failed';
+      throw new Error(message, { cause: error });
     }
   }
 
@@ -31,12 +57,12 @@ export default class RewApi {
         return 'tcDefault';
       } else {
         console.info(`Using target curve : ${JSON.stringify(targetCurvePath)}`);
-        const normalizedPath = targetCurvePath.replace(/\\/g, '/');
+        const normalizedPath = targetCurvePath.replaceAll('\\', '/');
         const tcName = normalizedPath
           .split('/')
           .pop()
           .replace(/\.[^/.]+$/, '')
-          .replace(/\s+/g, '');
+          .replaceAll(/\s+/g, '');
         return tcName ? `${tcName}` : '';
       }
     } catch (error) {
@@ -64,7 +90,7 @@ export default class RewApi {
         throw new Error(`Invalid version format: ${versionString}`);
       }
 
-      const [, major, minor, beta] = versionMatch.map(v => parseInt(v, 10));
+      const [, major, minor, beta] = versionMatch.map(v => Number.parseInt(v, 10));
 
       console.info(`Using REW version: ${JSON.stringify(versionString)}`);
 
@@ -118,7 +144,7 @@ export default class RewApi {
 
   async fetchREW(indice = null, method = 'GET', body = null, retry = 3) {
     try {
-      const indicePath = indice !== null ? `/${indice}` : '';
+      const indicePath = indice === null ? '' : `/${indice}`;
       const requestUrl = `measurements${indicePath}`;
       const requestOptions = {
         method,
@@ -134,7 +160,7 @@ export default class RewApi {
 
   async fetchSafe(requestUrl, indice = null, parameters = null) {
     try {
-      const indicePath = indice !== null ? `/${indice}` : '';
+      const indicePath = indice === null ? '' : `/${indice}`;
       const url = `measurements${indicePath}/${requestUrl}`;
       const options = {
         method: parameters ? 'POST' : 'GET',
@@ -231,7 +257,7 @@ export default class RewApi {
     }
   }
 
-  async putSafe(requestUrl, parameters, retries = 0) {
+  async putSafe(requestUrl, parameters, retries = 2) {
     try {
       const fetchOptions = {
         method: 'PUT',
@@ -270,7 +296,7 @@ export default class RewApi {
           return {
             message: 'Delay too large',
             error: errorIntoMessage,
-            delay: parseFloat(delayMatch[1]),
+            delay: Number.parseFloat(delayMatch[1]),
           };
         }
       }
@@ -315,19 +341,14 @@ export default class RewApi {
       throw new Error('Missing parameters');
     }
 
-    const TIMEOUT_MS = 30000; // 30 seconds timeout
-    const completeUrl = `${this.baseUrl}/${url}`;
+    const TIMEOUT_MS = 10000;
     const MAX_PULLING_RETRY = 90;
+    const completeUrl = `${this.baseUrl}/${url}`;
 
     // Create an abort controller for the timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
-    // Add the signal to the fetch options
-    const fetchOptions = {
-      ...options,
-      signal: controller.signal,
-    };
+    const fetchOptions = { ...options, signal: controller.signal };
 
     try {
       const response = await fetch(completeUrl, fetchOptions);
@@ -346,81 +367,18 @@ export default class RewApi {
         throw new Error('Invalid response data');
       }
 
-      // Handle expected process validation
-      if (expectedProcess) {
-        if (
-          expectedProcess.processName &&
-          data.processName !== expectedProcess.processName
-        ) {
-          throw new Error(
-            `The API response does not concern the expected process ID: expected ${expectedProcess.processName} received ${data.processName}`
-          );
-        }
-        const reveivedMessage = data.message || data;
-        if (
-          !reveivedMessage.toUpperCase().includes(expectedProcess.message.toUpperCase())
-        ) {
-          throw new Error(`API does not give a "Complete" status`);
-        }
-      }
+      this.validateExpectedProcess(expectedProcess, data);
 
-      let processExpectedResponse;
-      const processID = data.message?.match(/.*ID \d+/);
+      const processID = options.method === 'POST' && this.extractProcessID(data, url);
 
-      // Return data based on response status
+      // Handle 200: Check if polling is needed for measurements
       if (response.status === 200) {
-        if (!processID) return data;
-        if (!url.startsWith('measurements')) return data;
-
-        processExpectedResponse = {
-          processName: processID?.[0],
-          message: 'Completed',
-        };
-
-        const resultUrl = this.getResultUrl(url);
-        const processResponse = await this.fetchWithRetry(
-          resultUrl,
-          { method: 'GET' },
-          MAX_PULLING_RETRY,
-          processExpectedResponse
-        );
-        return processResponse;
+        return this.handleStatus200(url, processID, data, MAX_PULLING_RETRY);
       }
 
+      // Handle 202: Async process, poll for completion
       if (response.status === 202) {
-        // Determine result URL and process expected response
-
-        if (url.startsWith('import')) {
-          if (!processID) {
-            const body = this.parseRequestBody(options);
-            if (!body) {
-              throw new Error('Missing or invalid body for import request');
-            }
-            processExpectedResponse = {
-              message: body.path || body.identifier,
-            };
-          } else {
-            processExpectedResponse = {
-              message: processID?.[0],
-            };
-          }
-        } else {
-          if (!processID) {
-            throw new Error('Invalid process ID in response');
-          }
-          processExpectedResponse = {
-            processName: processID?.[0],
-            message: 'Completed',
-          };
-        }
-        const resultUrl = this.getResultUrl(url);
-        const processResponse = await this.fetchWithRetry(
-          resultUrl,
-          { method: 'GET' },
-          MAX_PULLING_RETRY,
-          processExpectedResponse
-        );
-        return processResponse;
+        return this.handleStatus202(url, processID, MAX_PULLING_RETRY);
       }
 
       return data;
@@ -429,19 +387,117 @@ export default class RewApi {
       clearTimeout(timeoutId);
 
       if (error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${TIMEOUT_MS}ms`);
+        throw new Error(`Request timeout after ${TIMEOUT_MS / 1000} s`);
       }
 
       if (retries > 0) {
-        //console.debug(`${error.message}\nRetrying ${url}... ${retries - 1} attempts left`);
-        // gives more time for process to complete
         await new Promise(resolve => setTimeout(resolve, this.speedDelay));
         return await this.fetchWithRetry(url, options, retries - 1, expectedProcess);
       }
 
-      const message = error.message || 'Max retries reached';
-      throw new Error(message, { cause: error });
+      throw new Error(error.message || 'Max retries reached', { cause: error });
     }
+  }
+
+  extractProcessID(data, url) {
+    const idregex = /ID \d+/;
+
+    const extractMatch = (str) => {
+      if (!str) return null;
+      const match = idregex.exec(str);
+      if (!match) return null;
+      const idIndex = str.indexOf(match[0]);
+      return str.substring(0, idIndex + match[0].length);
+    };
+
+    if (typeof data === 'string') {
+      return extractMatch(data);
+    }
+
+    const messageMatch = extractMatch(data.message);
+    if (messageMatch) return messageMatch;
+
+    if (url !== 'measurements/process-result') {
+      return extractMatch(data.processName);
+    }
+
+    return null;
+  }
+
+  validateExpectedProcess(expectedProcess, data) {
+    if (!expectedProcess) return;
+
+    if (typeof expectedProcess === 'string') {
+      if (data !== expectedProcess) {
+        throw new Error(
+          `The API response does not concern the expected process ID: expected:\n${expectedProcess} received:\n${data}`
+        );
+      }
+      return;
+    }
+
+    if (expectedProcess.processName && data.processName !== expectedProcess.processName) {
+      throw new Error(
+        `The API response does not concern the expected process ID: expected ${expectedProcess.processName} received ${data.processName}`
+      );
+    }
+
+    if (expectedProcess.message) {
+      const receivedMessage = data.message || data;
+      if (
+        !receivedMessage.toUpperCase().includes(expectedProcess.message.toUpperCase())
+      ) {
+        throw new Error('API does not give a "Complete" status');
+      }
+    }
+  }
+
+  async handleStatus200(url, processID, data, maxRetries) {
+    if (!processID) {
+      return data;
+    }
+
+    let processExpectedResponse;
+
+    if (url.startsWith('import')) {
+      processExpectedResponse = processID;
+    } else if (!url.startsWith('import')) {
+      processExpectedResponse = {
+        processName: processID,
+        message: 'Completed',
+      };
+    }
+
+    return await this.fetchWithRetry(
+      this.getResultUrl(url),
+      { method: 'GET' },
+      maxRetries,
+      processExpectedResponse
+    );
+  }
+
+  async handleStatus202(url, processID, maxRetries) {
+    if (!processID) {
+      throw new Error('Invalid process ID in response');
+    }
+    let processExpectedResponse;
+
+    if (url.startsWith('import')) {
+      processExpectedResponse = processID;
+    } else {
+      processExpectedResponse = {
+        processName: processID,
+        message: 'Completed',
+      };
+    }
+
+    const resultUrl = this.getResultUrl(url);
+    return await this.fetchWithRetry(
+      resultUrl,
+      { method: 'GET' },
+      maxRetries,
+      processExpectedResponse
+    );
   }
 
   // Helper methods
@@ -455,16 +511,10 @@ export default class RewApi {
     return 'measurements/process-result';
   }
 
-  // Helper function to safely parse request body
-  parseRequestBody(options) {
-    if (!options.body) {
+  safeParseJSON(str) {
+    if (!str || typeof str !== 'string' || !str.trim().startsWith('{')) {
       return null;
     }
-    try {
-      return JSON.parse(options.body);
-    } catch (error) {
-      const message = error.message || 'Failed to parse request body';
-      throw new Error(message, { cause: error });
-    }
+    return JSON.parse(str);
   }
 }

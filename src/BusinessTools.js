@@ -6,15 +6,13 @@ class BusinessTools {
     this.AVERAGE_SUFFIX = 'avg';
   }
 
-  async revertLfeFilterProccess(deletePrevious = true, freq, replaceOriginal = false) {
+  async revertLfeFilterProccess(freq, replaceOriginal = false, deletePrevious = true) {
     try {
       const previousSubResponses = this.viewModel
         .subsMeasurements()
         .filter(response => response.title().includes(this.LPF_REVERTED_SUFFIX));
       if (deletePrevious) {
-        for (const subResponse of previousSubResponses) {
-          await this.viewModel.removeMeasurement(subResponse);
-        }
+        await this.viewModel.removeMeasurements(previousSubResponses);
       }
 
       await this.revertLfeFilterProccessList(
@@ -82,9 +80,7 @@ class BusinessTools {
       await this.viewModel.removeMeasurement(lowPassFilter);
       if (replaceOriginal) {
         // Remove original sub responses if replacing
-        for (const subResponse of subResponses) {
-          await this.viewModel.removeMeasurement(subResponse);
-        }
+        await this.viewModel.removeMeasurements(subResponses);
       }
       return resultsUuids;
     } catch (error) {
@@ -105,23 +101,23 @@ class BusinessTools {
     }));
 
     // Add low-pass filter at index 21
-    lowPassFilterSet.push({
-      index: 21,
-      type: 'Low pass',
-      enabled: true,
-      isAuto: false,
-      frequency: freq,
-      shape: 'L-R',
-      slopedBPerOctave: 24,
-    });
-
-    // Add empty filter at index 22
-    lowPassFilterSet.push({
-      index: 22,
-      type: 'None',
-      enabled: true,
-      isAuto: false,
-    });
+    lowPassFilterSet.push(
+      {
+        index: 21,
+        type: 'Low pass',
+        enabled: true,
+        isAuto: false,
+        frequency: freq,
+        shape: 'L-R',
+        slopedBPerOctave: 24,
+      },
+      {
+        index: 22,
+        type: 'None',
+        enabled: true,
+        isAuto: false,
+      }
+    );
 
     // Apply filters and generate filter measurement
     await measurement.setFilters(lowPassFilterSet);
@@ -135,79 +131,72 @@ class BusinessTools {
 
   // Process grouped responses and create UUID arrays
   async processGroupedResponses(groupedResponse, avgMethod, deleteOriginal) {
-    try {
-      // Input validation
-      if (!groupedResponse || typeof groupedResponse !== 'object') {
-        throw new Error('Invalid groupedResponse input');
-      }
-      if (groupedResponse.length < 2) {
-        throw new Error('Parameter must contains at least 2 elements');
-      }
+    // Input validation
+    if (!groupedResponse || typeof groupedResponse !== 'object') {
+      throw new Error('Invalid groupedResponse input');
+    }
+    if (Object.keys(groupedResponse).length < 2) {
+      throw new Error('Parameter must contains at least 2 elements');
+    }
 
-      // Process each code group sequentially
-      for (const code of Object.keys(groupedResponse)) {
-        // Validate group exists and has items
-        if (!groupedResponse[code]?.items) {
-          console.warn(`Skipping empty group: ${code}`);
-          continue;
-        }
-
-        if (code === this.viewModel.UNKNOWN_GROUP_NAME) {
-          continue;
-        }
-
-        // exclude previous results and create array of UUIDs for the current code group
-        const usableItems = groupedResponse[code].items.filter(
-          item => !item.isAverage && !item.isPredicted
-        );
-
-        // Process the collected indices
-        if (!usableItems || usableItems.length < 2) {
-          throw new Error(`Need at least 2 measurements to make an average: ${code}`);
-        }
-
-        // remove inversion and gain for each item
-        for (const measurement of usableItems) {
-          await measurement.setInverted(false);
-        }
-
-        // Get UUIDs of usable items
-        const uuids = usableItems.map(item => item.uuid);
-
-        // Cross correlation alignment
-        console.debug(`${code}: ${uuids.length} measures cross corr align...`);
-        await this.viewModel.processCommands('Cross corr align', uuids);
-
-        // average processing
-        console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
-        const vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
-
-        // Update title
-        if (vectorAverage) {
-          console.debug(`${code}: measurements average title renaming...`);
-          await vectorAverage.setTitle(code + this.AVERAGE_SUFFIX);
-        } else {
-          throw new Error(`${code}: can not rename the average...`);
-        }
-
-        if (deleteOriginal === 'all') {
-          // Delete measurements - sequential processing
-          for (const uuid of uuids) {
-            await this.viewModel.removeMeasurementUuid(uuid);
-          }
-        }
-
-        if (deleteOriginal === 'all_but_1') {
-          // Delete all but the first measurement
-          for (let i = 1; i < uuids.length; i++) {
-            await this.viewModel.removeMeasurementUuid(uuids[i]);
-          }
-        }
+    // Process each code group sequentially
+    for (const code of Object.keys(groupedResponse)) {
+      if (!groupedResponse[code]?.items || code === this.viewModel.UNKNOWN_GROUP_NAME) {
+        continue;
       }
 
-      return true;
-    } catch (error) {
-      throw new Error(`${error.message}`, { cause: error });
+      // exclude previous results and create array of UUIDs for the current code group
+      const usableItems = groupedResponse[code].items.filter(
+        item => !item.isAverage && !item.isPredicted
+      );
+
+      // Process the collected indices
+      if (usableItems.length < 2) {
+        throw new Error(`Need at least 2 measurements to make an average: ${code}`);
+      }
+
+      // remove inversion and gain for each item
+      for (const measurement of usableItems) {
+        await measurement.setInverted(false);
+      }
+
+      // Get UUIDs of usable items
+      const uuids = usableItems.map(item => item.uuid);
+
+      // Cross correlation alignment
+      console.debug(`${code}: ${uuids.length} measures cross corr align...`);
+      await this.viewModel.processCommands('Cross corr align', uuids);
+
+      // average processing
+      console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
+      const vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
+
+      // Update title
+      if (!vectorAverage) {
+        throw new Error(`${code}: can not rename the average...`);
+      }
+
+      await vectorAverage.setTitle(code + this.AVERAGE_SUFFIX);
+
+      await this._deleteOriginalMeasurements(uuids, deleteOriginal);
+    }
+
+    return true;
+  }
+
+  async _deleteOriginalMeasurements(uuids, deleteOriginal) {
+    if (!deleteOriginal || uuids.length < 2) {
+      return;
+    }
+
+    if (deleteOriginal !== 'all' && deleteOriginal !== 'all_but_1') {
+      throw new Error(`Invalid deleteOriginal parameter: ${deleteOriginal}`);
+    }
+
+    const startIndex = deleteOriginal === 'all_but_1' ? 1 : 0;
+
+    for (let i = startIndex; i < uuids.length; i++) {
+      await this.viewModel.removeMeasurementUuid(uuids[i]);
     }
   }
 
@@ -261,7 +250,7 @@ class BusinessTools {
       });
 
       // Return true if all criteria match (AND) or any criteria matches (OR)
-      return matchAll ? matches.every(match => match) : matches.some(match => match);
+      return matchAll ? matches.every(Boolean) : matches.some(Boolean);
     });
   }
 
@@ -332,12 +321,8 @@ class BusinessTools {
 
       const shiftDistance = PredictedLfe._computeInMeters(totalOffset).toFixed(2);
       return this.generateAlignmentResultMessage(shiftDistance, shiftDelay, delay);
-    } catch (error) {
-      throw new Error(`${error.message}`, { cause: error });
     } finally {
-      for (const measurement of mustBeDeleted) {
-        await this.viewModel.removeMeasurement(measurement);
-      }
+      await this.viewModel.removeMeasurements(mustBeDeleted);
     }
   }
 
@@ -366,6 +351,7 @@ class BusinessTools {
 
     const { PredictedLfeFiltered, predictedSpeakerFiltered } =
       await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
+
     mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
 
     const cutoffPeriod = 1 / cuttOffFrequency;
@@ -418,7 +404,9 @@ class BusinessTools {
       cuttOffFrequency,
       maxForwardSearchMs,
       false,
-      `${this.RESULT_PREFIX}${predictedSpeakerFiltered.title()} X@${cuttOffFrequency}Hz_P${predictedSpeakerFiltered.position()}`,
+      `${
+        this.RESULT_PREFIX
+      }${predictedSpeakerFiltered.title()} X@${cuttOffFrequency}Hz_P${predictedSpeakerFiltered.position()}`,
       0
     );
 
@@ -439,7 +427,10 @@ class BusinessTools {
   }
 
   generateAlignmentResultMessage(shiftDistance, shiftDelay, delay) {
-    return `Subwoofer deplaced by: ${shiftDistance}m (alignment:${((delay + shiftDelay) * 1000).toFixed(2)}ms)`;
+    return `Subwoofer deplaced by: ${shiftDistance}m (alignment:${(
+      (delay + shiftDelay) *
+      1000
+    ).toFixed(2)}ms)`;
   }
 
   /**
@@ -451,70 +442,42 @@ class BusinessTools {
    */
   async applyCuttOffFilter(sub, speaker, cuttOffFrequency) {
     if (cuttOffFrequency === 0) {
-      const PredictedLfeFiltered = sub;
-      const predictedSpeakerFiltered = speaker;
+      const PredictedLfeFiltered = await sub.genericCommand('Response copy');
+      const predictedSpeakerFiltered = await speaker.genericCommand('Response copy');
       return { PredictedLfeFiltered, predictedSpeakerFiltered };
     }
-    // prenvent errors if the equaliser is not the Generic
+
     sub.ResetEqualiser();
     speaker.ResetEqualiser();
 
-    try {
-      const emptyFilter = index => ({
-        index,
-        type: 'None',
-        enabled: true,
-        isAuto: false,
-      });
+    const applyFilterAndPredict = async (device, filterConfig) => {
+      const index = await device.getFreeXFilterIndex();
 
-      // apply low pass filter to LFE at cuttOffFrequency
-      const subFilter = index => ({
+      await device.setSingleFilter({
         index,
         enabled: true,
         isAuto: false,
-        frequency: cuttOffFrequency,
-        shape: 'L-R',
-        slopedBPerOctave: 24,
-        type: 'Low pass',
+        ...filterConfig,
       });
+      const predicted = await device.producePredictedMeasurement();
+      await device.setSingleFilter({ index, type: 'None', enabled: true, isAuto: false });
+      return predicted;
+    };
 
-      // apply high pass filter at cuttOffFrequency
-      const speakerFilter = index => ({
-        index,
-        enabled: true,
-        isAuto: false,
-        frequency: cuttOffFrequency,
-        shape: 'BU',
-        slopedBPerOctave: 12,
-        type: 'High pass',
-      });
+    const PredictedLfeFiltered = await applyFilterAndPredict(sub, {
+      type: 'Low pass',
+      frequency: cuttOffFrequency,
+      shape: 'L-R',
+      slopedBPerOctave: 24,
+    });
+    const predictedSpeakerFiltered = await applyFilterAndPredict(speaker, {
+      type: 'High pass',
+      frequency: cuttOffFrequency,
+      shape: 'BU',
+      slopedBPerOctave: 12,
+    });
 
-      const subFreeFilterIndex = await sub.getFreeXFilterIndex();
-      if (subFreeFilterIndex === -1) {
-        throw new Error(
-          `No free filter found for ${sub.title()}. please check X1, X2 filters`
-        );
-      }
-      await sub.setSingleFilter(subFilter(subFreeFilterIndex));
-      // generate predicted filtered measurement for sub
-      const PredictedLfeFiltered = await sub.producePredictedMeasurement();
-      await sub.setSingleFilter(emptyFilter(subFreeFilterIndex));
-
-      const speakerFreeFilterIndex = await speaker.getFreeXFilterIndex();
-      if (speakerFreeFilterIndex === -1) {
-        throw new Error(
-          `No free filter found for ${speaker.title()}. please check X1, X2 filters`
-        );
-      }
-      await speaker.setSingleFilter(speakerFilter(speakerFreeFilterIndex));
-      // generate predicted filtered measurement for speaker
-      const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
-      await speaker.setSingleFilter(emptyFilter(speakerFreeFilterIndex));
-
-      return { PredictedLfeFiltered, predictedSpeakerFiltered };
-    } catch (error) {
-      throw new Error(`${error.message}`, { cause: error });
-    }
+    return { PredictedLfeFiltered, predictedSpeakerFiltered };
   }
 
   async createMeasurementPreview(item) {
@@ -557,17 +520,21 @@ class BusinessTools {
         { function: 'A + B' }
       );
       // cleanup of predicted measurements
-      await this.viewModel.removeMeasurement(PredictedLfeFiltered);
-      await this.viewModel.removeMeasurement(predictedSpeakerFiltered);
+      await this.viewModel.removeMeasurements([
+        PredictedLfeFiltered,
+        predictedSpeakerFiltered,
+      ]);
 
       await relatedLfeMeasurement.applyWorkingSettings();
     }
     // set title
     const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB';
-    const finalTitle = `${this.RESULT_PREFIX}${item.title()} ${cxText}_P${item.position()}`;
+    const finalTitle = `${
+      this.RESULT_PREFIX
+    }${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
 
-    await finalPredcition.applyWorkingSettings();
+    await finalPredcition.genericCommand('Smooth', { smoothing: 'Psy' });
     await item.applyWorkingSettings();
 
     return true;
@@ -590,7 +557,7 @@ class BusinessTools {
     }
   }
 
-  async createsSum(itemList, deletePredicted = true, title) {
+  async createsSum(itemList, title, deletePredicted = true) {
     if (!Array.isArray(itemList) || itemList.length < 1) {
       throw new Error('Parameter must be a non-empty array');
     }
@@ -631,9 +598,7 @@ class BusinessTools {
       }
 
       if (deletePredicted && generatedPredicted.length > 1) {
-        for (const item of generatedPredicted) {
-          await this.viewModel.removeMeasurement(item);
-        }
+        await this.viewModel.removeMeasurements(generatedPredicted);
       }
     }
   }

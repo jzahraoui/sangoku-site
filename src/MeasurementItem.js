@@ -5,7 +5,7 @@ import FrequencyResponse from './FrequencyResponse.js';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
-  static MODEL_DISTANCE_LIMIT = 6.0;
+  static MODEL_DISTANCE_LIMIT = 6;
   static MODEL_DISTANCE_CRITICAL_LIMIT = 7.35;
   static DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
   static DEFAULT_CROSSOVER_VALUE = 80;
@@ -13,9 +13,9 @@ class MeasurementItem {
   static rightWindowWidthMilliseconds = 1000;
 
   static measurementType = { SPEAKERS: 0, SUB: 1, FILTER: 2, AVERAGE: 3 };
+  static defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
 
   constructor(item, parentViewModel) {
-    const self = this;
     // Validate inputs
     if (!item || !parentViewModel) {
       throw new Error('Invalid parameters for MeasurementItem creation');
@@ -26,39 +26,38 @@ class MeasurementItem {
       throw new Error('No AVR data loaded');
     }
 
-    self.isProcessing = ko.observable(false);
+    this.isProcessing = ko.observable(false);
 
-    self.jsonAvrData = parentViewModel.jsonAvrData();
-    self.defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
-    self.dectedFallOffLow = -1;
-    self.dectedFallOffHigh = +Infinity;
+    this.jsonAvrData = parentViewModel.jsonAvrData();
+    this.dectedFallOffLow = -1;
+    this.dectedFallOffHigh = +Infinity;
 
-    self.parentViewModel = parentViewModel;
+    this.parentViewModel = parentViewModel;
     // Original data
-    self.title = ko.observable(item.title);
-    self.notes = item.notes;
-    self.date = item.date;
-    self.uuid = item.uuid;
-    self.startFreq = item.startFreq;
-    self.endFreq = item.endFreq;
-    self.inverted = ko.observable(item.inverted);
-    self.rewVersion = item.rewVersion;
-    self.splOffsetdB = ko.observable(item.splOffsetdB);
-    self.alignSPLOffsetdB = ko.observable(item.alignSPLOffsetdB);
-    self.cumulativeIRShiftSeconds = ko.observable(item.cumulativeIRShiftSeconds);
-    self.clockAdjustmentPPM = item.clockAdjustmentPPM;
-    self.timeOfIRStartSeconds = item.timeOfIRStartSeconds;
-    self.timeOfIRPeakSeconds = item.timeOfIRPeakSeconds;
-    self.haveImpulseResponse = Object.hasOwn(item, 'cumulativeIRShiftSeconds');
-    self.isFilter = item.isFilter || false;
-    self.associatedFilter = item.associatedFilter;
-    self.measurementType = MeasurementItem.measurementType.SPEAKERS;
-    self.IRPeakValue = item.IRPeakValue || 0;
-    self.revertLfeFrequency = item.revertLfeFrequency || 0;
+    this.title = ko.observable(item.title);
+    this.notes = item.notes;
+    this.date = item.date;
+    this.uuid = item.uuid;
+    this.startFreq = item.startFreq;
+    this.endFreq = item.endFreq;
+    this.inverted = ko.observable(item.inverted);
+    this.rewVersion = item.rewVersion;
+    this.splOffsetdB = ko.observable(item.splOffsetdB);
+    this.alignSPLOffsetdB = ko.observable(item.alignSPLOffsetdB);
+    this.cumulativeIRShiftSeconds = ko.observable(item.cumulativeIRShiftSeconds);
+    this.clockAdjustmentPPM = item.clockAdjustmentPPM;
+    this.timeOfIRStartSeconds = item.timeOfIRStartSeconds;
+    this.timeOfIRPeakSeconds = item.timeOfIRPeakSeconds;
+    this.haveImpulseResponse = Object.hasOwn(item, 'cumulativeIRShiftSeconds');
+    this.isFilter = item.isFilter || false;
+    this.associatedFilter = item.associatedFilter;
+    this.measurementType = MeasurementItem.measurementType.SPEAKERS;
+    this.IRPeakValue = item.IRPeakValue || 0;
+    this.revertLfeFrequency = item.revertLfeFrequency || 0;
 
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
-    self.initialSplOffsetdB =
+    this.initialSplOffsetdB =
       item.initialSplOffsetdB || item.splOffsetdB - item.alignSPLOffsetdB;
 
     // restore saved data
@@ -69,135 +68,135 @@ class MeasurementItem {
     const defaultSpeakerType = isSW ? 'E' : item.speakerType || 'S';
 
     // Observable properties
-    self.crossover = ko.observable(defaultCrossover);
-    self.speakerType = ko.observable(defaultSpeakerType);
-    self.isSub = ko.observable(isSW);
-    self.numberOfpositions = ko.observable(0);
-    self.positionName = ko.observable('');
-    self.displayPositionText = ko.observable('');
+    this.crossover = ko.observable(defaultCrossover);
+    this.speakerType = ko.observable(defaultSpeakerType);
+    this.isSub = ko.observable(isSW);
+    this.numberOfpositions = ko.observable(0);
+    this.positionName = ko.observable('');
+    this.displayPositionText = ko.observable('');
 
     // Computed properties
-    self.channelName = ko.computed(
+    this.channelName = ko.computed(
       () =>
-        CHANNEL_TYPES.getBestMatchCode(self.title()) ||
-        self.parentViewModel.UNKNOWN_GROUP_NAME
+        CHANNEL_TYPES.getBestMatchCode(this.title()) ||
+        this.parentViewModel.UNKNOWN_GROUP_NAME
     );
 
-    self.channelDetails = ko.computed(() => {
-      const foundChannel = self.jsonAvrData?.detectedChannels.find(
-        channel => channel.commandId === self.channelName()
+    this.channelDetails = ko.computed(() => {
+      const foundChannel = this.jsonAvrData?.detectedChannels.find(
+        channel => channel.commandId === this.channelName()
       );
       if (foundChannel) {
         return CHANNEL_TYPES.getByChannelIndex(foundChannel.enChannelType);
       }
     });
 
-    self.position = ko.computed(() => {
-      const groupedMeasurements = self.parentViewModel.groupedMeasurements();
-      const channelName = self.channelName();
+    this.position = ko.computed(() => {
+      const groupedMeasurements = this.parentViewModel.groupedMeasurements();
+      const channelName = this.channelName();
 
       if (!groupedMeasurements?.[channelName]) {
         return 0;
       }
 
-      const position = groupedMeasurements[channelName].items.indexOf(self) + 1;
+      const position = groupedMeasurements[channelName].items.indexOf(this) + 1;
       const numberOfPositions = groupedMeasurements[channelName].count;
-      const displayPositionText = self.isAverage
+      const displayPositionText = this.isAverage
         ? 'Average'
         : `Pos. ${position}/${numberOfPositions}`;
 
-      self.numberOfpositions(numberOfPositions);
-      self.displayPositionText(displayPositionText);
+      this.numberOfpositions(numberOfPositions);
+      this.displayPositionText(displayPositionText);
 
       return position;
     });
 
-    self.associatedFilterItem = ko.computed(() =>
-      self.parentViewModel.findMeasurementByUuid(this.associatedFilter)
+    this.associatedFilterItem = ko.computed(() =>
+      this.parentViewModel.findMeasurementByUuid(this.associatedFilter)
     );
-    self.measurementIndex = ko.computed(
-      () => self.parentViewModel.measurements().indexOf(self) + 1
+    this.measurementIndex = ko.computed(
+      () => this.parentViewModel.measurements().indexOf(this) + 1
     );
-    self.relatedLfeMeasurement = ko.computed(() => {
-      return self.parentViewModel
+    this.relatedLfeMeasurement = ko.computed(() => {
+      return this.parentViewModel
         .allPredictedLfeMeasurement()
         .find(
           response =>
             response?.title() ===
-            `${MeasurementItem.DEFAULT_LFE_PREDICTED}${self.position()}`
+            `${MeasurementItem.DEFAULT_LFE_PREDICTED}${this.position()}`
         );
     });
-    self.displayMeasurementTitle = ko.computed(
-      () => `${self.measurementIndex()}: ${self.title()}`
+    this.displayMeasurementTitle = ko.computed(
+      () => `${this.measurementIndex()}: ${this.title()}`
     );
-    self.distanceInMeters = ko.computed(() =>
-      self._computeDistanceInMeters(self.cumulativeIRShiftSeconds())
+    this.distanceInMeters = ko.computed(() =>
+      this._computeDistanceInMeters(this.cumulativeIRShiftSeconds())
     );
-    self.distanceInMilliSeconds = ko.computed(() =>
-      (self.cumulativeIRShiftSeconds() * 1000).toFixed(2)
+    this.distanceInMilliSeconds = ko.computed(() =>
+      (this.cumulativeIRShiftSeconds() * 1000).toFixed(2)
     );
-    self.distanceInUnits = ko.computed(() => {
-      if (self.parentViewModel.distanceUnit() === 'M') {
-        return self.distanceInMeters();
-      } else if (self.parentViewModel.distanceUnit() === 'ms') {
-        return self.distanceInMilliSeconds();
-      } else if (self.parentViewModel.distanceUnit() === 'ft') {
-        return (self.distanceInMeters() * 3.28084).toFixed(2); // Convert meters to feet
+    this.distanceInUnits = ko.computed(() => {
+      if (this.parentViewModel.distanceUnit() === 'M') {
+        return this.distanceInMeters();
+      } else if (this.parentViewModel.distanceUnit() === 'ms') {
+        return this.distanceInMilliSeconds();
+      } else if (this.parentViewModel.distanceUnit() === 'ft') {
+        return (this.distanceInMeters() * 3.28084).toFixed(2); // Convert meters to feet
       }
-      throw new Error(`Unknown distance unit: ${self.parentViewModel.distanceUnit()}`);
+      throw new Error(`Unknown distance unit: ${this.parentViewModel.distanceUnit()}`);
     });
 
-    self.splOffsetdBUnaligned = ko.computed(
-      () => self.splOffsetdB() - self.alignSPLOffsetdB()
+    this.splOffsetdBUnaligned = ko.computed(
+      () => this.splOffsetdB() - this.alignSPLOffsetdB()
     );
-    self.splOffsetdBManual = ko.computed(
-      () => self.splOffsetdBUnaligned() - self.initialSplOffsetdB
+    this.splOffsetdBManual = ko.computed(
+      () => this.splOffsetdBUnaligned() - this.initialSplOffsetdB
     );
-    self.splOffsetDeltadB = ko.computed(
-      () => self.splOffsetdBManual() + self.alignSPLOffsetdB()
+    this.splOffsetDeltadB = ko.computed(
+      () => this.splOffsetdBManual() + this.alignSPLOffsetdB()
     );
-    self.splForAvr = ko.computed(() => Math.round(self.splOffsetDeltadB() * 2) / 2);
-    self.splIsAboveLimit = ko.computed(
-      () => Math.abs(self.splForAvr()) > MeasurementItem.AVR_MAX_GAIN
+    this.splForAvr = ko.computed(() => Math.round(this.splOffsetDeltadB() * 2) / 2);
+    this.splIsAboveLimit = ko.computed(
+      () => Math.abs(this.splForAvr()) > MeasurementItem.AVR_MAX_GAIN
     );
-    self.splresidual = ko.computed(() => self.splOffsetDeltadB() - self.splForAvr());
-    self.cumulativeIRDistanceMeters = ko.computed(
-      () => self.parentViewModel.maxDdistanceInMeters() - self.distanceInMeters()
+    this.splresidual = ko.computed(() => this.splOffsetDeltadB() - this.splForAvr());
+    this.cumulativeIRDistanceMeters = ko.computed(
+      () => this.parentViewModel.maxDdistanceInMeters() - this.distanceInMeters()
     );
-    self.cumulativeIRDistanceSeconds = ko.computed(() =>
-      self._computeInSeconds(self.cumulativeIRDistanceMeters())
+    this.cumulativeIRDistanceSeconds = ko.computed(() =>
+      this._computeInSeconds(this.cumulativeIRDistanceMeters())
     );
-    self.isSelected = ko.computed(
-      () => self.parentViewModel.currentSelectedPosition() === self.position()
+    this.isSelected = ko.computed(
+      () => this.parentViewModel.currentSelectedPosition() === this.position()
     );
-    self.getOtherGroupMember = ko.computed(() =>
-      CHANNEL_TYPES.getGroupMembers(self.channelDetails()?.group)
+    this.getOtherGroupMember = ko.computed(() =>
+      CHANNEL_TYPES.getGroupMembers(this.channelDetails()?.group)
     );
 
     // Create a computed observable for the channel detection check
-    self.isChannelDetected = ko.computed(function () {
-      if (!self.jsonAvrData || !self.channelDetails()) {
+    this.isChannelDetected = ko.computed(() => {
+      if (!this.jsonAvrData || !this.channelDetails()) {
         return false;
       }
-      if (!self.isSelected()) {
+      if (!this.isSelected()) {
         return false;
       }
-      return self.jsonAvrData.detectedChannels.some(
-        m => m.enChannelType === self.channelDetails().channelIndex
+      return this.jsonAvrData.detectedChannels.some(
+        m => m.enChannelType === this.channelDetails().channelIndex
       );
     });
-    self.exceedsDistance = ko.computed(function () {
+    this.exceedsDistance = ko.computed(() => {
       // Check if parent view model exists
-      if (!self.parentViewModel) {
+      if (!this.parentViewModel) {
         return 'normal';
       }
 
-      const maxErrorDistance = self.parentViewModel.maxDistanceInMetersError();
-      const maxWarningDistance = self.parentViewModel.maxDistanceInMetersWarning();
-      const currentDistance = self.distanceInMeters();
+      const maxErrorDistance = this.parentViewModel.maxDistanceInMetersError();
+      const maxWarningDistance = this.parentViewModel.maxDistanceInMetersWarning();
+      const currentDistance = this.distanceInMeters();
 
       // Check for invalid values
-      if (isNaN(maxErrorDistance) || isNaN(maxWarningDistance)) {
+      if (Number.isNaN(maxErrorDistance) || Number.isNaN(maxWarningDistance)) {
         return 'normal';
       }
 
@@ -212,64 +211,64 @@ class MeasurementItem {
       }
 
       return 'normal';
-    }, this);
-    self.hasErrors = ko.computed(
+    });
+    this.hasErrors = ko.computed(
       () =>
-        self.splIsAboveLimit() ||
-        self.exceedsDistance() === 'error' ||
-        !self.isChannelDetected()
+        this.splIsAboveLimit() ||
+        this.exceedsDistance() === 'error' ||
+        !this.isChannelDetected()
     );
 
     // subscriptions
-    self.speakerType.subscribe(newValue => {
-      if (self.isSub()) {
+    this.speakerType.subscribe(newValue => {
+      if (this.isSub()) {
         return;
       } else if (newValue === 'S') {
-        if (self.crossover() === 0) {
-          self.crossover(MeasurementItem.DEFAULT_CROSSOVER_VALUE); //default value
+        if (this.crossover() === 0) {
+          this.crossover(MeasurementItem.DEFAULT_CROSSOVER_VALUE); //default value
         }
       } else {
-        self.crossover(0);
+        this.crossover(0);
       }
     });
 
-    self.crossover.subscribe(newValue => {
-      if (self.isSub()) {
+    this.crossover.subscribe(newValue => {
+      if (this.isSub()) {
         return;
       } else if (newValue === 0) {
-        self.speakerType('L');
-      } else if (self.speakerType() === 'L') {
-        self.speakerType('S');
+        this.speakerType('L');
+      } else if (this.speakerType() === 'L') {
+        this.speakerType('S');
       }
     });
 
-    self.buttonCreateFilter = async function () {
-      if (self.isProcessing()) return;
+    this.buttonCreateFilter = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
+        this.isProcessing(true);
 
-        await self.createStandardFilter();
+        await this.createStandardFilter();
       } catch (error) {
         parentViewModel.handleError(`Filter creation failed: ${error.message}`);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.previewMeasurement = async function () {
-      if (self.isProcessing()) return;
+    this.previewMeasurement = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        if (self.isSub()) {
-          await parentViewModel.produceSumProcess(self, [self]);
+        this.isProcessing(true);
+        if (this.isSub()) {
+          await parentViewModel.produceSumProcess([this]);
         } else {
-          await parentViewModel.businessTools.createMeasurementPreview(self);
+          await parentViewModel.businessTools.createMeasurementPreview(this);
         }
-        await self.copyAllToOther();
+        await this.copyAllToOther();
       } catch (error) {
         parentViewModel.handleError(`Preview creation failed: ${error.message}`);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
   }
@@ -303,14 +302,12 @@ class MeasurementItem {
 
   // Compute methods
   _computeInMeters(valueInSeconds) {
-    const failSafeValue =
-      typeof valueInSeconds === 'number' && isFinite(valueInSeconds) ? valueInSeconds : 0;
+    const failSafeValue = Number.isFinite(valueInSeconds) ? valueInSeconds : 0;
     return failSafeValue * this.jsonAvrData.avr.speedOfSound;
   }
 
   _computeInSeconds(valueInMeters) {
-    const failSafeValue =
-      typeof valueInMeters === 'number' && isFinite(valueInMeters) ? valueInMeters : 0;
+    const failSafeValue = Number.isFinite(valueInMeters) ? valueInMeters : 0;
     return failSafeValue / this.jsonAvrData.avr.speedOfSound;
   }
 
@@ -346,9 +343,12 @@ class MeasurementItem {
       await this.resetcumulativeIRShiftSeconds();
       await this.setInverted(false);
       await this.setTargetLevel(targetLevel);
+      await this.resetFilters();
     } catch (error) {
       throw new Error(
-        `Failed to reset for response ${this.displayMeasurementTitle()}: ${error.message}`,
+        `Failed to reset for response ${this.displayMeasurementTitle()}: ${
+          error.message
+        }`,
         { cause: error }
       );
     }
@@ -359,6 +359,7 @@ class MeasurementItem {
   }
 
   async defaultSmoothing() {
+    // actually not possible to check current smoothing method
     await this.genericCommand('Smooth', {
       smoothing: this.parentViewModel.selectedSmoothingMethod(),
     });
@@ -380,7 +381,7 @@ class MeasurementItem {
 
   async resetTargetSettings() {
     const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      '/target-settings',
+      'target-settings',
       this.uuid
     );
 
@@ -406,14 +407,14 @@ class MeasurementItem {
 
   async isdefaultEqualiser() {
     const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      '/equaliser',
+      'equaliser',
       this.uuid
     );
 
     // compare commandResult with defaultSettings
     return (
-      commandResult.manufacturer === this.defaulEqtSettings.manufacturer &&
-      commandResult.model === this.defaulEqtSettings.model
+      commandResult.manufacturer === MeasurementItem.defaulEqtSettings.manufacturer &&
+      commandResult.model === MeasurementItem.defaulEqtSettings.model
     );
   }
 
@@ -425,7 +426,16 @@ class MeasurementItem {
 
     await this.parentViewModel.apiService.postSafe(
       `measurements/${this.uuid}/equaliser`,
-      this.defaulEqtSettings
+      MeasurementItem.defaulEqtSettings
+    );
+  }
+
+  static arraysMatchWithTolerance(arr1, arr2, tolerance = 0.01) {
+    return (
+      Array.isArray(arr1) &&
+      Array.isArray(arr2) &&
+      arr1.length === arr2.length &&
+      arr1.every((val, i) => Math.abs(val - arr2[i]) < tolerance)
     );
   }
 
@@ -436,7 +446,7 @@ class MeasurementItem {
     }
 
     const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      '/ir-windows',
+      'ir-windows',
       this.uuid
     );
 
@@ -446,7 +456,10 @@ class MeasurementItem {
       commandResult.rightWindowType === irWindowsObject.rightWindowType &&
       commandResult.leftWindowWidthms === irWindowsObject.leftWindowWidthms &&
       commandResult.rightWindowWidthms === irWindowsObject.rightWindowWidthms &&
-      commandResult.refTimems === irWindowsObject.refTimems &&
+      MeasurementItem.arraysMatchWithTolerance(
+        commandResult.mtwTimesms,
+        irWindowsObject.mtwTimesms
+      ) &&
       commandResult.addFDW === irWindowsObject.addFDW &&
       commandResult.addMTW === irWindowsObject.addMTW
     ) {
@@ -482,7 +495,7 @@ class MeasurementItem {
     await filter.addSPLOffsetDB(this.splresidual());
     const cxText = this.crossover() ? `X@${this.crossover()}Hz` : 'FB';
     await filter.setTitle(`Filter ${this.title()} ${cxText}`);
-    this.setAssociatedFilter(filter);
+    await this.setAssociatedFilter(filter);
     return filter;
   }
 
@@ -600,7 +613,7 @@ class MeasurementItem {
     }
 
     const freqLimit = isLowFreq ? 500 : 50;
-    const indices = [...Array(targetCurveData.freqs.length).keys()];
+    const indices = [...new Array(targetCurveData.freqs.length).keys()];
 
     if (!isLowFreq) indices.reverse();
 
@@ -638,7 +651,7 @@ class MeasurementItem {
       MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
     );
 
-    const endFreq = freqs[freqs.length - 1];
+    const endFreq = freqs.at(-1);
 
     return { freqs, magnitude, startFreq, endFreq };
   }
@@ -702,7 +715,9 @@ class MeasurementItem {
     this.timeOfIRStartSeconds = this.timeOfIRStartSeconds - amountToAdd;
     const after = (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
     console.debug(
-      `Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()} from ${before} to ${after}`
+      `Offset t=${(amountToAdd * 1000).toFixed(
+        2
+      )}ms added to ${this.title()} from ${before} to ${after}`
     );
     return true;
   }
@@ -714,6 +729,9 @@ class MeasurementItem {
 
   static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
     try {
+      if (!responseData?.results) {
+        throw new Error('Invalid response data');
+      }
       // Find the result with matching UUID
       const result = Object.values(responseData.results).find(
         item => item.UUID === targetUUID
@@ -725,8 +743,8 @@ class MeasurementItem {
 
       const alignSPLOffset = Number(result.alignSPLOffsetdB);
 
-      if (isNaN(alignSPLOffset)) {
-        throw new Error('Invalid alignSPLOffsetdB value');
+      if (Number.isNaN(alignSPLOffset)) {
+        throw new TypeError('Invalid alignSPLOffsetdB value');
       }
 
       return alignSPLOffset;
@@ -739,8 +757,8 @@ class MeasurementItem {
   // TODO: sometime a bug that move to 75dB
   async setSPLOffsetDB(newValue) {
     // check if the value is a number
-    if (isNaN(newValue)) {
-      throw new Error(`Invalid SPL offset: ${newValue}`);
+    if (Number.isNaN(newValue)) {
+      throw new TypeError(`Invalid SPL offset: ${newValue}`);
     }
     // round the value to 2 decimal places
     newValue = MeasurementItem.cleanFloat32Value(newValue, 2);
@@ -785,6 +803,7 @@ class MeasurementItem {
         targetdB: referenceLevel + offset,
       }
     );
+    //check results
     const finalAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
       finalAlignResult,
       this.uuid
@@ -794,14 +813,13 @@ class MeasurementItem {
         `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`
       );
     }
+    // Apply changes to local object
     this.splOffsetdB(this.splOffsetdBUnaligned() + newValue);
     this.alignSPLOffsetdB(newValue);
   }
 
   async addSPLOffsetDB(amountToAdd) {
-    const initalOffset = this.splOffsetDeltadB();
-    const newLevel = initalOffset + amountToAdd;
-    this.setSPLOffsetDB(newLevel);
+    this.setSPLOffsetDB(this.splOffsetDeltadB() + amountToAdd);
   }
 
   async setSPLOffsetDBOld(newValue) {
@@ -845,7 +863,7 @@ class MeasurementItem {
       'Response copy',
       'Response magnitude copy',
     ];
-    if (allowedCommands.indexOf(commandName) === -1) {
+    if (!allowedCommands.includes(commandName)) {
       throw new Error(`Command ${commandName} is not allowed`);
     }
 
@@ -854,10 +872,10 @@ class MeasurementItem {
         commandName,
         this.uuid,
         commandData,
-        0
+        2
       );
 
-      if (withoutResultCommands.indexOf(commandName) === -1) {
+      if (!withoutResultCommands.includes(commandName)) {
         const operationResultUuid = Object.values(commandResult.results || {})[0]?.UUID;
         // Save to persistent storage
         return await this.parentViewModel.addMeasurementApi(operationResultUuid);
@@ -886,7 +904,7 @@ class MeasurementItem {
       'Generate target measurement',
     ];
 
-    if (allowedCommands.indexOf(commandName) === -1) {
+    if (!allowedCommands.includes(commandName)) {
       throw new Error(`Command ${commandName} is not allowed`);
     }
 
@@ -899,7 +917,7 @@ class MeasurementItem {
         'eq/command'
       );
 
-      if (withoutResultCommands.indexOf(commandName) === -1) {
+      if (!withoutResultCommands.includes(commandName)) {
         const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
         // Save to persistent storage
         return await this.parentViewModel.addMeasurementApi(operationResultUuid);
@@ -918,11 +936,11 @@ class MeasurementItem {
       'filters',
       this.uuid
     );
-    measurementFilters.forEach(filter => {
+    for (const filter of measurementFilters) {
       if (autoDisableTypes.has(filter.type)) {
         filter.isAuto = false;
       }
-    });
+    }
     return measurementFilters;
   }
 
@@ -933,9 +951,14 @@ class MeasurementItem {
     if (filters.length !== 22) {
       console.debug(`Invalid filter length: ${filters.length} expected 22`);
     }
-    const currentFilters = await this.getFilters().then(response =>
-      response.filter(f => overwrite || f.isAuto)
-    );
+
+    const allFilters = await this.getFilters();
+
+    if (this.compareObjects(allFilters, filters)) {
+      return false;
+    }
+
+    const currentFilters = overwrite ? allFilters : allFilters.filter(f => f.isAuto);
 
     const filtersCleaned = [];
     for (const filter of filters) {
@@ -970,6 +993,15 @@ class MeasurementItem {
       throw new Error(`Invalid filter: ${filter}`);
     }
 
+    const filters = await this.getFilters();
+    const found = filters.find(f => f.index === filter.index);
+    if (!found) {
+      throw new Error(`Filter with index ${filter.index} not found`);
+    }
+    if (this.compareObjects(filter, found)) {
+      return false;
+    }
+
     await this.parentViewModel.apiService.putSafe(
       `measurements/${this.uuid}/filters`,
       filter
@@ -985,14 +1017,13 @@ class MeasurementItem {
     }
 
     const filters = await this.getFilters();
+    const freeIndex = [20, 21].find(i => filters[i]?.type === 'None');
 
-    if (filters[20]?.type === 'None') {
-      return 21;
-    } else if (filters[21]?.type === 'None') {
-      return 22;
+    if (freeIndex === undefined) {
+      throw new Error(`No free filter index found: ${this.displayMeasurementTitle()}`);
     }
 
-    return -1;
+    return freeIndex + 1;
   }
 
   compareObjects(obj1, obj2) {
@@ -1097,11 +1128,11 @@ class MeasurementItem {
   async setTargetLevel(level) {
     // Check if level is undefined/null, but allow zero
     if (level === undefined || level === null) {
-      throw new Error(`Invalid level: ${level}`);
+      throw new TypeError(`Invalid level: ${level}`);
     }
     level = Number(level.toFixed(2));
-    if (isNaN(level)) {
-      throw new Error(`Invalid level: ${level}`);
+    if (Number.isNaN(level)) {
+      throw new TypeError(`Invalid level: ${level}`);
     }
     const currentLevel = await this.getTargetLevel();
     if (level === currentLevel) {
@@ -1115,8 +1146,6 @@ class MeasurementItem {
   }
 
   async resetFilters() {
-    const currentFilters = await this.getFilters();
-
     const emptyFilter = {
       filters: Array.from({ length: 22 }, (_, i) => ({
         index: i + 1,
@@ -1126,10 +1155,6 @@ class MeasurementItem {
       })),
     };
 
-    if (this.compareObjects(currentFilters, emptyFilter.filters)) {
-      return false;
-    }
-
     await this.setFilters(emptyFilter.filters);
 
     await this.deleteAssociatedFilter();
@@ -1137,14 +1162,14 @@ class MeasurementItem {
   }
 
   async getAssociatedFilterItem() {
-    if (!this.associatedFilterItem()) {
-      console.warn(
-        `Associated filter not found: ${this.displayMeasurementTitle()}, creating a new one`
-      );
-      return await this.createUserFilter();
+    if (this.associatedFilterItem()) {
+      return this.associatedFilterItem();
     }
 
-    return this.associatedFilterItem();
+    console.warn(
+      `Associated filter not found: ${this.displayMeasurementTitle()}, creating a new one`
+    );
+    return await this.createUserFilter();
   }
 
   async setAssociatedFilter(filter) {
@@ -1275,11 +1300,17 @@ class MeasurementItem {
       if (filter.type === 'PK') {
         // check if PK filters are inside limits -25dB to +25dB
         if (filter.gaindB < -25 || filter.gaindB > 25) {
-          return `${this.displayMeasurementTitle()} Filter ${filter.index} gain is out of limits: ${Math.round(filter.gaindB)}dB. Please add High Pass to X1 or X2 filter`;
+          return `${this.displayMeasurementTitle()} Filter ${
+            filter.index
+          } gain is out of limits: ${Math.round(
+            filter.gaindB
+          )}dB. Please add High Pass to X1 or X2 filter`;
         }
         // check if PK filters are inside limits 0.1 to 20
         if (filter.q < 0.1 || filter.q > 20) {
-          return `${this.displayMeasurementTitle()} Filter ${filter.index} Q is out of limits: ${filter.q}.`;
+          return `${this.displayMeasurementTitle()} Filter ${
+            filter.index
+          } Q is out of limits: ${filter.q}.`;
         }
       }
     }
@@ -1376,7 +1407,7 @@ class MeasurementItem {
 
       finalFIR.isFilter = true;
 
-      this.setAssociatedFilter(finalFIR);
+      await this.setAssociatedFilter(finalFIR);
 
       return true;
     } catch (error) {
@@ -1446,16 +1477,14 @@ class MeasurementItem {
     });
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
       startFrequency: customStartFrequency,
-      endFrequency: customEndFrequency,
+      endFrequency: customInterPassFrequency * 2,
       individualMaxBoostdB: 0,
       overallMaxBoostdB: 0,
       flatnessTargetdB: 1,
       allowNarrowFiltersBelow200Hz: false,
       varyQAbove200Hz: false,
       allowLowShelf: false,
-      allowHighShelf: true,
-      highShelfMin: -3,
-      highShelfMax: 3,
+      allowHighShelf: false,
     });
 
     await this.eqCommands('Match target');
@@ -1472,7 +1501,7 @@ class MeasurementItem {
     }
 
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: customInterPassFrequency,
+      startFrequency: customInterPassFrequency / 2,
       endFrequency: customEndFrequency,
       individualMaxBoostdB: this.parentViewModel.individualMaxBoostValue(),
       overallMaxBoostdB: this.parentViewModel.overallBoostValue(),
@@ -1573,7 +1602,7 @@ class MeasurementItem {
     const bytes = new Uint8Array(binaryString.length);
 
     for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+      bytes[i] = binaryString.codePointAt(i);
     }
 
     return bytes;
@@ -1599,11 +1628,11 @@ class MeasurementItem {
     try {
       // Convert array to numbers and validate
       for (const element of float32Array) {
-        const num = parseFloat(element);
+        const num = Number.parseFloat(element);
 
         // Throw specific error for invalid conversions
         if (!Number.isFinite(num)) {
-          throw new Error(`Invalid numeric value: ${element}`);
+          throw new TypeError(`Invalid numeric value: ${element}`);
         }
 
         convertedArray[index++] = num;
@@ -1618,7 +1647,7 @@ class MeasurementItem {
 
   static encodeRewToBase64(floatArray) {
     if (!Array.isArray(floatArray)) {
-      throw new Error('Input must be an array of numbers');
+      throw new TypeError('Input must be an array of numbers');
     }
 
     try {

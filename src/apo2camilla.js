@@ -19,128 +19,140 @@ class FilterConverter {
 
     for (const line of lines) {
       const trimmedLine = line.trim();
-
-      if (!trimmedLine) {
-        continue;
-      }
-      if (trimmedLine.startsWith('# MSO channel name ')) {
-        // Remove the leading '# MSO channel name = ' and split by comma
-        const MsoToApoChannel = line
-          .replace('# MSO channel name = ', '')
-          .replace(' Equalizer APO channel name = ', '')
-          .trim()
-          .replace(/"/g, '') // Remove quotes
-          .split(',');
-
-        // insert MsoToApoChannel array into key value map
-        const msoChannel = MsoToApoChannel[0];
-        const apoChannel = MsoToApoChannel[1];
-        if (msoChannel && apoChannel) {
-          channelMap[apoChannel] = msoChannel;
-        }
-      }
-      // skip comments lines
-      if (trimmedLine.startsWith('#')) {
-        continue;
-      }
-
-      if (trimmedLine.toLowerCase().startsWith('channel:')) {
-        const apoChannel = trimmedLine.split(': ')[1];
-        // creates a new channel only if there not already present into filter array
-        if (!filters.some(filter => filter.apoChannel === apoChannel)) {
-          const msoChannel = channelMap[apoChannel];
-          if (msoChannel) {
-            currentChannel = {
-              apoChannel: apoChannel,
-              Channel: msoChannel,
-              invertFactor: 1,
-              gainDb: 0,
-              delayMs: 0,
-              filters: [],
-            };
-            filters.push(currentChannel);
-          } else {
-            throw new Error(`Channel ${apoChannel} not found in channel map`);
-          }
-        }
-        continue;
-      }
-      if (trimmedLine.toLowerCase().startsWith('copy:')) {
-        // Remove "Copy: " prefix and split by '='
-        const [channel, equation] = line.replace('Copy: ', '').split('=');
-        // Extract coefficient from equation (e.g., "-1.0*C" -> -1.0)
-        const invertFactor = parseFloat(equation);
-        // if the invert factor is related to the current channel, then is affected
-        if (currentChannel && currentChannel.apoChannel === channel) {
-          currentChannel.invertFactor = invertFactor;
-        } else if (filters.some(filter => filter.apoChannel === channel)) {
-          filters.find(filter => filter.apoChannel === channel).invertFactor =
-            invertFactor;
-        } else if (channelMap[channel]) {
-          currentChannel = {
-            apoChannel: channel,
-            Channel: channelMap[channel],
-            invertFactor: invertFactor,
-            gainDb: 0,
-            delayMs: 0,
-            filters: [],
-          };
-          filters.push(currentChannel);
+      if (!trimmedLine || trimmedLine.startsWith('#')) {
+        if (trimmedLine.startsWith('# MSO channel name ')) {
+          this.#parseChannelMap(line, channelMap);
         }
         continue;
       }
 
-      if (trimmedLine.toLowerCase().startsWith('filter:')) {
-        const parts = trimmedLine.split(' ');
-        if (parts[1].toUpperCase() !== 'ON') {
-          continue;
-        }
-
-        const filterType = parts[2];
-        const freq = parseFloat(parts[4]);
-        const roundedFreq = roundFrequency(freq);
-
-        if (filterType === 'PK') {
-          const gain = parseFloat(parts[7]);
-          const qValue = parseFloat(parts[10]);
-          validateFilterParams(roundedFreq, qValue, gain);
-
-          currentChannel.filters.push({
-            type: 'Biquad',
-            parameters: {
-              type: 'Peaking',
-              freq: roundedFreq,
-              gain: Number(gain.toFixed(1)),
-              q: Number(qValue.toFixed(3)),
-            },
-          });
-        } else if (filterType === 'AP') {
-          const qValue = parseFloat(parts[7]);
-          validateFilterParams(roundedFreq, qValue);
-
-          currentChannel.filters.push({
-            type: 'Biquad',
-            parameters: {
-              type: 'Allpass',
-              freq: roundedFreq,
-              q: Number(qValue.toFixed(2)),
-            },
-          });
-        }
-        continue;
-      }
-
-      if (trimmedLine.toLowerCase().startsWith('delay:')) {
-        const delay = parseFloat(trimmedLine.split(' ')[1]);
-        currentChannel.delayMs = delay;
-        continue;
-      }
-      if (trimmedLine.toLowerCase().startsWith('preamp:')) {
-        const gain = parseFloat(trimmedLine.split(' ')[1]);
-        currentChannel.gainDb = gain;
-      }
+      currentChannel = this.#processLine(trimmedLine, line, filters, currentChannel, channelMap);
     }
     return filters;
+  }
+
+  #parseChannelMap(line, channelMap) {
+    const MsoToApoChannel = line
+      .replace('# MSO channel name = ', '')
+      .replace(' Equalizer APO channel name = ', '')
+      .trim()
+      .replaceAll('"', '')
+      .split(',');
+
+    const msoChannel = MsoToApoChannel[0];
+    const apoChannel = MsoToApoChannel[1];
+    if (msoChannel && apoChannel) {
+      channelMap[apoChannel] = msoChannel;
+    }
+  }
+
+  #processLine(trimmedLine, line, filters, currentChannel, channelMap) {
+    const lowerLine = trimmedLine.toLowerCase();
+
+    if (lowerLine.startsWith('channel:')) {
+      return this.#handleChannel(trimmedLine, filters, channelMap);
+    }
+    if (lowerLine.startsWith('copy:')) {
+      return this.#handleCopy(line, filters, currentChannel, channelMap);
+    }
+    if (lowerLine.startsWith('filter:')) {
+      this.#handleFilter(trimmedLine, currentChannel);
+    } else if (lowerLine.startsWith('delay:')) {
+      currentChannel.delayMs = Number.parseFloat(trimmedLine.split(' ')[1]);
+    } else if (lowerLine.startsWith('preamp:')) {
+      currentChannel.gainDb = Number.parseFloat(trimmedLine.split(' ')[1]);
+    }
+    return currentChannel;
+  }
+
+  #handleChannel(trimmedLine, filters, channelMap) {
+    const apoChannel = trimmedLine.split(': ')[1];
+    if (!filters.some(filter => filter.apoChannel === apoChannel)) {
+      const msoChannel = channelMap[apoChannel];
+      if (!msoChannel) {
+        throw new Error(`Channel ${apoChannel} not found in channel map`);
+      }
+      const newChannel = {
+        apoChannel,
+        Channel: msoChannel,
+        invertFactor: 1,
+        gainDb: 0,
+        delayMs: 0,
+        filters: [],
+      };
+      filters.push(newChannel);
+      return newChannel;
+    }
+    return filters.find(filter => filter.apoChannel === apoChannel);
+  }
+
+  #handleCopy(line, filters, currentChannel, channelMap) {
+    const [channel, equation] = line.replace('Copy: ', '').split('=');
+    const invertFactor = Number.parseFloat(equation);
+
+    if (currentChannel?.apoChannel === channel) {
+      currentChannel.invertFactor = invertFactor;
+      return currentChannel;
+    }
+
+    const existingChannel = filters.find(filter => filter.apoChannel === channel);
+    if (existingChannel) {
+      existingChannel.invertFactor = invertFactor;
+      return currentChannel;
+    }
+
+    if (channelMap[channel]) {
+      const newChannel = {
+        apoChannel: channel,
+        Channel: channelMap[channel],
+        invertFactor,
+        gainDb: 0,
+        delayMs: 0,
+        filters: [],
+      };
+      filters.push(newChannel);
+      return newChannel;
+    }
+    return currentChannel;
+  }
+
+  #handleFilter(trimmedLine, currentChannel) {
+    const parts = trimmedLine.split(' ');
+    if (parts[1].toUpperCase() !== 'ON') {
+      return;
+    }
+
+    const filterType = parts[2];
+    const freq = Number.parseFloat(parts[4]);
+    const roundedFreq = roundFrequency(freq);
+
+    if (filterType === 'PK') {
+      const gain = Number.parseFloat(parts[7]);
+      const qValue = Number.parseFloat(parts[10]);
+      validateFilterParams(roundedFreq, qValue, gain);
+
+      currentChannel.filters.push({
+        type: 'Biquad',
+        parameters: {
+          type: 'Peaking',
+          freq: roundedFreq,
+          gain: Number(gain.toFixed(1)),
+          q: Number(qValue.toFixed(3)),
+        },
+      });
+    } else if (filterType === 'AP') {
+      const qValue = Number.parseFloat(parts[7]);
+      validateFilterParams(roundedFreq, qValue);
+
+      currentChannel.filters.push({
+        type: 'Biquad',
+        parameters: {
+          type: 'Allpass',
+          freq: roundedFreq,
+          q: Number(qValue.toFixed(2)),
+        },
+      });
+    }
   }
 
   createCamillaDspConfig() {
@@ -156,7 +168,7 @@ class FilterConverter {
         ],
       };
 
-      channel.filters.forEach((filterData, filterIndex) => {
+      for (const [filterIndex, filterData] of channel.filters.entries()) {
         const filterName = `filter_${filterIndex + 1}`;
         config.pipeline[0].names.push(filterName);
 
@@ -176,7 +188,7 @@ class FilterConverter {
         }
 
         config.filters[filterName] = filterConfig;
-      });
+      }
 
       return {
         config: config,
@@ -197,9 +209,9 @@ class FilterConverter {
       const channelConfig = new Array(22);
 
       // Process each filter in the channel using helper function
-      channel.filters.forEach((filter, index) => {
+      for (const [index, filter] of channel.filters.entries()) {
         channelConfig[index] = createFilterConfig(filter, index);
-      });
+      }
 
       //fill the rest of the array with empty filters
       for (let i = channel.filters.length; i < 22; i++) {

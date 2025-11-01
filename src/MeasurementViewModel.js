@@ -1,3 +1,4 @@
+import RewApi from './rew-api.js';
 import MeasurementItem from './MeasurementItem.js';
 import PersistentStore from './PersistentStore.js';
 import BusinessTools from './BusinessTools.js';
@@ -18,88 +19,84 @@ class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
   static maximisedSumTitle = 'LFE Max Sum';
 
-  constructor(apiService) {
-    const self = this;
-    self.UNKNOWN_GROUP_NAME = 'UNKNOWN';
-    self.inhibitGraphUpdates = true;
+  UNKNOWN_GROUP_NAME = 'UNKNOWN';
+  inhibitGraphUpdates = true;
+  pollingInterval = 1000; // 1 seconds
 
-    self.EQ_SETTINGS = {
-      MANUFACTURER: 'Generic',
-      MODEL: 'Generic',
-    };
-    self.pollingInterval = 1000; // 1 seconds
-    self.isPolling = ko.observable(false);
-    self.pollerId = null;
+  constructor() {
+    this.isPolling = ko.observable(false);
+    this.pollerId = null;
     // Add translation support
-    self.translations = ko.observable(
+    this.translations = ko.observable(
       translations[localStorage.getItem('userLanguage') || 'en']
     );
 
     // API Service
-    self.apiService = apiService;
+    this.apiBaseUrl = ko.observable('http://localhost:4735');
+    this.apiService = new RewApi(this.apiBaseUrl(), this.inhibitGraphUpdates);
 
-    self.businessTools = new BusinessTools(self);
+    this.businessTools = new BusinessTools(this);
 
     // Observables
-    self.measurements = ko.observableArray([]);
-    self.isLoading = ko.observable(false);
-    self.error = ko.observable('');
-    self.status = ko.observable('');
-    self.selectedItem = ko.observable(null);
-    self.upperFrequencyBound = ko.observable(16000);
-    self.lowerFrequencyBound = ko.observable(15);
+    this.measurements = ko.observableArray([]);
+    this.isLoading = ko.observable(false);
+    this.error = ko.observable('');
+    this.status = ko.observable('');
+    this.selectedItem = ko.observable(null);
+    this.upperFrequencyBound = ko.observable(16000);
+    this.lowerFrequencyBound = ko.observable(15);
 
     // Computed
-    self.hasStatus = ko.computed(() => !self.error() && self.status() !== '');
-    self.hasError = ko.computed(() => self.error() !== '');
-    self.hasItems = ko.computed(() => self.measurements().length > 0);
+    this.hasStatus = ko.computed(() => !this.error() && this.status() !== '');
+    this.hasError = ko.computed(() => this.error() !== '');
+    this.hasItems = ko.computed(() => this.measurements().length > 0);
 
-    self.handleError = function (message, error) {
+    this.handleError = (message, error) => {
       console.error(message, error);
-      self.error(message);
-      self.status('');
+      this.error(message);
+      this.status('');
     };
 
     // Observable for selected speaker
-    self.selectedSpeaker = ko.observable('');
+    this.selectedSpeaker = ko.observable('');
 
     // Observable for target curve
-    self.targetCurve = 'unknown';
-    self.rewVersion = '';
+    this.targetCurve = 'unknown';
+    this.rewVersion = '';
 
     // Observable for the selected value
-    self.selectedLfeFrequency = ko.observable('250');
+    this.selectedLfeFrequency = ko.observable('250');
 
     // Observable for the selected value
-    self.gobalCrossover = ko.observable();
+    this.gobalCrossover = ko.observable();
 
     // Array of frequency options
-    self.speakerTypeChoices = [
+    this.speakerTypeChoices = [
       { value: 'S', text: 'Small' },
       { value: 'L', text: 'Large' },
       { value: 'E', text: 'Sub' },
     ];
 
     // Filter observables
-    self.selectedMeasurementsFilter = ko.observable(true);
+    this.selectedMeasurementsFilter = ko.observable(true);
 
     // Available filter options
-    self.selectedMeasurements = [
+    this.selectedMeasurements = [
       { value: true, text: 'Selected' },
       { value: false, text: 'All' },
     ];
 
-    self.selectedAverageMethod = ko.observable('');
+    this.selectedAverageMethod = ko.observable('');
 
     // Array of frequency options
-    self.averageMethod = [
+    this.averageMethod = [
       { value: 'Vector average', text: 'Vector average' },
       { value: 'Magn plus phase average', text: 'RMS + phase avg.' },
       { value: 'dB plus phase average', text: 'dB + phase avg.' },
     ];
 
     // Array of smoothing options
-    self.smoothingChoices = [
+    this.smoothingChoices = [
       { value: '1/1', text: '1/1 Octave' },
       { value: '1/2', text: '1/2 Octave' },
       { value: '1/3', text: '1/3 Octave' },
@@ -113,9 +110,9 @@ class MeasurementViewModel {
       { value: 'None', text: 'None' },
     ];
 
-    self.selectedSmoothingMethod = ko.observable('None');
+    this.selectedSmoothingMethod = ko.observable('None');
 
-    self.irWindowsChoices = [
+    this.irWindowsChoices = [
       {
         value: 'None',
         text: 'None',
@@ -143,20 +140,20 @@ class MeasurementViewModel {
       },
     ];
 
-    self.selectedIrWindows = ko.observable('Optimized MTW');
+    this.selectedIrWindows = ko.observable('Optimized MTW');
 
     // get seletced IR window config
-    self.selectedIrWindowsConfig = ko.computed(() => {
-      const selected = self.selectedIrWindows();
-      const found = self.irWindowsChoices.find(choice => choice.value === selected);
+    this.selectedIrWindowsConfig = ko.computed(() => {
+      const selected = this.selectedIrWindows();
+      const found = this.irWindowsChoices.find(choice => choice.value === selected);
       return found ? found.config : null;
     });
 
     // Subscribe to changes in global crossover
-    self.gobalCrossover.subscribe(function (newValue) {
+    this.gobalCrossover.subscribe(newValue => {
       if (newValue !== undefined) {
         // Update all enabled crossover selections
-        ko.utils.arrayForEach(self.uniqueMeasurementsView(), function (measurement) {
+        ko.utils.arrayForEach(this.uniqueMeasurementsView(), measurement => {
           if (!measurement.isSub()) {
             measurement.crossover(newValue);
           }
@@ -165,14 +162,14 @@ class MeasurementViewModel {
     });
 
     // Observable to track drag state
-    self.isDragging = ko.observable(false);
+    this.isDragging = ko.observable(false);
 
     // Observable array to store JSON data
-    self.jsonAvrData = ko.observable();
+    this.jsonAvrData = ko.observable();
 
     // Array of frequency options with fallback values
-    self.alingFrequencies = ko.computed(() => {
-      const indexes = self.jsonAvrData()?.avr?.frequencyIndexes;
+    this.alingFrequencies = ko.computed(() => {
+      const indexes = this.jsonAvrData()?.avr?.frequencyIndexes;
       return (
         indexes || [
           { value: 0, text: 'N/A' },
@@ -188,8 +185,8 @@ class MeasurementViewModel {
       );
     });
 
-    self.LfeFrequencies = ko.computed(() => {
-      const freqs = self.jsonAvrData()?.avr?.lfeFrequencies;
+    this.LfeFrequencies = ko.computed(() => {
+      const freqs = this.jsonAvrData()?.avr?.lfeFrequencies;
       return (
         freqs || [
           { value: 80, text: '80Hz' },
@@ -204,66 +201,146 @@ class MeasurementViewModel {
     });
 
     // subwoofer filter options
-    self.additionalBassGainValue = ko.observable(0);
-    self.minadditionalBassGainValue = -12;
-    self.maxadditionalBassGainValue = 12;
-    self.maxBoostIndividualValue = ko.observable(0);
-    self.minIndividualValue = 0;
-    self.maxIndividualValue = 6;
-    self.maxBoostOverallValue = ko.observable(0);
-    self.minOverallValue = 0;
-    self.maxOverallValue = 3;
-    self.loadedFileName = ko.observable('');
-    self.shiftInMeters = ko.computed(function () {
-      return !self.loadedFileName().endsWith('.avr')
-        ? 0
-        : MeasurementViewModel.DEFAULT_SHIFT_IN_METERS;
-    });
-    self.distanceUnit = ko.observable('M');
+    this.additionalBassGainValue = ko.observable(0);
+    this.minadditionalBassGainValue = -12;
+    this.maxadditionalBassGainValue = 12;
+    this.maxBoostIndividualValue = ko.observable(0);
+    this.minIndividualValue = 0;
+    this.maxIndividualValue = 6;
+    this.maxBoostOverallValue = ko.observable(0);
+    this.minOverallValue = 0;
+    this.maxOverallValue = 3;
+    this.loadedFileName = ko.observable('');
+    this.shiftInMeters = ko.computed(() =>
+      this.loadedFileName().endsWith('.avr')
+        ? MeasurementViewModel.DEFAULT_SHIFT_IN_METERS
+        : 0
+    );
+    this.distanceUnit = ko.observable('M');
 
     // speaker filter options
-    self.individualMaxBoostValue = ko.observable(3);
-    self.individualMaxBoostValueMin = 0;
-    self.individualMaxBoostValueMax = 6;
-    self.overallBoostValue = ko.observable(3);
-    self.overallBoostValueMin = 0;
-    self.overallBoostValueMax = 6;
+    this.individualMaxBoostValue = ko.observable(3);
+    this.individualMaxBoostValueMin = 0;
+    this.individualMaxBoostValueMax = 6;
+    this.overallBoostValue = ko.observable(3);
+    this.overallBoostValueMin = 0;
+    this.overallBoostValueMax = 6;
 
-    self.validateFile = function (file) {
-      const maxSize = 70 * 1024 * 1024; // 70MB
+    this.validateFile = file => {
+      const MAX_SIZE = 70 * 1024 * 1024;
+      const VALID_EXTENSIONS = ['.avr', '.ady', '.mqx'];
 
-      if (
-        !file.name.endsWith('.avr') &&
-        !file.name.endsWith('.ady') &&
-        !file.name.endsWith('.mqx')
-      ) {
-        self.handleError('Please select a .avr or .ady file');
+      const hasValidExtension = VALID_EXTENSIONS.some(ext => file.name.endsWith(ext));
+      if (!hasValidExtension) {
+        this.handleError('Please select a .avr, .ady, or .mqx file');
         return false;
       }
-      if (file.size > maxSize) {
-        self.handleError('File size exceeds 50MB limit');
+
+      if (file.size > MAX_SIZE) {
+        this.handleError('File size exceeds 70MB limit');
         return false;
       }
 
       return true;
     };
 
-    self.onFileLoaded = async function (data, filename) {
-      // clear error and load data to prevent buggy behavior
-      self.error('');
-      self.loadData();
+    this.processMqxFile = async data => {
+      if (!this.jsonAvrData()) {
+        throw new Error('Please load AVR data first');
+      }
+      const mqxTools = new MqxTools(data, this.jsonAvrData());
+      await mqxTools.parse();
+      return mqxTools.jsonAvrData;
+    };
 
-      // Handle the loaded JSON data
-      self.status('Loaded file: ' + filename);
+    this.normalizeChannelMapping = data => {
+      const StandardChannelMapping = {
+        59: 54,
+        60: 55,
+        62: 56,
+        63: 57,
+        58: 54,
+        61: 55,
+        64: 56,
+        47: 54,
+        49: 55,
+      };
+
+      // convert directionnal bass to standard
+      data.detectedChannels = data.detectedChannels.map(channel => ({
+        ...channel,
+        enChannelType:
+          StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
+      }));
+    };
+
+    this.processImpulseResponse = async (processedResponse, adyTools) => {
+      const identifier = processedResponse.name;
+      const response = processedResponse.data;
+      const max = Math.max(...response.map(x => Math.abs(x)));
+      const lastMeasurementIndex = this.measurements().length;
+      const encodedData = MeasurementItem.encodeRewToBase64(response);
+
+      if (!encodedData) {
+        throw new Error('Error encoding array');
+      }
+      const options = {
+        identifier,
+        startTime: 0,
+        sampleRate: adyTools.samplingRate,
+        splOffset: AdyTools.SPL_OFFSET,
+        applyCal: false,
+        data: encodedData,
+      };
+      await this.apiService.postSafe('import/impulse-response-data', options);
+
+      const item = await this.apiService.fetchREW(
+        lastMeasurementIndex + 1,
+        'GET',
+        null,
+        0
+      );
+      const measurementItem = new MeasurementItem(item, this);
+      measurementItem.IRPeakValue = max;
+      await this.addMeasurement(measurementItem);
+      if (max >= 1) {
+        console.warn(
+          `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
+        );
+      }
+    };
+
+    this.processAdyMeasurements = async (data, filename, adyTools, zipContent) => {
+      if (filename.endsWith('.ady')) {
+        adyTools.isDirectionalWhenMultiSubs();
+      }
+
+      // TODO: ampassign can be directionnal must be converted to standard
+      if (this.isPolling()) {
+        adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
+        for (const processedResponse of adyTools.impulses) {
+          await this.processImpulseResponse(processedResponse, adyTools);
+        }
+      }
+
+      const results = document.getElementById('resultsAvr');
+
+      // Create download buttons
+      const button = document.createElement('button');
+      button.textContent = `Download measurements zip`;
+      button.onclick = () => saveAs(zipContent, `${data.title}.zip`);
+      results.appendChild(button);
+    };
+
+    this.onFileLoaded = async (data, filename) => {
+      // clear error and load data to prevent buggy behavior
+      this.error('');
+      this.loadData();
+      this.status('Loaded file: ' + filename);
 
       try {
         if (filename.endsWith('.mqx')) {
-          if (!self.jsonAvrData()) {
-            throw new Error('Please load AVR data first');
-          }
-          const mqxTools = new MqxTools(data, self.jsonAvrData());
-          await mqxTools.parse();
-          data = mqxTools.jsonAvrData;
+          data = await this.processMqxFile(data, filename);
         }
 
         const results = document.getElementById('resultsAvr');
@@ -272,148 +349,74 @@ class MeasurementViewModel {
         }
         results.innerHTML = '';
 
-        const StandardChannelMapping = {
-          59: 54,
-          60: 55,
-          62: 56,
-          63: 57,
-          58: 54,
-          61: 55,
-          64: 56,
-          47: 54,
-          49: 55,
-        };
-
         if (!data.detectedChannels?.[0]) {
           throw new Error('No channels detected');
         }
 
-        // convert directionnal bass to standard
-        data.detectedChannels = data.detectedChannels.map(channel => ({
-          ...channel,
-          enChannelType:
-            StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
-        }));
+        this.normalizeChannelMapping(data);
 
         const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
         data.avr = avr.toJSON();
+
         // load data to prevent bug when avr data is not loaded
-        self.jsonAvrData(data);
+        this.jsonAvrData(data);
 
         // Check if we have any measurements meaning we have a ady file
         if (data.detectedChannels?.[0].responseData?.[0]) {
-          // create zip containing all measurements
           const hasCirrusLogicDsp = data.avr.hasCirrusLogicDsp;
           const needCal = hasCirrusLogicDsp || filename.endsWith('.mqx');
           const adyTools = new AdyTools(data);
+          // create zip containing all measurements
           const zipContent = await adyTools.parseContent(needCal);
-
-          if (filename.endsWith('.ady')) {
-            adyTools.isDirectionalWhenMultiSubs();
-          }
-
-          // TODO: ampassign can be directionnal must be converted to standard
-          if (self.isPolling()) {
-            const orderedImpulses = adyTools.impulses.sort((a, b) =>
-              a.name.localeCompare(b.name)
-            );
-            for (const processedResponse of orderedImpulses) {
-              const identifier = processedResponse.name;
-              const response = processedResponse.data;
-              const max = Math.max(...response.map(x => Math.abs(x)));
-              const lastMeasurementIndex = self.measurements().length;
-              const encodedData = MeasurementItem.encodeRewToBase64(response);
-
-              if (!encodedData) {
-                throw new Error('Error encoding array');
-              }
-              const options = {
-                identifier: identifier,
-                startTime: 0,
-                sampleRate: adyTools.samplingRate,
-                splOffset: AdyTools.SPL_OFFSET,
-                applyCal: false,
-                data: encodedData,
-              };
-              await self.apiService.postSafe('import/impulse-response-data', options);
-
-              const item = await self.apiService.fetchREW(
-                lastMeasurementIndex + 1,
-                'GET',
-                null,
-                0
-              );
-              const measurementItem = new MeasurementItem(item, self);
-              measurementItem.IRPeakValue = max;
-              await self.addMeasurement(measurementItem);
-              if (max >= 1) {
-                console.warn(
-                  `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
-                );
-              }
-            }
-          }
-
-          // Create download buttons
-          const button = document.createElement('button');
-          button.textContent = `Download measurements zip`;
-          button.onclick = () => saveAs(zipContent, `${data.title}.zip`);
-          results.appendChild(button);
+          await this.processAdyMeasurements(data, filename, adyTools, zipContent);
         }
       } catch (error) {
-        self.handleError(error.message);
+        this.handleError(error.message);
       } finally {
         // Clean up response data regardless of file type
         if (data?.detectedChannels && Array.isArray(data.detectedChannels)) {
           for (const channel of data.detectedChannels) {
             channel.responseData = {};
           }
-          self.jsonAvrData(data);
+          this.jsonAvrData(data);
         }
       }
     };
 
     // Handle file reading
-    self.readFile = async function (file) {
-      if (self.isProcessing()) return;
+    this.readFile = async file => {
+      if (this.isProcessing()) return;
 
       try {
-        await self.isProcessing(true);
+        await this.isProcessing(true);
 
         if (!file) {
           throw new Error('No file selected');
         }
 
-        if (!self.validateFile(file)) {
+        if (!this.validateFile(file)) {
           throw new Error('File validation failed');
         }
 
-        let fileContent = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => reject(new Error('Error reading file'));
-
-          reader.readAsText(file);
-        });
+        let fileContent = await file.text();
 
         // if mqx file contain garbage after closing json, truncate after the closing brake corresponding to the fisrt open bracket
         if (file.name.endsWith('.mqx')) {
-          fileContent = self.cleanJSON(fileContent);
+          fileContent = this.cleanJSON(fileContent);
         }
 
         const data = JSON.parse(fileContent);
-        self.loadedFileName(file.name);
+        this.loadedFileName(file.name);
         // Handle successful load
-        await self.onFileLoaded(data, file.name);
+        await this.onFileLoaded(data, file.name);
       } catch (error) {
-        self.handleError(`Error parsing file: ${error.message}`, error);
+        this.handleError(`Error parsing file: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.cleanJSON = function (fileContent) {
+    this.cleanJSON = fileContent => {
       // Early return if the input is empty or not a string
       if (!fileContent || typeof fileContent !== 'string') {
         throw new Error('Invalid input: fileContent must be a non-empty string');
@@ -424,150 +427,135 @@ class MeasurementViewModel {
         throw new Error('Invalid file format: no JSON object found');
       }
 
+      const closingIndex = this.findClosingBrace(fileContent, firstOpen);
+      if (closingIndex === -1) {
+        throw new Error('Invalid JSON structure: unmatched braces');
+      }
+
+      return fileContent.slice(firstOpen, closingIndex + 1);
+    };
+
+    this.findClosingBrace = (content, startIndex) => {
       let openCount = 0;
       let inString = false;
       let escapeNext = false;
 
-      for (let i = firstOpen; i < fileContent.length; i++) {
-        const char = fileContent[i];
+      for (let i = startIndex; i < content.length; i++) {
+        const char = content[i];
 
-        // Handle string literals
         if (char === '"' && !escapeNext) {
           inString = !inString;
-          continue;
-        }
-
-        // Handle escape characters
-        if (char === '\\' && !escapeNext) {
+        } else if (char === '\\' && !escapeNext) {
           escapeNext = true;
           continue;
+        } else if (!inString) {
+          if (char === '{') openCount++;
+          else if (char === '}' && --openCount === 0) return i;
         }
         escapeNext = false;
-
-        // Only count braces when not in a string
-        if (!inString) {
-          if (char === '{') {
-            openCount++;
-          } else if (char === '}') {
-            openCount--;
-            if (openCount === 0) {
-              return fileContent.slice(firstOpen, i + 1);
-            }
-          }
-        }
       }
 
-      throw new Error('Invalid JSON structure: unmatched braces');
+      return -1;
     };
 
     // Drop handlers
-    self.handleDrop = function (_, e) {
+    this.handleDrop = (_, e) => {
       e.preventDefault();
-      self.isDragging(false);
+      this.isDragging(false);
 
       const file = e.dataTransfer.files[0];
-      self.readFile(file);
+      this.readFile(file);
     };
 
-    self.handleDragOver = function (_, e) {
+    this.handleDragOver = (_, e) => {
       e.preventDefault();
     };
 
-    self.handleDragEnter = function (_, e) {
+    this.handleDragEnter = (_, e) => {
       e.preventDefault();
-      self.isDragging(true);
+      this.isDragging(true);
     };
 
-    self.handleDragLeave = function (_, e) {
+    this.handleDragLeave = (_, e) => {
       e.preventDefault();
-      self.isDragging(false);
+      this.isDragging(false);
     };
 
     // File input handler
-    self.handleFileSelect = function (_, e) {
+    this.handleFileSelect = (_, e) => {
       const file = e.target.files[0];
-      self.readFile(file);
+      this.readFile(file);
     };
 
-    self.DeleteOriginalForAverage = ko.observable('all');
+    this.DeleteOriginalForAverage = ko.observable('all');
 
-    self.useAllPassFiltersForSubs = ko.observable(false);
+    this.useAllPassFiltersForSubs = ko.observable(false);
 
-    self.DeleteOriginalForLfeRevert = ko.observable(true);
+    this.DeleteOriginalForLfeRevert = ko.observable(true);
 
-    self.isProcessing = ko.observable(false);
+    this.isProcessing = ko.observable(false);
 
-    self.isProcessing.subscribe(async function (newValue) {
-      try {
-        if (newValue === false) {
-          // Save to persistent storage first
-          self.saveMeasurements();
-
-          if (self.isPolling() && self.inhibitGraphUpdates) {
-            await self.apiService.updateAPI('inhibit-graph-updates', false);
-          }
-        } else if (newValue === true) {
-          self.error('');
-          if (self.isPolling() && self.inhibitGraphUpdates) {
-            await self.apiService.updateAPI('inhibit-graph-updates', true);
-          }
-        }
-      } catch (error) {
-        throw new Error(`Error in isProcessing subscription: ${error.message}`, {
-          cause: error,
-        });
+    this.isProcessing.subscribe(async newValue => {
+      // inhibit Graph Updates only during processing
+      if (this.isPolling() && this.inhibitGraphUpdates) {
+        await this.apiService.setInhibitGraphUpdates(newValue);
       }
+      // Save to persistent when processing ends
+      newValue ? this.error('') : this.saveMeasurements();
     });
 
-    self.currentSelectedPosition = ko.observable();
+    this.currentSelectedPosition = ko.observable();
 
-    self.importMsoConfigInRew = async function (REWconfigs) {
-      if (self.isProcessing()) return;
+    this.importMsoConfigInRew = async REWconfigs => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Importing MSO config...');
+        this.isProcessing(true);
+        this.status('Importing MSO config...');
 
         for (const [position, subResponses] of Object.entries(
-          self.byPositionsGroupedSubsMeasurements()
+          this.byPositionsGroupedSubsMeasurements()
         )) {
           if (!subResponses?.length) continue;
 
           const subResponsesTitles = subResponses.map(response =>
             response.displayMeasurementTitle()
           );
-          self.status(
-            `${self.status()} \nImporting to position: ${position}\n${subResponsesTitles.join('\r\n')}`
+          this.status(
+            `${this.status()} \nImporting to position: ${position}\n${subResponsesTitles.join(
+              '\r\n'
+            )}`
           );
 
-          await self.businessTools.importFilterInREW(REWconfigs, subResponses);
-          self.status(
-            `${self.status()} \nREW import successful for position: ${position}`
+          await this.businessTools.importFilterInREW(REWconfigs, subResponses);
+          this.status(
+            `${this.status()} \nREW import successful for position: ${position}`
           );
         }
 
-        self.status(`${self.status()} Importing finished`);
+        this.status(`${this.status()} Importing finished`);
       } catch (error) {
-        self.handleError(`REW import failed: ${error.message}`, error);
+        this.handleError(`REW import failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttoncheckREWButton = async function () {
-      if (self.isProcessing()) return;
+    this.buttoncheckREWButton = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.toggleBackgroundPolling();
+        this.error('');
+        this.toggleBackgroundPolling();
       } catch (error) {
-        self.handleError(`Pulling failed: ${error.message}`, error);
+        this.handleError(`Pulling failed: ${error.message}`, error);
       }
     };
 
-    self.renameMeasurement = async function () {
-      if (self.isProcessing()) return;
+    this.renameMeasurement = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Renaming started');
-        for (const item of self.measurements()) {
+        this.isProcessing(true);
+        this.status('Renaming started');
+        for (const item of this.measurements()) {
           if (item.position() === 0) {
             continue;
           }
@@ -580,97 +568,95 @@ class MeasurementViewModel {
             continue;
           }
 
-          const newName = `${item.channelName()}_P${item.position().toString().padStart(2, '0')}`;
+          const newName = `${item.channelName()}_P${item
+            .position()
+            .toString()
+            .padStart(2, '0')}`;
 
           item.setTitle(newName);
         }
-        self.status('Renaming succeful');
+        this.status('Renaming succeful');
       } catch (error) {
-        self.handleError(`Rename failed: ${error.message}`, error);
+        this.handleError(`Rename failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonresetREWButton = async function () {
-      if (self.isProcessing()) return;
+    this.buttonresetREWButton = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Reseting...');
-        const defaultSettings = {
-          manufacturer: self.EQ_SETTINGS.MANUFACTURER,
-          model: self.EQ_SETTINGS.MODEL,
-        };
-        self.status(`${self.status()}\nSet Generic EQ`);
-        await self.apiService.postSafe(`eq/default-equaliser`, defaultSettings);
-        self.status(`${self.status()}\nClear commands`);
-        await self.apiService.clearCommands();
-        const firstMeasurementLevel = await self.mainTargetLevel();
-        for (const item of self.measurements()) {
-          self.status(`${self.status()}\nReseting ${item.displayMeasurementTitle()}`);
+        this.isProcessing(true);
+        this.status('Reseting...');
+        const defaultSettings = { ...MeasurementItem.defaulEqtSettings };
+        this.status(`${this.status()}\nSet Generic EQ`);
+        await this.apiService.postSafe(`eq/default-equaliser`, defaultSettings);
+        this.status(`${this.status()}\nClear commands`);
+        await this.apiService.clearCommands();
+        const firstMeasurementLevel = await this.mainTargetLevel();
+        for (const item of this.measurements()) {
+          this.status(`${this.status()}\nReseting ${item.displayMeasurementTitle()}`);
           await item.resetAll(firstMeasurementLevel);
         }
 
-        self.status(`${self.status()}\nReset successful`);
+        this.status(`${this.status()}\nReset successful`);
       } catch (error) {
-        self.handleError(`Reset failed: ${error.message}`, error);
+        this.handleError(`Reset failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonResetApplication = async function () {
-      if (self.isProcessing()) return;
+    this.buttonResetApplication = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.status('Reseting...');
+        this.status('Reseting...');
 
-        self.stopBackgroundPolling();
+        this.stopBackgroundPolling();
 
         store.clear();
 
         // Reset all application state
-        self.measurements([]);
-        self.jsonAvrData(null);
+        this.measurements([]);
+        this.jsonAvrData(null);
 
-        self.targetCurve = '';
-        self.rewVersion = '';
-        self.additionalBassGainValue(0);
-        self.maxBoostIndividualValue(0);
-        self.maxBoostOverallValue(0);
-        self.loadedFileName('');
+        this.targetCurve = '';
+        this.rewVersion = '';
+        this.additionalBassGainValue(0);
+        this.maxBoostIndividualValue(0);
+        this.maxBoostOverallValue(0);
+        this.loadedFileName('');
 
         // Reset selectors to default values
-        self.selectedSpeaker('');
-        self.selectedLfeFrequency('250');
-        self.selectedAverageMethod('');
-        self.selectedMeasurementsFilter(true);
+        this.selectedSpeaker('');
+        this.selectedLfeFrequency('250');
+        this.selectedAverageMethod('');
+        this.selectedMeasurementsFilter(true);
 
-        self.status(`${self.status()}\nReset successful`);
+        this.status(`${this.status()}\nReset successful`);
       } catch (error) {
-        self.handleError(`Reset failed: ${error.message}`, error);
+        this.handleError(`Reset failed: ${error.message}`, error);
       }
     };
 
-    self.buttoncreatesAverages = async function () {
-      if (self.isProcessing()) return;
+    this.buttoncreatesAverages = async () => {
+      if (this.isProcessing()) return;
       try {
-        if (!self.isPolling()) {
+        if (!this.isPolling()) {
           throw new Error('Please connect to REW before creating averages');
         }
-        self.isProcessing(true);
-        self.status('Average calculation started...');
+        this.isProcessing(true);
+        this.status('Average calculation started...');
 
         // Get valid measurements to average
-        const filteredMeasurements = self
-          .measurements()
-          .filter(
-            item =>
-              !item.isAverage &&
-              !item.isPredicted &&
-              !item.isUnknownChannel &&
-              item.position() !== 0 &&
-              item.IRPeakValue <= 1
-          );
+        const filteredMeasurements = this.measurements().filter(
+          item =>
+            !item.isAverage &&
+            !item.isPredicted &&
+            !item.isUnknownChannel &&
+            item.position() !== 0 &&
+            item.IRPeakValue <= 1
+        );
 
         // Check if we have enough measurements
         if (filteredMeasurements.length < 2) {
@@ -706,77 +692,77 @@ class MeasurementViewModel {
         }
 
         // creates array of uuid attributes for each code into groupedResponse
-        await self.businessTools.processGroupedResponses(
-          self.groupedMeasurements(),
-          self.selectedAverageMethod(),
-          self.DeleteOriginalForAverage()
+        await this.businessTools.processGroupedResponses(
+          this.groupedMeasurements(),
+          this.selectedAverageMethod(),
+          this.DeleteOriginalForAverage()
         );
-        const averagePosition = self
-          .measurementsPositionList()
-          .find(pos => pos.text === 'Average');
-        self.currentSelectedPosition(averagePosition.value);
-        self.status('Average calculations completed successfully');
+        const averagePosition = this.measurementsPositionList().find(
+          pos => pos.text === 'Average'
+        );
+        this.currentSelectedPosition(averagePosition.value);
+        this.status('Average calculations completed successfully');
       } catch (error) {
-        self.handleError(`Averages failed: ${error.message}`, error);
+        this.handleError(`Averages failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonrevertLfeFilter = async function () {
-      if (self.isProcessing()) return;
+    this.buttonrevertLfeFilter = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Reverting LFE filter...');
+        this.isProcessing(true);
+        this.status('Reverting LFE filter...');
 
-        await self.businessTools.revertLfeFilterProccess(
-          true,
-          self.selectedLfeFrequency(),
-          self.DeleteOriginalForLfeRevert()
+        await this.businessTools.revertLfeFilterProccess(
+          this.selectedLfeFrequency(),
+          this.DeleteOriginalForLfeRevert(),
+          true
         );
 
-        self.status('LFE filter reverted successfully');
+        this.status('LFE filter reverted successfully');
       } catch (error) {
-        self.handleError(`Reverting LFE filter failed: ${error.message}`, error);
+        this.handleError(`Reverting LFE filter failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonAlignPeaks = async function () {
-      if (self.isProcessing()) return;
+    this.buttonAlignPeaks = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Align peaks...');
+        this.isProcessing(true);
+        this.status('Align peaks...');
 
-        for (const measurement of self.uniqueSpeakersMeasurements()) {
+        for (const measurement of this.uniqueSpeakersMeasurements()) {
           await measurement.setZeroAtIrPeak();
           // apply SPLoffset to other measurement positions
           await measurement.copyCumulativeIRShiftToOther();
         }
 
-        if (self.uniqueSubsMeasurements().length > 0) {
-          const sub = self.uniqueSubsMeasurements()[0];
+        if (this.uniqueSubsMeasurements().length > 0) {
+          const sub = this.uniqueSubsMeasurements()[0];
           await sub.setZeroAtIrPeak();
-          await self.setSameDelayToAll(self.uniqueSubsMeasurements());
+          await this.setSameDelayToAll(this.uniqueSubsMeasurements());
           await sub.copyCumulativeIRShiftToOther();
         }
 
-        self.status('Align peaks successful');
+        this.status('Align peaks successful');
       } catch (error) {
-        self.handleError(`Sum failed: ${error.message}`, error);
+        this.handleError(`Sum failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonAlignSPL = async function () {
-      if (self.isProcessing()) return;
+    this.buttonAlignSPL = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Computing SPL alignment...');
-        await self.loadData();
-        const workingMeasurements = self.uniqueSpeakersMeasurements();
+        this.isProcessing(true);
+        this.status('Computing SPL alignment...');
+        await this.loadData();
+        const workingMeasurements = this.uniqueSpeakersMeasurements();
         if (workingMeasurements.length === 0) {
           throw new Error('No measurements found for SPL alignment');
         }
@@ -800,12 +786,10 @@ class MeasurementViewModel {
         }
 
         // delete previous target curve
-        const previousTargetcurve = self
-          .measurements()
-          .filter(item => item.title() === previousTargetcurveTitle);
-        for (const item of previousTargetcurve) {
-          await self.removeMeasurement(item);
-        }
+        const previousTargetcurve = this.measurements().filter(
+          item => item.title() === previousTargetcurveTitle
+        );
+        await this.removeMeasurements(previousTargetcurve);
 
         await firstMeasurement.resetTargetSettings();
         // working settings must match filter settings
@@ -813,7 +797,7 @@ class MeasurementViewModel {
           await work.applyWorkingSettings();
         }
 
-        const alignResult = await self.processCommands(
+        const alignResult = await this.processCommands(
           'Align SPL',
           [...workingMeasurementsUuids],
           alignSplOptions
@@ -824,7 +808,7 @@ class MeasurementViewModel {
         await firstMeasurement.eqCommands('Generate target measurement');
 
         // set target level to all measurements including subs
-        await self.setTargetLevelToAll();
+        await this.setTargetLevelToAll();
 
         // update attribute for all measurements processed to be able to be used in copySplOffsetDeltadBToOther
         for (const work of workingMeasurements) {
@@ -837,80 +821,80 @@ class MeasurementViewModel {
         }
 
         // copy SPL alignment level to other measurements positions
-        for (const measurement of self.uniqueMeasurements()) {
+        for (const measurement of this.uniqueMeasurements()) {
           await measurement.copySplOffsetDeltadBToOther();
         }
 
         // ajust subwoofer levels
-        await self.adjustSubwooferSPLLevels(self, self.uniqueSubsMeasurements());
+        await this.adjustSubwooferSPLLevels(this.uniqueSubsMeasurements());
 
-        const subsMeasurementsUuids = self.uniqueSubsMeasurements().map(m => m.uuid);
+        const subsMeasurementsUuids = this.uniqueSubsMeasurements().map(m => m.uuid);
 
         if (subsMeasurementsUuids.length !== 0) {
-          await self.processCommands('Smooth', subsMeasurementsUuids, {
-            smoothing: self.selectedSmoothingMethod(),
+          await this.processCommands('Smooth', subsMeasurementsUuids, {
+            smoothing: this.selectedSmoothingMethod(),
           });
         }
 
-        self.status(`${self.status()} \nSPL alignment successful `);
+        this.status(`${this.status()} \nSPL alignment successful `);
       } catch (error) {
-        self.handleError(`SPL alignment: ${error.message}`, error);
+        this.handleError(`SPL alignment: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonproduceSubSum = async function () {
-      if (self.isProcessing()) return;
+    this.buttonproduceSubSum = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Computing sum...');
+        this.isProcessing(true);
+        this.status('Computing sum...');
 
         // Ensure accurate predicted measurements with correct target level
-        await self.setTargetLevelToAll();
+        await this.setTargetLevelToAll();
 
         // Process each position's subwoofer measurements
-        const positionGroups = self.byPositionsGroupedSubsMeasurements();
+        const positionGroups = this.byPositionsGroupedSubsMeasurements();
         for (const [position, subResponses] of Object.entries(positionGroups)) {
-          self.status(`${self.status()} \nProcessing position ${position}`);
+          this.status(`${this.status()} \nProcessing position ${position}`);
 
           // Handle based on number of subwoofers
           if (subResponses.length === 0) continue;
 
           // Multiple subwoofers case - produce sum
-          await self.produceSumProcess(self, subResponses);
+          await this.produceSumProcess(subResponses);
         }
       } catch (error) {
-        self.handleError(`Sum failed: ${error.message}`, error);
+        this.handleError(`Sum failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonproduceAlignedButton = async function () {
-      if (self.isProcessing()) return;
+    this.buttonproduceAlignedButton = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Searching for alignement...');
+        this.isProcessing(true);
+        this.status('Searching for alignement...');
 
-        await self.loadData();
+        await this.loadData();
 
-        const selectedLfe = self.predictedLfeMeasurement();
+        const selectedLfe = this.predictedLfeMeasurement();
 
         if (!selectedLfe) {
           throw new Error(`No LFE found, please use sum subs button`);
         }
-        const speakerItem = self.findMeasurementByUuid(self.selectedSpeaker());
+        const speakerItem = this.findMeasurementByUuid(this.selectedSpeaker());
 
         if (!speakerItem) {
           throw new Error(`Speaker not found`);
         }
 
-        const result = await self.businessTools.produceAligned(
+        const result = await this.businessTools.produceAligned(
           selectedLfe,
           speakerItem.crossover(),
           speakerItem,
-          self.uniqueSubsMeasurements()
+          this.uniqueSubsMeasurements()
         );
 
         if (!result) {
@@ -918,12 +902,12 @@ class MeasurementViewModel {
         }
 
         // copy cumulative IR shift to other positions
-        for (const sub of self.uniqueSubsMeasurements()) {
+        for (const sub of this.uniqueSubsMeasurements()) {
           // copy to other positions
           await sub.copyCumulativeIRShiftToOther();
         }
 
-        for (const predictedLfe of self.allPredictedLfeMeasurement()) {
+        for (const predictedLfe of this.allPredictedLfeMeasurement()) {
           // skip selected lfe
           if (predictedLfe.uuid === selectedLfe.uuid) continue;
           await predictedLfe.setcumulativeIRShiftSeconds(
@@ -932,116 +916,118 @@ class MeasurementViewModel {
           await predictedLfe.setInverted(selectedLfe.inverted());
         }
 
-        self.lpfForLFE(Math.max(120, speakerItem.crossover()));
+        this.lpfForLFE(Math.max(120, speakerItem.crossover()));
 
-        self.status(result);
+        this.status(result);
       } catch (error) {
-        self.handleError(`Alignement search failed: ${error.message}`, error);
+        this.handleError(`Alignement search failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttongenratesPreview = async function () {
-      if (self.isProcessing()) return;
+    this.buttongenratesPreview = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
+        this.isProcessing(true);
 
-        for (const item of self.uniqueSpeakersMeasurements()) {
+        for (const item of this.uniqueSpeakersMeasurements()) {
           // display progression in the status
-          self.status(`Generating preview for ${item.displayMeasurementTitle()}`);
-          await self.businessTools.createMeasurementPreview(item);
-          await item.copyAllToOther();
+          this.status(`Generating preview for ${item.displayMeasurementTitle()}`);
+          await item.previewMeasurement();
         }
 
-        self.status('Preview generated successfully');
+        this.status('Preview generated successfully');
       } catch (error) {
-        self.handleError(`Preview failed: ${error.message}`, error);
+        this.handleError(`Preview failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttongeneratesFilters = async function () {
-      if (self.isProcessing()) return;
+    this.buttongeneratesFilters = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
+        this.isProcessing(true);
 
-        for (const item of self.uniqueSpeakersMeasurements()) {
+        for (const item of this.uniqueSpeakersMeasurements()) {
           // display progression in the status
-          self.status(`Generating filter for channel ${item.channelName()}`);
+          this.status(`Generating filter for channel ${item.channelName()}`);
           await item.createStandardFilter();
         }
 
-        self.status('Filters generated successfully');
+        this.status('Filters generated successfully');
       } catch (error) {
-        self.handleError(`Filter generation failed: ${error.message}`, error);
+        this.handleError(`Filter generation failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.softRoll = ko.observable(false);
-    self.enableDynamicEq = ko.observable(false);
-    self.dynamicEqRefLevel = ko.observable(0);
-    self.enableDynamicVolume = ko.observable(false);
-    self.dynamicVolumeSetting = ko.observable(0);
-    self.enableLowFrequencyContainment = ko.observable(false);
-    self.lowFrequencyContainmentLevel = ko.observable(3);
-    self.subwooferOutput = ko.observable('LFE');
-    self.lpfForLFE = ko.observable(120);
+    this.softRoll = ko.observable(false);
+    this.enableDynamicEq = ko.observable(false);
+    this.dynamicEqRefLevel = ko.observable(0);
+    this.enableDynamicVolume = ko.observable(false);
+    this.dynamicVolumeSetting = ko.observable(0);
+    this.enableLowFrequencyContainment = ko.observable(false);
+    this.lowFrequencyContainmentLevel = ko.observable(3);
+    this.subwooferOutput = ko.observable('LFE');
+    this.lpfForLFE = ko.observable(120);
 
     // Available filter options
-    self.subwooferOutputChoice = [
+    this.subwooferOutputChoice = [
       { value: 'LFE', text: 'LFE' },
       { value: 'L+M', text: 'L+M' },
     ];
 
-    self.buttoncreateOCAButton = async function () {
-      if (self.isProcessing()) return;
+    this.buttoncreateOCAButton = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('OCA file generation...');
-        const measurementsinError = self
-          .uniqueMeasurements()
-          .filter(item => item.hasErrors());
+        this.isProcessing(true);
+        this.status('OCA file generation...');
+        const measurementsinError = this.uniqueMeasurements().filter(item =>
+          item.hasErrors()
+        );
 
         if (measurementsinError.length > 0) {
           console.warn(
             `There are ${measurementsinError.length} measurements with errors. Please fix them before generating the OCA file.`
           );
         }
-        const avrData = self.jsonAvrData();
+        const avrData = this.jsonAvrData();
         if (!avrData?.targetModelName) {
           throw new Error(`Please load avr file first`);
         }
         const OCAFile = new OCAFileGenerator(avrData);
 
-        self.targetCurve = await self.apiService.checkTargetCurve();
-        OCAFile.tcName = `${self.targetCurve} ${await self.mainTargetLevel()}dB`;
-        OCAFile.softRoll = self.softRoll();
-        OCAFile.enableDynamicEq = self.enableDynamicEq();
-        OCAFile.dynamicEqRefLevel = self.dynamicEqRefLevel();
-        OCAFile.enableDynamicVolume = self.enableDynamicVolume();
-        OCAFile.dynamicVolumeSetting = self.dynamicVolumeSetting();
-        OCAFile.enableLowFrequencyContainment = self.enableLowFrequencyContainment();
-        OCAFile.lowFrequencyContainmentLevel = self.lowFrequencyContainmentLevel();
-        OCAFile.subwooferOutput = self.subwooferOutput();
-        OCAFile.lpfForLFE = self.lpfForLFE();
-        OCAFile.numberOfSubwoofers = self.uniqueSubsMeasurements().length;
+        this.targetCurve = await this.apiService.checkTargetCurve();
+        OCAFile.tcName = `${this.targetCurve} ${await this.mainTargetLevel()}dB`;
+        OCAFile.softRoll = this.softRoll();
+        OCAFile.enableDynamicEq = this.enableDynamicEq();
+        OCAFile.dynamicEqRefLevel = this.dynamicEqRefLevel();
+        OCAFile.enableDynamicVolume = this.enableDynamicVolume();
+        OCAFile.dynamicVolumeSetting = this.dynamicVolumeSetting();
+        OCAFile.enableLowFrequencyContainment = this.enableLowFrequencyContainment();
+        OCAFile.lowFrequencyContainmentLevel = this.lowFrequencyContainmentLevel();
+        OCAFile.subwooferOutput = this.subwooferOutput();
+        OCAFile.lpfForLFE = this.lpfForLFE();
+        OCAFile.numberOfSubwoofers = this.uniqueSubsMeasurements().length;
         OCAFile.versionEvo = 'Sangoku_custom';
 
-        const jsonData = await OCAFile.createOCAFile(self.uniqueMeasurements());
+        const jsonData = await OCAFile.createOCAFile(this.uniqueMeasurements());
 
         // Validate input
         if (!jsonData) {
           throw new Error('No data to save');
         }
 
-        // Create timestamp
-        const timestamp = new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-');
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 16)
+          .replace('T', '-')
+          .replaceAll(':', '-');
         const model = OCAFile.model.replaceAll(' ', '-');
-        const filename = `${timestamp}_${self.targetCurve}_${model}.oca`;
+        const filename = `${timestamp}_${this.targetCurve}_${model}.oca`;
 
         // Create blob
         const blob = new Blob([jsonData], {
@@ -1051,33 +1037,33 @@ class MeasurementViewModel {
         // Save file
         saveAs(blob, filename);
 
-        self.status('OCA file created successfully');
+        this.status('OCA file created successfully');
       } catch (error) {
-        self.handleError(`OCA file failed: ${error.message}`, error);
+        this.handleError(`OCA file failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttoncreateSetting = async function () {
-      if (self.isProcessing()) return;
+    this.buttoncreateSetting = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('text generation...');
+        this.isProcessing(true);
+        this.status('text generation...');
 
-        const avrData = self.jsonAvrData();
+        const avrData = this.jsonAvrData();
         if (!avrData?.targetModelName) {
           throw new Error(`Please load avr file first`);
         }
-        self.targetCurve = await self.apiService.checkTargetCurve();
-        self.rewVersion = await self.apiService.checkVersion();
-        const selectedSpeaker = self.findMeasurementByUuid(self.selectedSpeaker());
+        this.targetCurve = await this.apiService.checkTargetCurve();
+        this.rewVersion = await this.apiService.checkVersion();
+        const selectedSpeaker = this.findMeasurementByUuid(this.selectedSpeaker());
         const selectedSpeakerText = selectedSpeaker?.displayMeasurementTitle() || 'None';
         const selectedSpeakerCrossover = selectedSpeaker?.crossover();
         // find if we have revert LFE frequency
-        const subWithFreq = self
-          .uniqueSubsMeasurements()
-          .find(item => item.revertLfeFrequency !== 0);
+        const subWithFreq = this.uniqueSubsMeasurements().find(
+          item => item.revertLfeFrequency !== 0
+        );
         const revertLfeFrequency = subWithFreq?.revertLfeFrequency;
         // retreive version from index.html
         const version = document
@@ -1099,68 +1085,78 @@ class MeasurementViewModel {
         // Basic settings section
         textData += `BASIC SETTINGS\n`;
         textData += `-------------\n`;
-        textData += `Loaded File:       ${self.loadedFileName()}\n`;
-        textData += `Target Curve:      ${self.targetCurve}\n`;
-        textData += `Target Level:      ${await self.mainTargetLevel()} dB\n`;
-        textData += `Average Method:    ${self.selectedAverageMethod()}\n\n`;
+        textData += `Loaded File:       ${this.loadedFileName()}\n`;
+        textData += `Target Curve:      ${this.targetCurve}\n`;
+        textData += `Target Level:      ${await this.mainTargetLevel()} dB\n`;
+        textData += `Average Method:    ${this.selectedAverageMethod()}\n\n`;
 
         // AVR Info section
         textData += `AVR INFORMATION\n`;
         textData += `--------------\n`;
         textData += `Model:                    ${avrData.targetModelName}\n`;
         textData += `MultEQ Type:              ${avrData.avr.multEQType}\n`;
-        textData += `Has Cirrus Logic DSP:     ${avrData.hasCirrusLogicDsp ? 'Yes' : 'No'}\n`;
+        textData += `Has Cirrus Logic DSP:     ${
+          avrData.hasCirrusLogicDsp ? 'Yes' : 'No'
+        }\n`;
         textData += `Speed of Sound:           ${avrData.avr.speedOfSound} m/s\n\n`;
 
         // Speaker settings section
         textData += `SPEAKER SETTINGS\n`;
         textData += `----------------\n`;
-        textData += `Smoothing Method:         ${self.selectedSmoothingMethod()}\n`;
-        textData += `Windowing:                ${self.selectedIrWindows()}\n`;
-        textData += `Individual Max Boost:     ${self.individualMaxBoostValue()} dB\n`;
-        textData += `Overall Max Boost:        ${self.overallBoostValue()} dB\n\n`;
+        textData += `Smoothing Method:         ${this.selectedSmoothingMethod()}\n`;
+        textData += `Windowing:                ${this.selectedIrWindows()}\n`;
+        textData += `Individual Max Boost:     ${this.individualMaxBoostValue()} dB\n`;
+        textData += `Overall Max Boost:        ${this.overallBoostValue()} dB\n\n`;
 
         // Subwoofer settings section
         textData += `SUBWOOFER SETTINGS\n`;
         textData += `------------------\n`;
-        textData += `Number of Subs:           ${self.uniqueSubsMeasurements().length}\n`;
+        textData += `Number of Subs:           ${this.uniqueSubsMeasurements().length}\n`;
         textData += `Revert LFE Filter Freq:   ${addHzSuffix(revertLfeFrequency)}\n`;
 
-        textData += `Additional Bass Gain:     ${self.additionalBassGainValue()} dB\n`;
-        textData += `Max Boost Individual:     ${self.maxBoostIndividualValue()} dB\n`;
-        textData += `Max Boost Overall:        ${self.maxBoostOverallValue()} dB\n`;
+        textData += `Additional Bass Gain:     ${this.additionalBassGainValue()} dB\n`;
+        textData += `Max Boost Individual:     ${this.maxBoostIndividualValue()} dB\n`;
+        textData += `Max Boost Overall:        ${this.maxBoostOverallValue()} dB\n`;
 
-        textData += `Align Frequency:          ${addHzSuffix(selectedSpeakerCrossover)}\n`;
+        textData += `Align Frequency:          ${addHzSuffix(
+          selectedSpeakerCrossover
+        )}\n`;
         textData += `Selected Speaker:         ${selectedSpeakerText}\n`;
 
-        textData += `LPF for LFE:              ${self.lpfForLFE()} Hz\n`;
-        textData += `Subwoofer Output:         ${self.subwooferOutput()}\n\n`;
+        textData += `LPF for LFE:              ${this.lpfForLFE()} Hz\n`;
+        textData += `Subwoofer Output:         ${this.subwooferOutput()}\n\n`;
 
         // Dynamic settings section
         textData += `DYNAMIC SETTINGS\n`;
         textData += `----------------\n`;
-        textData += `Dynamic EQ:        ${self.enableDynamicEq() ? 'Enabled' : 'Disabled'}\n`;
-        if (self.enableDynamicEq()) {
-          textData += `  Reference Level:  ${self.dynamicEqRefLevel()} dB\n`;
+        textData += `Dynamic EQ:        ${
+          this.enableDynamicEq() ? 'Enabled' : 'Disabled'
+        }\n`;
+        if (this.enableDynamicEq()) {
+          textData += `  Reference Level:  ${this.dynamicEqRefLevel()} dB\n`;
         }
-        textData += `Dynamic Volume:    ${self.enableDynamicVolume() ? 'Enabled' : 'Disabled'}\n`;
-        if (self.enableDynamicVolume()) {
-          textData += `  Volume Setting:   ${self.dynamicVolumeSetting()}\n`;
+        textData += `Dynamic Volume:    ${
+          this.enableDynamicVolume() ? 'Enabled' : 'Disabled'
+        }\n`;
+        if (this.enableDynamicVolume()) {
+          textData += `  Volume Setting:   ${this.dynamicVolumeSetting()}\n`;
         }
-        textData += `LF Containment:    ${self.enableLowFrequencyContainment() ? 'Enabled' : 'Disabled'}\n`;
-        if (self.enableLowFrequencyContainment()) {
-          textData += `  LFC Level:        ${self.lowFrequencyContainmentLevel()}\n`;
+        textData += `LF Containment:    ${
+          this.enableLowFrequencyContainment() ? 'Enabled' : 'Disabled'
+        }\n`;
+        if (this.enableLowFrequencyContainment()) {
+          textData += `  LFC Level:        ${this.lowFrequencyContainmentLevel()}\n`;
         }
         textData += `\n`;
 
         // Version information
         textData += `VERSION INFORMATION\n`;
         textData += `-------------------\n`;
-        textData += `REW Version:       ${self.rewVersion}\n`;
+        textData += `REW Version:       ${this.rewVersion}\n`;
         textData += `RCH Version:       ${version}\n\n`;
 
         // Save to persistent store
-        const reducedMeasurements = self.uniqueMeasurements().map(item => item.toJSON());
+        const reducedMeasurements = this.uniqueMeasurements().map(item => item.toJSON());
 
         // Create table header
         textData +=
@@ -1187,9 +1183,13 @@ class MeasurementViewModel {
           '+------------------------+---------------+----------+-------------+---------------------+----------+\n';
 
         // Create timestamp
-        const timestamp = new Date().toISOString().slice(0, 16).replace(/[:.]/g, '-');
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 16)
+          .replace('T', '-')
+          .replaceAll(':', '-');
         const model = avrData.targetModelName.replaceAll(' ', '-');
-        const filename = `${timestamp}_${self.targetCurve}_${model}.txt`;
+        const filename = `${timestamp}_${this.targetCurve}_${model}.txt`;
 
         // Create blob
         const blob = new Blob([textData], {
@@ -1199,26 +1199,26 @@ class MeasurementViewModel {
         // Save file
         saveAs(blob, filename);
 
-        self.status('Settings file created successfully');
+        this.status('Settings file created successfully');
       } catch (error) {
-        self.handleError(`Settings file failed: ${error.message}`, error);
+        this.handleError(`Settings file failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonCreatesMsoExports = async function () {
-      if (self.isProcessing()) return;
+    this.buttonCreatesMsoExports = async () => {
+      if (this.isProcessing()) return;
       try {
-        if (!self.isPolling()) {
+        if (!this.isPolling()) {
           throw new Error('Please start connetion first');
         }
 
-        self.isProcessing(true);
-        self.status('Exports Subs...');
+        this.isProcessing(true);
+        this.status('Exports Subs...');
 
         const jszip = new JSZip();
-        const zipFilename = `MSO-${self.jsonAvrData().model}.zip`;
+        const zipFilename = `MSO-${this.jsonAvrData().model}.zip`;
         const minFreq = 5; // minimum frequency in Hz
         const maxFreq = 400; // maximum frequency in Hz
 
@@ -1233,7 +1233,9 @@ class MeasurementViewModel {
 
             const filecontent = frequencyResponse.freqs.reduce((acc, freq, i) => {
               if (freq >= minFreq && freq <= maxFreq) {
-                const line = `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(3)} ${frequencyResponse.phase[i].toFixed(4)}`;
+                const line = `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(
+                  3
+                )} ${frequencyResponse.phase[i].toFixed(4)}`;
                 return acc ? `${acc}\n${line}` : line;
               }
               return acc;
@@ -1248,7 +1250,7 @@ class MeasurementViewModel {
         }
 
         // Process measurements in chunks of 4
-        const measurements = self.subsMeasurements();
+        const measurements = this.subsMeasurements();
         const chunkSize = 5;
 
         for (let i = 0; i < measurements.length; i += chunkSize) {
@@ -1259,37 +1261,37 @@ class MeasurementViewModel {
         // Generate the zip file once and save it
         const zipContent = await jszip.generateAsync({ type: 'blob' });
         saveAs(zipContent, zipFilename);
-        self.status('Exports Subs successful');
+        this.status('Exports Subs successful');
       } catch (error) {
-        self.handleError(`Exports Subs failed: ${error.message}`, error);
+        this.handleError(`Exports Subs failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonEqualizeSub = async function () {
-      if (self.uniqueSubsMeasurements().length === 0) {
-        self.handleError('No subwoofers found');
+    this.buttonEqualizeSub = async () => {
+      if (this.uniqueSubsMeasurements().length === 0) {
+        this.handleError('No subwoofers found');
         return;
       }
-      if (self.uniqueSubsMeasurements().length === 1) {
-        self.buttonSingleSubOptimizer(self.uniqueSubsMeasurements()[0]);
-      } else if (self.uniqueSubsMeasurements().length > 1) {
-        const maximisedSum = self
-          .measurements()
-          .find(item => item.title() === MeasurementViewModel.maximisedSumTitle);
+      if (this.uniqueSubsMeasurements().length === 1) {
+        this.buttonSingleSubOptimizer(this.uniqueSubsMeasurements()[0]);
+      } else if (this.uniqueSubsMeasurements().length > 1) {
+        const maximisedSum = this.measurements().find(
+          item => item.title() === MeasurementViewModel.maximisedSumTitle
+        );
 
         if (!maximisedSum) {
-          self.handleError('No maximised sum found');
+          this.handleError('No maximised sum found');
           return;
         }
-        await self.equalizeSub(self, maximisedSum);
+        await this.equalizeSub(maximisedSum);
 
         const filters = await maximisedSum.getFilters();
 
-        self.status(`${self.status()} \nApply calculated filters to each sub`);
+        this.status(`${this.status()} \nApply calculated filters to each sub`);
 
-        const subsMeasurements = self.uniqueSubsMeasurements();
+        const subsMeasurements = this.uniqueSubsMeasurements();
 
         for (const sub of subsMeasurements) {
           // do not overwrite the all pass filter if set
@@ -1301,100 +1303,128 @@ class MeasurementViewModel {
       }
     };
 
-    self.buttonSingleSubOptimizer = async function (subMeasurement) {
-      if (self.isProcessing()) return;
+    this.buttonSingleSubOptimizer = async subMeasurement => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Sub Optimizer...');
+        this.isProcessing(true);
+        this.status('Sub Optimizer...');
 
-        await self.adjustSubwooferSPLLevels(self, [subMeasurement]);
-        await self.equalizeSub(self, subMeasurement);
+        await this.adjustSubwooferSPLLevels([subMeasurement]);
+        await this.equalizeSub(subMeasurement);
         await subMeasurement.copyFiltersToOther();
       } catch (error) {
-        self.handleError(`Sub Optimizer failed: ${error.message}`, error);
+        this.handleError(`Sub Optimizer failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.buttonMultiSubOptimizer = async function () {
-      if (self.isProcessing()) return;
+    this.createOptimizerConfig = (lowFrequency, highFrequency) => {
+      return {
+        frequency: { min: lowFrequency, max: highFrequency },
+        gain: { min: 0, max: 0, step: 0.1 },
+        delay: {
+          min: -0.002,
+          max: 0.002,
+          step: this.jsonAvrData().avr.minDistAccuracy || 0.00001,
+        },
+        allPass: {
+          enabled: this.useAllPassFiltersForSubs(),
+          frequency: { min: 10, max: 500, step: 10 },
+          q: { min: 0.1, max: 0.5, step: 0.1 },
+        },
+      };
+    };
+
+    this.applySubPolarity = async (subMeasurement, polarity) => {
+      if (polarity === -1) {
+        await subMeasurement.setInverted(true);
+      } else if (polarity === 1) {
+        await subMeasurement.setInverted(false);
+      } else {
+        throw new Error(
+          `Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`
+        );
+      }
+    };
+
+    this.applySubAllPassFilter = async (subMeasurement, allPassParam) => {
+      const allPassFilter = allPassParam.enabled
+        ? {
+            index: 20,
+            enabled: true,
+            isAuto: false,
+            frequency: allPassParam.frequency,
+            q: allPassParam.q,
+            type: 'All pass',
+          }
+        : { index: 20, enabled: true, isAuto: true, type: 'None' };
+      await subMeasurement.setSingleFilter(allPassFilter);
+    };
+
+    this.applyOptimizedSubSettings = async sub => {
+      const subMeasurement = this.findMeasurementByUuid(sub.measurement);
+      if (!subMeasurement) {
+        throw new Error(`Measurement not found for ${sub.measurement}`);
+      }
+      await this.applySubPolarity(subMeasurement, sub.param.polarity);
+      await subMeasurement.addIROffsetSeconds(sub.param.delay);
+      await subMeasurement.copyCumulativeIRShiftToOther();
+      await subMeasurement.addSPLOffsetDB(sub.param.gain);
+      await subMeasurement.copySplOffsetDeltadBToOther();
+      await this.applySubAllPassFilter(subMeasurement, sub.param.allPass);
+    };
+
+    this.buttonMultiSubOptimizer = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('MultiSubOptimizer...');
+        this.isProcessing(true);
+        this.status('MultiSubOptimizer...');
 
-        await self.loadData();
+        await this.loadData();
 
-        const subsMeasurements = self.uniqueSubsMeasurements();
+        const subsMeasurements = this.uniqueSubsMeasurements();
 
         if (subsMeasurements.length === 0) {
-          self.handleError('No subwoofers found');
+          this.handleError('No subwoofers found');
           return;
         }
         if (subsMeasurements.length === 1) {
-          self.handleError(
+          this.handleError(
             'Only one subwoofer found, please use single sub optimizer button'
           );
           return;
         }
 
-        const frequencyResponses = [];
-        const { lowFrequency, highFrequency } = await self.adjustSubwooferSPLLevels(
-          self,
+        const { lowFrequency, highFrequency } = await this.adjustSubwooferSPLLevels(
           subsMeasurements
         );
 
         // set the same delay for all subwoofers
-        await self.setSameDelayToAll(subsMeasurements);
+        await this.setSameDelayToAll(subsMeasurements);
 
-        const optimizerConfig = {
-          frequency: {
-            min: lowFrequency, // Hz
-            max: highFrequency, // Hz
-          },
-          gain: {
-            min: 0, // dB
-            max: 0, // dB
-            step: 0.1, // dB
-          },
-          delay: {
-            min: -0.002, // 2ms
-            max: 0.002, // 2ms
-            step: self.jsonAvrData().avr.minDistAccuracy || 0.00001, // 0.01ms
-          },
-          allPass: {
-            enabled: self.useAllPassFiltersForSubs(),
-            frequency: {
-              min: 10, // Hz
-              max: 500, // Hz
-              step: 10, // Hz
-            },
-            q: {
-              min: 0.1,
-              max: 0.5,
-              step: 0.1,
-            },
-          },
-        };
-
-        self.status(
-          `${self.status()} \nfrequency range: ${optimizerConfig.frequency.min}Hz - ${optimizerConfig.frequency.max}Hz`
+        const optimizerConfig = this.createOptimizerConfig(lowFrequency, highFrequency);
+        this.status(
+          `${this.status()} \nfrequency range: ${optimizerConfig.frequency.min}Hz - ${
+            optimizerConfig.frequency.max
+          }Hz`
         );
-        self.status(
-          `${self.status()} delay range: ${optimizerConfig.delay.min * 1000}ms - ${optimizerConfig.delay.max * 1000}ms`
+        this.status(
+          `${this.status()} delay range: ${optimizerConfig.delay.min * 1000}ms - ${
+            optimizerConfig.delay.max * 1000
+          }ms`
         );
 
-        self.status(`${self.status()} \nDeleting previous settings...`);
+        this.status(`${this.status()} \nDeleting previous settings...`);
 
-        const previousMaxSum = self
-          .measurements()
-          .filter(item =>
-            item.title().startsWith(MeasurementViewModel.maximisedSumTitle)
-          );
+        const previousMaxSum = this.measurements().filter(item =>
+          item.title().startsWith(MeasurementViewModel.maximisedSumTitle)
+        );
         for (const item of previousMaxSum) {
           await item.delete();
         }
 
+        const frequencyResponses = [];
         for (const measurement of subsMeasurements) {
           await measurement.setInverted(false);
           await measurement.applyWorkingSettings();
@@ -1405,82 +1435,33 @@ class MeasurementViewModel {
           frequencyResponses.push(frequencyResponse);
         }
 
-        self.status(`${self.status()} \nSarting lookup...`);
+        this.status(`${this.status()} \nSarting lookup...`);
         const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
         const optimizerResults = optimizer.optimizeSubwoofers();
 
-        const optimizedSubs = optimizerResults.optimizedSubs;
-
-        // Apply each configuration sequentially
-        for (const sub of optimizedSubs) {
-          const subMeasurement = self.findMeasurementByUuid(sub.measurement);
-          if (!subMeasurement) {
-            throw new Error(`Measurement not found for ${sub.measurement}`);
-          }
-          try {
-            // invert
-            if (sub.param.polarity === -1) {
-              await subMeasurement.setInverted(true);
-            } else if (sub.param.polarity === 1) {
-              await subMeasurement.setInverted(false);
-            } else {
-              throw new Error(
-                `Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`
-              );
-            }
-            // reverse delay if previous iteration and apply specified delay
-            await subMeasurement.addIROffsetSeconds(sub.param.delay);
-            await subMeasurement.copyCumulativeIRShiftToOther();
-
-            await subMeasurement.addSPLOffsetDB(sub.param.gain);
-            await subMeasurement.copySplOffsetDeltadBToOther();
-
-            // allpass settings
-            if (sub.param.allPass.enabled) {
-              const allPassFilter = {
-                index: 20,
-                enabled: true,
-                isAuto: false,
-                frequency: sub.param.allPass.frequency,
-                q: sub.param.allPass.q,
-                type: 'All pass',
-              };
-              await subMeasurement.setSingleFilter(allPassFilter);
-            } else {
-              const allPassFilter = {
-                index: 20,
-                enabled: true,
-                isAuto: true,
-                type: 'None',
-              };
-              await subMeasurement.setSingleFilter(allPassFilter);
-            }
-          } catch (error) {
-            throw new Error(
-              `Error processing channel ${subMeasurement.displayMeasurementTitle()}: ${error.message}`
-            );
-          }
+        for (const sub of optimizerResults.optimizedSubs) {
+          await this.applyOptimizedSubSettings(sub);
         }
 
-        self.status(`${self.status()} \n${optimizer.logText}`);
+        this.status(`${this.status()} \n${optimizer.logText}`);
 
-        self.status(`${self.status()} \nCreates sub sumation`);
+        this.status(`${this.status()} \nCreates sub sumation`);
         // DEBUG use REW api way to generate the sum for compare
-        // const maximisedSum = await self.produceSumProcess(self, subsMeasurements);
+        // const maximisedSum = await this.produceSumProcess(subsMeasurements);
 
         const optimizedSubsSum = optimizer.getFinalSubSum();
 
-        const maximisedSum = await self.sendToREW(
+        const maximisedSum = await this.sendToREW(
           optimizedSubsSum,
           MeasurementViewModel.maximisedSumTitle
         );
 
-        await self.sendToREW(
+        await this.sendToREW(
           optimizer.theoreticalMaxResponse,
           MeasurementViewModel.maximisedSumTitle + ' Theo'
         );
         // DEBUG to check if this is the same
-        // await self.sendToREW(optimizerResults.bestSum, 'test');
+        // await this.sendToREW(optimizerResults.bestSum, 'test');
 
         // reserve filter emplacement 20 for all pass
         if (optimizerConfig.allPass.enabled) {
@@ -1493,40 +1474,40 @@ class MeasurementViewModel {
           await maximisedSum.setSingleFilter(maximisedSumFilter);
         }
 
-        self.status(`${self.status()} \nMultiSubOptimizer successfull`);
+        this.status(`${this.status()} \nMultiSubOptimizer successfull`);
       } catch (error) {
-        self.handleError(`MultiSubOptimizer failed: ${error.message}`, error);
+        this.handleError(`MultiSubOptimizer failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
-    self.copyParametersToAllPosition = async function () {
-      if (self.isProcessing()) return;
+    this.copyParametersToAllPosition = async () => {
+      if (this.isProcessing()) return;
       try {
-        self.isProcessing(true);
-        self.status('Copy started');
-        await self.copyMeasurementCommonAttributes();
-        self.status('Copy succeful');
+        this.isProcessing(true);
+        this.status('Copy started');
+        await this.copyMeasurementCommonAttributes();
+        this.status('Copy succeful');
       } catch (error) {
-        self.handleError(`Copy failed: ${error.message}`, error);
+        this.handleError(`Copy failed: ${error.message}`, error);
       } finally {
-        self.isProcessing(false);
+        this.isProcessing(false);
       }
     };
 
     // Computed for filtered measurements
-    self.subsMeasurements = ko.computed(() =>
-      self.measurements().filter(item => item.isSub())
+    this.subsMeasurements = ko.computed(() =>
+      this.measurements().filter(item => item.isSub())
     );
 
-    self.validMeasurements = ko.computed(() =>
-      self.measurements().filter(item => item.isValid)
+    this.validMeasurements = ko.computed(() =>
+      this.measurements().filter(item => item.isValid)
     );
 
-    self.groupedMeasurements = ko.computed(() => {
+    this.groupedMeasurements = ko.computed(() => {
       // group data by channelName attribute and set isSelected to true for the first occurrence
-      return self.measurements().reduce((acc, item) => {
+      return this.measurements().reduce((acc, item) => {
         const channelName = item.channelName();
 
         if (item.isUnknownChannel) {
@@ -1546,8 +1527,8 @@ class MeasurementViewModel {
       }, {});
     });
     // creates a map from groupedMeasurements with items grouped by the same position attribute
-    self.byPositionsGroupedSubsMeasurements = ko.computed(() => {
-      return self.subsMeasurements().reduce((acc, item) => {
+    this.byPositionsGroupedSubsMeasurements = ko.computed(() => {
+      return this.subsMeasurements().reduce((acc, item) => {
         const key = item.position();
         if (!acc[key]) {
           acc[key] = [];
@@ -1557,10 +1538,9 @@ class MeasurementViewModel {
       }, {});
     });
 
-    self.measurementsPositionList = ko.computed(() => {
+    this.measurementsPositionList = ko.computed(() => {
       try {
-        const allMeasurementPositions = self
-          .measurements()
+        const allMeasurementPositions = this.measurements()
           .map(item => item.position())
           .filter(Boolean);
 
@@ -1568,53 +1548,53 @@ class MeasurementViewModel {
 
         const positionsSet = uniquePositions
           .map(pos => {
-            const item = self.measurements().find(m => m.position() === pos);
+            const item = this.measurements().find(m => m.position() === pos);
             return { value: pos, text: item.displayPositionText() };
           })
           .sort((a, b) => a.text.localeCompare(b.text));
 
         return positionsSet;
       } catch (error) {
-        self.handleError('Error computing measurements position list:', error);
+        this.handleError('Error computing measurements position list:', error);
         return [];
       }
     });
 
     // Filtered measurements
-    self.uniqueMeasurements = ko.computed(() => {
-      const measurements = self.measurements();
+    this.uniqueMeasurements = ko.computed(() => {
+      const measurements = this.measurements();
       // Early return for empty collection
       if (!measurements || measurements.length === 0) {
         return [];
       }
       return measurements.filter(item => item.isSelected());
-    }, self);
+    }, this);
 
     // Filtered measurements
-    self.notUniqueMeasurements = ko.computed(() => {
-      const measurements = self.measurements();
+    this.notUniqueMeasurements = ko.computed(() => {
+      const measurements = this.measurements();
       // Early return for empty collection
       if (!measurements || measurements.length === 0) {
         return [];
       }
       return measurements.filter(item => !item.isSelected());
-    }, self);
+    }, this);
 
     // Filtered measurements
-    self.uniqueMeasurementsView = ko.computed(() => {
-      if (self.selectedMeasurementsFilter()) {
-        return self.uniqueMeasurements();
+    this.uniqueMeasurementsView = ko.computed(() => {
+      if (this.selectedMeasurementsFilter()) {
+        return this.uniqueMeasurements();
       }
-      return self.measurements();
+      return this.measurements();
     });
 
-    self.minDistanceInMeters = ko.computed(() =>
-      Math.min(...self.uniqueMeasurements().map(item => item.distanceInMeters()))
+    this.minDistanceInMeters = ko.computed(() =>
+      Math.min(...this.uniqueMeasurements().map(item => item.distanceInMeters()))
     );
 
-    self.maxDistanceInMetersWarning = ko
+    this.maxDistanceInMetersWarning = ko
       .computed(() => {
-        const minDistance = self.minDistanceInMeters() || 0; // Fallback to 0 if undefined
+        const minDistance = this.minDistanceInMeters() || 0; // Fallback to 0 if undefined
         const limit = MeasurementItem.MODEL_DISTANCE_LIMIT;
 
         // Ensure we're working with numbers
@@ -1622,57 +1602,55 @@ class MeasurementViewModel {
       })
       .extend({ pure: true }); // Only updates when dependencies actually change
 
-    self.maxDistanceInMetersError = ko
+    this.maxDistanceInMetersError = ko
       .computed(() => {
-        const minDistance = self.minDistanceInMeters();
+        const minDistance = this.minDistanceInMeters();
         const criticalLimit = MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT;
 
         return Number(minDistance) + criticalLimit;
       })
       .extend({ pure: true }); // Ensures updates only occur when dependencies change
 
-    self.maxDdistanceInMeters = ko.computed(() => {
-      return Math.max(...self.uniqueMeasurements().map(item => item.distanceInMeters()));
+    this.maxDdistanceInMeters = ko.computed(() => {
+      return Math.max(...this.uniqueMeasurements().map(item => item.distanceInMeters()));
     });
 
-    self.uniqueSubsMeasurements = ko.computed(() => {
-      return self.uniqueMeasurements().filter(item => item.isSub());
+    this.uniqueSubsMeasurements = ko.computed(() => {
+      return this.uniqueMeasurements().filter(item => item.isSub());
     });
 
-    self.predictedLfeMeasurementTitle = ko.computed(() => {
+    this.predictedLfeMeasurementTitle = ko.computed(() => {
       // Get the unique measurements array
-      const uniqueSubs = self.uniqueSubsMeasurements();
+      const uniqueSubs = this.uniqueSubsMeasurements();
 
       // Early return if no measurements
       if (!uniqueSubs?.length) return undefined;
 
-      const position = self.currentSelectedPosition();
+      const position = this.currentSelectedPosition();
       if (!position) return undefined;
 
       return `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
     });
 
-    self.allPredictedLfeMeasurement = ko.computed(() => {
-      return self
-        .measurements()
-        .filter(response =>
-          response?.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED)
-        );
+    this.allPredictedLfeMeasurement = ko.computed(() => {
+      return this.measurements().filter(response =>
+        response?.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED)
+      );
     });
 
-    self.predictedLfeMeasurement = ko.computed(() => {
-      return self
-        .allPredictedLfeMeasurement()
-        .find(response => response?.title() === self.predictedLfeMeasurementTitle());
+    this.predictedLfeMeasurement = ko.computed(() => {
+      return this.allPredictedLfeMeasurement().find(
+        response => response?.title() === this.predictedLfeMeasurementTitle()
+      );
     });
 
-    self.uniqueSpeakersMeasurements = ko.computed(() => {
-      return self.uniqueMeasurements().filter(item => !item.isSub());
+    this.uniqueSpeakersMeasurements = ko.computed(() => {
+      return this.uniqueMeasurements().filter(item => !item.isSub());
     });
   }
 
-  async equalizeSub(self, subMeasurement) {
-    const firstMeasurementLevel = await self.mainTargetLevel();
+  async equalizeSub(subMeasurement) {
+    const firstMeasurementLevel = await this.mainTargetLevel();
     await subMeasurement.applyWorkingSettings();
     await subMeasurement.setTargetLevel(firstMeasurementLevel);
     await subMeasurement.resetTargetSettings();
@@ -1688,15 +1666,15 @@ class MeasurementViewModel {
       subMeasurement.dectedFallOffHigh
     );
 
-    self.status(
-      `${self.status()} \nCreating EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`
+    this.status(
+      `${this.status()} \nCreating EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`
     );
 
-    await self.apiService.postSafe(`eq/match-target-settings`, {
+    await this.apiService.postSafe(`eq/match-target-settings`, {
       startFrequency: customStartFrequency,
       endFrequency: customEndFrequency,
-      individualMaxBoostdB: self.maxBoostIndividualValue(),
-      overallMaxBoostdB: self.maxBoostOverallValue(),
+      individualMaxBoostdB: this.maxBoostIndividualValue(),
+      overallMaxBoostdB: this.maxBoostOverallValue(),
       flatnessTargetdB: 1,
       allowNarrowFiltersBelow200Hz: false,
       varyQAbove200Hz: false,
@@ -1726,27 +1704,28 @@ class MeasurementViewModel {
     }
   }
 
-  async adjustSubwooferSPLLevels(self, subsMeasurements, targetLevelFreq = 40) {
+  async adjustSubwooferSPLLevels(subsMeasurements, targetLevelFreq = 40) {
     if (subsMeasurements.length === 0) {
       return;
     }
 
     const minFrequency = 10;
-    const maxFrequency = 19990;
+    const maxFrequency = 10000;
 
     const firstMeasurement = subsMeasurements[0];
 
     // Find the level of target curve at 40Hz
-    const targetLevelAtFreq = await self.getTargetLevelAtFreq(
-      targetLevelFreq,
-      firstMeasurement
+    const targetLevelAtFreq = await this.getTargetLevelAtFreq(
+      firstMeasurement,
+      targetLevelFreq
     );
 
     // adjut target level according to the number of subs
+    // Using 20 for voltage addition (coherent/in-phase summation)
     const numbersOfSubs = subsMeasurements.length;
-    const overhead = 10 * Math.log10(numbersOfSubs);
+    const overhead = 20 * Math.log10(numbersOfSubs);
     const targetLevel =
-      targetLevelAtFreq - overhead + Number(self.additionalBassGainValue());
+      targetLevelAtFreq - overhead + Number(this.additionalBassGainValue());
 
     let lowFrequency = Infinity;
     let highFrequency = 0;
@@ -1761,24 +1740,21 @@ class MeasurementViewModel {
       frequencyResponse.position = measurement.position();
       await measurement.applyWorkingSettings();
 
-      const detect = self.detectSubwooferCutoff(
+      const detect = this.detectSubwooferCutoff(
         frequencyResponse.freqs,
         frequencyResponse.magnitude,
         -18
       );
 
-      // if detect low frequency is lower than previous lowFrequency
-      if (detect.lowCutoff < lowFrequency) {
-        lowFrequency = Math.round(detect.lowCutoff);
-      }
-      if (detect.highCutoff > highFrequency) {
-        highFrequency = Math.round(detect.highCutoff);
-      }
+      lowFrequency = Math.min(lowFrequency, Math.round(detect.lowCutoff));
+      highFrequency = Math.max(highFrequency, Math.round(detect.highCutoff));
 
-      let logMessage = `\nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(1)}dB`;
+      let logMessage = `\nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(
+        1
+      )}dB`;
       logMessage += `(center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`;
 
-      const alignResult = await self.processCommands('Align SPL', [measurement.uuid], {
+      const alignResult = await this.processCommands('Align SPL', [measurement.uuid], {
         frequencyHz: detect.centerFrequency,
         spanOctaves: detect.octaves,
         targetdB: targetLevel,
@@ -1790,24 +1766,20 @@ class MeasurementViewModel {
       );
 
       logMessage += ` => ${alignOffset}dB`;
-      self.status(`${self.status()} ${logMessage}`);
+      this.status(`${this.status()} ${logMessage}`);
 
       measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
       measurement.alignSPLOffsetdB(alignOffset);
       await measurement.copySplOffsetDeltadBToOther();
     }
 
-    if (lowFrequency < minFrequency) {
-      lowFrequency = minFrequency;
-    }
-    if (highFrequency > maxFrequency) {
-      highFrequency = maxFrequency;
-    }
+    lowFrequency = Math.max(lowFrequency, minFrequency);
+    highFrequency = Math.min(highFrequency, maxFrequency);
 
     return { lowFrequency, highFrequency, targetLevelAtFreq };
   }
 
-  async getTargetLevelAtFreq(targetFreq = 40, measurement) {
+  async getTargetLevelAtFreq(measurement, targetFreq = 40) {
     // Input validation
     if (!Number.isFinite(targetFreq) || targetFreq <= 0) {
       throw new Error('Target frequency must be a positive number');
@@ -1856,7 +1828,7 @@ class MeasurementViewModel {
 
   getMaxFromArray(array) {
     if (!Array.isArray(array)) {
-      throw new Error('Input is not an array');
+      throw new TypeError('Input is not an array');
     }
 
     let maxPeak = -Infinity;
@@ -1902,12 +1874,13 @@ class MeasurementViewModel {
     const magnitude = [];
 
     // Iterate through frequencies and keep only those within range
-    fullFrequencies.forEach((freq, index) => {
+    for (let index = 0; index < fullFrequencies.length; index++) {
+      const freq = fullFrequencies[index];
       if (freq >= low && freq <= high) {
         frequencies.push(freq);
         magnitude.push(fullMagnitude[index]);
       }
-    });
+    }
 
     // Find peak magnitude using array methods instead of loop
     const peakMagnitude = this.getMaxFromArray(
@@ -2029,7 +2002,7 @@ class MeasurementViewModel {
       phase: encodedPhaseData,
       ppo: optimizedSubsSum.ppo,
     };
-    await this.apiService.postSafe('import/frequency-response-data', options);
+    await this.apiService.postSafe('import/frequency-response-data', options, 2);
 
     // trick to retreive the imported measurement
     await this.loadData();
@@ -2065,7 +2038,7 @@ class MeasurementViewModel {
     ko.tasks.runEarly();
   }
 
-  async produceSumProcess(self, subsList) {
+  async produceSumProcess(subsList) {
     if (!subsList?.length) {
       throw new Error(`No subs found`);
     }
@@ -2075,25 +2048,25 @@ class MeasurementViewModel {
     const subResponsesTitles = subsList.map(response =>
       response.displayMeasurementTitle()
     );
-    self.status(`${self.status()} \nUsing: \n${subResponsesTitles.join('\r\n')}`);
+    this.status(`${this.status()} \nUsing: \n${subResponsesTitles.join('\r\n')}`);
     // get first subsList element position
     const position = subsList[0].position();
     const resultTitle = `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
 
-    const previousSubSum = self.measurements().find(item => item.title() === resultTitle);
+    const previousSubSum = this.measurements().find(item => item.title() === resultTitle);
     // remove previous
     if (previousSubSum) {
-      await self.removeMeasurement(previousSubSum);
+      await this.removeMeasurement(previousSubSum);
     }
     // create sum of all subwoofer measurements
-    const newDefaultLfePredicted = await self.businessTools.createsSum(
+    const newDefaultLfePredicted = await this.businessTools.createsSum(
       subsList,
-      true,
-      resultTitle
+      resultTitle,
+      true
     );
 
-    self.status(
-      `${self.status()} \nSubwoofer sum created successfully: ${newDefaultLfePredicted.title()}`
+    this.status(
+      `${this.status()} \nSubwoofer sum created successfully: ${newDefaultLfePredicted.title()}`
     );
     return newDefaultLfePredicted;
   }
@@ -2142,9 +2115,7 @@ class MeasurementViewModel {
     const deletedKeys = [...existingKeys].filter(uuid => !newKeys.has(uuid));
     if (deletedKeys.length > 0) {
       for (const uuid of deletedKeys) {
-        const isDeleted = this.measurements.remove(function (item) {
-          return item.uuid === uuid;
-        });
+        const isDeleted = this.measurements.remove(item => item.uuid === uuid);
         if (isDeleted) console.debug(`removed: ${uuid}`);
       }
     }
@@ -2164,7 +2135,7 @@ class MeasurementViewModel {
 
   // Helper function to handle observable properties
   updateObservableObject(target, source) {
-    Object.keys(source).forEach(key => {
+    for (const key of Object.keys(source)) {
       if (ko.isObservable(target[key])) {
         // If the property is an observable, update its value
         target[key](source[key]);
@@ -2175,7 +2146,7 @@ class MeasurementViewModel {
         // For non-observable properties, directly assign
         target[key] = source[key];
       }
-    });
+    }
     return target;
   }
 
@@ -2228,6 +2199,17 @@ class MeasurementViewModel {
     }
   }
 
+  async removeMeasurements(items) {
+    if (!items || items.length === 0) {
+      return false;
+    }
+
+    for (const item of items) {
+      await this.removeMeasurement(item);
+    }
+    return true;
+  }
+
   async removeMeasurement(item) {
     if (!item) {
       return false;
@@ -2258,9 +2240,7 @@ class MeasurementViewModel {
       // First attempt to delete from API to ensure consistency
       await this.apiService.postDelete(itemUuid, 0);
 
-      this.measurements.remove(function (item) {
-        return item.uuid === itemUuid;
-      });
+      this.measurements.remove(item => item.uuid === itemUuid);
 
       console.debug(`measurement ${itemUuid} removed`);
 
@@ -2297,7 +2277,7 @@ class MeasurementViewModel {
       'Invert B phase',
     ];
 
-    if (allowedCommands.indexOf(operationObject.function) === -1) {
+    if (!allowedCommands.includes(operationObject.function)) {
       throw new Error(`Command ${operationObject.function} is not allowed`);
     }
 
@@ -2351,7 +2331,7 @@ class MeasurementViewModel {
       'Arithmetic',
     ];
 
-    if (allowedCommands.indexOf(commandName) === -1) {
+    if (!allowedCommands.includes(commandName)) {
       throw new Error(`Command ${commandName} is not allowed`);
     }
 
@@ -2363,19 +2343,18 @@ class MeasurementViewModel {
         0
       );
 
-      if (withoutResultCommands.indexOf(commandName) !== -1) {
+      if (withoutResultCommands.includes(commandName)) {
         return operationResult;
-      } else {
-        // TODO: REW bug ? return code 200 instead of 202 and no results in the response
-        if (!operationResult.results) {
-          throw new Error(
-            `Missing result from API response: ${JSON.stringify(operationResult)}`
-          );
-        }
-        const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
-        // Save to persistent storage
-        return await this.addMeasurementApi(operationResultUuid);
       }
+
+      if (!operationResult.results) {
+        throw new Error(
+          `Missing result from API response: ${JSON.stringify(operationResult)}`
+        );
+      }
+
+      const operationResultUuid = Object.values(operationResult.results)[0]?.UUID;
+      return await this.addMeasurementApi(operationResultUuid);
     } catch (error) {
       throw new Error(`Failed to create ${commandName} operation: ${error.message}`, {
         cause: error,
@@ -2534,6 +2513,7 @@ class MeasurementViewModel {
         );
         this.measurements(enhancedMeasurements);
       }
+      data.apiBaseUrl && this.apiBaseUrl(data.apiBaseUrl);
       this.selectedSpeaker(data.selectedSpeaker);
       this.targetCurve = data.targetCurve;
       this.rewVersion = data.rewVersion;
@@ -2544,12 +2524,14 @@ class MeasurementViewModel {
       this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
       this.loadedFileName(data.loadedFileName || '');
       data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
-      this.selectedSmoothingMethod(data.selectedSmoothingMethod || 'None');
-      this.selectedIrWindows(data.selectedIrWindows || 'Optimized MTW');
-      this.individualMaxBoostValue(data.individualMaxBoostValue || 3);
-      this.overallBoostValue(data.overallBoostValue || 3);
-      this.upperFrequencyBound(data.upperFrequencyBound || 16000);
-      this.lowerFrequencyBound(data.lowerFrequencyBound || 15);
+      data.selectedSmoothingMethod &&
+        this.selectedSmoothingMethod(data.selectedSmoothingMethod);
+      data.selectedIrWindows && this.selectedIrWindows(data.selectedIrWindows);
+      data.individualMaxBoostValue &&
+        this.individualMaxBoostValue(data.individualMaxBoostValue);
+      data.overallBoostValue && this.overallBoostValue(data.overallBoostValue);
+      data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
+      data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
     }
   }
 
@@ -2575,6 +2557,7 @@ class MeasurementViewModel {
       overallBoostValue: this.overallBoostValue(),
       upperFrequencyBound: this.upperFrequencyBound(),
       lowerFrequencyBound: this.lowerFrequencyBound(),
+      apiBaseUrl: this.apiBaseUrl(),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
@@ -2589,6 +2572,7 @@ class MeasurementViewModel {
 
     try {
       // Initial load
+      this.apiService = new RewApi(this.apiBaseUrl(), this.inhibitGraphUpdates, false);
       await this.apiService.initializeAPI();
       this.rewVersion = await this.apiService.checkVersion();
       this.targetCurve = await this.apiService.checkTargetCurve();
