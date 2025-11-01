@@ -993,6 +993,15 @@ class MeasurementItem {
       throw new Error(`Invalid filter: ${filter}`);
     }
 
+    const filters = await this.getFilters();
+    const found = filters.find(f => f.index === filter.index);
+    if (!found) {
+      throw new Error(`Filter with index ${filter.index} not found`);
+    }
+    if (this.compareObjects(filter, found)) {
+      return false;
+    }
+
     await this.parentViewModel.apiService.putSafe(
       `measurements/${this.uuid}/filters`,
       filter
@@ -1468,16 +1477,14 @@ class MeasurementItem {
     });
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
       startFrequency: customStartFrequency,
-      endFrequency: customEndFrequency,
+      endFrequency: customInterPassFrequency * 2,
       individualMaxBoostdB: 0,
       overallMaxBoostdB: 0,
       flatnessTargetdB: 1,
       allowNarrowFiltersBelow200Hz: false,
       varyQAbove200Hz: false,
       allowLowShelf: false,
-      allowHighShelf: true,
-      highShelfMin: -3,
-      highShelfMax: 3,
+      allowHighShelf: false,
     });
 
     await this.eqCommands('Match target');
@@ -1494,7 +1501,7 @@ class MeasurementItem {
     }
 
     await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
-      startFrequency: customInterPassFrequency,
+      startFrequency: customInterPassFrequency / 2,
       endFrequency: customEndFrequency,
       individualMaxBoostdB: this.parentViewModel.individualMaxBoostValue(),
       overallMaxBoostdB: this.parentViewModel.overallBoostValue(),
