@@ -1,26 +1,31 @@
-#!/bin/bash -eu
+#!/bin/bash
+set -euo pipefail
 # Script to increment version and update main branch
 
 # Configuration
-HOME_DIR="$HOME/audio/sangoku-site"
+HOME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INDEX_FILE="$HOME_DIR/src/index.html"
 PACKAGE_FILE="$HOME_DIR/package.json"
 DEV_BRANCH="dev"
 MAIN_BRANCH="main"
+new_version=""
 
 # Function to increment version
-increment_version() {
+increment_version()
+{
   echo "Incrementing patch version..."
+  local current_version
   current_version=$(grep -o 'Version [0-9.]*' "$INDEX_FILE" | cut -d' ' -f2)
-  IFS='.' read -ra VERSION <<<"$current_version"
+  local VERSION
+  IFS='.' read -ra VERSION <<< "$current_version"
   VERSION[2]=$((VERSION[2] + 1))
   new_version="${VERSION[0]}.${VERSION[1]}.${VERSION[2]}"
   echo "New version: $new_version"
-  return 0
 }
 
 # Function to update version in files and commit
-update_files() {
+update_files()
+{
   echo "Updating version in files..."
   sed -i "s/Version [0-9.]*/Version $new_version/" "$INDEX_FILE"
   sed -i "s/\"version\": \"[0-9.]*/\"version\": \"$new_version/" "$PACKAGE_FILE"
@@ -30,7 +35,8 @@ update_files() {
 }
 
 # Function to update main branch
-update_main() {
+update_main()
+{
   echo "Updating $MAIN_BRANCH branch..."
   git stash
   git checkout "$MAIN_BRANCH"

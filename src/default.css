@@ -586,7 +586,7 @@ button:disabled {
 
 /* Ko-fi Button */
 .donate-button.kofi {
-  background-color: #29abe0;
+  background-color: var(--primary-hover);
   color: white;
 }
 
@@ -598,7 +598,7 @@ button:disabled {
 
 /* Patreon Button */
 .donate-button.patreon {
-  background-color: #ff424d;
+  background-color: #d32f2f;
   color: white;
 }
 
@@ -854,7 +854,7 @@ button:disabled {
 }
 
 .nav-button.active {
-  background-color: #007bff;
+  background-color: #0056b3;
   color: white;
 }
 
@@ -1034,7 +1034,7 @@ button:disabled {
 
 .download-all-button {
   display: inline-block;
-  background-color: #28a745;
+  background-color: var(--success-color);
   color: white;
   padding: 10px 20px;
   border-radius: 4px;
@@ -1221,7 +1221,7 @@ button:disabled {
 .version-tag {
   display: inline-block;
   background: #e8f5e9;
-  color: #388e3c;
+  color: #2e7d32;
   padding: 3px 8px;
   border-radius: 12px;
   font-size: 0.8rem;

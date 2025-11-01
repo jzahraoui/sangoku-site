@@ -428,15 +428,17 @@ class AvrCaracteristics {
     const frequencies = [];
 
     // Add standard frequencies
-    frequencies.push({ value: 0, text: 'N/A' });
-    frequencies.push({ value: 40, text: '40Hz' });
-    frequencies.push({ value: 60, text: '60Hz' });
-    frequencies.push({ value: 80, text: '80Hz' });
-    frequencies.push({ value: 90, text: '90Hz' });
-    frequencies.push({ value: 100, text: '100Hz' });
-    frequencies.push({ value: 110, text: '110Hz' });
-    frequencies.push({ value: 120, text: '120Hz' });
-    frequencies.push({ value: 150, text: '150Hz' });
+    frequencies.push(
+      { value: 0, text: 'N/A' },
+      { value: 40, text: '40Hz' },
+      { value: 60, text: '60Hz' },
+      { value: 80, text: '80Hz' },
+      { value: 90, text: '90Hz' },
+      { value: 100, text: '100Hz' },
+      { value: 110, text: '110Hz' },
+      { value: 120, text: '120Hz' },
+      { value: 150, text: '150Hz' }
+    );
 
     // Check if we need to add 180Hz option based on model type
     if (modelName && this.hasExtendedFreq(modelName)) {
@@ -444,8 +446,7 @@ class AvrCaracteristics {
     }
 
     // Add final frequencies
-    frequencies.push({ value: 200, text: '200Hz' });
-    frequencies.push({ value: 250, text: '250Hz' });
+    frequencies.push({ value: 200, text: '200Hz' }, { value: 250, text: '250Hz' });
 
     return frequencies;
   }

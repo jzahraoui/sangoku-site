@@ -72,36 +72,78 @@ export default class OCAFileGenerator {
   }
 
   async createsFilters(allResponses) {
-    if (!allResponses) {
-      throw new Error(`Cannot retreive REW measurements`);
+    if (!allResponses || Object.values(allResponses).length === 0) {
+      throw new Error('Cannot retreive REW measurements');
     }
 
-    if (Object.values(allResponses).length === 0) {
-      throw new Error(`No REW measurements found`);
-    }
+    this._validateChannels(allResponses);
+    this._validateCrossoverConsistency(allResponses);
+    this._validateMeasurementLimits(allResponses);
 
+    const channels = [];
+    // creates a for loop on dataArray
+    for (const item of Object.values(allResponses)) {
+      // skip if item is not an object and not have timeOfIRStartSeconds attribute
+      if (!item || typeof item !== 'object' || !Object.hasOwn(item, 'distanceInMeters')) {
+        throw new Error('rensponses must contains extended values');
+      }
+
+      let itemFilter;
+      try {
+        itemFilter = await item.generateFilterMeasurement();
+        const filterCaracteristics = item.isSub()
+          ? this.avrFileContent.avr.multEQSpecs.subFilter
+          : this.avrFileContent.avr.multEQSpecs.speakerFilter;
+
+        const filter = await this.computeFilterGeneration(
+          itemFilter,
+          filterCaracteristics.samples,
+          filterCaracteristics.frequency,
+          item.inverted()
+        );
+
+        channels.push({
+          channelType: item.channelDetails().channelIndex,
+          speakerType: item.speakerType(),
+          distanceInMeters: item.distanceInMeters(),
+          trimAdjustmentInDbs: item.splForAvr(),
+          filter: filter,
+          ...(item.crossover() !== 0 && { xover: item.crossover() }),
+        });
+      } catch (error) {
+        throw new Error(`Creates filters failed: ${error.message}`, { cause: error });
+      } finally {
+        await itemFilter.delete();
+      }
+    }
+    return channels;
+  }
+
+  _validateChannels(allResponses) {
     const expectedChannels = this.avrFileContent.detectedChannels.map(
-      expected => expected.enChannelType
+      ch => ch.enChannelType
     );
-    const providedChannels = allResponses.map(
-      item => item.channelDetails()?.channelIndex
+    const providedChannels = new Set(
+      allResponses.map(item => item.channelDetails()?.channelIndex)
     );
-
-    const missingChannels = expectedChannels.filter(
-      channel => !providedChannels.includes(channel)
-    );
+    const missingChannels = expectedChannels.filter(ch => !providedChannels.has(ch));
 
     if (missingChannels.length) {
       const codesLabels = missingChannels.map(channel => {
         const missingChannel = CHANNEL_TYPES.getByChannelIndex(channel);
-        const missingCode = missingChannel ? missingChannel.code : channel;
-        return missingCode;
+        return missingChannel ? missingChannel.code : channel;
       });
-      throw new Error(`${missingChannels.length} channel(s) are missing or added, please ensure all AVR detected channels are present in REW,
-        missing are: ${codesLabels.join(', ')}`);
+      throw new Error(
+        `${
+          missingChannels.length
+        } channel(s) are missing or added, please ensure all AVR detected channels are present in REW, missing are: ${codesLabels.join(
+          ', '
+        )}`
+      );
     }
+  }
 
-    // group allResponses by item.channelDetails().group and check if they have the same crossover value
+  _validateCrossoverConsistency(allResponses) {
     const groupedResponses = allResponses.reduce((acc, item) => {
       const group = item.channelDetails().group;
       if (!acc[group]) {
@@ -110,15 +152,11 @@ export default class OCAFileGenerator {
       acc[group].push(item);
       return acc;
     }, {});
-    for (const group in groupedResponses) {
-      const items = groupedResponses[group];
-      if (!items || items.length === 0) {
-        continue; // Skip empty groups
-      }
+
+    for (const [group, items] of Object.entries(groupedResponses)) {
       // Skip crossover check for Subwoofer group
-      if (group === 'Subwoofer') {
-        continue;
-      }
+      if (group === 'Subwoofer' || !items?.length) continue;
+
       const crossover = items[0].crossover();
       if (items.some(item => item.crossover() !== crossover)) {
         throw new Error(
@@ -126,83 +164,31 @@ export default class OCAFileGenerator {
         );
       }
     }
+  }
 
-    const channels = [];
-
-    // check if any of the items is above limit
-    const anyItemAboveLimit = allResponses.some(item => item.splIsAboveLimit());
-    if (anyItemAboveLimit) {
-      // Find the specific item that is above limit to display correct information
-      const itemAboveLimit = allResponses.find(item => item.splIsAboveLimit());
+  _validateMeasurementLimits(allResponses) {
+    const itemAboveLimit = allResponses.find(item => item.splIsAboveLimit());
+    if (itemAboveLimit) {
       throw new Error(
         `${itemAboveLimit.displayMeasurementTitle()} spl ${itemAboveLimit.splForAvr()}dB is above limit`
       );
     }
 
-    const anyItemExceedsDistance = allResponses.some(
+    const itemExceedsDistance = allResponses.find(
       item => item.exceedsDistance() === 'error'
     );
-    if (anyItemExceedsDistance) {
-      const itemExceedsDistance = allResponses.find(
-        item => item.exceedsDistance() === 'error'
-      );
+    if (itemExceedsDistance) {
       throw new Error(
         `${itemExceedsDistance.displayMeasurementTitle()} distance ${itemExceedsDistance.distanceInMeters()}M exceeds limit`
       );
     }
 
-    // check if 180Hz crossover is used into allResponses item
-    const anyItemHas180HzCrossover = allResponses.some(item => item.crossover() === 180);
-    if (anyItemHas180HzCrossover && !this.avrFileContent.avr.hasExtendedFreq) {
-      throw new Error(`180Hz crossover is not supported by your AVR`);
+    if (
+      allResponses.some(item => item.crossover() === 180) &&
+      !this.avrFileContent.avr.hasExtendedFreq
+    ) {
+      throw new Error('180Hz crossover is not supported by your AVR');
     }
-
-    // creates a for loop on dataArray
-    for (const item of Object.values(allResponses)) {
-      // skip if item is not an object and not have timeOfIRStartSeconds attribute
-      if (
-        !item ||
-        typeof item !== 'object' ||
-        !Object.hasOwn(item, 'distanceInMeters')
-      ) {
-        throw new Error('rensponses must contains extended values');
-      }
-
-      let itemFilter;
-      try {
-        itemFilter = await item.generateFilterMeasurement();
-        let filterCaracteristics;
-        if (item.isSub()) {
-          filterCaracteristics = this.avrFileContent.avr.multEQSpecs.subFilter;
-        } else {
-          filterCaracteristics = this.avrFileContent.avr.multEQSpecs.speakerFilter;
-        }
-        const filterLength = filterCaracteristics.samples;
-        const getFilterFrequency = filterCaracteristics.frequency;
-        const filter = await this.computeFilterGeneration(
-          itemFilter,
-          filterLength,
-          getFilterFrequency,
-          item.inverted()
-        );
-
-        const channelItem = {
-          channelType: item.channelDetails().channelIndex,
-          speakerType: item.speakerType(),
-          distanceInMeters: item.distanceInMeters(),
-          trimAdjustmentInDbs: item.splForAvr(),
-          filter: filter,
-          ...(item.crossover() !== 0 && { xover: item.crossover() }),
-        };
-
-        channels.push(channelItem);
-      } catch (error) {
-        throw new Error(`Creates filters failed: ${error.message}`, { cause: error });
-      } finally {
-        await itemFilter.delete();
-      }
-    }
-    return channels;
   }
 
   async computeFilterGeneration(filterItem, sampleCount, freq, invert) {
@@ -244,7 +230,12 @@ export default class OCAFileGenerator {
 
       try {
         trimmedFilter = await filterItem.genericCommand('Trim IR to windows');
-        filterImpulseResponse = await trimmedFilter.getImpulseResponse(freq, 'percent', true, true);
+        filterImpulseResponse = await trimmedFilter.getImpulseResponse(
+          freq,
+          'percent',
+          true,
+          true
+        );
 
         filter = this.transformIR(filterImpulseResponse, sampleCount, invert);
       } finally {

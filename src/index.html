@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <!-- Specify character encoding early -->
@@ -8,7 +8,10 @@
     <!-- Compress text content -->
     <title data-i18n="title">Room Correction Helper</title>
     <link href="default.css" rel="stylesheet" type="text/css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
     <link rel="stylesheet" href="css/index.css" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   </head>
@@ -180,6 +183,17 @@
 
           <div class="control-group">
             <h2 data-i18n="main_commands">Main commands</h2>
+            <div>
+              <label
+                >REW API Address:
+                <input
+                  type="text"
+                  id="rew-api-base-url"
+                  placeholder="http://localhost:4735"
+                  data-bind="value: apiBaseUrl"
+                />
+              </label>
+            </div>
             <div class="polling-indicator" data-bind="css: { active: isPolling }"></div>
             <button
               class="button"

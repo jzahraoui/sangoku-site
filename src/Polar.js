@@ -8,7 +8,7 @@ class Polar {
 
   // Static factory methods
   static fromComplex(complex) {
-    const magnitude = Math.sqrt(complex.re * complex.re + complex.im * complex.im);
+    const magnitude = Math.hypot(complex.re, complex.im);
     const phase = Math.atan2(complex.im, complex.re);
     return new Polar(magnitude, phase);
   }
@@ -135,7 +135,7 @@ class Polar {
   static addResponses(responses) {
     return responses.reduce((sum, response) => {
       if (!(response instanceof Polar)) {
-        throw new Error('All elements must be Polar instances');
+        throw new TypeError('All elements must be Polar instances');
       }
       return sum ? sum.add(response) : response;
     }, null);

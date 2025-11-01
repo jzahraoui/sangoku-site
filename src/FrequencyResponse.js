@@ -13,9 +13,9 @@ class FrequencyResponse {
     this.rawData = rawData;
 
     // Extract common properties
-    Object.keys(rawData).forEach(key => {
+    for (const key of Object.keys(rawData)) {
       this[key] = rawData[key];
-    });
+    }
 
     // Decode base64 encoded data if present
     if (rawData.magnitude) {
@@ -58,7 +58,7 @@ class FrequencyResponse {
    * @returns {number} The end frequency
    */
   getEndFrequency(freqs) {
-    return freqs.length > 0 ? freqs[freqs.length - 1] : 0;
+    return freqs.at(-1) ?? 0;
   }
 
   /**
