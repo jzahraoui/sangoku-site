@@ -534,7 +534,7 @@ class BusinessTools {
     }${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
 
-    await finalPredcition.applyWorkingSettings();
+    await finalPredcition.genericCommand('Smooth', { smoothing: 'Psy' });
     await item.applyWorkingSettings();
 
     return true;
