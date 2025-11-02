@@ -1056,6 +1056,23 @@ class MeasurementItem {
     return true;
   }
 
+  async copyTargetLevelToAll() {
+    const targets = this.parentViewModel.validMeasurements();
+
+    if (!targets.length) {
+      return false;
+    }
+
+    const currentLevel = await this.getTargetLevel();
+    for (const otherItem of targets) {
+      await otherItem.setTargetLevel(currentLevel);
+    }
+
+    await this.parentViewModel.updateTargetCurve(this);
+
+    return true;
+  }
+
   copyCrossoverToOther() {
     const targets = this.parentViewModel
       .notUniqueMeasurements()
@@ -1457,6 +1474,7 @@ class MeasurementItem {
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
     await this.resetTargetSettings();
+    await this.copyTargetLevelToAll();
     await this.detectFallOff(-6);
 
     const customStartFrequency = Math.max(
