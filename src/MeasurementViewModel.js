@@ -31,6 +31,11 @@ class MeasurementViewModel {
       translations[localStorage.getItem('userLanguage') || 'en']
     );
 
+    // retreive version from index.html
+    this.currentVersion = document
+      .querySelector('footer .version')
+      .textContent.replace('Version ', '');
+
     // API Service
     this.apiBaseUrl = ko.observable('http://localhost:4735');
     this.apiService = new RewApi(this.apiBaseUrl(), this.inhibitGraphUpdates);
@@ -1021,7 +1026,7 @@ class MeasurementViewModel {
         OCAFile.subwooferOutput = this.subwooferOutput();
         OCAFile.lpfForLFE = this.lpfForLFE();
         OCAFile.numberOfSubwoofers = this.uniqueSubsMeasurements().length;
-        OCAFile.versionEvo = 'Sangoku_custom';
+        OCAFile.versionEvo = this.currentVersion;
 
         const jsonData = await OCAFile.createOCAFile(this.uniqueMeasurements());
 
@@ -1079,10 +1084,6 @@ class MeasurementViewModel {
           item => item.revertLfeFrequency !== 0
         );
         const revertLfeFrequency = subWithFreq?.revertLfeFrequency;
-        // retreive version from index.html
-        const version = document
-          .querySelector('footer .version')
-          .textContent.replace('Version ', '');
 
         // function to add "Hz" suffix to frequency values
         const addHzSuffix = freq => (freq ? `${freq} Hz` : 'None');
@@ -1167,7 +1168,7 @@ class MeasurementViewModel {
         textData += `VERSION INFORMATION\n`;
         textData += `-------------------\n`;
         textData += `REW Version:       ${this.rewVersion}\n`;
-        textData += `RCH Version:       ${version}\n\n`;
+        textData += `RCH Version:       ${this.currentVersion}\n\n`;
 
         // Save to persistent store
         const reducedMeasurements = this.uniqueMeasurements().map(item => item.toJSON());
