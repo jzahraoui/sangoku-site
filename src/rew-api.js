@@ -394,6 +394,10 @@ export default class RewApi {
 
     const extractMatch = str => {
       if (!str) return null;
+      const fromJson = this.safeParseJSON(str);
+      if (fromJson?.processName) {
+        return fromJson.processName;
+      }
       const match = idregex.exec(str);
       if (!match) return null;
       const idIndex = str.indexOf(match[0]);
