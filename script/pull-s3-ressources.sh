@@ -45,11 +45,11 @@ pull_from_s3()
   for folder in "${FOLDER_LIST[@]}"; do
     local cmd="aws s3 sync --no-progress --size-only \"$S3_BUCKET/$folder\" \"$DEST_DIR/$folder\""
 
-    if [ "$DRYRUN" = 1 ]; then
+    if [[ "$DRYRUN" = 1 ]]; then
       cmd="$cmd --dryrun"
     fi
 
-    if [ "$DELETE_FLAG" = 1 ]; then
+    if [[ "$DELETE_FLAG" = 1 ]]; then
       cmd="$cmd --delete"
     fi
 
@@ -64,11 +64,11 @@ push_to_s3()
   for folder in "${FOLDER_LIST[@]}"; do
     local cmd="aws s3 sync --no-progress --size-only --cache-control \"max-age=3600\" \"$DEST_DIR/$folder\" \"$S3_BUCKET/$folder\""
 
-    if [ "$DRYRUN" = 1 ]; then
+    if [[ "$DRYRUN" = 1 ]]; then
       cmd="$cmd --dryrun"
     fi
 
-    if [ "$DELETE_FLAG" = 1 ]; then
+    if [[ "$DELETE_FLAG" = 1 ]]; then
       cmd="$cmd --delete"
     fi
 
