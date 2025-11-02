@@ -21,6 +21,7 @@ class MeasurementViewModel {
 
   UNKNOWN_GROUP_NAME = 'UNKNOWN';
   inhibitGraphUpdates = true;
+  blocking = true;
   pollingInterval = 1000; // 1 seconds
 
   constructor() {
@@ -38,7 +39,11 @@ class MeasurementViewModel {
 
     // API Service
     this.apiBaseUrl = ko.observable('http://localhost:4735');
-    this.apiService = new RewApi(this.apiBaseUrl(), this.inhibitGraphUpdates);
+    this.apiService = new RewApi(
+      this.apiBaseUrl(),
+      this.inhibitGraphUpdates,
+      this.blocking
+    );
 
     this.businessTools = new BusinessTools(this);
 
@@ -2593,7 +2598,11 @@ class MeasurementViewModel {
 
     try {
       // Initial load
-      this.apiService = new RewApi(this.apiBaseUrl(), this.inhibitGraphUpdates, false);
+      this.apiService = new RewApi(
+        this.apiBaseUrl(),
+        this.inhibitGraphUpdates,
+        this.blocking
+      );
       await this.apiService.initializeAPI();
       this.rewVersion = await this.apiService.checkVersion();
       this.targetCurve = await this.apiService.checkTargetCurve();
