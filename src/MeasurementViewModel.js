@@ -782,7 +782,6 @@ class MeasurementViewModel {
         }
         const workingMeasurementsUuids = workingMeasurements.map(m => m.uuid);
         const firstMeasurement = workingMeasurements[0];
-        const previousTargetcurveTitle = `Target ${firstMeasurement.title()}`;
 
         let alignSplOptions;
         if (workingMeasurementsUuids.length === 1) {
@@ -799,12 +798,6 @@ class MeasurementViewModel {
           };
         }
 
-        // delete previous target curve
-        const previousTargetcurve = this.measurements().filter(
-          item => item.title() === previousTargetcurveTitle
-        );
-        await this.removeMeasurements(previousTargetcurve);
-
         await firstMeasurement.resetTargetSettings();
         // working settings must match filter settings
         for (const work of workingMeasurements) {
@@ -819,10 +812,9 @@ class MeasurementViewModel {
 
         // must be calculated before removing working settings
         await firstMeasurement.eqCommands('Calculate target level');
-        await firstMeasurement.eqCommands('Generate target measurement');
 
         // set target level to all measurements including subs
-        await this.setTargetLevelToAll();
+        await firstMeasurement.copyTargetLevelToAll();
 
         // update attribute for all measurements processed to be able to be used in copySplOffsetDeltadBToOther
         for (const work of workingMeasurements) {
@@ -865,7 +857,8 @@ class MeasurementViewModel {
         this.status('Computing sum...');
 
         // Ensure accurate predicted measurements with correct target level
-        await this.setTargetLevelToAll();
+        const firstMeasurement = this.uniqueMeasurements()[0];
+        await firstMeasurement.copyTargetLevelToAll();
 
         // Process each position's subwoofer measurements
         const positionGroups = this.byPositionsGroupedSubsMeasurements();
@@ -941,22 +934,15 @@ class MeasurementViewModel {
     };
 
     this.buttongenratesPreview = async () => {
-      if (this.isProcessing()) return;
-      try {
-        this.isProcessing(true);
-
-        for (const item of this.uniqueSpeakersMeasurements()) {
-          // display progression in the status
-          this.status(`Generating preview for ${item.displayMeasurementTitle()}`);
-          await item.previewMeasurement();
-        }
-
-        this.status('Preview generated successfully');
-      } catch (error) {
-        this.handleError(`Preview failed: ${error.message}`, error);
-      } finally {
-        this.isProcessing(false);
+      for (const item of this.uniqueSpeakersMeasurements()) {
+        // display progression in the status
+        this.status(
+          `${this.status()} \nGenerating preview for ${item.displayMeasurementTitle()}`
+        );
+        await item.previewMeasurement();
       }
+
+      this.status(`${this.status()} \nPreview generated successfully`);
     };
 
     this.buttongeneratesFilters = async () => {
@@ -966,11 +952,13 @@ class MeasurementViewModel {
 
         for (const item of this.uniqueSpeakersMeasurements()) {
           // display progression in the status
-          this.status(`Generating filter for channel ${item.channelName()}`);
+          this.status(
+            `${this.status()} \nGenerating filter for channel ${item.channelName()}`
+          );
           await item.createStandardFilter();
         }
 
-        this.status('Filters generated successfully');
+        this.status(`${this.status()} \nFilters generated successfully`);
       } catch (error) {
         this.handleError(`Filter generation failed: ${error.message}`, error);
       } finally {
@@ -1672,6 +1660,29 @@ class MeasurementViewModel {
     });
   }
 
+  async updateTargetCurve(referenceMeasurement) {
+    if (!referenceMeasurement) {
+      throw new Error('Reference measurement is undefined');
+    }
+
+    const previousTargetcurveTitle = 'Target';
+
+    // delete previous targets curve
+    const previousTargetcurves = this.measurements().filter(
+      item => item.title() === previousTargetcurveTitle
+    );
+
+    await this.removeMeasurements(previousTargetcurves);
+
+    const targetMeasurement = await referenceMeasurement.eqCommands(
+      'Generate target measurement'
+    );
+    await targetMeasurement.setTitle(
+      previousTargetcurveTitle,
+      `from ${referenceMeasurement.title()}`
+    );
+  }
+
   async equalizeSub(subMeasurement) {
     const firstMeasurementLevel = await this.mainTargetLevel();
     await subMeasurement.applyWorkingSettings();
@@ -1837,16 +1848,7 @@ class MeasurementViewModel {
     if (!firstMeasurement) {
       return MeasurementViewModel.DEFAULT_TARGET_LEVEL;
     }
-    const level = await firstMeasurement.getTargetLevel();
-    return Number(level.toFixed(2));
-  }
-
-  async setTargetLevelToAll() {
-    const firstMeasurementLevel = await this.mainTargetLevel();
-    for (const measurement of this.measurements()) {
-      await measurement.setTargetLevel(firstMeasurementLevel);
-    }
-    return firstMeasurementLevel;
+    return await firstMeasurement.getTargetLevel();
   }
 
   getMaxFromArray(array) {
