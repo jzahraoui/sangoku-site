@@ -371,7 +371,7 @@ class MeasurementViewModel {
           await this.processAdyMeasurements(data, filename, adyTools, zipContent);
         }
       } catch (error) {
-        this.handleError(error.message);
+        throw new Error(`File processing failed: ${error.message}`);
       } finally {
         // Clean up response data regardless of file type
         if (data?.detectedChannels && Array.isArray(data.detectedChannels)) {
@@ -1320,6 +1320,9 @@ class MeasurementViewModel {
     };
 
     this.createOptimizerConfig = (lowFrequency, highFrequency) => {
+      if (!this.jsonAvrData()?.avr) {
+        throw new Error('Please load AVR data first');
+      }
       return {
         frequency: { min: lowFrequency, max: highFrequency },
         gain: { min: 0, max: 0, step: 0.1 },
@@ -2429,6 +2432,9 @@ class MeasurementViewModel {
   ) {
     if (createSum && !sumTitle) {
       throw new Error('sumTitle is required when createSum is true');
+    }
+    if (!this.jsonAvrData()?.avr) {
+      throw new Error('Please load AVR data first');
     }
 
     try {
