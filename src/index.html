@@ -200,7 +200,7 @@
               data-bind="
               click: buttoncheckREWButton,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
               data-tooltip="Click to connect or disconnect to REW"
             >
               <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
@@ -210,7 +210,7 @@
               data-bind="
               click: renameMeasurement,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
               data-tooltip="Click to rename the measurements for homogenity"
             >
               <span data-bind="text: isProcessing() ? 'Processing...' : 'Rename'"></span>
@@ -220,7 +220,7 @@
               data-bind="
               click: buttonresetREWButton,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
               data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)"
             >
               <span
@@ -232,7 +232,7 @@
               data-bind="
               click: buttonResetApplication,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
               data-tooltip="Click to reset all application settings to default (including measurements, filters, and all other settings)"
             >
               <span
@@ -412,7 +412,7 @@
               data-bind="
               click: buttoncreatesAverages,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
             >
               <span
                 data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"
@@ -425,7 +425,7 @@
               data-bind="
               click: buttonAlignPeaks,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
             >
               <span
                 data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"
@@ -436,7 +436,7 @@
               data-bind="
               click: buttonAlignSPL,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
             >
               <span
                 data-bind="text: isProcessing() ? 'Processing...' : 'Align SPL'"
@@ -474,7 +474,7 @@
               data-bind="
             click: buttonrevertLfeFilter,
             disable: isProcessing(),
-            css: { 'disabled': isProcessing }"
+            css: { disabled: isProcessing }"
             >
               <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
             </button>
@@ -555,7 +555,7 @@
                   data-bind="
                     click: buttonMultiSubOptimizer,
                     disable: isProcessing() || uniqueSubsMeasurements().length <= 1,
-                    css: { 'disabled': isProcessing }"
+                    css: { disabled: isProcessing }"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Align Sub'"
@@ -566,7 +566,7 @@
                   data-bind="
                     click: buttonEqualizeSub,
                     disable: isProcessing(),
-                    css: { 'disabled': isProcessing }"
+                    css: { disabled: isProcessing }"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Equalize Sub'"
@@ -577,7 +577,7 @@
                   data-bind="
                     click: buttonproduceSubSum,
                     disable: isProcessing(),
-                    css: { 'disabled': isProcessing }"
+                    css: { disabled: isProcessing }"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Preview Sub'"
@@ -597,7 +597,7 @@
                   data-bind="
                 click: buttonCreatesMsoExports,
                 disable: isProcessing(),
-                css: { 'disabled': isProcessing }"
+                css: { disabled: isProcessing }"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
@@ -651,7 +651,7 @@
                 data-bind="
               click: buttonproduceAlignedButton,
               disable: isProcessing(),
-              css: { 'disabled': isProcessing }"
+              css: { disabled: isProcessing }"
               >
                 <i class="fa fa-magic"></i>
                 <span
@@ -745,7 +745,7 @@
                 data-bind="
                 click: buttoncreateOCAButton,
                 disable: isProcessing(),
-                css: { 'disabled': isProcessing }"
+                css: { disabled: isProcessing }"
               >
                 <i class="fa fa-file-export"></i>
                 <span
@@ -758,7 +758,7 @@
                 data-bind="
                 click: buttoncreateSetting,
                 disable: isProcessing(),
-                css: { 'disabled': isProcessing }"
+                css: { disabled: isProcessing }"
               >
                 <i class="fa fa-file-export"></i>
                 <span
@@ -855,7 +855,7 @@
                       data-bind="
                     click: buttongenratesPreview,
                     disable: isProcessing(),
-                    css: { 'disabled': isProcessing }"
+                    css: { disabled: isProcessing }"
                     >
                       <span
                         data-bind="text: isProcessing() ? 'Processing...' : 'All previews'"
@@ -868,7 +868,7 @@
                       data-bind="
                     click: buttongeneratesFilters,
                     disable: isProcessing(),
-                    css: { 'disabled': isProcessing }"
+                    css: { disabled: isProcessing }"
                     >
                       <span
                         data-bind="text: isProcessing() ? 'Processing...' : 'All Filters'"
@@ -926,7 +926,8 @@
                       class="button"
                       data-bind="
                       click: toggleInversion,
-                      css: { warning: inverted() }"
+                      disable: $parent.isProcessing(),
+                      css: { disabled: $parent.isProcessing(), warning: inverted() }"
                       data-tooltip="Toggle phase inversion"
                     >
                       <i
@@ -939,9 +940,9 @@
                     <button
                       class="button"
                       data-bind="
-                    click: previewMeasurement,
-                    disable: isProcessing(),
-                    css: { 'disabled': isProcessing }"
+                      click: previewMeasurement,
+                      disable: $parent.isProcessing(),
+                      css: { disabled: $parent.isProcessing }"
                       data-tooltip="Create preview"
                     >
                       <i class="fa fa-line-chart"></i>
@@ -956,9 +957,9 @@
                     <button
                       class="button"
                       data-bind="
-                    click: buttonCreateFilter,
-                    disable: isProcessing(),
-                    css: { 'disabled': isProcessing }"
+                      click: buttonCreateFilter,
+                      disable: $parent.isProcessing(),
+                      css: { disabled: $parent.isProcessing }"
                       data-tooltip="Create speaker filter"
                     >
                       <i class="fa fa-wave-square"></i>
@@ -970,7 +971,7 @@
                       data-bind="
                       click: $parent.buttonSingleSubOptimizer,
                       disable: $parent.isProcessing,
-                      css: { 'disabled': $parent.isProcessing }"
+                      css: { disabled: $parent.isProcessing }"
                       data-tooltip="Create Sub filter"
                     >
                       <i class="fa fa-wave-square"></i>

@@ -26,8 +26,6 @@ class MeasurementItem {
       throw new Error('No AVR data loaded');
     }
 
-    this.isProcessing = ko.observable(false);
-
     this.jsonAvrData = parentViewModel.jsonAvrData();
     this.dectedFallOffLow = -1;
     this.dectedFallOffHigh = +Infinity;
@@ -243,22 +241,22 @@ class MeasurementItem {
     });
 
     this.buttonCreateFilter = async () => {
-      if (this.isProcessing()) return;
+      if (parentViewModel.isProcessing()) return;
       try {
-        this.isProcessing(true);
+        parentViewModel.isProcessing(true);
 
         await this.createStandardFilter();
       } catch (error) {
         parentViewModel.handleError(`Filter creation failed: ${error.message}`);
       } finally {
-        this.isProcessing(false);
+        parentViewModel.isProcessing(false);
       }
     };
 
     this.previewMeasurement = async () => {
-      if (this.isProcessing()) return;
+      if (parentViewModel.isProcessing()) return;
       try {
-        this.isProcessing(true);
+        parentViewModel.isProcessing(true);
         if (this.isSub()) {
           await parentViewModel.produceSumProcess([this]);
         } else {
@@ -268,7 +266,7 @@ class MeasurementItem {
       } catch (error) {
         parentViewModel.handleError(`Preview creation failed: ${error.message}`);
       } finally {
-        this.isProcessing(false);
+        parentViewModel.isProcessing(false);
       }
     };
   }
