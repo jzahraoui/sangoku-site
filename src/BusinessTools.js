@@ -372,8 +372,12 @@ class BusinessTools {
     const overheadOffset =
       this.viewModel.maxDistanceInMetersError() - neededDistanceMeter;
 
-    // correction to prevent exceeding max distance
     if (overheadOffset < 0) {
+      console.warn(
+        `Adjusting alignment by ${-overheadOffset.toFixed(
+          2
+        )}m to stay within max distance limit.`
+      );
       finalDistance += PredictedLfe._computeInSeconds(overheadOffset);
     }
 
