@@ -44,31 +44,21 @@ export default class RewApi {
   }
 
   async checkTargetCurve() {
-    try {
-      const tcResponse = await fetch(`${this.baseUrl}/eq/house-curve`);
-      const target = tcResponse.ok ? await tcResponse.json() : null;
-      const targetCurvePath = target?.message || target;
-      const missingTargetCurve = !targetCurvePath;
+    const tcResponse = await fetch(`${this.baseUrl}/eq/house-curve`);
+    const target = tcResponse.ok ? await tcResponse.json() : null;
+    const targetCurvePath = target?.message || target;
 
-      if (missingTargetCurve) {
-        console.warn(
-          `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`
-        );
-        return 'tcDefault';
-      } else {
-        console.info(`Using target curve : ${JSON.stringify(targetCurvePath)}`);
-        const normalizedPath = targetCurvePath.replaceAll('\\', '/');
-        const tcName = normalizedPath
-          .split('/')
-          .pop()
-          .replace(/\.[^/.]+$/, '')
-          .replaceAll(/\s+/g, '');
-        return tcName ? `${tcName}` : '';
-      }
-    } catch (error) {
-      const message = error.message || 'Error checking target curve';
-      throw new Error(message, { cause: error });
+    if (!targetCurvePath) {
+      return '';
     }
+    console.info(`Using target curve : ${JSON.stringify(targetCurvePath)}`);
+    const normalizedPath = targetCurvePath.replaceAll('\\', '/');
+    const tcName = normalizedPath
+      .split('/')
+      .pop()
+      .replace(/\.[^/.]+$/, '')
+      .replaceAll(/\s+/g, '');
+    return tcName || '';
   }
 
   async checkVersion() {
@@ -402,7 +392,7 @@ export default class RewApi {
   extractProcessID(data, url) {
     const idregex = /ID \d+/;
 
-    const extractMatch = (str) => {
+    const extractMatch = str => {
       if (!str) return null;
       const match = idregex.exec(str);
       if (!match) return null;

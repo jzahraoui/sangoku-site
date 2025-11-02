@@ -501,7 +501,9 @@ class MeasurementViewModel {
         await this.apiService.setInhibitGraphUpdates(newValue);
       }
       // Save to persistent when processing ends
-      newValue ? this.error('') : this.saveMeasurements();
+      if (!newValue) {
+        this.saveMeasurements();
+      }
     });
 
     this.currentSelectedPosition = ko.observable();
@@ -613,6 +615,8 @@ class MeasurementViewModel {
         this.status('Reseting...');
 
         this.stopBackgroundPolling();
+
+        this.error('');
 
         store.clear();
 
@@ -1001,6 +1005,11 @@ class MeasurementViewModel {
         const OCAFile = new OCAFileGenerator(avrData);
 
         this.targetCurve = await this.apiService.checkTargetCurve();
+        if (!this.targetCurve) {
+          throw new Error(
+            `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`
+          );
+        }
         OCAFile.tcName = `${this.targetCurve} ${await this.mainTargetLevel()}dB`;
         OCAFile.softRoll = this.softRoll();
         OCAFile.enableDynamicEq = this.enableDynamicEq();
@@ -1056,6 +1065,11 @@ class MeasurementViewModel {
           throw new Error(`Please load avr file first`);
         }
         this.targetCurve = await this.apiService.checkTargetCurve();
+        if (!this.targetCurve) {
+          throw new Error(
+            `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`
+          );
+        }
         this.rewVersion = await this.apiService.checkVersion();
         const selectedSpeaker = this.findMeasurementByUuid(this.selectedSpeaker());
         const selectedSpeakerText = selectedSpeaker?.displayMeasurementTitle() || 'None';
@@ -2582,6 +2596,11 @@ class MeasurementViewModel {
       await this.apiService.initializeAPI();
       this.rewVersion = await this.apiService.checkVersion();
       this.targetCurve = await this.apiService.checkTargetCurve();
+      if (!this.targetCurve) {
+        this.status(
+          'Warning: No target curve found in REW. Please set a target curve in REW for optimal performance.'
+        );
+      }
       await this.loadData();
       this.isPolling(true);
 
