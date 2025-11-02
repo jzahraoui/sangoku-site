@@ -345,12 +345,15 @@ export default class RewApi {
       // Clear the timeout since the request completed
       clearTimeout(timeoutId);
 
-      const data = await response.json();
       if (!response.ok) {
-        throw new Error(
-          data.message || `HTTP error! status: ${response.status} for URL: ${completeUrl}`
-        );
+        const data = await response.json().catch(() => ({}));
+        const parsedMessage = this.safeParseJSON(data.message);
+        const errorMessage = parsedMessage?.results?.[0]?.Error || data.message || 
+          `HTTP error! status: ${response.status} for URL: ${completeUrl}`;
+        throw new Error(errorMessage);
       }
+
+      const data = await response.json();
 
       // Validate data structure
       if (data === undefined || data === null) {
