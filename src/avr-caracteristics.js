@@ -350,6 +350,8 @@ class AvrCaracteristics {
     this.multEQSpecs = this.multEQDetails.specs;
     this.multEQDescription = AvrCaracteristics.getDescription(this.multEQType);
     this.isFourSubwooferModel = this.isFourSubwooferModel(this.targetModelName);
+    this.splOffset = this.hasCirrusLogicDsp ? 105 : 80;
+    this.hasSeventyExtendedFrequency = this.hasSeventyExtendedFreq(this.targetModelName);
   }
 
   /**
@@ -416,12 +418,24 @@ class AvrCaracteristics {
       multEQSpecs: this.multEQSpecs,
       multEQDescription: this.multEQDescription,
       isFourSubwooferModel: this.isFourSubwooferModel,
+      splOffset: this.splOffset,
+      hasSeventyExtendedFreq: this.hasSeventyExtendedFrequency,
     };
   }
 
   // Helper function to check if model supports additional frequencies
   hasExtendedFreq(modelName) {
+    if (!modelName) {
+      return false;
+    }
     return this.isFY20AboveAVR(modelName);
+  }
+  // Helper function to check if model supports additional frequencies
+  hasSeventyExtendedFreq(modelName) {
+    if (!modelName) {
+      return false;
+    }
+    return !this.isOldModelForDistanceConversion(modelName);
   }
 
   getFrequencyIndexes(modelName) {
@@ -431,7 +445,12 @@ class AvrCaracteristics {
     frequencies.push(
       { value: 0, text: 'N/A' },
       { value: 40, text: '40Hz' },
-      { value: 60, text: '60Hz' },
+      { value: 60, text: '60Hz' }
+    );
+    if (this.hasSeventyExtendedFreq(modelName)) {
+      frequencies.push({ value: 70, text: '70Hz' });
+    }
+    frequencies.push(
       { value: 80, text: '80Hz' },
       { value: 90, text: '90Hz' },
       { value: 100, text: '100Hz' },
@@ -441,7 +460,7 @@ class AvrCaracteristics {
     );
 
     // Check if we need to add 180Hz option based on model type
-    if (modelName && this.hasExtendedFreq(modelName)) {
+    if (this.hasExtendedFreq(modelName)) {
       frequencies.push({ value: 180, text: '180Hz' });
     }
 

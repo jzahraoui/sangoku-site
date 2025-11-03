@@ -2,7 +2,6 @@ import * as math from 'mathjs';
 import JSZip from 'jszip';
 
 class AdyTools {
-  static SPL_OFFSET = 80;
   static MIC_CALIBRATION_URL = 'ressources/mic-cal-imp.txt';
 
   constructor(fileContent) {
@@ -243,7 +242,7 @@ class AdyTools {
         'E'
       )} // Sample interval (seconds)`,
       `${START_TIME} // Start time (seconds)`,
-      `${AdyTools.SPL_OFFSET.toFixed(1)} // Data offset (dB)`,
+      `${this.fileContent.avr?.splOffset ?? 80} // Data offset (dB)`,
       '* Data start',
     ];
 

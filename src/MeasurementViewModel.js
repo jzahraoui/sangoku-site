@@ -298,7 +298,7 @@ class MeasurementViewModel {
         identifier,
         startTime: 0,
         sampleRate: adyTools.samplingRate,
-        splOffset: AdyTools.SPL_OFFSET,
+        splOffset: this.jsonAvrData().avr?.splOffset ?? 80,
         applyCal: false,
         data: encodedData,
       };
@@ -1104,7 +1104,7 @@ class MeasurementViewModel {
         textData += `Model:                    ${avrData.targetModelName}\n`;
         textData += `MultEQ Type:              ${avrData.avr.multEQType}\n`;
         textData += `Has Cirrus Logic DSP:     ${
-          avrData.hasCirrusLogicDsp ? 'Yes' : 'No'
+          avrData.avr.hasCirrusLogicDsp ? 'Yes' : 'No'
         }\n`;
         textData += `Speed of Sound:           ${avrData.avr.speedOfSound} m/s\n\n`;
 

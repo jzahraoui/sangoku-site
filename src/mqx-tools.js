@@ -13,7 +13,6 @@ class MqxTools {
     this.jsonAvrData = jsonAvrData;
     this.currentDate = new Date();
     this.samplingRate = 48000;
-    this.SPL_OFFSET = 80;
   }
 
   getDistancePoisitionGuid() {
