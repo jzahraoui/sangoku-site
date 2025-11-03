@@ -371,6 +371,11 @@ class MeasurementViewModel {
 
         const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
         data.avr = avr.toJSON();
+        if (avr.hasCirrusLogicDsp) {
+          this.ocaFileFormat('a1');
+        } else {
+          this.ocaFileFormat('odd');
+        }
 
         // load data to prevent bug when avr data is not loaded
         this.jsonAvrData(data);
