@@ -1278,41 +1278,48 @@ class MeasurementViewModel {
     };
 
     this.buttonEqualizeSub = async () => {
+      if (this.uniqueSubsMeasurements().length === 0) {
+        this.handleError('No subwoofers found');
+        return;
+      }
+      if (this.uniqueSubsMeasurements().length === 1) {
+        this.buttonSingleSubOptimizer(this.uniqueSubsMeasurements()[0]);
+      } else if (this.uniqueSubsMeasurements().length > 1) {
+        this.buttonMutipleSubOptimizer();
+      }
+    };
+
+    this.buttonMutipleSubOptimizer = async () => {
       if (this.isProcessing()) return;
       try {
         this.isProcessing(true);
+        this.status('Equalize multiple subs...');
 
-        if (this.uniqueSubsMeasurements().length === 0) {
-          this.handleError('No subwoofers found');
+        const maximisedSum = this.measurements().find(
+          item => item.title() === MeasurementViewModel.maximisedSumTitle
+        );
+
+        if (!maximisedSum) {
+          this.handleError('No maximised sum found');
           return;
         }
-        if (this.uniqueSubsMeasurements().length === 1) {
-          this.buttonSingleSubOptimizer(this.uniqueSubsMeasurements()[0]);
-        } else if (this.uniqueSubsMeasurements().length > 1) {
-          const maximisedSum = this.measurements().find(
-            item => item.title() === MeasurementViewModel.maximisedSumTitle
-          );
+        await this.equalizeSub(maximisedSum);
 
-          if (!maximisedSum) {
-            this.handleError('No maximised sum found');
-            return;
-          }
-          await this.equalizeSub(maximisedSum);
+        const filters = await maximisedSum.getFilters();
 
-          const filters = await maximisedSum.getFilters();
+        this.status(`${this.status()} \nApply calculated filters to each sub`);
 
-          this.status(`${this.status()} \nApply calculated filters to each sub`);
+        const subsMeasurements = this.uniqueSubsMeasurements();
 
-          const subsMeasurements = this.uniqueSubsMeasurements();
-
-          for (const sub of subsMeasurements) {
-            // do not overwrite the all pass filter if set
-            await sub.setFilters(filters, false);
-            await sub.copyFiltersToOther();
-            // ensure that cumulative IR shift and inversion is copied to other positions
-            await sub.copyCumulativeIRShiftToOther();
-          }
+        for (const sub of subsMeasurements) {
+          // do not overwrite the all pass filter if set
+          await sub.setFilters(filters, false);
+          await sub.copyFiltersToOther();
+          // ensure that cumulative IR shift and inversion is copied to other positions
+          await sub.copyCumulativeIRShiftToOther();
         }
+
+        this.status(`${this.status()} \nSuccessful`);
       } catch (error) {
         this.handleError(`Equalize Subs failed: ${error.message}`, error);
       } finally {
@@ -1324,13 +1331,15 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       try {
         this.isProcessing(true);
-        this.status('Sub Optimizer...');
+        this.status('Equalize single sub...');
 
         await this.adjustSubwooferSPLLevels([subMeasurement]);
         await this.equalizeSub(subMeasurement);
         await subMeasurement.copyFiltersToOther();
+
+        this.status(`${this.status()} \nSuccessful`);
       } catch (error) {
-        this.handleError(`Sub Optimizer failed: ${error.message}`, error);
+        this.handleError(`Equalize Subs failed: ${error.message}`, error);
       } finally {
         this.isProcessing(false);
       }
