@@ -420,6 +420,10 @@ class AvrCaracteristics {
       isFourSubwooferModel: this.isFourSubwooferModel,
       splOffset: this.splOffset,
       hasSeventyExtendedFreq: this.hasSeventyExtendedFrequency,
+      isGriffinLiteAVR: this.isGriffinLiteAVR(this.targetModelName),
+      isOldModelForDistanceConversion: this.isOldModelForDistanceConversion(
+        this.targetModelName
+      ),
     };
   }
 
