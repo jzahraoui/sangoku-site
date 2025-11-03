@@ -1,4 +1,5 @@
 import { CHANNEL_TYPES } from './audyssey.js';
+import ampAssignType from './amp-type.js';
 
 export default class OCAFileGenerator {
   static GAIN_ADJUSTMENT_EXP = -0.44999998807907104;
@@ -10,6 +11,7 @@ export default class OCAFileGenerator {
     if (!avrFileContent) {
       throw new Error(`no avr file content provided`);
     }
+    this.fileFormat = 'odd';
     this.avrFileContent = avrFileContent;
     this.versionEvo = 'Sangoku_custom';
     this.tcName = '';
@@ -17,13 +19,8 @@ export default class OCAFileGenerator {
     this.softRoll = false;
     this.ocaTypeId = 'OCAFILE';
     this.ocaVersion = 1;
-    this.title = avrFileContent.title;
-    this.model = avrFileContent.targetModelName;
     this.ifVersionMajor = 10;
     this.ifVersionMinor = 5;
-    this.eqType = avrFileContent.enMultEQType;
-    this.ampAssign = avrFileContent.enAmpAssignType;
-    this.ampAssignBin = avrFileContent.ampAssignInfo;
     this.channels = [];
     this.enableDynamicEq = false;
     this.dynamicEqRefLevel = 0;
@@ -39,28 +36,38 @@ export default class OCAFileGenerator {
   // Method to get data for saving
   toJSON() {
     return {
-      versionEvo: this.versionEvo,
-      tcName: this.tcName,
-      bassFill: this.bassFill,
-      softRoll: this.softRoll,
-      ocaTypeId: this.ocaTypeId,
-      ocaVersion: this.ocaVersion,
-      title: this.title,
-      model: this.model,
-      ifVersionMajor: this.ifVersionMajor,
-      ifVersionMinor: this.ifVersionMinor,
-      eqType: this.eqType,
-      ampAssign: this.ampAssign,
-      ampAssignBin: this.ampAssignBin,
+      model: this.avrFileContent.targetModelName,
+      eqType: this.avrFileContent.enMultEQType,
+      ...(this.fileFormat === 'odd' && {
+        versionEvo: this.versionEvo,
+        tcName: this.tcName,
+        bassFill: this.bassFill,
+        softRoll: this.softRoll,
+        ocaTypeId: this.ocaTypeId,
+        ocaVersion: this.ocaVersion,
+        title: this.avrFileContent.title,
+        ifVersionMajor: this.ifVersionMajor,
+        ifVersionMinor: this.ifVersionMinor,
+        ampAssign: this.avrFileContent.enAmpAssignType,
+        ampAssignBin: this.avrFileContent.ampAssignInfo,
+        enableDynamicEq: this.enableDynamicEq,
+        dynamicEqRefLevel: this.dynamicEqRefLevel,
+        enableDynamicVolume: this.enableDynamicVolume,
+        dynamicVolumeSetting: this.dynamicVolumeSetting,
+        enableLowFrequencyContainment: this.enableLowFrequencyContainment,
+        lowFrequencyContainmentLevel: this.lowFrequencyContainmentLevel,
+        subwooferOutput: this.subwooferOutput,
+      }),
+      ...(this.fileFormat === 'a1' && {
+        A1EvoAcoustica: '0.0.11',
+        hasGriffinLiteDSP: this.avrFileContent.avr.isGriffinLiteAVR,
+        isNewModel: !this.avrFileContent.avr.isOldModelForDistanceConversion,
+        ampAssign: ampAssignType.getByIndex(this.avrFileContent.enAmpAssignType),
+        ampAssignInfo: this.avrFileContent.ampAssignInfo,
+        bassMode: this.subwooferOutput,
+      }),
       channels: this.channels,
-      enableDynamicEq: this.enableDynamicEq,
-      dynamicEqRefLevel: this.dynamicEqRefLevel,
-      enableDynamicVolume: this.enableDynamicVolume,
-      dynamicVolumeSetting: this.dynamicVolumeSetting,
-      enableLowFrequencyContainment: this.enableLowFrequencyContainment,
-      lowFrequencyContainmentLevel: this.lowFrequencyContainmentLevel,
       numberOfSubwoofers: this.numberOfSubwoofers,
-      subwooferOutput: this.subwooferOutput,
       lpfForLFE: this.lpfForLFE,
     };
   }
@@ -108,6 +115,10 @@ export default class OCAFileGenerator {
           distanceInMeters: item.distanceInMeters(),
           trimAdjustmentInDbs: item.splForAvr(),
           filter: filter,
+          ...(this.fileFormat === 'a1' && {
+            filterLV: filter,
+            commandId: item.channelName(),
+          }),
           ...(item.crossover() !== 0 && { xover: item.crossover() }),
         });
       } catch (error) {
