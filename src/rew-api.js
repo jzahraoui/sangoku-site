@@ -347,8 +347,10 @@ export default class RewApi {
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        const parsedMessage = this.safeParseJSON(data.message);
-        const errorMessage = parsedMessage?.results?.[0]?.Error || data.message || 
+        const parsedMessage = RewApi.safeParseJSON(data.message);
+        const errorMessage =
+          parsedMessage?.results?.[0]?.Error ||
+          data.message ||
           `HTTP error! status: ${response.status} for URL: ${completeUrl}`;
         throw new Error(errorMessage);
       }
@@ -397,7 +399,7 @@ export default class RewApi {
 
     const extractMatch = str => {
       if (!str) return null;
-      const fromJson = this.safeParseJSON(str);
+      const fromJson = RewApi.safeParseJSON(str);
       if (fromJson?.processName) {
         return fromJson.processName;
       }
@@ -508,10 +510,20 @@ export default class RewApi {
     return 'measurements/process-result';
   }
 
-  safeParseJSON(str) {
+  static safeParseJSON(str) {
     if (!str || typeof str !== 'string' || !str.trim().startsWith('{')) {
       return null;
     }
     return JSON.parse(str);
+  }
+
+  static isValidIpAddress(ip) {
+    if (typeof ip !== 'string') return false;
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+    return parts.every(part => {
+      const num = Number(part);
+      return part === String(num) && num >= 0 && num <= 255;
+    });
   }
 }
