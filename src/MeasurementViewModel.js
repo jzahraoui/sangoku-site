@@ -556,6 +556,43 @@ class MeasurementViewModel {
       }
     };
 
+    this.buttonDownloadAvr = async () => {
+      if (this.isProcessing()) return;
+      try {
+        // TODO
+        if (!this.jsonAvrData()) {
+          throw new Error('please load file before');
+        }
+        if (this.avrIpAddress().trim() === '') {
+          throw new Error('please enter AVR IP address');
+        }
+        if (!RewApi.isValidIpAddress(this.avrIpAddress().trim())) {
+          throw new Error('please enter a valid AVR IP address');
+        }
+        // create new jsonAvrData by copy some jsonAvrData attributes
+        const newAvrData = {
+          targetModelName: this.jsonAvrData().targetModelName,
+          ipAddress: this.avrIpAddress().trim(),
+          enMultEQType: this.jsonAvrData().enMultEQType,
+          subwooferNum: this.jsonAvrData().subwooferNum,
+          ampAssign: ampAssignType.getByIndex(this.jsonAvrData().enAmpAssignType),
+          ampAssignInfo: this.jsonAvrData().ampAssignInfo,
+          detectedChannels: this.jsonAvrData().detectedChannels.map(channel => ({
+            commandId: channel.commandId,
+          })),
+        };
+
+        // download new file receiver_config.avr with newAvrData content
+        const blob = new Blob([JSON.stringify(newAvrData, null, 2)], {
+          type: 'application/json',
+        });
+        saveAs(blob, 'receiver_config.avr');
+        this.status('Download successful');
+      } catch (error) {
+        this.handleError(`.avr file failed: ${error.message}`, error);
+      }
+    };
+
     this.buttoncheckREWButton = async () => {
       if (this.isProcessing()) return;
       try {

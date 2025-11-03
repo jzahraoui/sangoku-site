@@ -191,6 +191,26 @@
                   </tbody>
                 </table>
               </div>
+              <label
+                >AVR API Address:
+                <input
+                  type="text"
+                  placeholder="ex. 192.168.1.200"
+                  data-bind="value: avrIpAddress"
+                />
+              </label>
+              <button
+                class="button"
+                data-bind="
+                  click: buttonDownloadAvr,
+                  disable: isProcessing(),
+                  css: { disabled: isProcessing }"
+                data-tooltip="Download .avr to use it in A1 Evo"
+              >
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Download A1 .avr'"
+                ></span>
+              </button>
               <!-- /ko -->
             </details>
           </div>
