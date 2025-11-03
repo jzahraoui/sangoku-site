@@ -1278,36 +1278,45 @@ class MeasurementViewModel {
     };
 
     this.buttonEqualizeSub = async () => {
-      if (this.uniqueSubsMeasurements().length === 0) {
-        this.handleError('No subwoofers found');
-        return;
-      }
-      if (this.uniqueSubsMeasurements().length === 1) {
-        this.buttonSingleSubOptimizer(this.uniqueSubsMeasurements()[0]);
-      } else if (this.uniqueSubsMeasurements().length > 1) {
-        const maximisedSum = this.measurements().find(
-          item => item.title() === MeasurementViewModel.maximisedSumTitle
-        );
+      if (this.isProcessing()) return;
+      try {
+        this.isProcessing(true);
 
-        if (!maximisedSum) {
-          this.handleError('No maximised sum found');
+        if (this.uniqueSubsMeasurements().length === 0) {
+          this.handleError('No subwoofers found');
           return;
         }
-        await this.equalizeSub(maximisedSum);
+        if (this.uniqueSubsMeasurements().length === 1) {
+          this.buttonSingleSubOptimizer(this.uniqueSubsMeasurements()[0]);
+        } else if (this.uniqueSubsMeasurements().length > 1) {
+          const maximisedSum = this.measurements().find(
+            item => item.title() === MeasurementViewModel.maximisedSumTitle
+          );
 
-        const filters = await maximisedSum.getFilters();
+          if (!maximisedSum) {
+            this.handleError('No maximised sum found');
+            return;
+          }
+          await this.equalizeSub(maximisedSum);
 
-        this.status(`${this.status()} \nApply calculated filters to each sub`);
+          const filters = await maximisedSum.getFilters();
 
-        const subsMeasurements = this.uniqueSubsMeasurements();
+          this.status(`${this.status()} \nApply calculated filters to each sub`);
 
-        for (const sub of subsMeasurements) {
-          // do not overwrite the all pass filter if set
-          await sub.setFilters(filters, false);
-          await sub.copyFiltersToOther();
-          // ensure that cumulative IR shift and inversion is copied to other positions
-          await sub.copyCumulativeIRShiftToOther();
+          const subsMeasurements = this.uniqueSubsMeasurements();
+
+          for (const sub of subsMeasurements) {
+            // do not overwrite the all pass filter if set
+            await sub.setFilters(filters, false);
+            await sub.copyFiltersToOther();
+            // ensure that cumulative IR shift and inversion is copied to other positions
+            await sub.copyCumulativeIRShiftToOther();
+          }
         }
+      } catch (error) {
+        this.handleError(`Equalize Subs failed: ${error.message}`, error);
+      } finally {
+        this.isProcessing(false);
       }
     };
 
