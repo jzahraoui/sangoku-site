@@ -11,6 +11,7 @@ import AvrCaracteristics from './avr-caracteristics.js';
 import ko from 'knockout';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import ampAssignType from './amp-type.js';
 
 const store = new PersistentStore('myAppData');
 
@@ -31,6 +32,9 @@ class MeasurementViewModel {
     this.translations = ko.observable(
       translations[localStorage.getItem('userLanguage') || 'en']
     );
+
+    this.ocaFileFormat = ko.observable('odd');
+    this.avrIpAddress = ko.observable('');
 
     // retreive version from index.html
     this.currentVersion = document
@@ -1008,6 +1012,7 @@ class MeasurementViewModel {
             `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`
           );
         }
+        OCAFile.fileFormat = this.ocaFileFormat();
         OCAFile.tcName = `${this.targetCurve} ${await this.mainTargetLevel()}dB`;
         OCAFile.softRoll = this.softRoll();
         OCAFile.enableDynamicEq = this.enableDynamicEq();
@@ -1019,7 +1024,7 @@ class MeasurementViewModel {
         OCAFile.subwooferOutput = this.subwooferOutput();
         OCAFile.lpfForLFE = this.lpfForLFE();
         OCAFile.numberOfSubwoofers = this.uniqueSubsMeasurements().length;
-        OCAFile.versionEvo = this.currentVersion;
+        OCAFile.versionEvo = `RCH ${this.currentVersion}`;
 
         const jsonData = await OCAFile.createOCAFile(this.uniqueMeasurements());
 
@@ -1033,8 +1038,10 @@ class MeasurementViewModel {
           .slice(0, 16)
           .replace('T', '-')
           .replaceAll(':', '-');
-        const model = OCAFile.model.replaceAll(' ', '-');
-        const filename = `${timestamp}_${this.targetCurve}_${model}.oca`;
+        const model = avrData.targetModelName.replaceAll(' ', '-');
+        const filename = `${timestamp}_${this.ocaFileFormat()}_${
+          this.targetCurve
+        }_${model}.oca`;
 
         // Create blob
         const blob = new Blob([jsonData], {
@@ -2578,6 +2585,8 @@ class MeasurementViewModel {
       data.overallBoostValue && this.overallBoostValue(data.overallBoostValue);
       data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
       data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
+      data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
+      data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
     }
   }
 
@@ -2604,6 +2613,8 @@ class MeasurementViewModel {
       upperFrequencyBound: this.upperFrequencyBound(),
       lowerFrequencyBound: this.lowerFrequencyBound(),
       apiBaseUrl: this.apiBaseUrl(),
+      ocaFileFormat: this.ocaFileFormat(),
+      avrIpAddress: this.avrIpAddress(),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
