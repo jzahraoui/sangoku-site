@@ -26,14 +26,11 @@ const values = [
 const ampAssignType = Object.freeze({
   ...Object.fromEntries(values.map(v => [v, v])),
   getByIndex: index => {
-    if (index < 1 || index >= values.length + 1)
-      throw new Error(`Invalid EnAmpAssignType index: ${index}`);
-    return values[index - 1];
+    if (index < 0 || index >= values.length) return null;
+    return values[index];
   },
   getIndexByValue: value => {
-    const index = values.indexOf(value);
-    if (index === -1) throw new Error(`Invalid EnAmpAssignType value: ${value}`);
-    return index + 1;
+    return values.indexOf(value);
   },
 });
 
