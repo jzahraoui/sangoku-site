@@ -22,7 +22,7 @@ class MeasurementViewModel {
 
   UNKNOWN_GROUP_NAME = 'UNKNOWN';
   inhibitGraphUpdates = true;
-  blocking = true;
+  blocking = false;
   pollingInterval = 1000; // 1 seconds
 
   constructor() {
@@ -647,9 +647,10 @@ class MeasurementViewModel {
         this.status('Reseting...');
 
         this.appendStatus('Set Generic EQ');
-        await this.apiService.postSafe('eq/default-equaliser', {
-          ...MeasurementItem.defaulEqtSettings,
-        });
+        await this.apiService.postSafe(
+          'eq/default-equaliser',
+          MeasurementItem.defaulEqtSettings
+        );
 
         this.appendStatus('Clear commands');
         await this.apiService.clearCommands();
