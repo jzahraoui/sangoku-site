@@ -311,20 +311,6 @@ export default class RewApi {
     }
   }
 
-  // ERROR: Causing interruption problems
-  async throwError(errorInput, error) {
-    const errorMessage = Array.isArray(errorInput)
-      ? errorInput.join('\n\n')
-      : errorInput?.toString() || 'An unknown error occurred';
-
-    await this.clearCommands();
-    await this.updateAPI('inhibit-graph-updates', false);
-    await this.updateAPI('blocking', false);
-
-    console.error(errorMessage, error);
-    throw new Error(errorMessage, { cause: error });
-  }
-
   // Helper to make HTTP requests with consistent error handling
   async fetchWithRetry(url, options, retries = 3, expectedProcess = null) {
     if (!url || !options) {
