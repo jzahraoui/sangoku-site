@@ -747,8 +747,9 @@ class MeasurementItem {
 
       return alignSPLOffset;
     } catch (error) {
-      console.error('Error extracting alignSPLOffsetdB:', error);
-      return null;
+      throw new Error(`Failed to get align SPL offset: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
