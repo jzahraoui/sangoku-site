@@ -65,6 +65,8 @@ class MeasurementViewModel {
     this.hasError = ko.computed(() => this.error() !== '');
     this.hasItems = ko.computed(() => this.measurements().length > 0);
 
+    this.appendStatus = msg => this.status(`${this.status()}\n${msg}`);
+
     this.handleError = (message, error) => {
       console.error(message, error);
       this.error(message);
@@ -541,19 +543,15 @@ class MeasurementViewModel {
           const subResponsesTitles = subResponses.map(response =>
             response.displayMeasurementTitle()
           );
-          this.status(
-            `${this.status()} \nImporting to position: ${position}\n${subResponsesTitles.join(
-              '\r\n'
-            )}`
+          this.appendStatus(
+            `Importing to position: ${position}\n${subResponsesTitles.join('\r\n')}`
           );
 
           await this.businessTools.importFilterInREW(REWconfigs, subResponses);
-          this.status(
-            `${this.status()} \nREW import successful for position: ${position}`
-          );
+          this.appendStatus(`REW import successful for position: ${position}`);
         }
 
-        this.status(`${this.status()} Importing finished`);
+        this.appendStatus(`Importing finished`);
       } catch (error) {
         this.handleError(`REW import failed: ${error.message}`, error);
       } finally {
@@ -645,19 +643,24 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       try {
         this.isProcessing(true);
+
         this.status('Reseting...');
-        const defaultSettings = { ...MeasurementItem.defaulEqtSettings };
-        this.status(`${this.status()}\nSet Generic EQ`);
-        await this.apiService.postSafe(`eq/default-equaliser`, defaultSettings);
-        this.status(`${this.status()}\nClear commands`);
+
+        this.appendStatus('Set Generic EQ');
+        await this.apiService.postSafe('eq/default-equaliser', {
+          ...MeasurementItem.defaulEqtSettings,
+        });
+
+        this.appendStatus('Clear commands');
         await this.apiService.clearCommands();
+
         const firstMeasurementLevel = await this.mainTargetLevel();
         for (const item of this.measurements()) {
-          this.status(`${this.status()}\nReseting ${item.displayMeasurementTitle()}`);
+          this.appendStatus(`Reseting ${item.displayMeasurementTitle()}`);
           await item.resetAll(firstMeasurementLevel);
         }
 
-        this.status(`${this.status()}\nReset successful`);
+        this.appendStatus('Reset successful');
       } catch (error) {
         this.handleError(`Reset failed: ${error.message}`, error);
       } finally {
@@ -693,7 +696,7 @@ class MeasurementViewModel {
         this.selectedAverageMethod('');
         this.selectedMeasurementsFilter(true);
 
-        this.status(`${this.status()}\nReset successful`);
+        this.appendStatus(`Reset successful`);
       } catch (error) {
         this.handleError(`Reset failed: ${error.message}`, error);
       }
@@ -888,7 +891,7 @@ class MeasurementViewModel {
           });
         }
 
-        this.status(`${this.status()} \nSPL alignment successful `);
+        this.appendStatus(`SPL alignment successful `);
       } catch (error) {
         this.handleError(`SPL alignment: ${error.message}`, error);
       } finally {
@@ -909,7 +912,7 @@ class MeasurementViewModel {
         // Process each position's subwoofer measurements
         const positionGroups = this.byPositionsGroupedSubsMeasurements();
         for (const [position, subResponses] of Object.entries(positionGroups)) {
-          this.status(`${this.status()} \nProcessing position ${position}`);
+          this.appendStatus(`Processing position ${position}`);
 
           // Handle based on number of subwoofers
           if (subResponses.length === 0) continue;
@@ -982,13 +985,11 @@ class MeasurementViewModel {
     this.buttongenratesPreview = async () => {
       for (const item of this.uniqueSpeakersMeasurements()) {
         // display progression in the status
-        this.status(
-          `${this.status()} \nGenerating preview for ${item.displayMeasurementTitle()}`
-        );
+        this.appendStatus(`Generating preview for ${item.displayMeasurementTitle()}`);
         await item.previewMeasurement();
       }
 
-      this.status(`${this.status()} \nPreview generated successfully`);
+      this.appendStatus(`Preview generated successfully`);
     };
 
     this.buttongeneratesFilters = async () => {
@@ -998,13 +999,11 @@ class MeasurementViewModel {
 
         for (const item of this.uniqueSpeakersMeasurements()) {
           // display progression in the status
-          this.status(
-            `${this.status()} \nGenerating filter for channel ${item.channelName()}`
-          );
+          this.appendStatus(`Generating filter for channel ${item.channelName()}`);
           await item.createStandardFilter();
         }
 
-        this.status(`${this.status()} \nFilters generated successfully`);
+        this.appendStatus(`Filters generated successfully`);
       } catch (error) {
         this.handleError(`Filter generation failed: ${error.message}`, error);
       } finally {
@@ -1356,7 +1355,7 @@ class MeasurementViewModel {
 
         const filters = await maximisedSum.getFilters();
 
-        this.status(`${this.status()} \nApply calculated filters to each sub`);
+        this.appendStatus(`Apply calculated filters to each sub`);
 
         const subsMeasurements = this.uniqueSubsMeasurements();
 
@@ -1368,7 +1367,7 @@ class MeasurementViewModel {
           await sub.copyCumulativeIRShiftToOther();
         }
 
-        this.status(`${this.status()} \nSuccessful`);
+        this.appendStatus(`Successful`);
       } catch (error) {
         this.handleError(`Equalize Subs failed: ${error.message}`, error);
       } finally {
@@ -1386,7 +1385,7 @@ class MeasurementViewModel {
         await this.equalizeSub(subMeasurement);
         await subMeasurement.copyFiltersToOther();
 
-        this.status(`${this.status()} \nSuccessful`);
+        this.appendStatus(`Successful`);
       } catch (error) {
         this.handleError(`Equalize Subs failed: ${error.message}`, error);
       } finally {
@@ -1482,18 +1481,16 @@ class MeasurementViewModel {
         await this.setSameDelayToAll(subsMeasurements);
 
         const optimizerConfig = this.createOptimizerConfig(lowFrequency, highFrequency);
-        this.status(
-          `${this.status()} \nfrequency range: ${optimizerConfig.frequency.min}Hz - ${
-            optimizerConfig.frequency.max
-          }Hz`
+        this.appendStatus(
+          `frequency range: ${optimizerConfig.frequency.min}Hz - ${optimizerConfig.frequency.max}Hz`
         );
-        this.status(
-          `${this.status()} delay range: ${optimizerConfig.delay.min * 1000}ms - ${
+        this.appendStatus(
+          `delay range: ${optimizerConfig.delay.min * 1000}ms - ${
             optimizerConfig.delay.max * 1000
           }ms`
         );
 
-        this.status(`${this.status()} \nDeleting previous settings...`);
+        this.appendStatus(`Deleting previous settings...`);
 
         const previousMaxSum = this.measurements().filter(item =>
           item.title().startsWith(MeasurementViewModel.maximisedSumTitle)
@@ -1513,7 +1510,7 @@ class MeasurementViewModel {
           frequencyResponses.push(frequencyResponse);
         }
 
-        this.status(`${this.status()} \nSarting lookup...`);
+        this.appendStatus(`Sarting lookup...`);
         const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
         const optimizerResults = optimizer.optimizeSubwoofers();
 
@@ -1521,9 +1518,9 @@ class MeasurementViewModel {
           await this.applyOptimizedSubSettings(sub);
         }
 
-        this.status(`${this.status()} \n${optimizer.logText}`);
+        this.appendStatus(`${optimizer.logText}`);
 
-        this.status(`${this.status()} \nCreates sub sumation`);
+        this.appendStatus(`Creates sub sumation`);
         // DEBUG use REW api way to generate the sum for compare
         // const maximisedSum = await this.produceSumProcess(subsMeasurements);
 
@@ -1552,7 +1549,7 @@ class MeasurementViewModel {
           await maximisedSum.setSingleFilter(maximisedSumFilter);
         }
 
-        this.status(`${this.status()} \nMultiSubOptimizer successfull`);
+        this.appendStatus(`MultiSubOptimizer successfull`);
       } catch (error) {
         this.handleError(`MultiSubOptimizer failed: ${error.message}`, error);
       } finally {
@@ -1767,8 +1764,8 @@ class MeasurementViewModel {
       subMeasurement.dectedFallOffHigh
     );
 
-    this.status(
-      `${this.status()} \nCreating EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`
+    this.appendStatus(
+      `Creating EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`
     );
 
     await this.apiService.postSafe(`eq/match-target-settings`, {
@@ -1867,7 +1864,7 @@ class MeasurementViewModel {
       );
 
       logMessage += ` => ${alignOffset}dB`;
-      this.status(`${this.status()} ${logMessage}`);
+      this.appendStatus(`${logMessage}`);
 
       measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
       measurement.alignSPLOffsetdB(alignOffset);
@@ -2140,7 +2137,7 @@ class MeasurementViewModel {
     const subResponsesTitles = subsList.map(response =>
       response.displayMeasurementTitle()
     );
-    this.status(`${this.status()} \nUsing: \n${subResponsesTitles.join('\r\n')}`);
+    this.appendStatus(`Using: \n${subResponsesTitles.join('\r\n')}`);
     // get first subsList element position
     const position = subsList[0].position();
     const resultTitle = `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
@@ -2157,8 +2154,8 @@ class MeasurementViewModel {
       true
     );
 
-    this.status(
-      `${this.status()} \nSubwoofer sum created successfully: ${newDefaultLfePredicted.title()}`
+    this.appendStatus(
+      `Subwoofer sum created successfully: ${newDefaultLfePredicted.title()}`
     );
     return newDefaultLfePredicted;
   }
@@ -2311,9 +2308,7 @@ class MeasurementViewModel {
     // remove associatedFilter
     await this.removeMeasurementUuid(item.associatedFilter);
 
-    this.status(
-      `${this.status()} \nmeasurement ${item.displayMeasurementTitle()} removed`
-    );
+    this.appendStatus(`measurement ${item.displayMeasurementTitle()} removed`);
 
     return true;
   }
