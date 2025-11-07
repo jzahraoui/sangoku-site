@@ -2199,12 +2199,9 @@ class MeasurementViewModel {
 
     this.measurements(mergedMeasurements);
 
-    // Remove deleted measurements
+    // Log deleted measurements
     for (const m of currentMeasurements) {
-      if (
-        !newKeys.has(m.uuid) &&
-        this.measurements.remove(item => item.uuid === m.uuid)
-      ) {
+      if (!newKeys.has(m.uuid)) {
         console.debug(`removed: ${m.uuid}`);
       }
     }
