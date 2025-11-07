@@ -186,34 +186,12 @@ class MeasurementViewModel {
     // Array of frequency options with fallback values
     this.alingFrequencies = ko.computed(() => {
       const indexes = this.jsonAvrData()?.avr?.frequencyIndexes;
-      return (
-        indexes || [
-          { value: 0, text: 'N/A' },
-          { value: 40, text: '40Hz' },
-          { value: 60, text: '60Hz' },
-          { value: 80, text: '80Hz' },
-          { value: 90, text: '90Hz' },
-          { value: 100, text: '100Hz' },
-          { value: 120, text: '120Hz' },
-          { value: 150, text: '150Hz' },
-          { value: 200, text: '200Hz' },
-        ]
-      );
+      return indexes || AvrCaracteristics.DEFAULT_FREQUENCIES;
     });
 
     this.LfeFrequencies = ko.computed(() => {
       const freqs = this.jsonAvrData()?.avr?.lfeFrequencies;
-      return (
-        freqs || [
-          { value: 80, text: '80Hz' },
-          { value: 90, text: '90Hz' },
-          { value: 100, text: '100Hz' },
-          { value: 120, text: '120Hz' },
-          { value: 150, text: '150Hz' },
-          { value: 200, text: '200Hz' },
-          { value: 250, text: '250Hz' },
-        ]
-      );
+      return freqs || AvrCaracteristics.DEFAULT_LFE_FREQUENCIES;
     });
 
     // subwoofer filter options

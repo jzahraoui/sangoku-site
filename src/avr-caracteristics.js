@@ -300,6 +300,28 @@ class AvrCaracteristics {
     'Marantz SR8015',
   ]);
 
+  static DEFAULT_FREQUENCIES = [
+    { value: 0, text: 'Large' },
+    { value: 40, text: '40Hz' },
+    { value: 60, text: '60Hz' },
+    { value: 80, text: '80Hz' },
+    { value: 90, text: '90Hz' },
+    { value: 100, text: '100Hz' },
+    { value: 120, text: '120Hz' },
+    { value: 150, text: '150Hz' },
+    { value: 200, text: '200Hz' },
+    { value: 250, text: '250Hz' },
+  ];
+
+  static getLfeFrequencies(frequencies) {
+    // WARNING: whithout map store sanitization function will consider this a duplicate and remove them
+    return (frequencies || this.DEFAULT_FREQUENCIES).slice(3).map(f => ({ ...f }));
+  }
+
+  static DEFAULT_LFE_FREQUENCIES = AvrCaracteristics.getLfeFrequencies(
+    AvrCaracteristics.DEFAULT_FREQUENCIES
+  );
+
   /**
    * Finds and returns an EQ type by its ID
    * @param {number} id - The ID of the EQ type to find
@@ -344,7 +366,7 @@ class AvrCaracteristics {
     this.speedOfSound = this.getSpeedOfSound();
     this.minDistAccuracy = this.getMinDistAccuracy();
     this.frequencyIndexes = this.getFrequencyIndexes(this.targetModelName);
-    this.lfeFrequencies = this.getLfeFrequencies(this.targetModelName);
+    this.lfeFrequencies = AvrCaracteristics.getLfeFrequencies(this.frequencyIndexes);
     this.multEQDetails = this.configureMultEQ();
     this.multEQType = this.multEQDetails.name;
     this.multEQSpecs = this.multEQDetails.specs;
@@ -447,7 +469,7 @@ class AvrCaracteristics {
 
     // Add standard frequencies
     frequencies.push(
-      { value: 0, text: 'N/A' },
+      { value: 0, text: 'Large' },
       { value: 40, text: '40Hz' },
       { value: 60, text: '60Hz' }
     );
@@ -472,13 +494,6 @@ class AvrCaracteristics {
     frequencies.push({ value: 200, text: '200Hz' }, { value: 250, text: '250Hz' });
 
     return frequencies;
-  }
-
-  getLfeFrequencies(modelName) {
-    const frequencies = this.getFrequencyIndexes(modelName);
-
-    // remove the first 3 elements (0Hz, 40Hz, 60Hz)
-    return frequencies.slice(3);
   }
 
   hasSoftRollDac() {
