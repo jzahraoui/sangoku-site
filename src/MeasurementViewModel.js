@@ -2186,37 +2186,32 @@ class MeasurementViewModel {
 
   mergeMeasurements(data) {
     const currentMeasurements = this.measurements();
-    const existingKeys = new Set(currentMeasurements.map(m => m.uuid));
     const newKeys = new Set(Object.values(data).map(m => m.uuid));
 
-    // Handle updates and additions
+    // Update existing or create new measurements
     const mergedMeasurements = Object.entries(data).map(([key, item]) => {
-      const existingMeasurement = currentMeasurements.find(m => m.uuid === item.uuid);
-      if (existingMeasurement) {
-        return this.updateObservableObject(existingMeasurement, item);
-      }
+      const existing = currentMeasurements.find(m => m.uuid === item.uuid);
+      if (existing) return this.updateObservableObject(existing, item);
+
       console.debug(`Create new measurement: ${key}: ${item.title}`);
       return new MeasurementItem(item, this);
     });
 
     this.measurements(mergedMeasurements);
 
-    // Handle deletions
-    const deletedKeys = [...existingKeys].filter(uuid => !newKeys.has(uuid));
-    if (deletedKeys.length > 0) {
-      for (const uuid of deletedKeys) {
-        const isDeleted = this.measurements.remove(item => item.uuid === uuid);
-        if (isDeleted) console.debug(`removed: ${uuid}`);
+    // Remove deleted measurements
+    for (const m of currentMeasurements) {
+      if (
+        !newKeys.has(m.uuid) &&
+        this.measurements.remove(item => item.uuid === m.uuid)
+      ) {
+        console.debug(`removed: ${m.uuid}`);
       }
     }
 
-    // update associated filters
-    const unlikedFilter = mergedMeasurements.filter(
-      item => item.associatedFilter && !newKeys.has(item.associatedFilter)
-    );
-
-    if (unlikedFilter.length > 0) {
-      for (const item of unlikedFilter) {
+    // Clear orphaned associated filters
+    for (const item of mergedMeasurements) {
+      if (item.associatedFilter && !newKeys.has(item.associatedFilter)) {
         item.associatedFilter = null;
         console.debug(`Removing filter: ${item.displayMeasurementTitle()}`);
       }
