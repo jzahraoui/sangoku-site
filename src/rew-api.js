@@ -367,12 +367,7 @@ export default class RewApi {
       const processID = options.method === 'POST' && this.extractProcessID(data, url);
 
       // Handle 200: Check if polling is needed for measurements
-      if (response.status === 200) {
-        return this.handleStatus200(url, processID, data, MAX_PULLING_RETRY);
-      }
-
-      // Handle 202: Async process, poll for completion
-      if (response.status === 202) {
+      if (processID && (response.status === 200 || response.status === 202)) {
         return this.handleStatus202(url, processID, MAX_PULLING_RETRY);
       }
 
@@ -451,51 +446,22 @@ export default class RewApi {
     }
   }
 
-  async handleStatus200(url, processID, data, maxRetries) {
-    if (!processID) {
-      return data;
-    }
-
-    let processExpectedResponse;
-
-    if (url.startsWith('import')) {
-      processExpectedResponse = processID;
-    } else if (!url.startsWith('import')) {
-      processExpectedResponse = {
-        processName: processID,
-        message: 'Completed',
-      };
-    }
-
-    return await this.fetchWithRetry(
-      this.getResultUrl(url),
-      { method: 'GET' },
-      maxRetries,
-      processExpectedResponse
-    );
+  getProcessExpectedResponse(url, processID) {
+    return url.startsWith('import')
+      ? processID
+      : { processName: processID, message: 'Completed' };
   }
 
   async handleStatus202(url, processID, maxRetries) {
     if (!processID) {
       throw new Error('Invalid process ID in response');
     }
-    let processExpectedResponse;
 
-    if (url.startsWith('import')) {
-      processExpectedResponse = processID;
-    } else {
-      processExpectedResponse = {
-        processName: processID,
-        message: 'Completed',
-      };
-    }
-
-    const resultUrl = this.getResultUrl(url);
     return await this.fetchWithRetry(
-      resultUrl,
+      this.getResultUrl(url),
       { method: 'GET' },
       maxRetries,
-      processExpectedResponse
+      this.getProcessExpectedResponse(url, processID)
     );
   }
 
