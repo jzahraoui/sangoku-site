@@ -59,16 +59,22 @@ class MeasurementItem {
       item.initialSplOffsetdB || item.splOffsetdB - item.alignSPLOffsetdB;
 
     // restore saved data
-    const isSW = item.title.startsWith('SW');
-    const defaultCrossover = isSW
+    this.isSub = ko.computed(() => this.title().startsWith('SW'));
+    const defaultCrossover = this.isSub()
       ? 0
       : item.crossover || MeasurementItem.DEFAULT_CROSSOVER_VALUE;
-    const defaultSpeakerType = isSW ? 'E' : item.speakerType || 'S';
 
     // Observable properties
     this.crossover = ko.observable(defaultCrossover);
-    this.speakerType = ko.observable(defaultSpeakerType);
-    this.isSub = ko.observable(isSW);
+    this.speakerType = ko.computed(() => {
+      if (this.isSub()) {
+        return 'E';
+      } else if (this.crossover() === 0) {
+        return 'L';
+      } else {
+        return 'S';
+      }
+    });
     this.numberOfpositions = ko.observable(0);
     this.positionName = ko.observable('');
     this.displayPositionText = ko.observable('');
@@ -216,29 +222,6 @@ class MeasurementItem {
         this.exceedsDistance() === 'error' ||
         !this.isChannelDetected()
     );
-
-    // subscriptions
-    this.speakerType.subscribe(newValue => {
-      if (this.isSub()) {
-        return;
-      } else if (newValue === 'S') {
-        if (this.crossover() === 0) {
-          this.crossover(MeasurementItem.DEFAULT_CROSSOVER_VALUE); //default value
-        }
-      } else {
-        this.crossover(0);
-      }
-    });
-
-    this.crossover.subscribe(newValue => {
-      if (this.isSub()) {
-        return;
-      } else if (newValue === 0) {
-        this.speakerType('L');
-      } else if (this.speakerType() === 'L') {
-        this.speakerType('S');
-      }
-    });
 
     this.buttonCreateFilter = async () => {
       if (parentViewModel.isProcessing()) return;
@@ -678,10 +661,8 @@ class MeasurementItem {
     });
     this.title(newTitle);
 
-    if (newTitle.startsWith('SW')) {
-      this.isSub(true);
+    if (this.isSub()) {
       this.crossover(0);
-      this.speakerType('E');
     }
     return true;
   }
@@ -1085,7 +1066,6 @@ class MeasurementItem {
 
     for (const otherItem of targets) {
       otherItem.crossover(this.crossover());
-      otherItem.speakerType(this.speakerType());
     }
 
     return true;
@@ -1726,7 +1706,6 @@ class MeasurementItem {
       timeOfIRStartSeconds: this.timeOfIRStartSeconds,
       timeOfIRPeakSeconds: this.timeOfIRPeakSeconds,
       crossover: this.crossover(),
-      speakerType: this.speakerType(),
       initialSplOffsetdB: this.initialSplOffsetdB,
       isFilter: this.isFilter,
       haveImpulseResponse: this.haveImpulseResponse,

@@ -892,7 +892,6 @@
                     value: gobalCrossover"
                     ></select>
                   </th>
-                  <th data-i18n="speaker_type" class="column-header">Speaker Type</th>
                   <th data-i18n="inverted" class="column-header">Inverted</th>
                   <th class="action-column">
                     <button
@@ -950,20 +949,8 @@
                     options: $parent.alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
-                    enable: crossover() !== 0,
-                    value: crossover"
-                    ></select>
-                  </td>
-                  <td>
-                    <select
-                      id="speakerTypeSelect"
-                      class="combo-box"
-                      data-bind="
-                    options: $parent.speakerTypeChoices.filter(function(t) { return !isSub() ? t.value !== 'E' : true; }),
-                    optionsText: 'text',
-                    optionsValue: 'value',
                     enable: !isSub(),
-                    value: speakerType"
+                    value: crossover"
                     ></select>
                   </td>
                   <td style="text-align: center">

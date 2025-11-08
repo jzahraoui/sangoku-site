@@ -86,13 +86,6 @@ class MeasurementViewModel {
     // Observable for the selected value
     this.gobalCrossover = ko.observable();
 
-    // Array of frequency options
-    this.speakerTypeChoices = [
-      { value: 'S', text: 'Small' },
-      { value: 'L', text: 'Large' },
-      { value: 'E', text: 'Sub' },
-    ];
-
     // Filter observables
     this.selectedMeasurementsFilter = ko.observable(true);
 
