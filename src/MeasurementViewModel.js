@@ -20,7 +20,6 @@ class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
   static maximisedSumTitle = 'LFE Max Sum';
 
-  UNKNOWN_GROUP_NAME = 'UNKNOWN';
   inhibitGraphUpdates = true;
   blocking = false;
   pollingInterval = 1000; // 1 seconds

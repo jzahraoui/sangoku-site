@@ -1,16 +1,19 @@
+import MeasurementItem from './MeasurementItem.js';
+
 class BusinessTools {
+  static LPF_REVERTED_SUFFIX = ' w/o LPF';
+  static RESULT_PREFIX = 'final ';
+  static AVERAGE_SUFFIX = 'avg';
+
   constructor(parentViewModel) {
     this.viewModel = parentViewModel;
-    this.LPF_REVERTED_SUFFIX = ' w/o LPF';
-    this.RESULT_PREFIX = 'final ';
-    this.AVERAGE_SUFFIX = 'avg';
   }
 
   async revertLfeFilterProccess(freq, replaceOriginal = false, deletePrevious = true) {
     try {
       const previousSubResponses = this.viewModel
         .subsMeasurements()
-        .filter(response => response.title().includes(this.LPF_REVERTED_SUFFIX));
+        .filter(response => response.title().includes(BusinessTools.LPF_REVERTED_SUFFIX));
       if (deletePrevious) {
         await this.viewModel.removeMeasurements(previousSubResponses);
       }
@@ -65,7 +68,7 @@ class BusinessTools {
         // Set new measurement properties
         const newTitle = replaceOriginal
           ? subResponse.title()
-          : subResponse.title() + this.LPF_REVERTED_SUFFIX;
+          : subResponse.title() + BusinessTools.LPF_REVERTED_SUFFIX;
 
         await division.setTitle(newTitle);
         await division.setInverted(originalState.inverted);
@@ -141,7 +144,7 @@ class BusinessTools {
 
     // Process each code group sequentially
     for (const code of Object.keys(groupedResponse)) {
-      if (!groupedResponse[code]?.items || code === this.viewModel.UNKNOWN_GROUP_NAME) {
+      if (!groupedResponse[code]?.items || code === MeasurementItem.UNKNOWN_GROUP_NAME) {
         continue;
       }
 
@@ -176,7 +179,7 @@ class BusinessTools {
         throw new Error(`${code}: can not rename the average...`);
       }
 
-      await vectorAverage.setTitle(code + this.AVERAGE_SUFFIX);
+      await vectorAverage.setTitle(code + BusinessTools.AVERAGE_SUFFIX);
 
       await this._deleteOriginalMeasurements(uuids, deleteOriginal);
     }
@@ -409,7 +412,7 @@ class BusinessTools {
       maxForwardSearchMs,
       false,
       `${
-        this.RESULT_PREFIX
+        BusinessTools.RESULT_PREFIX
       }${predictedSpeakerFiltered.title()} X@${cuttOffFrequency}Hz_P${predictedSpeakerFiltered.position()}`,
       0
     );
@@ -534,7 +537,7 @@ class BusinessTools {
     // set title
     const cxText = item.crossover() ? `X@${item.crossover()}Hz` : 'FB';
     const finalTitle = `${
-      this.RESULT_PREFIX
+      BusinessTools.RESULT_PREFIX
     }${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
 

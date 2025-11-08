@@ -2,6 +2,7 @@ import { CHANNEL_TYPES } from './audyssey.js';
 import 'decimal.js';
 import ko from 'knockout';
 import FrequencyResponse from './FrequencyResponse.js';
+import BusinessTools from './BusinessTools.js';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
@@ -11,6 +12,7 @@ class MeasurementItem {
   static DEFAULT_CROSSOVER_VALUE = 80;
   static leftWindowWidthMilliseconds = 30;
   static rightWindowWidthMilliseconds = 1000;
+  static UNKNOWN_GROUP_NAME = 'UNKNOWN';
 
   static measurementType = { SPEAKERS: 0, SUB: 1, FILTER: 2, AVERAGE: 3 };
   static defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
@@ -82,8 +84,7 @@ class MeasurementItem {
     // Computed properties
     this.channelName = ko.computed(
       () =>
-        CHANNEL_TYPES.getBestMatchCode(this.title()) ||
-        this.parentViewModel.UNKNOWN_GROUP_NAME
+        CHANNEL_TYPES.getBestMatchCode(this.title()) || MeasurementItem.UNKNOWN_GROUP_NAME
     );
 
     this.channelDetails = ko.computed(() => {
@@ -1715,19 +1716,19 @@ class MeasurementItem {
   }
 
   get isAverage() {
-    return this.title().endsWith(this.parentViewModel.businessTools.AVERAGE_SUFFIX);
+    return this.title().endsWith(BusinessTools.AVERAGE_SUFFIX);
   }
 
   get isPredicted() {
-    return this.title().startsWith(this.parentViewModel.businessTools.RESULT_PREFIX);
+    return this.title().startsWith(BusinessTools.RESULT_PREFIX);
   }
 
   get isLfePredicted() {
-    return this.title().startsWith(this.parentViewModel.businessTools.LFE_PREDICTED);
+    return this.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED);
   }
 
   get isUnknownChannel() {
-    return this.channelName() === this.parentViewModel.UNKNOWN_GROUP_NAME;
+    return this.channelName() === MeasurementItem.UNKNOWN_GROUP_NAME;
   }
 
   get isValidPosition() {
