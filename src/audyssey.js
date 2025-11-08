@@ -465,7 +465,9 @@ const CHANNEL_TYPES = {
 
     if (matchingResults.length > 1) {
       console.error(
-        `Ambiguous channel code: ${code} matches multiple channel types: ${matchingResults.map(value => value.channelIndex).join(', ')}`
+        `Ambiguous channel code: ${code} matches multiple channel types: ${matchingResults
+          .map(value => value.channelIndex)
+          .join(', ')}`
       );
     }
 
@@ -542,7 +544,9 @@ const CHANNEL_TYPES = {
     // if multiple results match
     if (uniqueCodes.length > 1) {
       console.error(
-        `Ambiguous channel name: ${name} matches multiple channel codes: ${result.join(', ')}`
+        `Ambiguous channel name: ${name} matches multiple channel codes: ${result.join(
+          ', '
+        )}`
       );
       return null;
     }
@@ -551,12 +555,14 @@ const CHANNEL_TYPES = {
   },
 
   getAllDistinctCodes() {
-    return [...new Set(
-      Object.values(CHANNEL_TYPES)
-        .filter(channel => channel && typeof channel === 'object' && channel.code)
-        .sort((a, b) => a.measurementOrder - b.measurementOrder)
-        .map(channel => channel.code)
-    )];
+    return [
+      ...new Set(
+        Object.values(CHANNEL_TYPES)
+          .filter(channel => channel && typeof channel === 'object' && channel.code)
+          .sort((a, b) => a.measurementOrder - b.measurementOrder)
+          .map(channel => channel.code)
+      ),
+    ];
   },
 
   getMeasurementOrder(channelType) {
@@ -573,6 +579,11 @@ const CHANNEL_TYPES = {
 
   getGroup(channelType) {
     return this[channelType]?.group;
+  },
+
+  getGroupByChannelIndex(index) {
+    const channelType = this.getByChannelIndex(index);
+    return channelType ? channelType.group : null;
   },
 
   getGroupMembers(groupName) {

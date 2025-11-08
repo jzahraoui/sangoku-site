@@ -60,23 +60,7 @@ class MeasurementItem {
     this.initialSplOffsetdB =
       item.initialSplOffsetdB || item.splOffsetdB - item.alignSPLOffsetdB;
 
-    // restore saved data
-    this.isSub = ko.computed(() => this.title().startsWith('SW'));
-    const defaultCrossover = this.isSub()
-      ? 0
-      : item.crossover || MeasurementItem.DEFAULT_CROSSOVER_VALUE;
-
     // Observable properties
-    this.crossover = ko.observable(defaultCrossover);
-    this.speakerType = ko.computed(() => {
-      if (this.isSub()) {
-        return 'E';
-      } else if (this.crossover() === 0) {
-        return 'L';
-      } else {
-        return 'S';
-      }
-    });
     this.numberOfpositions = ko.observable(0);
     this.positionName = ko.observable('');
     this.displayPositionText = ko.observable('');
@@ -95,6 +79,17 @@ class MeasurementItem {
         return CHANNEL_TYPES.getByChannelIndex(foundChannel.enChannelType);
       }
     });
+
+    this.groupName = ko.computed(() => this.channelDetails()?.group || 'Unknown');
+    this.crossover = ko.computed(() =>
+      this.parentViewModel.measurementsByGroup()[this.groupName()]?.crossover()
+    );
+    this.speakerType = ko.computed(() =>
+      this.parentViewModel.measurementsByGroup()[this.groupName()]?.speakerType()
+    );
+    this.isSub = ko.computed(
+      () => this.parentViewModel.measurementsByGroup()[this.groupName()]?.isSub
+    );
 
     this.position = ko.computed(() => {
       const groupedMeasurements = this.parentViewModel.groupedMeasurements();
@@ -662,9 +657,8 @@ class MeasurementItem {
     });
     this.title(newTitle);
 
-    if (this.isSub()) {
-      this.crossover(0);
-    }
+    // TODO if is sub ?
+
     return true;
   }
 
@@ -1056,22 +1050,6 @@ class MeasurementItem {
     return true;
   }
 
-  copyCrossoverToOther() {
-    const targets = this.parentViewModel
-      .notUniqueMeasurements()
-      .filter(response => response?.channelName() === this.channelName());
-
-    if (!targets.length) {
-      return false;
-    }
-
-    for (const otherItem of targets) {
-      otherItem.crossover(this.crossover());
-    }
-
-    return true;
-  }
-
   async copySplOffsetDeltadBToOther() {
     const targets = this.parentViewModel
       .notUniqueMeasurements()
@@ -1109,7 +1087,6 @@ class MeasurementItem {
     await this.copySplOffsetDeltadBToOther();
     await this.copyCumulativeIRShiftToOther();
     await this.copyFiltersToOther();
-    this.copyCrossoverToOther();
 
     return true;
   }

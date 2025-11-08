@@ -12,6 +12,7 @@ import ko from 'knockout';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import ampAssignType from './amp-type.js';
+import { CHANNEL_TYPES } from './audyssey.js';
 
 const store = new PersistentStore('myAppData');
 
@@ -159,13 +160,11 @@ class MeasurementViewModel {
 
     // Subscribe to changes in global crossover
     this.gobalCrossover.subscribe(newValue => {
-      if (newValue !== undefined) {
-        // Update all enabled crossover selections
-        ko.utils.arrayForEach(this.uniqueMeasurementsView(), measurement => {
-          if (!measurement.isSub()) {
-            measurement.crossover(newValue);
-          }
-        });
+      if (newValue === undefined) return;
+      for (const group of Object.values(this.measurementsByGroup())) {
+        if (!group.isSub) {
+          group.crossover(newValue);
+        }
       }
     });
 
@@ -211,6 +210,35 @@ class MeasurementViewModel {
     this.overallBoostValue = ko.observable(3);
     this.overallBoostValueMin = 0;
     this.overallBoostValueMax = 6;
+
+    this.measurementsByGroup = ko.computed(() => {
+      if (!this.jsonAvrData()) return {};
+
+      const groupMap = {};
+      for (const item of this.jsonAvrData().detectedChannels) {
+        const group = CHANNEL_TYPES.getGroupByChannelIndex(item.enChannelType);
+        if (group === null) {
+          throw new Error(
+            `Unknown channel type: ${item.commandId} (id:${item.enChannelType})`
+          );
+        }
+        if (!groupMap[group]) {
+          const isSub = group === 'Subwoofer';
+          const crossover = ko.observable(
+            isSub ? 0 : MeasurementItem.DEFAULT_CROSSOVER_VALUE
+          );
+          groupMap[group] = {
+            crossover,
+            isSub,
+            speakerType: ko.computed(() => {
+              if (isSub) return 'E';
+              return crossover() === 0 ? 'L' : 'S';
+            }),
+          };
+        }
+      }
+      return groupMap;
+    });
 
     this.validateFile = file => {
       const MAX_SIZE = 70 * 1024 * 1024;
@@ -2587,6 +2615,11 @@ class MeasurementViewModel {
       data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
       data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
       data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
+      if (data.measurementsByGroup) {
+        for (const [key, saved] of Object.entries(data.measurementsByGroup)) {
+          this.measurementsByGroup()[key]?.crossover(saved.crossover);
+        }
+      }
     }
   }
 
@@ -2615,6 +2648,12 @@ class MeasurementViewModel {
       apiBaseUrl: this.apiBaseUrl(),
       ocaFileFormat: this.ocaFileFormat(),
       avrIpAddress: this.avrIpAddress(),
+      measurementsByGroup: Object.fromEntries(
+        Object.entries(this.measurementsByGroup()).map(([key, group]) => [
+          key,
+          { crossover: group.crossover() },
+        ])
+      ),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
