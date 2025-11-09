@@ -506,7 +506,8 @@ class BusinessTools {
     } else {
       const relatedLfeMeasurement = item.relatedLfeMeasurement();
       if (!relatedLfeMeasurement) {
-        // TODO use createssum to get it
+        await this.viewModel.removeMeasurement(predictedChannel);
+        // LFE predicted must be done by the user to ensure filters are correct
         throw new Error(`Cannot find predicted LFE for position ${item.position()}`);
       }
 
