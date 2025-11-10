@@ -71,6 +71,7 @@ class MeasurementViewModel {
       console.error(message, error);
       this.error(message);
       this.status('');
+      this.apiService.clearCommands();
     };
 
     // Observable for selected speaker
