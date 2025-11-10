@@ -54,11 +54,11 @@ export default class RewApi {
 
   async checkTargetCurve() {
     const tcResponse = await fetch(`${this.baseUrl}/eq/house-curve`);
-    if (!tcResponse.ok) return '';
+    if (!tcResponse.ok) return 'None';
 
     const target = await tcResponse.json();
     const targetCurvePath = target?.message || target;
-    if (!targetCurvePath || typeof targetCurvePath !== 'string') return '';
+    if (!targetCurvePath || typeof targetCurvePath !== 'string') return 'None';
 
     console.info(`Using target curve : ${JSON.stringify(targetCurvePath)}`);
     const filename = targetCurvePath.replaceAll('\\', '/').split('/').pop();

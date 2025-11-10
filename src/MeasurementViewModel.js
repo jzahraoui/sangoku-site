@@ -21,11 +21,11 @@ class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
   static maximisedSumTitle = 'LFE Max Sum';
 
-  inhibitGraphUpdates = true;
   blocking = false;
   pollingInterval = 1000; // 1 seconds
 
   constructor() {
+    this.inhibitGraphUpdates = ko.observable(true);
     this.isPolling = ko.observable(false);
     this.pollerId = null;
     // Add translation support
@@ -45,7 +45,7 @@ class MeasurementViewModel {
     this.apiBaseUrl = ko.observable('http://localhost:4735');
     this.apiService = new RewApi(
       this.apiBaseUrl(),
-      this.inhibitGraphUpdates,
+      this.inhibitGraphUpdates(),
       this.blocking
     );
 
@@ -78,8 +78,8 @@ class MeasurementViewModel {
     this.selectedSpeaker = ko.observable('');
 
     // Observable for target curve
-    this.targetCurve = 'unknown';
-    this.rewVersion = '';
+    this.targetCurve = ko.observable('None');
+    this.rewVersion = ko.observable('');
 
     // Observable for the selected value
     this.selectedLfeFrequency = ko.observable('250');
@@ -145,7 +145,7 @@ class MeasurementViewModel {
           rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
           addFDW: false,
           addMTW: true,
-          mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.1],
+          mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.15],
         },
       },
     ];
@@ -213,7 +213,7 @@ class MeasurementViewModel {
     this.overallBoostValueMax = 6;
 
     this.measurementsByGroup = ko.computed(() => {
-      if (!this.jsonAvrData()) return {};
+      if (!this.jsonAvrData()?.detectedChannels) return {};
 
       const groupMap = {};
       for (const item of this.jsonAvrData().detectedChannels) {
@@ -315,9 +315,8 @@ class MeasurementViewModel {
         null,
         0
       );
-      const measurementItem = new MeasurementItem(item, this);
+      const measurementItem = await this.addMeasurementApi(item.uuid);
       measurementItem.IRPeakValue = max;
-      await this.addMeasurement(measurementItem);
       if (max >= 1) {
         console.warn(
           `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
@@ -517,7 +516,7 @@ class MeasurementViewModel {
 
     this.isProcessing.subscribe(async newValue => {
       // inhibit Graph Updates only during processing
-      if (this.isPolling() && this.inhibitGraphUpdates) {
+      if (this.isPolling() && this.inhibitGraphUpdates()) {
         await this.apiService.setInhibitGraphUpdates(newValue);
       }
       // Save to persistent when processing ends
@@ -595,6 +594,15 @@ class MeasurementViewModel {
       }
     };
 
+    this.refreshTargetCurve = async () => {
+      if (this.isProcessing()) return;
+      try {
+        this.targetCurve(await this.apiService.checkTargetCurve());
+      } catch (error) {
+        this.handleError(`Refresh target curve failed: ${error.message}`, error);
+      }
+    };
+
     this.buttoncheckREWButton = async () => {
       if (this.isProcessing()) return;
       try {
@@ -654,7 +662,7 @@ class MeasurementViewModel {
         this.appendStatus('Clear commands');
         await this.apiService.clearCommands();
 
-        const firstMeasurementLevel = await this.mainTargetLevel();
+        const firstMeasurementLevel = await this.getMainTargetLevel();
         for (const item of this.measurements()) {
           this.appendStatus(`Reseting ${item.displayMeasurementTitle()}`);
           await item.resetAll(firstMeasurementLevel);
@@ -683,8 +691,8 @@ class MeasurementViewModel {
         this.measurements([]);
         this.jsonAvrData(null);
 
-        this.targetCurve = '';
-        this.rewVersion = '';
+        this.targetCurve('');
+        this.rewVersion('');
         this.additionalBassGainValue(0);
         this.maxBoostIndividualValue(0);
         this.maxBoostOverallValue(0);
@@ -828,42 +836,45 @@ class MeasurementViewModel {
         const workingMeasurements = this.uniqueSpeakersMeasurements();
         if (workingMeasurements.length === 0) {
           throw new Error('No measurements found for SPL alignment');
+        } else if (workingMeasurements.length === 1) {
+          throw new Error('Only one measurement found for SPL alignment');
         }
         const workingMeasurementsUuids = workingMeasurements.map(m => m.uuid);
-        const firstMeasurement = workingMeasurements[0];
+        const firstWorkingMeasurement = workingMeasurements[0];
 
-        let alignSplOptions;
-        if (workingMeasurementsUuids.length === 1) {
-          alignSplOptions = {
-            frequencyHz: 2500,
-            spanOctaves: 5,
-            targetdB: MeasurementViewModel.DEFAULT_TARGET_LEVEL,
-          };
-        } else {
-          alignSplOptions = {
-            frequencyHz: 2500,
-            spanOctaves: 5,
-            targetdB: 'average',
-          };
-        }
-
-        await firstMeasurement.resetTargetSettings();
+        await firstWorkingMeasurement.resetTargetSettings();
         // working settings must match filter settings
         for (const work of workingMeasurements) {
-          await work.applyWorkingSettings();
+          await work.resetIrWindows();
+          await work.genericCommand('Smooth', { smoothing: '1/1' });
         }
 
         const alignResult = await this.processCommands(
           'Align SPL',
           [...workingMeasurementsUuids],
-          alignSplOptions
+          {
+            frequencyHz: 2500,
+            spanOctaves: 5,
+            targetdB: 'average',
+          }
         );
 
         // must be calculated before removing working settings
-        await firstMeasurement.eqCommands('Calculate target level');
+        await firstWorkingMeasurement.setTargetSettings({
+          shape: 'Bass limited',
+          bassManagementSlopedBPerOctave: 48,
+          bassManagementCutoffHz: 800,
+        });
+        await firstWorkingMeasurement.eqCommands('Calculate target level');
+        await firstWorkingMeasurement.resetTargetSettings();
+
+        // working settings must match filter settings
+        for (const work of workingMeasurements) {
+          await work.applyWorkingSettings();
+        }
 
         // set target level to all measurements including subs
-        await firstMeasurement.copyTargetLevelToAll();
+        await firstWorkingMeasurement.copyTargetLevelToAll();
 
         // update attribute for all measurements processed to be able to be used in copySplOffsetDeltadBToOther
         for (const work of workingMeasurements) {
@@ -906,8 +917,7 @@ class MeasurementViewModel {
         this.status('Computing sum...');
 
         // Ensure accurate predicted measurements with correct target level
-        const firstMeasurement = this.uniqueMeasurements()[0];
-        await firstMeasurement.copyTargetLevelToAll();
+        await this.firstMeasurement().copyTargetLevelToAll();
 
         // Process each position's subwoofer measurements
         const positionGroups = this.byPositionsGroupedSubsMeasurements();
@@ -1047,14 +1057,14 @@ class MeasurementViewModel {
         }
         const OCAFile = new OCAFileGenerator(avrData);
 
-        this.targetCurve = await this.apiService.checkTargetCurve();
-        if (!this.targetCurve) {
+        await this.refreshTargetCurve();
+        if (!this.targetCurve()) {
           throw new Error(
             `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`
           );
         }
         OCAFile.fileFormat = this.ocaFileFormat();
-        OCAFile.tcName = `${this.targetCurve} ${await this.mainTargetLevel()}dB`;
+        OCAFile.tcName = this.tcName();
         OCAFile.softRoll = this.softRoll();
         OCAFile.enableDynamicEq = this.enableDynamicEq();
         OCAFile.dynamicEqRefLevel = this.dynamicEqRefLevel();
@@ -1080,9 +1090,7 @@ class MeasurementViewModel {
           .replace('T', '-')
           .replaceAll(':', '-');
         const model = avrData.targetModelName.replaceAll(' ', '-');
-        const filename = `${timestamp}_${this.ocaFileFormat()}_${
-          this.targetCurve
-        }_${model}.oca`;
+        const filename = `${timestamp}_${this.ocaFileFormat()}_${this.targetCurve()}_${model}.oca`;
 
         // Create blob
         const blob = new Blob([jsonData], {
@@ -1110,13 +1118,12 @@ class MeasurementViewModel {
         if (!avrData?.targetModelName) {
           throw new Error(`Please load avr file first`);
         }
-        this.targetCurve = await this.apiService.checkTargetCurve();
-        if (!this.targetCurve) {
+        await this.refreshTargetCurve();
+        if (!this.targetCurve()) {
           throw new Error(
             `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`
           );
         }
-        this.rewVersion = await this.apiService.checkVersion();
         const selectedSpeaker = this.findMeasurementByUuid(this.selectedSpeaker());
         const selectedSpeakerText = selectedSpeaker?.displayMeasurementTitle() || 'None';
         const selectedSpeakerCrossover = selectedSpeaker?.crossover();
@@ -1142,8 +1149,8 @@ class MeasurementViewModel {
         textData += `BASIC SETTINGS\n`;
         textData += `-------------\n`;
         textData += `Loaded File:       ${this.loadedFileName()}\n`;
-        textData += `Target Curve:      ${this.targetCurve}\n`;
-        textData += `Target Level:      ${await this.mainTargetLevel()} dB\n`;
+        textData += `Target Curve:      ${this.targetCurve()}\n`;
+        textData += `Target Level:      ${this.mainTargetLevel()} dB\n`;
         textData += `Average Method:    ${this.selectedAverageMethod()}\n\n`;
 
         // AVR Info section
@@ -1208,7 +1215,7 @@ class MeasurementViewModel {
         // Version information
         textData += `VERSION INFORMATION\n`;
         textData += `-------------------\n`;
-        textData += `REW Version:       ${this.rewVersion}\n`;
+        textData += `REW Version:       ${this.rewVersion()}\n`;
         textData += `RCH Version:       ${this.currentVersion}\n\n`;
 
         // Save to persistent store
@@ -1245,7 +1252,7 @@ class MeasurementViewModel {
           .replace('T', '-')
           .replaceAll(':', '-');
         const model = avrData.targetModelName.replaceAll(' ', '-');
-        const filename = `${timestamp}_${this.targetCurve}_${model}.txt`;
+        const filename = `${timestamp}_${this.targetCurve()}_${model}.txt`;
 
         // Create blob
         const blob = new Blob([textData], {
@@ -1281,7 +1288,7 @@ class MeasurementViewModel {
         // Helper function to process chunks of measurements
         async function processMeasurementChunk(measurements) {
           for (const measurement of measurements) {
-            await measurement.resetAll();
+            await measurement.resetAll(this.mainTargetLevel());
             const frequencyResponse = await measurement.getFrequencyResponse();
             await measurement.applyWorkingSettings();
             const subName = measurement.channelName().replace('SW', 'SUB');
@@ -1663,6 +1670,17 @@ class MeasurementViewModel {
       return this.measurements();
     });
 
+    this.mainTargetLevel = ko.observable(MeasurementViewModel.DEFAULT_TARGET_LEVEL);
+
+    this.tcName = ko.pureComputed(() => {
+      return `${this.targetCurve()} ${this.mainTargetLevel()}dB`;
+    });
+
+    this.firstMeasurement = ko.pureComputed(() => {
+      const measurements = this.uniqueSpeakersMeasurements();
+      return measurements.length > 0 ? measurements[0] : null;
+    });
+
     this.minDistanceInMeters = ko.computed(() =>
       Math.min(...this.uniqueMeasurements().map(item => item.distanceInMeters()))
     );
@@ -1732,8 +1750,8 @@ class MeasurementViewModel {
     const previousTargetcurveTitle = 'Target';
 
     // delete previous targets curve
-    const previousTargetcurves = this.measurements().filter(
-      item => item.title() === previousTargetcurveTitle
+    const previousTargetcurves = this.measurements().filter(item =>
+      item.title().startsWith(previousTargetcurveTitle)
     );
 
     await this.removeMeasurements(previousTargetcurves);
@@ -1741,14 +1759,15 @@ class MeasurementViewModel {
     const targetMeasurement = await referenceMeasurement.eqCommands(
       'Generate target measurement'
     );
+    await this.getMainTargetLevel();
     await targetMeasurement.setTitle(
-      previousTargetcurveTitle,
+      `${previousTargetcurveTitle} ${this.tcName()}`,
       `from ${referenceMeasurement.title()}`
     );
   }
 
   async equalizeSub(subMeasurement) {
-    const firstMeasurementLevel = await this.mainTargetLevel();
+    const firstMeasurementLevel = await this.getMainTargetLevel();
     await subMeasurement.applyWorkingSettings();
     await subMeasurement.setTargetLevel(firstMeasurementLevel);
     await subMeasurement.resetTargetSettings();
@@ -1794,9 +1813,8 @@ class MeasurementViewModel {
     if (measurements.length <= 1) {
       return;
     }
-    const firstMeasurement = measurements[0];
     // align the others sub to first measurement delay
-    const mainDelay = firstMeasurement.cumulativeIRShiftSeconds();
+    const mainDelay = measurements[0].cumulativeIRShiftSeconds();
     for (const measurement of measurements) {
       await measurement.setcumulativeIRShiftSeconds(mainDelay);
     }
@@ -1810,11 +1828,9 @@ class MeasurementViewModel {
     const minFrequency = 10;
     const maxFrequency = 10000;
 
-    const firstMeasurement = subsMeasurements[0];
-
     // Find the level of target curve at 40Hz
     const targetLevelAtFreq = await this.getTargetLevelAtFreq(
-      firstMeasurement,
+      subsMeasurements[0],
       targetLevelFreq
     );
 
@@ -1907,12 +1923,13 @@ class MeasurementViewModel {
     return targetCurveResponse.magnitude[freqIndex];
   }
 
-  async mainTargetLevel() {
-    const firstMeasurement = this.uniqueMeasurements()[0];
-    if (!firstMeasurement) {
+  async getMainTargetLevel() {
+    if (!this.firstMeasurement()) {
       return MeasurementViewModel.DEFAULT_TARGET_LEVEL;
     }
-    return await firstMeasurement.getTargetLevel();
+    const targetLevel = await this.firstMeasurement().getTargetLevel();
+    this.mainTargetLevel(targetLevel);
+    return targetLevel;
   }
 
   getMaxFromArray(array) {
@@ -2104,7 +2121,7 @@ class MeasurementViewModel {
     }
 
     await maximisedSum.applyWorkingSettings();
-    await maximisedSum.setTargetLevel(await this.mainTargetLevel());
+    await maximisedSum.setTargetLevel(await this.getMainTargetLevel());
     await maximisedSum.resetTargetSettings();
 
     return maximisedSum;
@@ -2249,7 +2266,8 @@ class MeasurementViewModel {
       const item = await this.apiService.fetchREW(itemUuid, 'GET', null, 0);
       // Transform data using the MeasurementItem class
       const measurementItem = new MeasurementItem(item, this);
-      await this.addMeasurement(measurementItem);
+      this.measurements.push(measurementItem);
+      console.debug(`measurement ${measurementItem.title()} added`);
       return measurementItem;
     } catch (error) {
       this.handleError(`Failed to add measurement: ${error.message}`, error);
@@ -2262,22 +2280,15 @@ class MeasurementViewModel {
     if (!item) {
       throw new Error('Add Measurement: Invalid measurement item');
     }
-
-    try {
-      // check if already exists
-      const existingItem = this.findMeasurementByUuid(item.uuid);
-
-      if (existingItem) {
-        console.warn(
-          `measurement ${item.measurementIndex()}: ${item.title()} already exists, not added`
-        );
-      } else {
-        this.measurements.push(item);
-        console.debug(`measurement ${item.title()} added`);
-      }
-    } catch (error) {
-      this.handleError(`Failed to add measurement: ${error.message}`, error);
+    const existingItem = this.findMeasurementByUuid(item.uuid);
+    if (existingItem) {
+      console.warn(
+        `measurement ${item.measurementIndex()}: ${item.title()} already exists, not added`
+      );
+      return;
     }
+    this.measurements.push(item);
+    console.debug(`measurement ${item.title()} added`);
   }
 
   async removeMeasurements(items) {
@@ -2360,13 +2371,14 @@ class MeasurementViewModel {
       throw new Error(`Command ${operationObject.function} is not allowed`);
     }
 
-    // save current IR shift
+    // operation to store IR offset into the result measurement
     const currentCumulativeIRShiftA = itemA.cumulativeIRShiftSeconds();
     const currentCumulativeIRShiftB = itemB.cumulativeIRShiftSeconds();
     const maxCumulativeIRShift = Math.max(
       currentCumulativeIRShiftA,
       currentCumulativeIRShiftB
     );
+    // set both to 0 to avoid issues during arithmetic operation
     await itemA.addIROffsetSeconds(-maxCumulativeIRShift);
     await itemB.addIROffsetSeconds(-maxCumulativeIRShift);
 
@@ -2597,8 +2609,8 @@ class MeasurementViewModel {
       }
       data.apiBaseUrl && this.apiBaseUrl(data.apiBaseUrl);
       this.selectedSpeaker(data.selectedSpeaker);
-      this.targetCurve = data.targetCurve;
-      this.rewVersion = data.rewVersion;
+      this.targetCurve(data.targetCurve);
+      this.rewVersion(data.rewVersion);
       this.selectedLfeFrequency(data.selectedLfeFrequency);
       this.selectedAverageMethod(data.selectedAverageMethod);
       this.additionalBassGainValue(data.additionalBassGainValue || 0);
@@ -2630,8 +2642,8 @@ class MeasurementViewModel {
     const data = {
       measurements: reducedMeasurements,
       selectedSpeaker: this.selectedSpeaker(),
-      targetCurve: this.targetCurve,
-      rewVersion: this.rewVersion,
+      targetCurve: this.targetCurve(),
+      rewVersion: this.rewVersion(),
       selectedLfeFrequency: this.selectedLfeFrequency(),
       selectedAverageMethod: this.selectedAverageMethod(),
       additionalBassGainValue: this.additionalBassGainValue(),
@@ -2671,9 +2683,9 @@ class MeasurementViewModel {
       // Initial load
       this.apiService = new RewApi(this.apiBaseUrl(), false, this.blocking);
       await this.apiService.initializeAPI();
-      this.rewVersion = await this.apiService.checkVersion();
-      this.targetCurve = await this.apiService.checkTargetCurve();
-      if (!this.targetCurve) {
+      this.rewVersion(await this.apiService.checkVersion());
+      await this.refreshTargetCurve();
+      if (!this.targetCurve()) {
         this.status(
           'Warning: No target curve found in REW. Please set a target curve in REW for optimal performance.'
         );
