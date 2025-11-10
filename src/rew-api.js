@@ -58,42 +58,21 @@ export default class RewApi {
   }
 
   async checkVersion() {
-    let versionOK = false;
-    let versionString;
+    const response = await fetch(`${this.baseUrl}/version`);
+    if (!response.ok) throw new Error('Error checking version: not ok');
 
-    try {
-      const rewVersionResponse = await fetch(`${this.baseUrl}/version`);
+    const versionString = (await response.json()).message;
+    const versionMatch = this.VERSION_REGEX.exec(versionString);
+    if (!versionMatch) throw new Error(`Invalid version format: ${versionString}`);
 
-      if (!rewVersionResponse.ok) {
-        throw new Error(`Error checking version: not ok`);
-      }
-      const rewData = await rewVersionResponse.json();
-      versionString = rewData.message;
+    const [, major, minor, beta] = versionMatch.map(v => Number.parseInt(v, 10));
+    const versionNum = major * 10000 + minor * 100 + beta;
 
-      const versionMatch = this.VERSION_REGEX.exec(versionString);
-
-      if (!versionMatch) {
-        throw new Error(`Invalid version format: ${versionString}`);
-      }
-
-      const [, major, minor, beta] = versionMatch.map(v => Number.parseInt(v, 10));
-
-      console.info(`Using REW version: ${JSON.stringify(versionString)}`);
-
-      versionOK =
-        major > 5 ||
-        (major === 5 && minor > 40) ||
-        (major === 5 && minor === 40 && beta >= 71);
-
-      if (!versionOK) {
-        throw new Error(
-          `Installed REW version (${versionString}) is outdated and incompatible` +
-            `Please install the latest REW Beta from https://www.avnirvana.com/threads/rew-api-beta-releases.12981/.`
-        );
-      }
-    } catch (error) {
-      const message = error.message || 'Error checking version';
-      throw new Error(message, { cause: error });
+    if (versionNum < 54071) {
+      throw new Error(
+        `Installed REW version (${versionString}) is outdated and incompatible. ` +
+          `Please install the latest REW Beta from https://www.avnirvana.com/threads/rew-api-beta-releases.12981/.`
+      );
     }
 
     return versionString;
