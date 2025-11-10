@@ -1,13 +1,19 @@
 export default class RewApi {
+  static TIMEOUT_MS = 15000;
+  static MAX_PULLING_RETRY = 90;
+  static WAIT_BETWEEN_RETRIES_MS = 100;
+  static SPEED_DELAY_INIB_MS = 20;
+  static SPEED_DELAY_NORMAL_MS = 300;
+
   constructor(baseUrl, inhibitGraphUpdates = false, blocking = false) {
     if (!baseUrl) {
       throw new Error('Base URL is required');
     }
     this.baseUrl = baseUrl;
-    this.speedDelay = 130;
+    this.speedDelay = inhibitGraphUpdates
+      ? RewApi.SPEED_DELAY_INIB_MS
+      : RewApi.SPEED_DELAY_NORMAL_MS; // milliseconds
     this.VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
-    this.MAX_RETRIES = 5;
-    this.MAX_RETRY_DELAY = 5;
     this.blocking = blocking;
     this.inhibitGraphUpdates = inhibitGraphUpdates;
   }
@@ -26,6 +32,9 @@ export default class RewApi {
     try {
       await this.updateAPI('inhibit-graph-updates', inhibit);
       this.inhibitGraphUpdates = inhibit;
+      this.speedDelay = inhibit
+        ? RewApi.SPEED_DELAY_INIB_MS
+        : RewApi.SPEED_DELAY_NORMAL_MS; // milliseconds
     } catch (error) {
       const message = error.message || 'Error setting inhibit graph updates';
       throw new Error(message, { cause: error });
@@ -286,13 +295,11 @@ export default class RewApi {
       throw new Error('Missing parameters');
     }
 
-    const TIMEOUT_MS = 10000;
-    const MAX_PULLING_RETRY = 90;
     const completeUrl = `${this.baseUrl}/${url}`;
 
     // Create an abort controller for the timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), RewApi.TIMEOUT_MS);
     const fetchOptions = { ...options, signal: controller.signal };
 
     try {
@@ -323,7 +330,12 @@ export default class RewApi {
 
       // Handle 200: Check if polling is needed for measurements
       if (processID && (response.status === 200 || response.status === 202)) {
-        return this.handleStatus202(url, processID, MAX_PULLING_RETRY);
+        return this.handleStatus202(url, processID, RewApi.MAX_PULLING_RETRY);
+      }
+
+      // Prevent overloading the REW API only for write operations
+      if (['POST', 'PUT', 'DELETE'].includes(options.method)) {
+        await new Promise(resolve => setTimeout(resolve, this.speedDelay));
       }
 
       return data;
@@ -332,11 +344,11 @@ export default class RewApi {
       clearTimeout(timeoutId);
 
       if (error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${TIMEOUT_MS / 1000} s`);
+        throw new Error(`Request ${url} timeout after ${RewApi.TIMEOUT_MS / 1000} s`);
       }
 
       if (retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, this.speedDelay));
+        await new Promise(resolve => setTimeout(resolve, RewApi.WAIT_BETWEEN_RETRIES_MS));
         return await this.fetchWithRetry(url, options, retries - 1, expectedProcess);
       }
 
