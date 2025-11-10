@@ -343,7 +343,7 @@ class MeasurementItem {
   }
 
   async resetIrWindows() {
-    const defaultSettings = {
+    await this.setIrWindows({
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
       leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
@@ -351,9 +351,7 @@ class MeasurementItem {
       refTimems: this.timeOfIRPeakSeconds * 1000,
       addFDW: false,
       addMTW: false,
-    };
-
-    await this.setIrWindows(defaultSettings);
+    });
   }
 
   async resetTargetSettings() {
@@ -369,10 +367,7 @@ class MeasurementItem {
       return true;
     }
 
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/target-settings`,
-      defaultSettings
-    );
+    await this.setTargetSettings(defaultSettings);
   }
 
   async resetRoomCurveSettings() {
@@ -416,6 +411,29 @@ class MeasurementItem {
     );
   }
 
+  compareIwWindows(source, target) {
+    if (!source || !target) return false;
+
+    return (
+      target.leftWindowType &&
+      target.leftWindowType === source.leftWindowType &&
+      target.rightWindowType &&
+      target.rightWindowType === source.rightWindowType &&
+      target.leftWindowWidthms === undefined &&
+      target.leftWindowWidthms.toFixed(2) === source.leftWindowWidthms.toFixed(2) &&
+      target.rightWindowWidthms === undefined &&
+      target.rightWindowWidthms.toFixed(2) === source.rightWindowWidthms.toFixed(2) &&
+      target.refTimems === undefined &&
+      target.refTimems.toFixed(2) === source.refTimems.toFixed(2) &&
+      target.addFDW === undefined &&
+      source.addFDW === target.addFDW &&
+      target.addMTW === undefined &&
+      source.addMTW === target.addMTW &&
+      target.mtwTimesms &&
+      MeasurementItem.arraysMatchWithTolerance(source.mtwTimesms, target.mtwTimesms)
+    );
+  }
+
   async setIrWindows(irWindowsObject) {
     // Check if cumulative IR distance exists and is valid
     if (!this.haveImpulseResponse) {
@@ -427,21 +445,7 @@ class MeasurementItem {
       this.uuid
     );
 
-    // compare commandResult with defaultSettings
-    if (
-      commandResult.leftWindowType === irWindowsObject.leftWindowType &&
-      commandResult.rightWindowType === irWindowsObject.rightWindowType &&
-      commandResult.leftWindowWidthms === irWindowsObject.leftWindowWidthms &&
-      commandResult.rightWindowWidthms === irWindowsObject.rightWindowWidthms &&
-      MeasurementItem.arraysMatchWithTolerance(
-        commandResult.mtwTimesms,
-        irWindowsObject.mtwTimesms
-      ) &&
-      commandResult.addFDW === irWindowsObject.addFDW &&
-      commandResult.addMTW === irWindowsObject.addMTW
-    ) {
-      return true;
-    }
+    if (this.compareIwWindows(commandResult, irWindowsObject)) return true;
 
     await this.parentViewModel.apiService.postSafe(
       `measurements/${this.uuid}/ir-windows`,
