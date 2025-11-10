@@ -98,13 +98,7 @@ export default class RewApi {
   }
 
   async clearCommands() {
-    try {
-      const body = { command: 'Clear command in progress' };
-      return await this.updateAPI('command', body);
-    } catch (error) {
-      const message = error.message || 'Error clearing commands';
-      throw new Error(message, { cause: error });
-    }
+    return await this.updateAPI('command', { command: 'Clear command in progress' });
   }
 
   async fetchREW(indice = null, method = 'GET', body = null, retry = 3) {
