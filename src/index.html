@@ -273,6 +273,42 @@
                 data-bind="text: isProcessing() ? 'Processing...' : 'Reset Application'"
               ></span>
             </button>
+
+            <div
+              data-bind="
+            visible: isPolling"
+            >
+              <!-- display REW informations -->
+              <p>
+                <strong data-i18n="rew_version">REW Version:</strong>
+                <span data-bind="text: rewVersion()"></span>
+              </p>
+              <p>
+                <strong data-i18n="loaded_measurements">Loaded Measurements:</strong>
+                <span data-bind="text: measurements().length"></span>
+              </p>
+              <p>
+                <strong data-i18n="target_curve">Target Curve:</strong>
+                <span
+                  data-bind="text: tcName(), css: { warning: !targetCurve() || targetCurve() === 'None' }"
+                ></span>
+                <button
+                  class="button"
+                  style="margin-left: 10px; padding: 2px 8px; font-size: 0.9em"
+                  data-bind="click: refreshTargetCurve, disable: isProcessing()"
+                  data-tooltip="Refresh target curve"
+                >
+                  ⟳
+                </button>
+              </p>
+              <div>
+                <label class="checkbox-container">
+                  <input type="checkbox" data-bind="checked: inhibitGraphUpdates" />
+                  <span data-i18n="inhibit_graph_updates">Inhibit Graph Updates</span>
+                  <span class="checkmark"></span>
+                </label>
+              </div>
+            </div>
           </div>
 
           <!-- Speakers Controls -->
