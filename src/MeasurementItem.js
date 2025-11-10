@@ -837,6 +837,7 @@ class MeasurementItem {
       'Excess phase version',
       'Response copy',
       'Response magnitude copy',
+      'Generate minimum phase',
     ];
     if (!allowedCommands.includes(commandName)) {
       throw new Error(`Command ${commandName} is not allowed`);
@@ -852,8 +853,13 @@ class MeasurementItem {
 
       if (!withoutResultCommands.includes(commandName)) {
         const operationResultUuid = Object.values(commandResult.results || {})[0]?.UUID;
+        const measurement = await this.parentViewModel.addMeasurementApi(
+          operationResultUuid
+        );
+        measurement.isFilter = commandName === 'Generate filters measurement';
+        measurement.parentAttr = this.toJSON();
         // Save to persistent storage
-        return await this.parentViewModel.addMeasurementApi(operationResultUuid);
+        return measurement;
       }
       return commandResult;
     } catch (error) {
@@ -894,8 +900,13 @@ class MeasurementItem {
 
       if (!withoutResultCommands.includes(commandName)) {
         const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
+        const measurement = await this.parentViewModel.addMeasurementApi(
+          operationResultUuid
+        );
+        measurement.isFilter = commandName === 'Generate filters measurement';
+        measurement.parentAttr = this.toJSON();
         // Save to persistent storage
-        return await this.parentViewModel.addMeasurementApi(operationResultUuid);
+        return measurement;
       }
       return operationResult;
     } catch (error) {
