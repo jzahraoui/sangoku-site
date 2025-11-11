@@ -47,7 +47,7 @@ class MeasurementItem {
     this.cumulativeIRShiftSeconds = ko.observable(item.cumulativeIRShiftSeconds);
     this.clockAdjustmentPPM = item.clockAdjustmentPPM;
     this.timeOfIRStartSeconds = item.timeOfIRStartSeconds;
-    this.timeOfIRPeakSeconds = item.timeOfIRPeakSeconds;
+    this.timeOfIRPeakSeconds = ko.observable(item.timeOfIRPeakSeconds);
     this.haveImpulseResponse = Object.hasOwn(item, 'cumulativeIRShiftSeconds');
     this.isFilter = item.isFilter || false;
     this.associatedFilter = item.associatedFilter;
@@ -126,22 +126,25 @@ class MeasurementItem {
             `${MeasurementItem.DEFAULT_LFE_PREDICTED}${this.position()}`
         );
     });
+    this.absoluteIRPeakSeconds = ko.computed(
+      () => this.timeOfIRPeakSeconds() + this.cumulativeIRShiftSeconds()
+    );
     this.displayMeasurementTitle = ko.computed(
       () => `${this.measurementIndex()}: ${this.title()}`
     );
     this.distanceInMeters = ko.computed(() =>
       this._computeDistanceInMeters(this.cumulativeIRShiftSeconds())
     );
-    this.distanceInMilliSeconds = ko.computed(() =>
-      (this.cumulativeIRShiftSeconds() * 1000).toFixed(2)
-    );
     this.distanceInUnits = ko.computed(() => {
       if (this.parentViewModel.distanceUnit() === 'M') {
         return this.distanceInMeters();
       } else if (this.parentViewModel.distanceUnit() === 'ms') {
-        return this.distanceInMilliSeconds();
+        return MeasurementItem.cleanFloat32Value(
+          this.cumulativeIRShiftSeconds() * 1000,
+          2
+        );
       } else if (this.parentViewModel.distanceUnit() === 'ft') {
-        return (this.distanceInMeters() * 3.28084).toFixed(2); // Convert meters to feet
+        return MeasurementItem.cleanFloat32Value(this.distanceInMeters() * 3.28084, 2); // Convert meters to feet
       }
       throw new Error(`Unknown distance unit: ${this.parentViewModel.distanceUnit()}`);
     });
@@ -161,7 +164,7 @@ class MeasurementItem {
     );
     this.splresidual = ko.computed(() => this.splOffsetDeltadB() - this.splForAvr());
     this.cumulativeIRDistanceMeters = ko.computed(
-      () => this.parentViewModel.maxDdistanceInMeters() - this.distanceInMeters()
+      () => this.parentViewModel.maxDistanceInMeters() - this.distanceInMeters()
     );
     this.cumulativeIRDistanceSeconds = ko.computed(() =>
       this._computeInSeconds(this.cumulativeIRDistanceMeters())
@@ -274,7 +277,7 @@ class MeasurementItem {
     this.cumulativeIRShiftSeconds(item.cumulativeIRShiftSeconds);
     this.clockAdjustmentPPM = item.clockAdjustmentPPM;
     this.timeOfIRStartSeconds = item.timeOfIRStartSeconds;
-    this.timeOfIRPeakSeconds = item.timeOfIRPeakSeconds;
+    this.timeOfIRPeakSeconds(item.timeOfIRPeakSeconds);
   }
 
   // Compute methods
@@ -348,7 +351,7 @@ class MeasurementItem {
       rightWindowType: 'Rectangular',
       leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
       rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
-      refTimems: this.timeOfIRPeakSeconds * 1000,
+      refTimems: this.timeOfIRPeakSeconds() * 1000,
       addFDW: false,
       addMTW: false,
     });
@@ -695,7 +698,7 @@ class MeasurementItem {
   }
 
   async setZeroAtIrPeak() {
-    await this.addIROffsetSeconds(this.timeOfIRPeakSeconds);
+    await this.addIROffsetSeconds(this.timeOfIRPeakSeconds());
     return true;
   }
 
@@ -1356,7 +1359,7 @@ class MeasurementItem {
         rightWindowType: 'Rectangular',
         leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
         rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
-        refTimems: this.timeOfIRPeakSeconds * 1000,
+        refTimems: this.timeOfIRPeakSeconds() * 1000,
         addFDW: true,
         addMTW: false,
         fdwWidthCycles: 6,
@@ -1691,7 +1694,7 @@ class MeasurementItem {
       cumulativeIRShiftSeconds: this.cumulativeIRShiftSeconds(),
       clockAdjustmentPPM: this.clockAdjustmentPPM,
       timeOfIRStartSeconds: this.timeOfIRStartSeconds,
-      timeOfIRPeakSeconds: this.timeOfIRPeakSeconds,
+      timeOfIRPeakSeconds: this.timeOfIRPeakSeconds(),
       crossover: this.crossover(),
       initialSplOffsetdB: this.initialSplOffsetdB,
       isFilter: this.isFilter,

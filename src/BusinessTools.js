@@ -363,8 +363,8 @@ class BusinessTools {
 
     // get the sub impulse closer to the front left, better method than cros corr align
     const distanceToSpeakerPeak =
-      PredictedLfeFiltered.timeOfIRPeakSeconds -
-      predictedSpeakerFiltered.timeOfIRPeakSeconds;
+      PredictedLfeFiltered.timeOfIRPeakSeconds() -
+      predictedSpeakerFiltered.timeOfIRPeakSeconds();
 
     let finalDistance = distanceToSpeakerPeak - delay;
     const distanceToSpeakerPeakMeters = PredictedLfe._computeInMeters(finalDistance);
