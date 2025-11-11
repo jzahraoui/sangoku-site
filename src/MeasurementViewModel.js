@@ -867,6 +867,7 @@ class MeasurementViewModel {
           bassManagementSlopedBPerOctave: 48,
           bassManagementCutoffHz: 800,
         });
+        // TODO check target level calculation sometime is too high
         await firstWorkingMeasurement.eqCommands('Calculate target level');
         await firstWorkingMeasurement.resetTargetSettings();
 
@@ -1683,32 +1684,23 @@ class MeasurementViewModel {
       return measurements.length > 0 ? measurements[0] : null;
     });
 
-    this.minDistanceInMeters = ko.computed(() =>
-      Math.min(...this.uniqueMeasurements().map(item => item.distanceInMeters()))
+    this.minDistanceInMeters = ko.pureComputed(() => {
+      const distances = this.uniqueMeasurements().map(item => item.distanceInMeters());
+      return distances.length ? Math.min(...distances) : 0;
+    });
+
+    this.maxDistanceInMeters = ko.pureComputed(() => {
+      const distances = this.uniqueMeasurements().map(item => item.distanceInMeters());
+      return distances.length ? Math.max(...distances) : 0;
+    });
+
+    this.maxDistanceInMetersWarning = ko.pureComputed(
+      () => this.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_LIMIT
     );
 
-    this.maxDistanceInMetersWarning = ko
-      .computed(() => {
-        const minDistance = this.minDistanceInMeters() || 0; // Fallback to 0 if undefined
-        const limit = MeasurementItem.MODEL_DISTANCE_LIMIT;
-
-        // Ensure we're working with numbers
-        return Number(minDistance) + Number(limit);
-      })
-      .extend({ pure: true }); // Only updates when dependencies actually change
-
-    this.maxDistanceInMetersError = ko
-      .computed(() => {
-        const minDistance = this.minDistanceInMeters();
-        const criticalLimit = MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT;
-
-        return Number(minDistance) + criticalLimit;
-      })
-      .extend({ pure: true }); // Ensures updates only occur when dependencies change
-
-    this.maxDdistanceInMeters = ko.computed(() => {
-      return Math.max(...this.uniqueMeasurements().map(item => item.distanceInMeters()));
-    });
+    this.maxDistanceInMetersError = ko.pureComputed(
+      () => this.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT
+    );
 
     this.uniqueSubsMeasurements = ko.computed(() => {
       return this.uniqueMeasurements().filter(item => item.isSub());
