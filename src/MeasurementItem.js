@@ -683,19 +683,13 @@ class MeasurementItem {
     if (amountToAdd === 0) {
       return false;
     }
-    const before = (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
     await this.genericCommand('Offset t=0', {
       offset: amountToAdd,
       unit: 'seconds',
     });
-    this.cumulativeIRShiftSeconds(this.cumulativeIRShiftSeconds() + amountToAdd);
-    this.timeOfIRPeakSeconds = this.timeOfIRPeakSeconds - amountToAdd;
-    this.timeOfIRStartSeconds = this.timeOfIRStartSeconds - amountToAdd;
-    const after = (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
+    await this.refresh();
     console.debug(
-      `Offset t=${(amountToAdd * 1000).toFixed(
-        2
-      )}ms added to ${this.title()} from ${before} to ${after}`
+      `Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()}`
     );
     return true;
   }
