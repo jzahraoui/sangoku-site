@@ -816,7 +816,9 @@ class MeasurementViewModel {
           const sub = this.uniqueSubsMeasurements()[0];
           await sub.setZeroAtIrPeak();
           await this.setSameDelayToAll(this.uniqueSubsMeasurements());
-          await sub.copyCumulativeIRShiftToOther();
+          for (const measurement of this.uniqueSubsMeasurements()) {
+            await measurement.copyCumulativeIRShiftToOther();
+          }
         }
 
         this.status('Align peaks successful');
