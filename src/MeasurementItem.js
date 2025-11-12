@@ -149,14 +149,8 @@ class MeasurementItem {
       throw new Error(`Unknown distance unit: ${this.parentViewModel.distanceUnit()}`);
     });
 
-    this.splOffsetdBUnaligned = ko.computed(
-      () => this.splOffsetdB() - this.alignSPLOffsetdB()
-    );
-    this.splOffsetdBManual = ko.computed(
-      () => this.splOffsetdBUnaligned() - this.initialSplOffsetdB
-    );
     this.splOffsetDeltadB = ko.computed(
-      () => this.splOffsetdBManual() + this.alignSPLOffsetdB()
+      () => this.splOffsetdB() - this.initialSplOffsetdB
     );
     this.splForAvr = ko.computed(() => Math.round(this.splOffsetDeltadB() * 2) / 2);
     this.splIsAboveLimit = ko.computed(
@@ -754,14 +748,10 @@ class MeasurementItem {
       spanOctaves: 0,
     };
     // first align the SPL to get the reference level
-    const alignResult = await this.parentViewModel.processCommands(
-      'Align SPL',
-      [this.uuid],
-      {
-        ...defaulParameters,
-        targetdB: referenceLevel,
-      }
-    );
+    const alignResult = await this.parentViewModel.processCommands('Align SPL', [this], {
+      ...defaulParameters,
+      targetdB: referenceLevel,
+    });
 
     const referenceAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
       alignResult,
@@ -773,7 +763,7 @@ class MeasurementItem {
     // align a second time to get the rigth level
     const finalAlignResult = await this.parentViewModel.processCommands(
       'Align SPL',
-      [this.uuid],
+      [this],
       {
         ...defaulParameters,
         targetdB: referenceLevel + offset,
@@ -789,9 +779,6 @@ class MeasurementItem {
         `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`
       );
     }
-    // Apply changes to local object
-    this.splOffsetdB(this.splOffsetdBUnaligned() + newValue);
-    this.alignSPLOffsetdB(newValue);
   }
 
   async addSPLOffsetDB(amountToAdd) {

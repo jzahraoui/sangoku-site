@@ -168,11 +168,11 @@ class BusinessTools {
 
       // Cross correlation alignment
       console.debug(`${code}: ${uuids.length} measures cross corr align...`);
-      await this.viewModel.processCommands('Cross corr align', uuids);
+      await this.viewModel.processCommands('Cross corr align', usableItems);
 
       // average processing
       console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
-      const vectorAverage = await this.viewModel.processCommands(avgMethod, uuids);
+      const vectorAverage = await this.viewModel.processCommands(avgMethod, usableItems);
 
       // Update title
       if (!vectorAverage) {

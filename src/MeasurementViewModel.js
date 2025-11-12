@@ -841,7 +841,6 @@ class MeasurementViewModel {
         } else if (workingMeasurements.length === 1) {
           throw new Error('Only one measurement found for SPL alignment');
         }
-        const workingMeasurementsUuids = workingMeasurements.map(m => m.uuid);
         const firstWorkingMeasurement = workingMeasurements[0];
 
         await firstWorkingMeasurement.resetTargetSettings();
@@ -851,15 +850,11 @@ class MeasurementViewModel {
           await work.genericCommand('Smooth', { smoothing: '1/1' });
         }
 
-        const alignResult = await this.processCommands(
-          'Align SPL',
-          [...workingMeasurementsUuids],
-          {
-            frequencyHz: 2500,
-            spanOctaves: 5,
-            targetdB: 'average',
-          }
-        );
+        await this.processCommands('Align SPL', workingMeasurements, {
+          frequencyHz: 2500,
+          spanOctaves: 5,
+          targetdB: 'average',
+        });
 
         // must be calculated before removing working settings
         await firstWorkingMeasurement.setTargetSettings({
@@ -878,16 +873,6 @@ class MeasurementViewModel {
 
         // set target level to all measurements including subs
         await firstWorkingMeasurement.copyTargetLevelToAll();
-
-        // update attribute for all measurements processed to be able to be used in copySplOffsetDeltadBToOther
-        for (const work of workingMeasurements) {
-          const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
-            alignResult,
-            work.uuid
-          );
-          work.splOffsetdB(work.splOffsetdBUnaligned() + alignOffset);
-          work.alignSPLOffsetdB(alignOffset);
-        }
 
         // copy SPL alignment level to other measurements positions
         for (const measurement of this.uniqueMeasurements()) {
@@ -1868,7 +1853,7 @@ class MeasurementViewModel {
       )}dB`;
       logMessage += `(center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`;
 
-      const alignResult = await this.processCommands('Align SPL', [measurement.uuid], {
+      const alignResult = await this.processCommands('Align SPL', [measurement], {
         frequencyHz: detect.centerFrequency,
         spanOctaves: detect.octaves,
         targetdB: targetLevel,
@@ -1882,8 +1867,6 @@ class MeasurementViewModel {
       logMessage += ` => ${alignOffset}dB`;
       this.appendStatus(`${logMessage}`);
 
-      measurement.splOffsetdB(measurement.splOffsetdBUnaligned() + alignOffset);
-      measurement.alignSPLOffsetdB(alignOffset);
       await measurement.copySplOffsetDeltadBToOther();
     }
 
@@ -2397,8 +2380,8 @@ class MeasurementViewModel {
   }
 
   // add measurement
-  async processCommands(commandName, uuids, commandData) {
-    if (!uuids || !Array.isArray(uuids)) {
+  async processCommands(commandName, items, commandData) {
+    if (!items || !Array.isArray(items)) {
       throw new Error('Process Command: Invalid measurement item');
     }
 
@@ -2429,10 +2412,14 @@ class MeasurementViewModel {
     try {
       const operationResult = await this.apiService.postNext(
         commandName,
-        uuids,
+        items.map(item => item.uuid),
         commandData,
         0
       );
+
+      for (const item of items) {
+        await item.refresh();
+      }
 
       if (withoutResultCommands.includes(commandName)) {
         return operationResult;
