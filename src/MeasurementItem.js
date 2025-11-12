@@ -1128,6 +1128,7 @@ class MeasurementItem {
       `measurements/${this.uuid}/target-level`,
       level
     );
+    await this.resetFilters();
     return true;
   }
 
