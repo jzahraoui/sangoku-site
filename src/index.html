@@ -428,7 +428,15 @@
                     />
                   </div>
 
-                  <div style="display: flex; justify-content: space-between; margin-top: 8px; font-weight: 500; color: #333">
+                  <div
+                    style="
+                      display: flex;
+                      justify-content: space-between;
+                      margin-top: 8px;
+                      font-weight: 500;
+                      color: #333;
+                    "
+                  >
                     <span data-bind="text: lowerFrequencyBound() + ' Hz'"></span>
                     <span data-bind="text: upperFrequencyBound() + ' Hz'"></span>
                   </div>
@@ -811,7 +819,7 @@
                 <span>OCA file format:</span>
                 <label class="radio-container">
                   <input type="radio" value="odd" data-bind="checked: ocaFileFormat" />
-                  <span>odd.wtf (do not support cyrrus logic chips)</span>
+                  <span>odd.wtf (does not support Cirrus Logic chips)</span>
                 </label>
                 <label class="radio-container">
                   <input type="radio" value="a1" data-bind="checked: ocaFileFormat" />
