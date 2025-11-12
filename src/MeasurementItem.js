@@ -304,7 +304,7 @@ class MeasurementItem {
     await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/command`, {
       command: 'Invert',
     });
-    this.inverted(!this.inverted());
+    await this.refresh();
   }
 
   async resetAll(targetLevel = 75) {
