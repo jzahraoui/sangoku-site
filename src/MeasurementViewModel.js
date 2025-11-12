@@ -845,7 +845,7 @@ class MeasurementViewModel {
 
         await firstWorkingMeasurement.resetTargetSettings();
         // working settings must match filter settings
-        for (const work of workingMeasurements) {
+        for (const work of this.uniqueMeasurements()) {
           await work.resetIrWindows();
           await work.genericCommand('Smooth', { smoothing: '1/1' });
         }
