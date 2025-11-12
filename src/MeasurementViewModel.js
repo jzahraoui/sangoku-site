@@ -1742,6 +1742,14 @@ class MeasurementViewModel {
     }
 
     const previousTargetcurveTitle = 'Target';
+    // update main target level to update the tcName
+    await this.getMainTargetLevel();
+    const title = `${previousTargetcurveTitle} ${this.tcName()}`;
+
+    if (this.measurements().some(item => item.title() === title)) {
+      this.appendStatus(`Target curve ${title} already exists, skipping creation.`);
+      return;
+    }
 
     // delete previous targets curve
     const previousTargetcurves = this.measurements().filter(item =>
@@ -1753,11 +1761,9 @@ class MeasurementViewModel {
     const targetMeasurement = await referenceMeasurement.eqCommands(
       'Generate target measurement'
     );
-    await this.getMainTargetLevel();
-    await targetMeasurement.setTitle(
-      `${previousTargetcurveTitle} ${this.tcName()}`,
-      `from ${referenceMeasurement.title()}`
-    );
+    await targetMeasurement.setTitle(title, `from ${referenceMeasurement.title()}`);
+
+    this.appendStatus(`Created target curve: ${title}`);
   }
 
   async equalizeSub(subMeasurement) {
