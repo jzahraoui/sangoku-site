@@ -864,8 +864,8 @@ class MeasurementViewModel {
         // must be calculated before removing working settings
         await firstWorkingMeasurement.setTargetSettings({
           shape: 'Bass limited',
-          bassManagementSlopedBPerOctave: 48,
-          bassManagementCutoffHz: 800,
+          bassManagementSlopedBPerOctave: 24,
+          bassManagementCutoffHz: 150,
         });
         // TODO check target level calculation sometime is too high
         await firstWorkingMeasurement.eqCommands('Calculate target level');
