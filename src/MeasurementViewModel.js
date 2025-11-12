@@ -882,12 +882,8 @@ class MeasurementViewModel {
         // ajust subwoofer levels
         await this.adjustSubwooferSPLLevels(this.uniqueSubsMeasurements());
 
-        const subsMeasurementsUuids = this.uniqueSubsMeasurements().map(m => m.uuid);
-
-        if (subsMeasurementsUuids.length !== 0) {
-          await this.processCommands('Smooth', subsMeasurementsUuids, {
-            smoothing: this.selectedSmoothingMethod(),
-          });
+        for (const sub of this.uniqueSubsMeasurements()) {
+          await sub.applyWorkingSettings();
         }
 
         this.appendStatus(`SPL alignment successful `);
