@@ -658,9 +658,6 @@ class MeasurementItem {
   }
 
   async resetcumulativeIRShiftSeconds() {
-    if (!this.haveImpulseResponse) {
-      return;
-    }
     await this.setcumulativeIRShiftSeconds(0);
   }
 
@@ -669,6 +666,9 @@ class MeasurementItem {
   }
 
   async addIROffsetSeconds(amountToAdd) {
+    if (!this.haveImpulseResponse) {
+      return;
+    }
     // 2 decimals on ms value
     amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 10);
     if (amountToAdd === 0) {
