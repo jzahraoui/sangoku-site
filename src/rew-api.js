@@ -1,6 +1,6 @@
 export default class RewApi {
   static TIMEOUT_MS = 15000;
-  static MAX_PULLING_RETRY = 90;
+  static MAX_PULLING_RETRY = 150;
   static WAIT_BETWEEN_RETRIES_MS = 100;
   static SPEED_DELAY_INIB_MS = 20;
   static SPEED_DELAY_NORMAL_MS = 300;
