@@ -1217,10 +1217,10 @@ class MeasurementViewModel {
         for (const measurement of reducedMeasurements) {
           const title = measurement.displayMeasurementTitle.padEnd(22);
           const channel = measurement.channelName.padEnd(13);
-          const distance = String(measurement.distance.toFixed(2)).padStart(8);
-          const splOffset = String(measurement.splForAvr).padStart(11);
-          const crossover = String(measurement.crossover).padStart(19);
-          const inverted = String(measurement.inverted ? 'Yes' : '').padEnd(8);
+          const distance = measurement.distance.toFixed(2).padStart(8);
+          const splOffset = measurement.splForAvr.toString().padStart(11);
+          const crossover = measurement.crossover.toString().padStart(19);
+          const inverted = (measurement.inverted ? 'Yes' : '').padEnd(8);
 
           textData += `| ${title} | ${channel} | ${distance} | ${splOffset} | ${crossover} | ${inverted} |\n`;
         }
@@ -1675,12 +1675,18 @@ class MeasurementViewModel {
       return distances.length ? Math.max(...distances) : 0;
     });
 
-    this.maxDistanceInMetersWarning = ko.pureComputed(
-      () => this.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_LIMIT
+    this.maxDistanceInMetersWarning = ko.pureComputed(() =>
+      MeasurementItem.cleanFloat32Value(
+        this.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_LIMIT,
+        2
+      )
     );
 
-    this.maxDistanceInMetersError = ko.pureComputed(
-      () => this.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT
+    this.maxDistanceInMetersError = ko.pureComputed(() =>
+      MeasurementItem.cleanFloat32Value(
+        this.minDistanceInMeters() + MeasurementItem.MODEL_DISTANCE_CRITICAL_LIMIT,
+        2
+      )
     );
 
     this.uniqueSubsMeasurements = ko.computed(() => {

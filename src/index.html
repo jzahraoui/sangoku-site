@@ -915,11 +915,11 @@
                       ></div>
                       <div
                         class="warning-value"
-                        data-bind="text: 'Warn. ' + maxDistanceInMetersWarning().toFixed(2) + ' m' "
+                        data-bind="text: `Warn. ${maxDistanceInMetersWarning()} m`"
                       ></div>
                       <div
                         class="critical-value"
-                        data-bind="text: 'Crit. ' + maxDistanceInMetersError().toFixed(2) + ' m' "
+                        data-bind="text: `Crit. ${maxDistanceInMetersError()} m`"
                       ></div>
                     </div>
                   </th>
@@ -983,7 +983,7 @@
                   <td data-bind="text: displayMeasurementTitle()"></td>
                   <td data-bind="text: distanceInUnits(), css: exceedsDistance"></td>
                   <td
-                    data-bind="text: splForAvr().toFixed(1), css: { error: splIsAboveLimit() }"
+                    data-bind="text: splForAvr(), css: { error: splIsAboveLimit() }"
                   ></td>
                   <td>
                     <select

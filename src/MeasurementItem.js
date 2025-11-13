@@ -1089,7 +1089,7 @@ class MeasurementItem {
       'target-level',
       this.uuid
     );
-    return Number(level.toFixed(2));
+    return MeasurementItem.cleanFloat32Value(level, 2);
   }
 
   async setTargetLevel(level) {
@@ -1097,10 +1097,8 @@ class MeasurementItem {
     if (level === undefined || level === null) {
       throw new TypeError(`Invalid level: ${level}`);
     }
-    level = Number(level.toFixed(2));
-    if (Number.isNaN(level)) {
-      throw new TypeError(`Invalid level: ${level}`);
-    }
+    level = MeasurementItem.cleanFloat32Value(level, 2);
+
     const currentLevel = await this.getTargetLevel();
     if (level === currentLevel) {
       return true;
@@ -1538,9 +1536,9 @@ class MeasurementItem {
       console.warn(`Invalid numeric value: ${value}`);
       return 0;
     }
-    // Use toFixed for direct string conversion to desired precision
-    // Then convert back to number for consistent output
-    return Number(num.toFixed(precision));
+    // Round to desired precision using Math.round (faster than toFixed)
+    const multiplier = 10 ** precision;
+    return Math.round(num * multiplier) / multiplier;
   }
 
   static decodeRewBase64(encodedData, isLittleEndian = false) {
@@ -1664,7 +1662,7 @@ class MeasurementItem {
       channelName: this.channelName(),
       position: this.position(),
       distance: this.distanceInMeters(),
-      splForAvr: this.splForAvr().toFixed(1),
+      splForAvr: this.splForAvr(),
       notes: this.notes,
       date: this.date,
       uuid: this.uuid,
