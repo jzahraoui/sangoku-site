@@ -640,7 +640,6 @@ class MeasurementItem {
 
   async setInverted(inverted) {
     // refreshed every seconds when connected
-    //this.refresh();
     if (inverted === this.inverted()) {
       return false;
     }
@@ -656,9 +655,7 @@ class MeasurementItem {
       title: newTitle,
       ...(notescontent && { notes: notescontent }),
     });
-    this.title(newTitle);
-
-    // TODO if is sub ?
+    this.refresh();
 
     return true;
   }
@@ -684,7 +681,6 @@ class MeasurementItem {
       offset: amountToAdd,
       unit: 'seconds',
     });
-    await this.refresh();
     console.debug(
       `Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()}`
     );
@@ -795,7 +791,6 @@ class MeasurementItem {
       return false;
     }
     await this.genericCommand('Add SPL offset', { offset: amountToAdd });
-    this.splOffsetdB(this.splOffsetdB() + amountToAdd);
     return true;
   }
 
@@ -838,6 +833,8 @@ class MeasurementItem {
         commandData,
         2
       );
+
+      await this.refresh();
 
       if (!withoutResultCommands.includes(commandName)) {
         const operationResultUuid = Object.values(commandResult.results || {})[0]?.UUID;
@@ -1209,6 +1206,8 @@ class MeasurementItem {
       );
     }
 
+    // TODO use parentAttr and absoluteIRPeakSeconds instead
+
     // to preserve invertion info in the result
     const wasInverted = this.inverted();
     if (wasInverted) {
@@ -1375,7 +1374,6 @@ class MeasurementItem {
         { function: 'A * B' }
       );
 
-      // TODO: add spl residual to filter but do not overpass the max allowed boost
       const cxText = this.crossover() ? `X@${this.crossover()}Hz` : 'FB';
       await finalFIR.setTitle(`Filter ${this.title()} ${cxText}`);
 
