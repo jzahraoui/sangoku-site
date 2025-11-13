@@ -403,39 +403,49 @@ class BusinessTools {
    */
   async applyCuttOffFilter(sub, speaker, cuttOffFrequency) {
     if (cuttOffFrequency === 0) {
-      const PredictedLfeFiltered = await sub.genericCommand('Response copy');
-      const predictedSpeakerFiltered = await speaker.genericCommand('Response copy');
-      return { PredictedLfeFiltered, predictedSpeakerFiltered };
+      return {
+        PredictedLfeFiltered: await sub.genericCommand('Response copy'),
+        predictedSpeakerFiltered: await speaker.genericCommand('Response copy'),
+      };
     }
 
     sub.ResetEqualiser();
     speaker.ResetEqualiser();
 
-    const applyFilterAndPredict = async (device, filterConfig) => {
-      const index = await device.getFreeXFilterIndex();
-
-      await device.setSingleFilter({
-        index,
-        enabled: true,
-        isAuto: false,
-        ...filterConfig,
-      });
-      const predicted = await device.producePredictedMeasurement();
-      await device.setSingleFilter({ index, type: 'None', enabled: true, isAuto: false });
-      return predicted;
-    };
-
-    const PredictedLfeFiltered = await applyFilterAndPredict(sub, {
+    const subIndex = await sub.getFreeXFilterIndex();
+    await sub.setSingleFilter({
+      index: subIndex,
+      enabled: true,
+      isAuto: false,
       type: 'Low pass',
       frequency: cuttOffFrequency,
       shape: 'L-R',
       slopedBPerOctave: 24,
     });
-    const predictedSpeakerFiltered = await applyFilterAndPredict(speaker, {
+    const PredictedLfeFiltered = await sub.producePredictedMeasurement();
+    await sub.setSingleFilter({
+      index: subIndex,
+      type: 'None',
+      enabled: true,
+      isAuto: false,
+    });
+
+    const speakerIndex = await speaker.getFreeXFilterIndex();
+    await speaker.setSingleFilter({
+      index: speakerIndex,
+      enabled: true,
+      isAuto: false,
       type: 'High pass',
       frequency: cuttOffFrequency,
       shape: 'BU',
       slopedBPerOctave: 12,
+    });
+    const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
+    await speaker.setSingleFilter({
+      index: speakerIndex,
+      type: 'None',
+      enabled: true,
+      isAuto: false,
     });
 
     return { PredictedLfeFiltered, predictedSpeakerFiltered };
