@@ -2578,44 +2578,49 @@ class MeasurementViewModel {
 
   restore() {
     const data = store.load();
-    if (data) {
-      if (data.avrFileContent) {
-        // avrFileContent must be loaded before measurements as they needs the informations
-        this.jsonAvrData(data.avrFileContent);
-        // Transform data using the MeasurementItem class
-        const enhancedMeasurements = Object.values(data.measurements).map(
-          item => new MeasurementItem(item, this)
-        );
-        this.measurements(enhancedMeasurements);
-      }
-      data.apiBaseUrl && this.apiBaseUrl(data.apiBaseUrl);
-      this.selectedSpeaker(data.selectedSpeaker);
-      this.targetCurve(data.targetCurve);
-      this.rewVersion(data.rewVersion);
-      this.selectedLfeFrequency(data.selectedLfeFrequency);
-      this.selectedAverageMethod(data.selectedAverageMethod);
-      this.additionalBassGainValue(data.additionalBassGainValue || 0);
-      this.maxBoostIndividualValue(data.maxBoostIndividualValue || 0);
-      this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
-      this.loadedFileName(data.loadedFileName || '');
-      data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
-      data.selectedSmoothingMethod &&
-        this.selectedSmoothingMethod(data.selectedSmoothingMethod);
-      data.selectedIrWindows && this.selectedIrWindows(data.selectedIrWindows);
-      data.individualMaxBoostValue &&
-        this.individualMaxBoostValue(data.individualMaxBoostValue);
-      data.overallBoostValue && this.overallBoostValue(data.overallBoostValue);
-      data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
-      data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
-      data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
-      data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
-      data.inhibitGraphUpdates !== undefined &&
-        this.inhibitGraphUpdates(data.inhibitGraphUpdates);
-      if (data.measurementsByGroup) {
-        for (const [key, saved] of Object.entries(data.measurementsByGroup)) {
-          this.measurementsByGroup()[key]?.crossover(saved.crossover);
-        }
-      }
+    if (!data) return;
+
+    this.restoreAvrAndMeasurements(data);
+    this.restoreSettings(data);
+    this.restoreMeasurementGroups(data);
+  }
+
+  restoreAvrAndMeasurements(data) {
+    if (!data.avrFileContent) return;
+    this.jsonAvrData(data.avrFileContent);
+    const enhancedMeasurements = Object.values(data.measurements).map(
+      item => new MeasurementItem(item, this)
+    );
+    this.measurements(enhancedMeasurements);
+  }
+
+  restoreSettings(data) {
+    data.apiBaseUrl && this.apiBaseUrl(data.apiBaseUrl);
+    this.selectedSpeaker(data.selectedSpeaker);
+    this.targetCurve(data.targetCurve);
+    this.rewVersion(data.rewVersion);
+    this.selectedLfeFrequency(data.selectedLfeFrequency);
+    this.selectedAverageMethod(data.selectedAverageMethod);
+    this.additionalBassGainValue(data.additionalBassGainValue || 0);
+    this.maxBoostIndividualValue(data.maxBoostIndividualValue || 0);
+    this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
+    this.loadedFileName(data.loadedFileName || '');
+    data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
+    data.selectedSmoothingMethod && this.selectedSmoothingMethod(data.selectedSmoothingMethod);
+    data.selectedIrWindows && this.selectedIrWindows(data.selectedIrWindows);
+    data.individualMaxBoostValue && this.individualMaxBoostValue(data.individualMaxBoostValue);
+    data.overallBoostValue && this.overallBoostValue(data.overallBoostValue);
+    data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
+    data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
+    data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
+    data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
+    data.inhibitGraphUpdates !== undefined && this.inhibitGraphUpdates(data.inhibitGraphUpdates);
+  }
+
+  restoreMeasurementGroups(data) {
+    if (!data.measurementsByGroup) return;
+    for (const [key, saved] of Object.entries(data.measurementsByGroup)) {
+      this.measurementsByGroup()[key]?.crossover(saved.crossover);
     }
   }
 
