@@ -2609,6 +2609,8 @@ class MeasurementViewModel {
       data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
       data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
       data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
+      data.inhibitGraphUpdates !== undefined &&
+        this.inhibitGraphUpdates(data.inhibitGraphUpdates);
       if (data.measurementsByGroup) {
         for (const [key, saved] of Object.entries(data.measurementsByGroup)) {
           this.measurementsByGroup()[key]?.crossover(saved.crossover);
@@ -2642,6 +2644,7 @@ class MeasurementViewModel {
       apiBaseUrl: this.apiBaseUrl(),
       ocaFileFormat: this.ocaFileFormat(),
       avrIpAddress: this.avrIpAddress(),
+      inhibitGraphUpdates: this.inhibitGraphUpdates(),
       measurementsByGroup: Object.fromEntries(
         Object.entries(this.measurementsByGroup()).map(([key, group]) => [
           key,
