@@ -301,10 +301,7 @@ class MeasurementItem {
   }
 
   async toggleInversion() {
-    await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/command`, {
-      command: 'Invert',
-    });
-    await this.refresh();
+    await this.genericCommand('Invert');
   }
 
   async resetAll(targetLevel = 75) {
@@ -655,7 +652,7 @@ class MeasurementItem {
       title: newTitle,
       ...(notescontent && { notes: notescontent }),
     });
-    this.refresh();
+    await this.refresh();
 
     return true;
   }

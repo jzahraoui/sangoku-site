@@ -2413,9 +2413,7 @@ class MeasurementViewModel {
         0
       );
 
-      for (const item of items) {
-        await item.refresh();
-      }
+      this.loadData();
 
       if (withoutResultCommands.includes(commandName)) {
         return operationResult;
