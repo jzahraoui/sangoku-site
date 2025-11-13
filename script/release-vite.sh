@@ -28,7 +28,7 @@ increment_version()
 update_files()
 {
   if [[ -z "$NEW_VERSION" ]]; then
-    echo "Error: NEW_VERSION is not set."
+    echo "Error: NEW_VERSION is not set." >&2
     exit 1
   fi
   echo "Updating version in files..."
