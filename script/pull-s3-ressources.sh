@@ -56,6 +56,7 @@ pull_from_s3()
     echo "$cmd"
     eval "$cmd"
   done
+  return 0
 }
 
 push_to_s3()
@@ -75,6 +76,7 @@ push_to_s3()
     echo "$cmd"
     eval "$cmd"
   done
+  return 0
 }
 
 # Main execution
@@ -90,6 +92,7 @@ main()
     echo "Invalid action: $PULL_OR_PUSH. Use 'pull' or 'push'."
     exit 1
   fi
+  return 0
 }
 
 main

@@ -45,6 +45,7 @@ sync_to_s3()
 
   echo "$cmd"
   eval "$cmd"
+  return 0
 }
 
 # Function to invalidate CloudFront cache
@@ -74,6 +75,7 @@ invalidate_cache()
   else
     echo "aws cloudfront create-invalidation --distribution-id $distribution_id --paths '/*' (dry run)"
   fi
+  return 0
 }
 
 # Main execution
@@ -84,6 +86,7 @@ main()
 
   echo "Successfully deployed!"
   echo "Visit https://sangoku.work/ to see the changes."
+  return 0
 }
 
 main
