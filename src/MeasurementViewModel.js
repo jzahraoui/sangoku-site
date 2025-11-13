@@ -560,7 +560,6 @@ class MeasurementViewModel {
     this.buttonDownloadAvr = async () => {
       if (this.isProcessing()) return;
       try {
-        // TODO
         if (!this.jsonAvrData()) {
           throw new Error('please load file before');
         }
@@ -2356,6 +2355,8 @@ class MeasurementViewModel {
       throw new Error(`Command ${operationObject.function} is not allowed`);
     }
 
+    // TODO use parentAttr and absoluteIRPeakSeconds instead
+
     // operation to store IR offset into the result measurement
     const currentCumulativeIRShiftA = itemA.cumulativeIRShiftSeconds();
     const currentCumulativeIRShiftB = itemB.cumulativeIRShiftSeconds();
@@ -2369,7 +2370,7 @@ class MeasurementViewModel {
 
     const operationResult = await this.processCommands(
       'Arithmetic',
-      [itemA.uuid, itemB.uuid],
+      [itemA, itemB],
       operationObject
     );
 
@@ -2412,9 +2413,10 @@ class MeasurementViewModel {
     }
 
     try {
+      const uuids = items.map(item => item.uuid);
       const operationResult = await this.apiService.postNext(
         commandName,
-        items.map(item => item.uuid),
+        uuids,
         commandData,
         0
       );
@@ -2612,15 +2614,18 @@ class MeasurementViewModel {
     this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
     this.loadedFileName(data.loadedFileName || '');
     data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
-    data.selectedSmoothingMethod && this.selectedSmoothingMethod(data.selectedSmoothingMethod);
+    data.selectedSmoothingMethod &&
+      this.selectedSmoothingMethod(data.selectedSmoothingMethod);
     data.selectedIrWindows && this.selectedIrWindows(data.selectedIrWindows);
-    data.individualMaxBoostValue && this.individualMaxBoostValue(data.individualMaxBoostValue);
+    data.individualMaxBoostValue &&
+      this.individualMaxBoostValue(data.individualMaxBoostValue);
     data.overallBoostValue && this.overallBoostValue(data.overallBoostValue);
     data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
     data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
     data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
     data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
-    data.inhibitGraphUpdates !== undefined && this.inhibitGraphUpdates(data.inhibitGraphUpdates);
+    data.inhibitGraphUpdates !== undefined &&
+      this.inhibitGraphUpdates(data.inhibitGraphUpdates);
   }
 
   restoreMeasurementGroups(data) {
