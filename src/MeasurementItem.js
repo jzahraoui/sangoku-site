@@ -1026,23 +1026,6 @@ class MeasurementItem {
     return true;
   }
 
-  async copyTargetLevelToAll() {
-    const targets = this.parentViewModel.validMeasurements();
-
-    if (!targets.length) {
-      return false;
-    }
-
-    const currentLevel = await this.getTargetLevel();
-    for (const otherItem of targets) {
-      await otherItem.setTargetLevel(currentLevel);
-    }
-
-    await this.parentViewModel.updateTargetCurve(this);
-
-    return true;
-  }
-
   async copySplOffsetDeltadBToOther() {
     const targets = this.parentViewModel
       .notUniqueMeasurements()
@@ -1100,7 +1083,7 @@ class MeasurementItem {
     level = MeasurementItem.cleanFloat32Value(level, 2);
 
     const currentLevel = await this.getTargetLevel();
-    if (level === currentLevel) {
+    if (level.toFixed(2) === currentLevel.toFixed(2)) {
       return true;
     }
     await this.parentViewModel.apiService.postSafe(
@@ -1423,10 +1406,11 @@ class MeasurementItem {
       await this.removeWorkingSettings();
     }
 
+    await this.parentViewModel.setTargetLevelFromMeasurement(this);
+
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
     await this.resetTargetSettings();
-    await this.copyTargetLevelToAll();
     await this.detectFallOff(-6);
 
     const customStartFrequency = Math.max(

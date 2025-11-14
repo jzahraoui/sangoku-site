@@ -661,10 +661,10 @@ class MeasurementViewModel {
         this.appendStatus('Clear commands');
         await this.apiService.clearCommands();
 
-        const firstMeasurementLevel = await this.getMainTargetLevel();
+        await this.setTargetLevelFromMeasurement(this.firstMeasurement());
         for (const item of this.measurements()) {
           this.appendStatus(`Reseting ${item.displayMeasurementTitle()}`);
-          await item.resetAll(firstMeasurementLevel);
+          await item.resetAll(this.mainTargetLevel());
         }
 
         this.appendStatus('Reset successful');
@@ -871,7 +871,7 @@ class MeasurementViewModel {
         }
 
         // set target level to all measurements including subs
-        await firstWorkingMeasurement.copyTargetLevelToAll();
+        await this.setTargetLevelFromMeasurement(firstWorkingMeasurement);
 
         // copy SPL alignment level to other measurements positions
         for (const measurement of this.uniqueMeasurements()) {
@@ -900,7 +900,7 @@ class MeasurementViewModel {
         this.status('Computing sum...');
 
         // Ensure accurate predicted measurements with correct target level
-        await this.firstMeasurement().copyTargetLevelToAll();
+        await this.setTargetLevelFromMeasurement(this.firstMeasurement());
 
         // Process each position's subwoofer measurements
         const positionGroups = this.byPositionsGroupedSubsMeasurements();
@@ -1728,13 +1728,11 @@ class MeasurementViewModel {
     }
 
     const previousTargetcurveTitle = 'Target';
-    // update main target level to update the tcName
-    await this.getMainTargetLevel();
     const title = `${previousTargetcurveTitle} ${this.tcName()}`;
 
     if (this.measurements().some(item => item.title() === title)) {
       this.appendStatus(`Target curve ${title} already exists, skipping creation.`);
-      return;
+      return false;
     }
 
     // delete previous targets curve
@@ -1750,12 +1748,11 @@ class MeasurementViewModel {
     await targetMeasurement.setTitle(title, `from ${referenceMeasurement.title()}`);
 
     this.appendStatus(`Created target curve: ${title}`);
+    return true;
   }
 
   async equalizeSub(subMeasurement) {
-    const firstMeasurementLevel = await this.getMainTargetLevel();
     await subMeasurement.applyWorkingSettings();
-    await subMeasurement.setTargetLevel(firstMeasurementLevel);
     await subMeasurement.resetTargetSettings();
     await subMeasurement.detectFallOff(-3);
 
@@ -1907,13 +1904,37 @@ class MeasurementViewModel {
     return targetCurveResponse.magnitude[freqIndex];
   }
 
-  async getMainTargetLevel() {
-    if (!this.firstMeasurement()) {
-      return MeasurementViewModel.DEFAULT_TARGET_LEVEL;
+  async setTargetLevelFromMeasurement(measurement) {
+    const currentTargetLevel = this.mainTargetLevel();
+
+    const targetLevel = await measurement?.getTargetLevel();
+    const newValue = targetLevel || MeasurementViewModel.DEFAULT_TARGET_LEVEL;
+
+    // if newValue is different from current value, 2 decimals place precision
+    if (newValue.toFixed(2) === currentTargetLevel.toFixed(2)) {
+      return;
     }
-    const targetLevel = await this.firstMeasurement().getTargetLevel();
-    this.mainTargetLevel(targetLevel);
-    return targetLevel;
+
+    this.mainTargetLevel(newValue);
+    // update all measurements target level
+    const targets = this.validMeasurements();
+    for (const otherItem of targets) {
+      // Filters will be deleted if target level is changed
+      await otherItem.setTargetLevel(newValue);
+    }
+
+    //delete previous LFE predicted measurements
+    const previousLfePredicted = this.allPredictedLfeMeasurement();
+    await this.removeMeasurements(previousLfePredicted);
+    // update tcName when main target level changes
+    this.tcName.notifySubscribers();
+    // if main target level change, we need to update target curve measurement
+    const updated = await this.updateTargetCurve(this.firstMeasurement());
+    if (!updated) {
+      console.warn(`Target curve update failed`);
+    }
+
+    return newValue;
   }
 
   getMaxFromArray(array) {
@@ -2105,7 +2126,7 @@ class MeasurementViewModel {
     }
 
     await maximisedSum.applyWorkingSettings();
-    await maximisedSum.setTargetLevel(await this.getMainTargetLevel());
+    await maximisedSum.setTargetLevel(this.mainTargetLevel());
     await maximisedSum.resetTargetSettings();
 
     return maximisedSum;
@@ -2635,6 +2656,7 @@ class MeasurementViewModel {
     data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
     data.inhibitGraphUpdates !== undefined &&
       this.inhibitGraphUpdates(data.inhibitGraphUpdates);
+    data.mainTargetLevel && this.mainTargetLevel(data.mainTargetLevel);
   }
 
   restoreMeasurementGroups(data) {
@@ -2676,6 +2698,7 @@ class MeasurementViewModel {
           { crossover: group.crossover() },
         ])
       ),
+      mainTargetLevel: this.mainTargetLevel(),
     };
     // Convert observables to plain objects
     // const plainData = ko.toJS(data);
