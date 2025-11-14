@@ -349,7 +349,7 @@ class MeasurementViewModel {
     this.onFileLoaded = async (data, filename) => {
       // clear error and load data to prevent buggy behavior
       this.error('');
-      this.loadData();
+      await this.loadData();
       this.status('Loaded file: ' + filename);
 
       try {
@@ -2417,6 +2417,12 @@ class MeasurementViewModel {
 
     try {
       const uuids = items.map(item => item.uuid);
+      // check if uuids items are not null or undefined
+      for (const uuid of uuids) {
+        if (!uuid) {
+          throw new Error('One or more measurement items have invalid UUIDs');
+        }
+      }
       const operationResult = await this.apiService.postNext(
         commandName,
         uuids,
@@ -2424,9 +2430,9 @@ class MeasurementViewModel {
         0
       );
 
-      this.loadData();
-
       if (withoutResultCommands.includes(commandName)) {
+        // updates measurements() IR delays and SPL levels from API
+        await this.loadData();
         return operationResult;
       }
 
