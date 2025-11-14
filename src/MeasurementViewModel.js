@@ -1047,7 +1047,7 @@ class MeasurementViewModel {
           );
         }
         OCAFile.fileFormat = this.ocaFileFormat();
-        OCAFile.tcName = this.tcName();
+        OCAFile.tcName = ko.unwrap(this.tcName);
         OCAFile.softRoll = this.softRoll();
         OCAFile.enableDynamicEq = this.enableDynamicEq();
         OCAFile.dynamicEqRefLevel = this.dynamicEqRefLevel();
