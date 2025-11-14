@@ -460,7 +460,6 @@ class MeasurementItem {
     }
 
     const filter = await this.eqCommands('Generate filters measurement');
-    filter.isFilter = true;
 
     if (!filter) {
       throw new Error(`filters reponse failed for ${this.displayMeasurementTitle()}`);
@@ -838,7 +837,6 @@ class MeasurementItem {
         const measurement = await this.parentViewModel.addMeasurementApi(
           operationResultUuid
         );
-        measurement.isFilter = commandName === 'Generate filters measurement';
         measurement.parentAttr = this.toJSON();
         // Save to persistent storage
         return measurement;
@@ -1314,7 +1312,7 @@ class MeasurementItem {
       const preview = await this.producePredictedMeasurement();
       toBeDeleted.push(preview.uuid);
 
-      const amplitudeCorrection = await this.eqCommands('Generate filters measurement');
+      const amplitudeCorrection = await this.generateFilterMeasurement();
       toBeDeleted.push(amplitudeCorrection.uuid);
 
       await preview.setZeroAtIrPeak();
