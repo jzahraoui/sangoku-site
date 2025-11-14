@@ -1205,7 +1205,7 @@ class MeasurementItem {
     await PredictedFiltered.setcumulativeIRShiftSeconds(currentCumulativeIRShift);
     await this.setcumulativeIRShiftSeconds(currentCumulativeIRShift);
 
-    PredictedFiltered.setTitle(`predicted ${this.title()}`);
+    await PredictedFiltered.setTitle(`predicted ${this.title()}`);
 
     return PredictedFiltered;
   }
