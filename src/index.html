@@ -285,7 +285,9 @@
               </p>
               <p>
                 <strong data-i18n="loaded_measurements">Loaded Measurements:</strong>
-                <span data-bind="text: measurements().length"></span>
+                <span
+                  data-bind="text: measurements().length + ' / ' + apiService.maxMeasurements"
+                ></span>
               </p>
               <p>
                 <strong data-i18n="target_curve">Target Curve:</strong>

@@ -16,6 +16,9 @@ export default class RewApi {
     this.VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
     this.blocking = blocking;
     this.inhibitGraphUpdates = inhibitGraphUpdates;
+    this.maxMeasurements = 0;
+    this.version = '0.0 Beta 0';
+    this.targetCurve = 'None';
   }
 
   async setBlocking(blocking = true) {
@@ -46,6 +49,9 @@ export default class RewApi {
     try {
       await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
       await this.setBlocking(this.blocking);
+      this.maxMeasurements = await this.fetchSafe('max-measurements');
+      this.version = await this.checkVersion();
+      this.targetCurve = await this.checkTargetCurve();
     } catch (error) {
       const message = error.message || 'API initialization failed';
       throw new Error(message, { cause: error });

@@ -2683,7 +2683,8 @@ class MeasurementViewModel {
       // Initial load
       this.apiService = new RewApi(this.apiBaseUrl(), false, this.blocking);
       await this.apiService.initializeAPI();
-      this.rewVersion(await this.apiService.checkVersion());
+      this.rewVersion(this.apiService.version);
+      this.targetCurve(this.apiService.targetCurve);
       await this.refreshTargetCurve();
       if (!this.targetCurve()) {
         this.status(
