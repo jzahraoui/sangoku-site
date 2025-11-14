@@ -91,7 +91,7 @@ export default class OCAFileGenerator {
     // creates a for loop on dataArray
     for (const item of Object.values(allResponses)) {
       // skip if item is not an object and not have timeOfIRStartSeconds attribute
-      if (!item?.haveImpulseResponse?.()) {
+      if (!item.haveImpulseResponse) {
         throw new Error('rensponses must contains extended values');
       }
 
