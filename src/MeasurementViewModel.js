@@ -315,7 +315,7 @@ class MeasurementViewModel {
         null,
         0
       );
-      const measurementItem = await this.addMeasurementApi(item.uuid);
+      const measurementItem = await this.addMeasurement(item);
       measurementItem.IRPeakValue = max;
       if (max >= 1) {
         console.warn(
@@ -2271,8 +2271,11 @@ class MeasurementViewModel {
       );
       return;
     }
-    this.measurements.push(item);
-    console.debug(`measurement ${item.title()} added`);
+    const measurementItem =
+      item instanceof MeasurementItem ? item : new MeasurementItem(item, this);
+    this.measurements.push(measurementItem);
+    console.debug(`measurement ${measurementItem.title()} added`);
+    return measurementItem;
   }
 
   async removeMeasurements(items) {
