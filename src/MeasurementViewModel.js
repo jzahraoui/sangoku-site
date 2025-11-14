@@ -1904,7 +1904,7 @@ class MeasurementViewModel {
     return targetCurveResponse.magnitude[freqIndex];
   }
 
-  setTargetLevelFromMeasurement = async (measurement) => {
+  setTargetLevelFromMeasurement = async measurement => {
     const targetLevel = await measurement?.getTargetLevel();
     const newValue = targetLevel || MeasurementViewModel.DEFAULT_TARGET_LEVEL;
 
