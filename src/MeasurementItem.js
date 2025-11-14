@@ -777,19 +777,6 @@ class MeasurementItem {
     this.setSPLOffsetDB(this.splOffsetDeltadB() + amountToAdd);
   }
 
-  async setSPLOffsetDBOld(newValue) {
-    await this.addSPLOffsetDB(newValue - this.splOffsetDeltadB());
-  }
-
-  async addSPLOffsetDBOld(amountToAdd) {
-    amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 2);
-    if (amountToAdd === 0) {
-      return false;
-    }
-    await this.genericCommand('Add SPL offset', { offset: amountToAdd });
-    return true;
-  }
-
   async genericCommand(commandName, commandData) {
     const withoutResultCommands = [
       'Save',
