@@ -1904,14 +1904,12 @@ class MeasurementViewModel {
     return targetCurveResponse.magnitude[freqIndex];
   }
 
-  async setTargetLevelFromMeasurement(measurement) {
-    const currentTargetLevel = this.mainTargetLevel();
-
+  setTargetLevelFromMeasurement = async (measurement) => {
     const targetLevel = await measurement?.getTargetLevel();
     const newValue = targetLevel || MeasurementViewModel.DEFAULT_TARGET_LEVEL;
 
     // if newValue is different from current value, 2 decimals place precision
-    if (newValue.toFixed(2) === currentTargetLevel.toFixed(2)) {
+    if (newValue.toFixed(2) === this.mainTargetLevel().toFixed(2)) {
       return;
     }
 
@@ -1935,7 +1933,7 @@ class MeasurementViewModel {
     }
 
     return newValue;
-  }
+  };
 
   getMaxFromArray(array) {
     if (!Array.isArray(array)) {
