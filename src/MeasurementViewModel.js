@@ -1752,6 +1752,7 @@ class MeasurementViewModel {
   }
 
   async equalizeSub(subMeasurement) {
+    await subMeasurement.setTargetLevel(this.mainTargetLevel());
     await subMeasurement.applyWorkingSettings();
     await subMeasurement.resetTargetSettings();
     await subMeasurement.detectFallOff(-3);
