@@ -1,19 +1,34 @@
 export default class RewApi {
   static TIMEOUT_MS = 15000;
-  static MAX_PULLING_RETRY = 150;
   static WAIT_BETWEEN_RETRIES_MS = 100;
-  static SPEED_DELAY_INIB_MS = 20;
+  static MAX_POLLING_RETRY = Math.floor(
+    RewApi.TIMEOUT_MS / RewApi.WAIT_BETWEEN_RETRIES_MS
+  );
+  static SPEED_DELAY_INHIBIT_MS = 20;
   static SPEED_DELAY_NORMAL_MS = 300;
+  static VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
+  static MIN_REQUIRED_VERSION = 54071;
 
   constructor(baseUrl, inhibitGraphUpdates = false, blocking = false) {
     if (!baseUrl) {
       throw new Error('Base URL is required');
     }
+    if (typeof baseUrl !== 'string') {
+      throw new TypeError('Base URL must be a string');
+    }
+    // Validate URL to prevent SSRF attacks
+    const parsedBase = new URL(baseUrl);
+    if (parsedBase.hostname !== 'localhost') {
+      throw new Error('Base URL is not localhost');
+    }
+    if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
+      throw new Error('Base URL must use HTTP or HTTPS protocol');
+    }
+
     this.baseUrl = baseUrl;
     this.speedDelay = inhibitGraphUpdates
-      ? RewApi.SPEED_DELAY_INIB_MS
-      : RewApi.SPEED_DELAY_NORMAL_MS; // milliseconds
-    this.VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
+      ? RewApi.SPEED_DELAY_INHIBIT_MS
+      : RewApi.SPEED_DELAY_NORMAL_MS;
     this.blocking = blocking;
     this.inhibitGraphUpdates = inhibitGraphUpdates;
     this.maxMeasurements = 0;
@@ -23,7 +38,14 @@ export default class RewApi {
 
   async setBlocking(blocking = true) {
     try {
-      await this.updateAPI('blocking', blocking);
+      // ask the REW API for the current blocking mode
+      const currentBlocking = await this.fetchWithRetry('application/blocking', {
+        method: 'GET',
+      });
+      if (currentBlocking !== blocking) {
+        // Update blocking mode on the REW API
+        await this.postSafe('application/blocking', blocking);
+      }
       this.blocking = blocking;
     } catch (error) {
       const message = error.message || 'Error enabling blocking';
@@ -33,15 +55,32 @@ export default class RewApi {
 
   async setInhibitGraphUpdates(inhibit = true) {
     try {
-      await this.updateAPI('inhibit-graph-updates', inhibit);
+      await this.postSafe('application/inhibit-graph-updates', inhibit);
       this.inhibitGraphUpdates = inhibit;
       this.speedDelay = inhibit
-        ? RewApi.SPEED_DELAY_INIB_MS
-        : RewApi.SPEED_DELAY_NORMAL_MS; // milliseconds
+        ? RewApi.SPEED_DELAY_INHIBIT_MS
+        : RewApi.SPEED_DELAY_NORMAL_MS;
     } catch (error) {
-      const message = error.message || 'Error setting inhibit graph updates';
+      const message = error.message || 'Error setting graph updates inhibition';
       throw new Error(message, { cause: error });
     }
+  }
+
+  async getLastError() {
+    return await this.fetchWithRetry('application/last-error', { method: 'GET' });
+  }
+
+  async getMaxMeasurements() {
+    return await this.fetchWithRetry('measurements/max-measurements', {
+      method: 'GET',
+    });
+  }
+
+  async clearCommands() {
+    return await this.fetchWithRetry('application/command', {
+      body: JSON.stringify({ command: 'Clear command in progress' }),
+      method: 'POST',
+    });
   }
 
   // Move API initialization to separate method
@@ -49,7 +88,7 @@ export default class RewApi {
     try {
       await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
       await this.setBlocking(this.blocking);
-      this.maxMeasurements = await this.fetchSafe('max-measurements');
+      this.maxMeasurements = await this.getMaxMeasurements();
       this.version = await this.checkVersion();
       this.targetCurve = await this.checkTargetCurve();
     } catch (error) {
@@ -59,31 +98,33 @@ export default class RewApi {
   }
 
   async checkTargetCurve() {
-    const tcResponse = await fetch(`${this.baseUrl}/eq/house-curve`);
-    if (!tcResponse.ok) return 'None';
+    const target = await this.fetchWithRetry('eq/house-curve', { method: 'GET' });
 
-    const target = await tcResponse.json();
     const targetCurvePath = target?.message || target;
     if (!targetCurvePath || typeof targetCurvePath !== 'string') return 'None';
 
-    console.info(`Using target curve : ${JSON.stringify(targetCurvePath)}`);
     const filename = targetCurvePath.replaceAll('\\', '/').split('/').pop();
     const dotIndex = filename.lastIndexOf('.');
     return (dotIndex > 0 ? filename.slice(0, dotIndex) : filename).replaceAll(' ', '');
   }
 
   async checkVersion() {
-    const response = await fetch(`${this.baseUrl}/version`);
-    if (!response.ok) throw new Error('Error checking version: not ok');
+    const response = await this.fetchWithRetry('version', { method: 'GET' });
 
-    const versionString = (await response.json()).message;
-    const versionMatch = this.VERSION_REGEX.exec(versionString);
+    if (!response?.message) throw new Error('Invalid version response format');
+    const versionString = response.message;
+    const versionMatch = RewApi.VERSION_REGEX.exec(versionString);
     if (!versionMatch) throw new Error(`Invalid version format: ${versionString}`);
 
-    const [, major, minor, beta] = versionMatch.map(v => Number.parseInt(v, 10));
+    const major = Number.parseInt(versionMatch[1], 10);
+    const minor = Number.parseInt(versionMatch[2], 10);
+    const beta = Number.parseInt(versionMatch[3], 10);
+    if (Number.isNaN(major) || Number.isNaN(minor) || Number.isNaN(beta)) {
+      throw new TypeError(`Invalid version numbers: ${versionString}`);
+    }
     const versionNum = major * 10000 + minor * 100 + beta;
 
-    if (versionNum < 54071) {
+    if (versionNum < RewApi.MIN_REQUIRED_VERSION) {
       throw new Error(
         `Installed REW version (${versionString}) is outdated and incompatible. ` +
           `Please install the latest REW Beta from https://www.avnirvana.com/threads/rew-api-beta-releases.12981/.`
@@ -93,58 +134,50 @@ export default class RewApi {
     return versionString;
   }
 
-  // REW API
-  async updateAPI(endpoint, bodyValue) {
-    try {
-      const url = `application/${endpoint}`;
-      return await this.fetchWithRetry(
-        url,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyValue),
-        },
-        0
-      );
-    } catch (error) {
-      const message = error.message || 'Error updating API';
-      throw new Error(message, { cause: error });
+  async fetchREW(indice = null, method = 'GET', rawBody = null, retries = 3) {
+    if (method !== 'GET' && method !== 'PUT') {
+      throw new Error(`Invalid method: ${method}`);
     }
-  }
-
-  async clearCommands() {
-    return await this.updateAPI('command', { command: 'Clear command in progress' });
-  }
-
-  async fetchREW(indice = null, method = 'GET', body = null, retry = 3) {
+    if (method === 'PUT' && (rawBody === null || rawBody === undefined)) {
+      throw new Error('Body is required for PUT requests');
+    }
     try {
       const indicePath = indice === null ? '' : `/${indice}`;
       const requestUrl = `measurements${indicePath}`;
+      let body = null;
+      if (method === 'PUT') {
+        body = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
+      }
       const requestOptions = {
         method,
-        headers: { 'Content-Type': 'application/json' },
-        ...(method === 'PUT' && body && { body: JSON.stringify(body) }),
+        ...(body && { body }),
       };
-      return await this.fetchWithRetry(requestUrl, requestOptions, retry);
+      return await this.fetchWithRetry(requestUrl, requestOptions, retries);
     } catch (error) {
-      const message = error.message || 'Error fetching REW';
+      const message =
+        error.message ||
+        `Error fetching REW measurements with body ${String(
+          rawBody
+        )} with method ${method}`;
       throw new Error(message, { cause: error });
     }
   }
 
-  async fetchSafe(requestUrl, indice = null, parameters = null) {
+  async fetchSafe(requestUrl, indice = null, parameters = null, retries = 3) {
+    if (!requestUrl) {
+      throw new Error('Request URL is required');
+    }
     try {
       const indicePath = indice === null ? '' : `/${indice}`;
       const url = `measurements${indicePath}/${requestUrl}`;
       const options = {
         method: parameters ? 'POST' : 'GET',
-        headers: { 'Content-Type': 'application/json' },
         ...(parameters && {
           body: JSON.stringify(parameters),
         }),
       };
 
-      return await this.fetchWithRetry(url, options);
+      return await this.fetchWithRetry(url, options, retries);
     } catch (error) {
       const message = error.message || 'Fetch failed';
       throw new Error(message, { cause: error });
@@ -152,14 +185,12 @@ export default class RewApi {
   }
 
   async fetchAlign(requestUrl) {
+    if (!requestUrl) {
+      throw new Error('Request URL is required');
+    }
     try {
       const url = `alignment-tool/${requestUrl}`;
-      const options = {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-      };
-
-      return await this.fetchWithRetry(url, options);
+      return await this.fetchWithRetry(url, { method: 'GET' });
     } catch (error) {
       const message = error.message || 'Fetch failed';
       throw new Error(message, { cause: error });
@@ -183,7 +214,21 @@ export default class RewApi {
     if (!processName || !uuids) {
       throw new Error('Process name and UUIDs are required');
     }
+    if (typeof uuids !== 'string' && !Array.isArray(uuids)) {
+      throw new TypeError('UUIDs must be a string or an array of strings');
+    }
+
     const isProcessMeasurements = Array.isArray(uuids);
+
+    if (isProcessMeasurements) {
+      // check if uuids items are not null or undefined
+      for (const uuid of uuids) {
+        if (!uuid) {
+          throw new Error('All UUIDs must be valid non-empty strings');
+        }
+      }
+    }
+
     // Build the appropriate endpoint based on measurement type
     const endpoint = isProcessMeasurements
       ? 'process-measurements'
@@ -197,71 +242,65 @@ export default class RewApi {
       ...(parameters && { parameters }),
     };
     try {
-      const commandRequest = await this.fetchWithRetry(
+      return await this.fetchWithRetry(
         url,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         },
         retries
       );
-
-      return commandRequest;
     } catch (error) {
-      const message = error.message || '`Process execution failed';
+      const message = error.message || 'Process execution failed';
       throw new Error(message, { cause: error });
     }
   }
 
-  async postSafe(requestUrl, parameters, retries = 0) {
+  async postSafe(requestUrl, parameters, retries = 0, method = 'POST') {
     try {
+      if (!requestUrl) {
+        throw new Error('Request URL is required');
+      }
+      if (parameters === undefined) {
+        throw new Error('Parameters are required');
+      }
+      if (method !== 'POST' && method !== 'PUT') {
+        throw new Error('Method must be either POST or PUT');
+      }
+
+      const body =
+        typeof parameters === 'string' ? parameters : JSON.stringify(parameters);
       const fetchOptions = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parameters),
+        method,
+        body,
       };
 
-      const commandRequest = await this.fetchWithRetry(requestUrl, fetchOptions, retries);
-
-      return commandRequest;
+      return await this.fetchWithRetry(requestUrl, fetchOptions, retries);
     } catch (error) {
       const message = error.message || 'Post failed';
       throw new Error(message, { cause: error });
     }
   }
 
-  async putSafe(requestUrl, parameters, retries = 2) {
-    try {
-      const fetchOptions = {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(parameters),
-      };
-
-      return await this.fetchWithRetry(requestUrl, fetchOptions, retries);
-    } catch (error) {
-      const message = error.message || 'Put failed';
-      throw new Error(message, { cause: error });
-    }
+  async putSafe(requestUrl, parameters, retries = 0) {
+    return await this.postSafe(requestUrl, parameters, retries, 'PUT');
   }
 
-  async postAlign(processName, frequency = null) {
+  async postAlign(processName, frequency = null, retries = 3) {
     try {
       const result = await this.fetchWithRetry(
         `alignment-tool/command`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             command: processName,
             ...(frequency !== null && { frequency }),
           }),
         },
-        3
+        retries
       );
 
-      const errorIntoMessage = result.message.results?.[0]?.Error;
+      const errorIntoMessage = result.message?.results?.[0]?.Error;
       if (errorIntoMessage) {
         const delayMatch = errorIntoMessage.match(
           /delay required to align the responses.*(-?[\d.]+) ms/
@@ -280,15 +319,19 @@ export default class RewApi {
       throw new Error(message, { cause: error });
     }
   }
-  async postDelete(indice, retry = 3) {
+  async postDelete(indice, retries = 0) {
+    if (indice === null || indice === undefined) {
+      throw new Error('Indice is required');
+    }
+
+    if (typeof indice !== 'string' && typeof indice !== 'number') {
+      throw new TypeError('Indice must be a string or number');
+    }
+
     const url = `measurements/${indice}`;
-    const options = {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-    };
 
     try {
-      return await this.fetchWithRetry(url, options, retry);
+      return await this.fetchWithRetry(url, { method: 'DELETE' }, retries);
     } catch (error) {
       const message = error.message || 'Delete failed';
       throw new Error(message, { cause: error });
@@ -297,7 +340,12 @@ export default class RewApi {
 
   // Helper to make HTTP requests with consistent error handling
   async fetchWithRetry(url, options, retries = 3, expectedProcess = null) {
-    if (!url || !options) {
+    if (
+      !url ||
+      options === null ||
+      options === undefined ||
+      typeof options !== 'object'
+    ) {
       throw new Error('Missing parameters');
     }
 
@@ -306,7 +354,14 @@ export default class RewApi {
     // Create an abort controller for the timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), RewApi.TIMEOUT_MS);
-    const fetchOptions = { ...options, signal: controller.signal };
+    const fetchOptions = {
+      ...options,
+      headers: {
+        ...(options.body && { 'Content-Type': 'application/json' }),
+        ...options.headers,
+      },
+      signal: controller.signal,
+    };
 
     try {
       const response = await fetch(completeUrl, fetchOptions);
@@ -314,7 +369,10 @@ export default class RewApi {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(err => {
+          console.warn('Failed to parse error response:', err);
+          return {};
+        });
         const parsedMessage = RewApi.safeParseJSON(data.message);
         const errorMessage =
           parsedMessage?.results?.[0]?.Error ||
@@ -332,16 +390,19 @@ export default class RewApi {
 
       this.validateExpectedProcess(expectedProcess, data);
 
-      const processID = options.method === 'POST' && this.extractProcessID(data, url);
-
-      // Handle 200: Check if polling is needed for measurements
-      if (processID && (response.status === 200 || response.status === 202)) {
-        return this.handleStatus202(url, processID, RewApi.MAX_PULLING_RETRY);
-      }
+      const processID =
+        options.method === 'POST' ? this.extractProcessID(data, url) : null;
 
       // Prevent overloading the REW API only for write operations
       if (['POST', 'PUT', 'DELETE'].includes(options.method)) {
         await new Promise(resolve => setTimeout(resolve, this.speedDelay));
+      }
+
+      // Handle 200: Check if polling is needed for measurements
+      if (processID && response.status === 200) {
+        return this.handleStatus202(url, processID, 0);
+      } else if (!this.blocking && processID && response.status === 202) {
+        return this.handleStatus202(url, processID, RewApi.MAX_POLLING_RETRY);
       }
 
       return data;
@@ -357,13 +418,16 @@ export default class RewApi {
         await new Promise(resolve => setTimeout(resolve, RewApi.WAIT_BETWEEN_RETRIES_MS));
         return await this.fetchWithRetry(url, options, retries - 1, expectedProcess);
       }
+      if (retries <= 0) {
+        throw new Error(`Max retries reached for ${url}`);
+      }
 
-      throw new Error(error.message || 'Max retries reached', { cause: error });
+      throw new Error(error.message, { cause: error });
     }
   }
 
   extractProcessID(data, url) {
-    const idregex = /ID \d+/;
+    const idRegex = /ID \d+/;
 
     const extractMatch = str => {
       if (!str) return null;
@@ -371,7 +435,7 @@ export default class RewApi {
       if (fromJson?.processName) {
         return fromJson.processName;
       }
-      const match = idregex.exec(str);
+      const match = idRegex.exec(str);
       if (!match) return null;
       const idIndex = str.indexOf(match[0]);
       return str.substring(0, idIndex + match[0].length);
@@ -393,33 +457,57 @@ export default class RewApi {
 
   validateExpectedProcess(expectedProcess, data) {
     if (!expectedProcess) return;
+    if (!data) throw new Error('API response is empty');
 
-    if (typeof expectedProcess === 'string') {
-      if (data !== expectedProcess) {
-        throw new Error(
-          `The API response does not concern the expected process ID: expected:\n${expectedProcess} received:\n${data}`
-        );
+    const isDataString = typeof data === 'string';
+    const isExpectedString = typeof expectedProcess === 'string';
+
+    const generateErrorMessage = (expected, received) => {
+      return `The API response does not concern the requested task. expected: "${expected}" received: "${received}"`;
+    };
+
+    const caseInsensitiveIncludes = (str, search) => {
+      if (!str || !search || typeof str !== 'string' || typeof search !== 'string') {
+        return false;
+      }
+      return str.toLowerCase().includes(search.toLowerCase());
+    };
+
+    if (isDataString) {
+      const expected = isExpectedString ? expectedProcess : expectedProcess.message;
+      if (expected && !caseInsensitiveIncludes(data, expected)) {
+        throw new Error(generateErrorMessage(expected, data));
       }
       return;
     }
 
-    if (expectedProcess.processName && data.processName !== expectedProcess.processName) {
-      throw new Error(
-        `The API response does not concern the expected process ID: expected ${expectedProcess.processName} received ${data.processName}`
-      );
+    if (isExpectedString) {
+      throw new TypeError(generateErrorMessage(expectedProcess, JSON.stringify(data)));
     }
 
-    if (expectedProcess.message) {
-      const receivedMessage = data.message || data;
-      if (
-        !receivedMessage.toUpperCase().includes(expectedProcess.message.toUpperCase())
-      ) {
-        throw new Error('API does not give a "Complete" status');
-      }
+    if (
+      expectedProcess.message &&
+      data.message &&
+      !caseInsensitiveIncludes(data.message, expectedProcess.message)
+    ) {
+      throw new Error(generateErrorMessage(expectedProcess.message, data.message));
+    }
+
+    if (
+      expectedProcess.processName &&
+      !caseInsensitiveIncludes(data.processName, expectedProcess.processName)
+    ) {
+      throw new Error(
+        generateErrorMessage(expectedProcess.processName, data.processName)
+      );
     }
   }
 
   getProcessExpectedResponse(url, processID) {
+    if (!url || typeof url !== 'string') {
+      throw new Error('URL parameter is required and must be a string');
+    }
+
     return url.startsWith('import')
       ? processID
       : { processName: processID, message: 'Completed' };
@@ -440,6 +528,10 @@ export default class RewApi {
 
   // Helper methods
   getResultUrl(url) {
+    if (!url || typeof url !== 'string') {
+      throw new Error('URL parameter is required and must be a string');
+    }
+
     if (url.startsWith('alignment-tool/')) {
       return 'alignment-tool/result';
     }
@@ -450,19 +542,31 @@ export default class RewApi {
   }
 
   static safeParseJSON(str) {
-    if (!str || typeof str !== 'string' || !str.trim().startsWith('{')) {
+    if (!str || typeof str !== 'string') {
       return null;
     }
-    return JSON.parse(str);
+    const trimmed = str.trim();
+    if (!trimmed.endsWith('}') && !trimmed.endsWith(']')) {
+      return null;
+    }
+    try {
+      return JSON.parse(str);
+    } catch {
+      return null;
+    }
   }
 
   static isValidIpAddress(ip) {
     if (typeof ip !== 'string') return false;
     const parts = ip.split('.');
     if (parts.length !== 4) return false;
-    return parts.every(part => {
+
+    for (const part of parts) {
       const num = Number(part);
-      return part === String(num) && num >= 0 && num <= 255;
-    });
+      if (part !== String(num) || num < 0 || num > 255) {
+        return false;
+      }
+    }
+    return true;
   }
 }
