@@ -2437,12 +2437,6 @@ class MeasurementViewModel {
 
     try {
       const uuids = items.map(item => item.uuid);
-      // check if uuids items are not null or undefined
-      for (const uuid of uuids) {
-        if (!uuid) {
-          throw new Error('One or more measurement items have invalid UUIDs');
-        }
-      }
       const operationResult = await this.apiService.postNext(
         commandName,
         uuids,
