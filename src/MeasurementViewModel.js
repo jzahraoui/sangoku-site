@@ -242,21 +242,17 @@ class MeasurementViewModel {
     });
 
     this.validateFile = file => {
-      const MAX_SIZE = 70 * 1024 * 1024;
+      const MAX_SIZE = 100 * 1024 * 1024;
       const VALID_EXTENSIONS = ['.avr', '.ady', '.mqx'];
 
       const hasValidExtension = VALID_EXTENSIONS.some(ext => file.name.endsWith(ext));
       if (!hasValidExtension) {
-        this.handleError('Please select a .avr, .ady, or .mqx file');
-        return false;
+        throw new Error('Please select a .avr, .ady, or .mqx file');
       }
 
       if (file.size > MAX_SIZE) {
-        this.handleError('File size exceeds 70MB limit');
-        return false;
+        throw new Error('File size exceeds 70MB limit');
       }
-
-      return true;
     };
 
     this.processMqxFile = async data => {
@@ -404,18 +400,15 @@ class MeasurementViewModel {
 
     // Handle file reading
     this.readFile = async file => {
+      if (!file) {
+        throw new Error('No file selected');
+      }
       if (this.isProcessing()) return;
 
       try {
         await this.isProcessing(true);
 
-        if (!file) {
-          throw new Error('No file selected');
-        }
-
-        if (!this.validateFile(file)) {
-          throw new Error('File validation failed');
-        }
+        this.validateFile(file);
 
         let fileContent = await file.text();
 
