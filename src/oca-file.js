@@ -248,6 +248,15 @@ export default class OCAFileGenerator {
           true
         );
 
+        // first value must be 1
+        if (filterImpulseResponse[0] !== 1) {
+          throw new Error(
+            `Unexpected impulse response start value: ${
+              filterImpulseResponse[0]
+            } for ${filterItem.displayMeasurementTitle()}`
+          );
+        }
+
         filter = this.transformIR(filterImpulseResponse, sampleCount, invert);
       } finally {
         if (trimmedFilter) {
