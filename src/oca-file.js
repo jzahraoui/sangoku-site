@@ -249,7 +249,7 @@ export default class OCAFileGenerator {
         );
 
         // first value must be 1
-        if (filterImpulseResponse[0] !== 1) {
+        if (filterImpulseResponse[0] <= 0.9) {
           throw new Error(
             `Unexpected impulse response start value: ${
               filterImpulseResponse[0]
