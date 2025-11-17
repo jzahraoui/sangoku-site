@@ -1,4 +1,8 @@
 import RewApi from './rew-api.js';
+import REWEQ from './rew-eq.js';
+import REWImport from './rew-import.js';
+import REWAlignmentTool from './rew-alignment-tool.js';
+import REWMeasurements from './rew-measurements.js';
 import MeasurementItem from './MeasurementItem.js';
 import PersistentStore from './PersistentStore.js';
 import BusinessTools from './BusinessTools.js';
@@ -21,7 +25,7 @@ class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
   static maximisedSumTitle = 'LFE Max Sum';
 
-  blocking = false;
+  blocking = true;
   pollingInterval = 1000; // 1 seconds
 
   constructor() {
@@ -43,11 +47,12 @@ class MeasurementViewModel {
 
     // API Service
     this.apiBaseUrl = ko.observable('http://localhost:4735');
-    this.apiService = new RewApi(
-      this.apiBaseUrl(),
-      this.inhibitGraphUpdates(),
-      this.blocking
-    );
+    this.apiService = new RewApi(this.apiBaseUrl(), false, this.blocking);
+    this.rewEq = new REWEQ(this.apiService);
+    this.rewMeasurements = new REWMeasurements(this.apiService);
+    this.rewImport = new REWImport(this.apiService);
+    this.rewAlignmentTool = new REWAlignmentTool(this.apiService);
+    this.maxMeasurements = ko.observable(0);
 
     this.businessTools = new BusinessTools(this);
 
@@ -290,7 +295,7 @@ class MeasurementViewModel {
       const response = processedResponse.data;
       const max = Math.max(...response.map(x => Math.abs(x)));
       const lastMeasurementIndex = this.measurements().length;
-      const encodedData = MeasurementItem.encodeRewToBase64(response);
+      const encodedData = this.rewImport.encodeFloat32ToBase64(response);
 
       if (!encodedData) {
         throw new Error('Error encoding array');
@@ -303,14 +308,9 @@ class MeasurementViewModel {
         applyCal: false,
         data: encodedData,
       };
-      await this.apiService.postSafe('import/impulse-response-data', options);
+      await this.rewImport.importImpulseResponseData(options);
 
-      const item = await this.apiService.fetchREW(
-        lastMeasurementIndex + 1,
-        'GET',
-        null,
-        0
-      );
+      const item = await this.rewMeasurements.get(lastMeasurementIndex + 1, 0);
       const measurementItem = await this.addMeasurement(item);
       measurementItem.IRPeakValue = max;
       if (max >= 1) {
@@ -589,7 +589,7 @@ class MeasurementViewModel {
     this.refreshTargetCurve = async () => {
       if (this.isProcessing()) return;
       try {
-        this.targetCurve(await this.apiService.checkTargetCurve());
+        this.targetCurve(await this.rewEq.checkTargetCurve());
       } catch (error) {
         this.handleError(`Refresh target curve failed: ${error.message}`, error);
       }
@@ -646,10 +646,7 @@ class MeasurementViewModel {
         this.status('Reseting...');
 
         this.appendStatus('Set Generic EQ');
-        await this.apiService.postSafe(
-          'eq/default-equaliser',
-          MeasurementItem.defaulEqtSettings
-        );
+        await this.rewEq.setDefaultEqualiser(MeasurementItem.defaulEqtSettings);
 
         this.appendStatus('Clear commands');
         await this.apiService.clearCommands();
@@ -839,8 +836,9 @@ class MeasurementViewModel {
         // working settings must match filter settings
         for (const work of this.uniqueMeasurements()) {
           await work.resetIrWindows();
-          await work.genericCommand('Smooth', { smoothing: '1/1' });
         }
+        const uuids = this.uniqueMeasurements().map(m => m.uuid);
+        await this.rewMeasurements.smoothMeasurements(uuids, '1/1');
 
         await this.processCommands('Align SPL', workingMeasurements, {
           frequencyHz: 2500,
@@ -1764,7 +1762,7 @@ class MeasurementViewModel {
       `Creating EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`
     );
 
-    await this.apiService.postSafe(`eq/match-target-settings`, {
+    await this.rewEq.setMatchTargetSettings({
       startFrequency: customStartFrequency,
       endFrequency: customEndFrequency,
       individualMaxBoostdB: this.maxBoostIndividualValue(),
@@ -1914,6 +1912,8 @@ class MeasurementViewModel {
       // Filters will be deleted if target level is changed
       await otherItem.setTargetLevel(newValue);
     }
+
+    this.rewEq.setDefaultTargetLevel(newValue);
 
     //delete previous LFE predicted measurements
     const previousLfePredicted = this.allPredictedLfeMeasurement();
@@ -2087,25 +2087,16 @@ class MeasurementViewModel {
   }
 
   async sendToREW(optimizedSubsSum, maximisedSumTitle) {
-    const encodedMagnitudeData = MeasurementItem.encodeRewToBase64(
-      optimizedSubsSum.magnitude
-    );
-    const encodedPhaseData = MeasurementItem.encodeRewToBase64(optimizedSubsSum.phase);
-
-    if (!encodedMagnitudeData || !encodedPhaseData) {
-      this.handleError('Error encoding array');
-      return;
-    }
     const options = {
       identifier: maximisedSumTitle.slice(0, 24),
       isImpedance: false,
       startFreq: optimizedSubsSum.freqs[0],
       freqStep: optimizedSubsSum.freqStep,
-      magnitude: encodedMagnitudeData,
-      phase: encodedPhaseData,
+      magnitude: optimizedSubsSum.magnitude,
+      phase: optimizedSubsSum.phase,
       ppo: optimizedSubsSum.ppo,
     };
-    await this.apiService.postSafe('import/frequency-response-data', options, 2);
+    await this.rewImport.importFrequencyResponseData(options);
 
     // trick to retreive the imported measurement
     await this.loadData();
@@ -2178,7 +2169,7 @@ class MeasurementViewModel {
     try {
       this.isLoading(true);
 
-      const data = await this.apiService.fetchREW();
+      const data = await this.rewMeasurements.list();
 
       const measurementsCount = Object.keys(data).length;
       if (measurementsCount > 0 && !this.jsonAvrData()?.avr) {
@@ -2260,7 +2251,7 @@ class MeasurementViewModel {
       return existingItem;
     }
     try {
-      const item = await this.apiService.fetchREW(itemUuid, 'GET', null, 0);
+      const item = await this.rewMeasurements.get(itemUuid);
       // Transform data using the MeasurementItem class
       const measurementItem = new MeasurementItem(item, this);
       this.measurements.push(measurementItem);
@@ -2328,7 +2319,7 @@ class MeasurementViewModel {
 
     try {
       // First attempt to delete from API to ensure consistency
-      await this.apiService.postDelete(itemUuid, 0);
+      await this.rewMeasurements.delete(itemUuid);
 
       this.measurements.remove(item => item.uuid === itemUuid);
 
@@ -2344,7 +2335,7 @@ class MeasurementViewModel {
     }
   }
 
-  // add measurement
+  // TODO remove this method when all commands are moved to RewMeasurements
   async doArithmeticOperation(itemA, itemB, operationObject) {
     if (!itemA || !itemB) {
       throw new Error('Arithmetic Operation: Invalid measurement item');
@@ -2398,7 +2389,7 @@ class MeasurementViewModel {
     return operationResult;
   }
 
-  // add measurement
+  // TODO: remove this method when all commands are moved to RewMeasurements
   async processCommands(commandName, items, commandData) {
     if (!items || !Array.isArray(items)) {
       throw new Error('Process Command: Invalid measurement item');
@@ -2430,11 +2421,10 @@ class MeasurementViewModel {
 
     try {
       const uuids = items.map(item => item.uuid);
-      const operationResult = await this.apiService.postNext(
+      const operationResult = await this.rewMeasurements.processMeasurements(
         commandName,
         uuids,
-        commandData,
-        0
+        commandData
       );
 
       if (withoutResultCommands.includes(commandName)) {
@@ -2472,14 +2462,20 @@ class MeasurementViewModel {
     }
 
     try {
-      await this.apiService.postSafe(`alignment-tool/remove-time-delay`, false);
-      await this.apiService.postAlign('Reset all');
-      await this.apiService.postSafe(`alignment-tool/max-negative-delay`, minSearchRange);
-      await this.apiService.postSafe(`alignment-tool/max-positive-delay`, maxSearchRange);
-      await this.apiService.postSafe('alignment-tool/uuid-a', channelA.uuid);
-      await this.apiService.postSafe('alignment-tool/uuid-b', channelB.uuid);
-      await this.apiService.postSafe(`alignment-tool/mode`, 'Impulse');
-      const AlignResults = await this.apiService.postAlign('Align IRs', frequency);
+      await this.rewAlignmentTool.setRemoveTimeDelay(false);
+      await this.rewAlignmentTool.resetAll();
+      await this.rewAlignmentTool.setMaxNegativeDelay(minSearchRange);
+      await this.rewAlignmentTool.setMaxPositiveDelay(maxSearchRange);
+
+      const AlignResults = await this.rewAlignmentTool.alignIRsBatch(
+        channelA.uuid,
+        channelB.uuid,
+        frequency
+      );
+
+      if (!AlignResults.results) {
+        throw new Error('alignment-tool: Invalid AlignResults object or missing results');
+      }
 
       const AlignResultsDetails = AlignResults.results[0];
 
@@ -2502,7 +2498,7 @@ class MeasurementViewModel {
         console.warn('alignment-tool: results provided were with channel B inverted');
       }
       if (createSum) {
-        const alignedSum = await this.apiService.postAlign('Aligned sum');
+        const alignedSum = await this.rewAlignmentTool.executeCommand('Aligned sum');
         const alignedSumUuid = Object.values(alignedSum.results || {})[0]?.UUID;
         const alignedSumObject = await this.addMeasurementApi(alignedSumUuid);
         await alignedSumObject.setTitle(sumTitle);
@@ -2514,6 +2510,7 @@ class MeasurementViewModel {
     }
   }
 
+  //TODO: remove old findAligment when sure new one works fine
   async findAligmentNew(
     channelA,
     channelB,
@@ -2699,10 +2696,12 @@ class MeasurementViewModel {
 
     try {
       // Initial load
-      this.apiService = new RewApi(this.apiBaseUrl(), false, this.blocking);
+      this.apiService.setBaseURL(this.apiBaseUrl());
+      await this.apiService.setBlocking(this.blocking);
       await this.apiService.initializeAPI();
       this.rewVersion(this.apiService.version);
       this.targetCurve(this.apiService.targetCurve);
+      this.maxMeasurements(await this.rewMeasurements.getMaxMeasurements());
       await this.refreshTargetCurve();
       if (!this.targetCurve()) {
         this.status(

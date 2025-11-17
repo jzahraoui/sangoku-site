@@ -33,6 +33,9 @@ class MeasurementItem {
     this.dectedFallOffHigh = +Infinity;
 
     this.parentViewModel = parentViewModel;
+    this.apiService = parentViewModel.apiService;
+    this.rewMeasurements = parentViewModel.rewMeasurements;
+    this.rewEq = parentViewModel.rewEq;
     // Original data
     this.title = ko.observable(item.title);
     this.notes = item.notes;
@@ -248,12 +251,7 @@ class MeasurementItem {
   }
 
   async refresh() {
-    const item = await this.parentViewModel.apiService.fetchREW(
-      this.uuid,
-      'GET',
-      null,
-      0
-    );
+    const item = await this.rewMeasurements.get(this.uuid);
 
     if (!item) {
       throw new Error(`Failed to refresh ${this.displayMeasurementTitle()}`);
@@ -301,7 +299,7 @@ class MeasurementItem {
   }
 
   async toggleInversion() {
-    await this.genericCommand('Invert');
+    await this.rewMeasurements.invert(this.uuid);
   }
 
   async resetAll(targetLevel = 75) {
@@ -326,14 +324,20 @@ class MeasurementItem {
   }
 
   async resetSmoothing() {
-    await this.genericCommand('Smooth', { smoothing: 'None' });
+    return this.rewMeasurements.removeSmoothing([this.uuid]);
   }
 
   async defaultSmoothing() {
     // actually not possible to check current smoothing method
-    await this.genericCommand('Smooth', {
-      smoothing: this.parentViewModel.selectedSmoothingMethod(),
-    });
+    return this.rewMeasurements.smoothMeasurements(
+      [this.uuid],
+      this.parentViewModel.selectedSmoothingMethod()
+    );
+  }
+
+  async setSmoothing(smoothingMethod) {
+    // actually not possible to check current smoothing method
+    return this.rewMeasurements.smooth([this.uuid], smoothingMethod);
   }
 
   async resetIrWindows() {
@@ -349,33 +353,15 @@ class MeasurementItem {
   }
 
   async resetTargetSettings() {
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      'target-settings',
-      this.uuid
-    );
-
-    const defaultSettings = { shape: 'None' };
-
-    // compare commandResult with defaultSettings
-    if (commandResult.shape === defaultSettings.shape) {
-      return true;
-    }
-
-    await this.setTargetSettings(defaultSettings);
+    return this.rewMeasurements.resetTargetSettings(this.uuid);
   }
 
   async resetRoomCurveSettings() {
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/room-curve-settings`,
-      { addRoomCurve: false }
-    );
+    await this.rewMeasurements.resetRoomCurveSettings(this.uuid);
   }
 
   async isdefaultEqualiser() {
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      'equaliser',
-      this.uuid
-    );
+    const commandResult = await this.rewMeasurements.getEqualiser(this.uuid);
 
     // compare commandResult with defaultSettings
     return (
@@ -390,10 +376,7 @@ class MeasurementItem {
       return true;
     }
 
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/equaliser`,
-      MeasurementItem.defaulEqtSettings
-    );
+    await this.rewMeasurements.setEqualiser(this.uuid, MeasurementItem.defaulEqtSettings);
   }
 
   static arraysMatchWithTolerance(arr1, arr2, tolerance = 0.01) {
@@ -431,27 +414,30 @@ class MeasurementItem {
   async setIrWindows(irWindowsObject) {
     // Check if cumulative IR distance exists and is valid
     if (!this.haveImpulseResponse) {
-      return true;
+      return;
     }
 
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      'ir-windows',
-      this.uuid
-    );
+    const commandResult = await this.rewMeasurements.getIRWindows(this.uuid);
 
     if (this.compareIwWindows(commandResult, irWindowsObject)) return true;
 
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/ir-windows`,
-      irWindowsObject
-    );
+    return this.rewMeasurements.setIRWindows(this.uuid, irWindowsObject);
+  }
+
+  async trimIRToWindows() {
+    // Check if cumulative IR distance exists and is valid
+    if (!this.haveImpulseResponse) {
+      return;
+    }
+    return this.rewMeasurements.trimIRToWindows(this.uuid);
+  }
+
+  async responseCopy() {
+    return this.rewMeasurements.responseCopy(this.uuid);
   }
 
   async setTargetSettings(targetSettings) {
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/target-settings`,
-      targetSettings
-    );
+    return this.rewMeasurements.postTargetSettings(this.uuid, targetSettings);
   }
 
   async generateFilterMeasurement() {
@@ -474,27 +460,10 @@ class MeasurementItem {
   }
 
   async getImpulseResponse(freq, unit = 'percent', windowed = true, normalised = true) {
-    let url = `impulse-response?unit=${unit}&windowed=${windowed}&normalised=${normalised}`;
-    if (freq) {
-      // default is the rate of the data being exported
-      url += `&samplerate=${freq}`;
-    }
-    // repsonse example
-    // {
-    //   "unit": "dBFS",
-    //   "startTime": -0.03053968516398206,
-    //   "sampleInterval": 0.000020833333333333333,
-    //   "sampleRate": 48000,
-    //   "timingReference": "Acoustic reference",
-    //   "timingRefTime": -0.01318170882936498,
-    //   "timingOffset": 0,
-    //   "delay": 0.01015496119789816,
-    //   "data": ...
-    // }
+    const options = { unit, windowed, normalised, ...(freq && { samplerate: freq }) };
+    const reponseBody = await this.rewMeasurements.getImpulseResponse(this.uuid, options);
 
-    const reponseBody = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
-
-    return MeasurementItem.decodeRewBase64(reponseBody.data);
+    return reponseBody.dataArray;
   }
 
   async getFilterImpulseResponse(freq, sampleCount) {
@@ -503,11 +472,13 @@ class MeasurementItem {
         `Invalid frequency or sample count for ${this.displayMeasurementTitle()}`
       );
     }
-    const url = `filters-impulse-response?length=${sampleCount}&samplerate=${freq}`;
+    const options = { length: sampleCount, samplerate: freq };
+    const reponseBody = await this.rewMeasurements.getFiltersImpulseResponse(
+      this.uuid,
+      options
+    );
 
-    const reponseBody = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
-
-    return MeasurementItem.decodeRewBase64(reponseBody.data);
+    return reponseBody.dataArray;
   }
 
   async getPredictedImpulseResponse(
@@ -516,31 +487,27 @@ class MeasurementItem {
     windowed = true,
     normalised = true
   ) {
-    let url = `eq/impulse-response?unit=${unit}&windowed=${windowed}&normalised=${normalised}`;
-    if (freq) {
-      // default is the rate of the data being exported
-      url += `&samplerate=${freq}`;
-    }
-    const reponseBody = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
+    const options = { unit, windowed, normalised, ...(freq && { samplerate: freq }) };
+    const reponseBody = await this.rewMeasurements.getPredictedImpulseResponse(
+      this.uuid,
+      options
+    );
 
-    return MeasurementItem.decodeRewBase64(reponseBody.data);
+    return reponseBody.dataArray;
   }
 
   async getFrequencyResponse(unit = 'SPL', smoothing = 'None', ppo = null) {
-    let url = `frequency-response?unit=${unit}&smoothing=${smoothing}`;
-    if (ppo) {
-      // default is the rate of the data being exported
-      url += `&ppo=${ppo}`;
-    }
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
+    const options = { unit, smoothing, ...(ppo && { ppo }) };
+    const commandResult = await this.rewMeasurements.getFrequencyResponse(
+      this.uuid,
+      options
+    );
 
     // Create a CommandResult object from the raw API response
     const frequencyResponse = new FrequencyResponse(commandResult);
 
     // Process the frequency response data
-    const res = frequencyResponse.processFrequencyResponse(ppo);
-
-    return res;
+    return frequencyResponse.processFrequencyResponse();
   }
 
   /**
@@ -615,19 +582,16 @@ class MeasurementItem {
   }
 
   async getTargetResponse(unit = 'SPL', ppo = 96) {
-    let url = `target-response?unit=${unit}&ppo=${ppo}`;
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
-
-    const startFreq = commandResult.startFreq;
-    const magnitude = MeasurementItem.decodeRewBase64(commandResult.magnitude);
-
-    const freqs = Array.from({ length: magnitude.length }, (_, i) =>
-      MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
+    const options = { unit, ppo };
+    const commandResult = await this.rewMeasurements.getTargetResponse(
+      this.uuid,
+      options
     );
+    // Create a CommandResult object from the raw API response
+    const frequencyResponse = new FrequencyResponse(commandResult);
 
-    const endFreq = freqs.at(-1);
-
-    return { freqs, magnitude, startFreq, endFreq };
+    // Process the frequency response data
+    return frequencyResponse.processFrequencyResponse();
   }
 
   async delete() {
@@ -647,9 +611,9 @@ class MeasurementItem {
     if (newTitle === this.title()) {
       return false;
     }
-    await this.parentViewModel.apiService.fetchREW(this.uuid, 'PUT', {
+    await this.rewMeasurements.update(this.uuid, {
       title: newTitle,
-      ...(notescontent && { notes: notescontent }),
+      notes: notescontent,
     });
     await this.refresh();
 
@@ -673,10 +637,7 @@ class MeasurementItem {
     if (amountToAdd === 0) {
       return false;
     }
-    await this.genericCommand('Offset t=0', {
-      offset: amountToAdd,
-      unit: 'seconds',
-    });
+    await this.rewMeasurements.offsetTZero(this.uuid, amountToAdd);
     console.debug(
       `Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()}`
     );
@@ -777,62 +738,29 @@ class MeasurementItem {
     this.setSPLOffsetDB(this.splOffsetDeltadB() + amountToAdd);
   }
 
-  async genericCommand(commandName, commandData) {
-    const withoutResultCommands = [
-      'Save',
-      'Mic in box correction',
-      'Merge cal data to IR',
-      'Smooth',
-      'Generate waterfall',
-      'Generate equalised waterfall',
-      'Generate spectrogram',
-      'Generate equalised spectrogram',
-      'Estimate IR delay',
-      'Offset t=0',
-      'Add SPL offset',
-      'Generate RT60',
-      'Invert',
-      'Wrap phase',
-      'Unwrap phase',
-    ];
-
-    const allowedCommands = [
-      ...withoutResultCommands,
-      'Trim IR to windows',
-      'Minimum phase version',
-      'Excess phase version',
-      'Response copy',
-      'Response magnitude copy',
-      'Generate minimum phase',
-    ];
-    if (!allowedCommands.includes(commandName)) {
-      throw new Error(`Command ${commandName} is not allowed`);
+  async analyseApiResponse(commandResult, commandMeasurement) {
+    if (!commandResult) {
+      throw new Error('Invalid command result');
+    }
+    if (!commandMeasurement) {
+      throw new Error('Invalid command measurement');
+    }
+    if (typeof commandResult !== 'object') {
+      throw new TypeError('Command result must be an object');
+    }
+    if (typeof commandMeasurement !== MeasurementItem) {
+      throw new TypeError('Command measurement must be a MeasurementItem');
     }
 
-    try {
-      const commandResult = await this.parentViewModel.apiService.postNext(
-        commandName,
-        this.uuid,
-        commandData,
-        2
+    // new measurement created
+    const operationResultUuid = Object.values(commandResult.results || {})[0]?.UUID;
+    if (operationResultUuid) {
+      const measurement = await this.parentViewModel.addMeasurementApi(
+        operationResultUuid
       );
-
-      await this.refresh();
-
-      if (!withoutResultCommands.includes(commandName)) {
-        const operationResultUuid = Object.values(commandResult.results || {})[0]?.UUID;
-        const measurement = await this.parentViewModel.addMeasurementApi(
-          operationResultUuid
-        );
-        measurement.parentAttr = this.toJSON();
-        // Save to persistent storage
-        return measurement;
-      }
-      return commandResult;
-    } catch (error) {
-      throw new Error(`Failed to create ${commandName} operation: ${error.message}`, {
-        cause: error,
-      });
+      measurement.parentAttr = commandMeasurement.toJSON();
+    } else {
+      commandMeasurement.refresh();
     }
   }
 
@@ -857,12 +785,9 @@ class MeasurementItem {
     }
 
     try {
-      const operationResult = await this.parentViewModel.apiService.postNext(
-        commandName,
+      const operationResult = await this.rewMeasurements.executeEQCommand(
         this.uuid,
-        null,
-        0,
-        'eq/command'
+        commandName
       );
 
       if (!withoutResultCommands.includes(commandName)) {
@@ -885,10 +810,7 @@ class MeasurementItem {
 
   async getFilters() {
     const autoDisableTypes = new Set(['LP', 'HP', 'HS', 'LS', 'All pass']);
-    const measurementFilters = await this.parentViewModel.apiService.fetchSafe(
-      'filters',
-      this.uuid
-    );
+    const measurementFilters = await this.rewMeasurements.getFilters(this.uuid);
     for (const filter of measurementFilters) {
       if (autoDisableTypes.has(filter.type)) {
         filter.isAuto = false;
@@ -933,7 +855,7 @@ class MeasurementItem {
     if (filtersCleaned.length === 0) {
       return true;
     }
-    await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/filters`, {
+    await this.rewMeasurements.postFilters(this.uuid, {
       filters: filtersCleaned,
     });
 
@@ -955,10 +877,7 @@ class MeasurementItem {
       return false;
     }
 
-    await this.parentViewModel.apiService.putSafe(
-      `measurements/${this.uuid}/filters`,
-      filter
-    );
+    await this.rewMeasurements.setFilters(this.uuid, filter);
 
     await this.deleteAssociatedFilter();
     return true;
@@ -1053,10 +972,7 @@ class MeasurementItem {
   }
 
   async getTargetLevel() {
-    const level = await this.parentViewModel.apiService.fetchSafe(
-      'target-level',
-      this.uuid
-    );
+    const level = await this.rewMeasurements.getTargetLevel(this.uuid);
     return MeasurementItem.cleanFloat32Value(level, 2);
   }
 
@@ -1071,10 +987,7 @@ class MeasurementItem {
     if (level.toFixed(2) === currentLevel.toFixed(2)) {
       return true;
     }
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/target-level`,
-      level
-    );
+    await this.rewMeasurements.setTargetLevel(this.uuid, level);
     await this.resetFilters();
     return true;
   }
@@ -1409,10 +1322,10 @@ class MeasurementItem {
     );
 
     // must be set seaparatly to be taken into account
-    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+    await this.rewEq.setMatchTargetSettings({
       endFrequency: customEndFrequency,
     });
-    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+    await this.rewEq.setMatchTargetSettings({
       startFrequency: customStartFrequency,
       endFrequency: customInterPassFrequency * 2,
       individualMaxBoostdB: 0,
@@ -1437,7 +1350,7 @@ class MeasurementItem {
       );
     }
 
-    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+    await this.rewEq.setMatchTargetSettings({
       startFrequency: customInterPassFrequency / 2,
       endFrequency: customEndFrequency,
       individualMaxBoostdB: this.parentViewModel.individualMaxBoostValue(),
@@ -1477,7 +1390,7 @@ class MeasurementItem {
   }
 
   async createMinimumPhaseCopy() {
-    const minimumPhase = await this.genericCommand('Minimum phase version', {
+    const minimumPhase = await this.rewMeasurements.minimumPhaseVersion(this.uuid, {
       'include cal': true,
       'append lf tail': false,
       'append hf tail': false,
@@ -1489,7 +1402,7 @@ class MeasurementItem {
   }
 
   async createExcessPhaseCopy() {
-    return await this.genericCommand('Excess phase version', {
+    return await this.rewMeasurements.excessPhaseVersion(this.uuid, {
       'include cal': true,
       'append lf tail': false,
       'append hf tail': false,
@@ -1508,119 +1421,6 @@ class MeasurementItem {
     // Round to desired precision using Math.round (faster than toFixed)
     const multiplier = 10 ** precision;
     return Math.round(num * multiplier) / multiplier;
-  }
-
-  static decodeRewBase64(encodedData, isLittleEndian = false) {
-    if (!encodedData) {
-      throw new Error(`Invalid encoded data: ${encodedData}`);
-    }
-    try {
-      const bytes = MeasurementItem.decodeBase64ToBinary(encodedData);
-      const dataView = new DataView(bytes.buffer);
-      const sampleCount = dataView.byteLength / Float32Array.BYTES_PER_ELEMENT;
-      const result = new Array(sampleCount);
-      for (let i = 0; i < sampleCount; i++) {
-        const value = dataView.getFloat32(
-          i * Float32Array.BYTES_PER_ELEMENT,
-          isLittleEndian
-        );
-
-        result[i] = MeasurementItem.cleanFloat32Value(value);
-      }
-      return result;
-    } catch (error) {
-      throw new Error(`Error decoding base64 data: ${error.message}`, { cause: error });
-    }
-  }
-
-  // Decode to binary data
-  static decodeBase64ToBinary(base64String) {
-    const binaryString = atob(base64String);
-    const bytes = new Uint8Array(binaryString.length);
-
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.codePointAt(i);
-    }
-
-    return bytes;
-  }
-
-  /**
-   * Validates and converts array elements to numbers
-   * @param {Float32Array} float32Array - The array to validate
-   * @returns {Float32Array} The validated array with numeric values
-   * @throws {Error} If any element cannot be converted to a valid number
-   */
-  static validateArrayElements(float32Array) {
-    // Check if array contains any NaN values
-    if (
-      float32Array.some(
-        element => Number.isFinite(element) && typeof element !== 'string'
-      )
-    ) {
-      return float32Array;
-    }
-    let convertedArray = new Float32Array(float32Array.length);
-    let index = 0;
-    try {
-      // Convert array to numbers and validate
-      for (const element of float32Array) {
-        const num = Number.parseFloat(element);
-
-        // Throw specific error for invalid conversions
-        if (!Number.isFinite(num)) {
-          throw new TypeError(`Invalid numeric value: ${element}`);
-        }
-
-        convertedArray[index++] = num;
-      }
-
-      // Create new Float32Array from converted values
-      return convertedArray;
-    } catch (error) {
-      throw new Error(`Array validation failed:${error.message}`, { cause: error });
-    }
-  }
-
-  static encodeRewToBase64(floatArray) {
-    if (!Array.isArray(floatArray)) {
-      throw new TypeError('Input must be an array of numbers');
-    }
-
-    try {
-      // Create a buffer to hold the Float32 values
-      const buffer = new ArrayBuffer(floatArray.length * Float32Array.BYTES_PER_ELEMENT);
-      const dataView = new DataView(buffer);
-
-      // Write each float value to the buffer
-      for (let i = 0; i < floatArray.length; i++) {
-        dataView.setFloat32(
-          i * Float32Array.BYTES_PER_ELEMENT,
-          floatArray[i],
-          false // use big-endian to match the decoder
-        );
-      }
-
-      // Convert the buffer to a Uint8Array
-      const bytes = new Uint8Array(buffer);
-
-      // Convert to base64 using chunks to avoid call stack size exceeded
-      const CHUNK_SIZE = 0x8000; // 32k
-      let binaryString = '';
-
-      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-        const chunk = bytes.slice(i, i + CHUNK_SIZE);
-        binaryString += String.fromCharCode.apply(null, chunk);
-      }
-
-      const base64String = btoa(binaryString);
-
-      return base64String;
-    } catch (error) {
-      throw new Error(`Error encoding data to base64: ${error.message}`, {
-        cause: error,
-      });
-    }
   }
 
   // Method to get data for saving

@@ -16,15 +16,6 @@ class FrequencyResponse {
     for (const key of Object.keys(rawData)) {
       this[key] = rawData[key];
     }
-
-    // Decode base64 encoded data if present
-    if (rawData.magnitude) {
-      this.decodedMagnitude = MeasurementItem.decodeRewBase64(rawData.magnitude);
-    }
-
-    if (rawData.phase) {
-      this.decodedPhase = MeasurementItem.decodeRewBase64(rawData.phase);
-    }
   }
 
   /**
@@ -32,11 +23,11 @@ class FrequencyResponse {
    * @returns {Array} Array of frequency values
    */
   generateFrequencyArray() {
-    if (!this.decodedMagnitude) {
+    if (!this.magnitudeArray) {
       return [];
     }
 
-    const dataLength = this.decodedMagnitude.length;
+    const dataLength = this.magnitudeArray.length;
 
     if (this.freqStep) {
       return Array.from({ length: dataLength }, (_, i) =>
@@ -53,32 +44,23 @@ class FrequencyResponse {
   }
 
   /**
-   * Get the end frequency based on the generated frequency array
-   * @param {Array} freqs - Array of frequencies
-   * @returns {number} The end frequency
-   */
-  getEndFrequency(freqs) {
-    return freqs.at(-1) ?? 0;
-  }
-
-  /**
    * Process the frequency response data
    * @returns {Object} Processed frequency response data
    */
   processFrequencyResponse() {
     const freqs = this.generateFrequencyArray();
-    const endFreq = this.getEndFrequency(freqs);
 
     return {
       freqs,
-      magnitude: this.decodedMagnitude,
-      phase: this.decodedPhase,
+      magnitude: this.magnitudeArray,
+      ...(this.phaseArray && { phase: this.phaseArray }),
       startFreq: this.startFreq,
-      endFreq,
+      endFreq: freqs.at(-1) ?? 0,
       freqStep: this.freqStep,
-      ppo: this.ppo,
-      smoothing: this.smoothing,
-      unit: this.unit,
+      ...(this.ppo && { ppo: this.ppo }),
+      ...(this.samplingRate && { samplingRate: this.samplingRate }),
+      ...(-this.smoothing && { smoothing: this.smoothing }),
+      ...(this.unit && { unit: this.unit }),
     };
   }
 }

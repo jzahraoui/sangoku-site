@@ -404,8 +404,8 @@ class BusinessTools {
   async applyCuttOffFilter(sub, speaker, cuttOffFrequency) {
     if (cuttOffFrequency === 0) {
       return {
-        PredictedLfeFiltered: await sub.genericCommand('Response copy'),
-        predictedSpeakerFiltered: await speaker.genericCommand('Response copy'),
+        PredictedLfeFiltered: sub.responseCopy(),
+        predictedSpeakerFiltered: speaker.responseCopy(),
       };
     }
 
@@ -506,7 +506,7 @@ class BusinessTools {
     }${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
 
-    await finalPredcition.genericCommand('Smooth', { smoothing: 'Psy' });
+    await finalPredcition.setSmoothing('Psy');
     await item.applyWorkingSettings();
 
     return true;
