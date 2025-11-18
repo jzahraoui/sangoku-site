@@ -241,7 +241,7 @@ export default class RewApi {
 
       // Handle 200: Check if polling is needed for measurements
       if (this.blocking) {
-        return this.fetchWithRetry(resultUrl, 'GET', null, 0, processExpectedResponse);
+        return this.request(resultUrl);
       }
 
       return this.fetchWithRetry(
@@ -406,8 +406,8 @@ export default class RewApi {
   }
 
   encodeFloat32ToBase64(floatArray, isLittleEndian = false) {
-    if (!(floatArray instanceof Float32Array) && !Array.isArray(floatArray)) {
-      throw new TypeError('Input must be a Float32Array or an array of numbers');
+    if (!(floatArray instanceof Float32Array)) {
+      throw new TypeError('Input must be a Float32Array');
     }
     try {
       const buffer = new ArrayBuffer(floatArray.length * Float32Array.BYTES_PER_ELEMENT);

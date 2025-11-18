@@ -20,27 +20,26 @@ class FrequencyResponse {
 
   /**
    * Generate frequency array based on start frequency and step or PPO
-   * @returns {Array} Array of frequency values
+   * @returns {Float32Array} Float32Array of frequency values
    */
   generateFrequencyArray() {
-    if (!this.magnitudeArray) {
-      return [];
+    if (!this.magnitudeArray || !this.data) {
+      throw new Error('Magnitude data is missing');
     }
 
-    const dataLength = this.magnitudeArray.length;
+    const dataLength = this.magnitudeArray.length || this.data.length;
 
     if (this.freqStep) {
-      return Array.from({ length: dataLength }, (_, i) =>
+      return Float32Array.from({ length: dataLength }, (_, i) =>
         MeasurementItem.cleanFloat32Value(this.startFreq + i * this.freqStep)
       );
-    } else {
-      const pointsPerOctave = this.ppo || 96; // Use provided PPO, or stored PPO, or default
-      return Array.from({ length: dataLength }, (_, i) =>
-        MeasurementItem.cleanFloat32Value(
-          this.startFreq * Math.pow(2, i / pointsPerOctave)
-        )
+    }
+    if (this.ppo) {
+      return Float32Array.from({ length: dataLength }, (_, i) =>
+        MeasurementItem.cleanFloat32Value(this.startFreq * Math.pow(2, i / this.ppo))
       );
     }
+    throw new Error('Either freqStep or ppo must be defined to generate frequency array');
   }
 
   /**
@@ -52,11 +51,12 @@ class FrequencyResponse {
 
     return {
       freqs,
-      magnitude: this.magnitudeArray,
+      ...(this.magnitude && { magnitude: this.magnitudeArray }),
       ...(this.phaseArray && { phase: this.phaseArray }),
+      ...(this.data && { data: this.data }),
       startFreq: this.startFreq,
       endFreq: freqs.at(-1) ?? 0,
-      freqStep: this.freqStep,
+      ...(this.freqStep && { freqStep: this.freqStep }),
       ...(this.ppo && { ppo: this.ppo }),
       ...(this.samplingRate && { samplingRate: this.samplingRate }),
       ...(-this.smoothing && { smoothing: this.smoothing }),

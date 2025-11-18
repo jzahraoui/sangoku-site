@@ -51,11 +51,17 @@ class REWImport {
     if (!data.magnitude || !data.phase) {
       throw new Error('Data must contain magnitude and phase');
     }
-    // if magnitude and phase are provided as Float32Array, encode them to base64
-    if (Array.isArray(data.magnitude)) {
+    // magnitude and phase should be Float32Array or base64 strings
+    if (!(data.magnitude instanceof Float32Array) && typeof data.magnitude !== 'string') {
+      throw new TypeError('Magnitude must be a Float32Array or base64 string');
+    }
+    if (!(data.phase instanceof Float32Array) && typeof data.phase !== 'string') {
+      throw new TypeError('Phase must be a Float32Array or base64 string');
+    }
+    if (data.magnitude instanceof Float32Array) {
       data.magnitude = this.encodeFloat32ToBase64(data.magnitude);
     }
-    if (Array.isArray(data.phase)) {
+    if (data.phase instanceof Float32Array) {
       data.phase = this.encodeFloat32ToBase64(data.phase);
     }
     return this.request('/import/frequency-response-data', 'POST', data);
@@ -82,8 +88,11 @@ class REWImport {
     if (!data.data) {
       throw new Error('Data must contain data property');
     }
-    // if magnitude and phase are provided as Float32Array, encode them to base64
-    if (Array.isArray(data.data)) {
+    // data.data should be Float32Array or base64 strings
+    if (!(data.data instanceof Float32Array) && typeof data.data !== 'string') {
+      throw new TypeError('Magnitude must be a Float32Array or base64 string');
+    }
+    if (data.data instanceof Float32Array) {
       data.data = this.encodeFloat32ToBase64(data.data);
     }
     return this.request('/import/impulse-response-data', 'POST', data);

@@ -24,6 +24,8 @@ class MeasurementViewModel {
   static DEFAULT_TARGET_LEVEL = 75;
   static DEFAULT_SHIFT_IN_METERS = 3;
   static maximisedSumTitle = 'LFE Max Sum';
+  static MAX_FILE_SIZE_BYTES = 104857600; // 100 MB
+  static VALID_FILE_EXTENSIONS = ['.avr', '.ady', '.mqx'];
 
   blocking = true;
   pollingInterval = 1000; // 1 seconds
@@ -247,16 +249,16 @@ class MeasurementViewModel {
     });
 
     this.validateFile = file => {
-      const MAX_SIZE = 100 * 1024 * 1024;
-      const VALID_EXTENSIONS = ['.avr', '.ady', '.mqx'];
-
-      const hasValidExtension = VALID_EXTENSIONS.some(ext => file.name.endsWith(ext));
-      if (!hasValidExtension) {
+      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+      if (!MeasurementViewModel.VALID_FILE_EXTENSIONS.includes(ext)) {
         throw new Error('Please select a .avr, .ady, or .mqx file');
       }
-
-      if (file.size > MAX_SIZE) {
-        throw new Error('File size exceeds 70MB limit');
+      if (file.size > MeasurementViewModel.MAX_FILE_SIZE_BYTES) {
+        throw new Error(
+          `File size exceeds ${
+            MeasurementViewModel.MAX_FILE_SIZE_BYTES / 1024 / 1024
+          } MB limit`
+        );
       }
     };
 
@@ -325,27 +327,31 @@ class MeasurementViewModel {
         adyTools.isDirectionalWhenMultiSubs();
       }
 
-      // TODO: ampassign can be directionnal must be converted to standard
-      if (this.isPolling()) {
-        adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
-        for (const processedResponse of adyTools.impulses) {
-          await this.processImpulseResponse(processedResponse, adyTools);
-        }
-      }
-
-      const results = document.getElementById('resultsAvr');
-
       // Create download buttons
+      const results = document.getElementById('resultsAvr');
       const button = document.createElement('button');
       button.textContent = `Download measurements zip`;
       button.onclick = () => saveAs(zipContent, `${data.title}.zip`);
       results.appendChild(button);
+
+      // TODO: ampassign can be directionnal must be converted to standard
+
+      // if not connected, do not import measurements in REW
+      if (!this.isPolling()) {
+        return;
+      }
+
+      // sort impulses by name to have all related positions together
+      adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
+      for (const processedResponse of adyTools.impulses) {
+        await this.processImpulseResponse(processedResponse, adyTools);
+      }
     };
 
     this.onFileLoaded = async (data, filename) => {
-      // clear error and load data to prevent buggy behavior
+      // clear error and clear measurements data to prevent buggy behavior
       this.error('');
-      await this.loadData();
+      this.measurements([]);
       this.status('Loaded file: ' + filename);
 
       try {
@@ -373,8 +379,11 @@ class MeasurementViewModel {
           this.ocaFileFormat('odd');
         }
 
-        // load data to prevent bug when avr data is not loaded
+        // load jsonAvrData to prevent bug when avr data is not loaded
         this.jsonAvrData(data);
+
+        // load data into measurements
+        await this.loadData();
 
         // Check if we have any measurements meaning we have a ady file
         if (data.detectedChannels?.[0].responseData?.[0]) {
@@ -2173,6 +2182,8 @@ class MeasurementViewModel {
 
       const measurementsCount = Object.keys(data).length;
       if (measurementsCount > 0 && !this.jsonAvrData()?.avr) {
+        // clear measurements to avoid inconsistency
+        this.measurements([]);
         throw new Error(
           `${measurementsCount} Measurements detected in REW but no AVR information. please remove all measurements or load AVR information`
         );
@@ -2697,7 +2708,6 @@ class MeasurementViewModel {
     try {
       // Initial load
       this.apiService.setBaseURL(this.apiBaseUrl());
-      await this.apiService.setBlocking(this.blocking);
       await this.apiService.initializeAPI();
       this.rewVersion(this.apiService.version);
       this.targetCurve(this.apiService.targetCurve);

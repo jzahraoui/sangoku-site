@@ -429,7 +429,12 @@ class MeasurementItem {
     if (!this.haveImpulseResponse) {
       return;
     }
-    return this.rewMeasurements.trimIRToWindows(this.uuid);
+    const result = await this.rewMeasurements.trimIRToWindows(this.uuid);
+    const newMeasurement = await this.analyseApiResponse(result, this);
+    if (!newMeasurement) {
+      throw new Error(`trimIRToWindows failed for ${this.displayMeasurementTitle()}`);
+    }
+    return newMeasurement;
   }
 
   async responseCopy() {
@@ -446,6 +451,7 @@ class MeasurementItem {
     }
 
     const filter = await this.eqCommands('Generate filters measurement');
+    filter.isFilter = true;
 
     if (!filter) {
       throw new Error(`filters reponse failed for ${this.displayMeasurementTitle()}`);
@@ -649,6 +655,9 @@ class MeasurementItem {
     return true;
   }
 
+  /**
+   * parse the response data to get the alignSPLOffsetdB for the targetUUID
+   */
   static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
     try {
       if (!responseData?.results) {
@@ -748,7 +757,7 @@ class MeasurementItem {
     if (typeof commandResult !== 'object') {
       throw new TypeError('Command result must be an object');
     }
-    if (typeof commandMeasurement !== MeasurementItem) {
+    if (!(commandMeasurement instanceof MeasurementItem)) {
       throw new TypeError('Command measurement must be a MeasurementItem');
     }
 
@@ -759,11 +768,12 @@ class MeasurementItem {
         operationResultUuid
       );
       measurement.parentAttr = commandMeasurement.toJSON();
-    } else {
-      commandMeasurement.refresh();
+      return measurement;
     }
+    await commandMeasurement.refresh();
   }
 
+  // TODO: remove this method when all commands are migrated to rew api
   async eqCommands(commandName) {
     const withoutResultCommands = [
       'Calculate target level',
@@ -790,17 +800,9 @@ class MeasurementItem {
         commandName
       );
 
-      if (!withoutResultCommands.includes(commandName)) {
-        const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
-        const measurement = await this.parentViewModel.addMeasurementApi(
-          operationResultUuid
-        );
-        measurement.isFilter = commandName === 'Generate filters measurement';
-        measurement.parentAttr = this.toJSON();
-        // Save to persistent storage
-        return measurement;
-      }
-      return operationResult;
+      const newMeasurement = await this.analyseApiResponse(operationResult, this);
+
+      return newMeasurement || operationResult;
     } catch (error) {
       throw new Error(`Failed to create ${commandName} operation: ${error.message}`, {
         cause: error,

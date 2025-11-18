@@ -192,6 +192,10 @@ class BusinessTools {
       return;
     }
 
+    if (deleteOriginal === 'none') {
+      return;
+    }
+
     if (deleteOriginal !== 'all' && deleteOriginal !== 'all_but_1') {
       throw new Error(`Invalid deleteOriginal parameter: ${deleteOriginal}`);
     }

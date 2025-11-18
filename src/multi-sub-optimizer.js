@@ -236,8 +236,8 @@ class MultiSubOptimizer {
         measurement: frequencyResponse.measurement,
         name: frequencyResponse.name,
         freqs: filteredFreqs,
-        magnitude: filteredMagnitude,
-        phase: filteredPhase,
+        magnitude: new Float32Array(filteredMagnitude),
+        phase: new Float32Array(filteredPhase),
         freqStep: frequencyResponse.freqStep,
         endFreq: filteredFreqs.at(-1),
         startFreq: filteredFreqs[0],
@@ -547,7 +547,14 @@ class MultiSubOptimizer {
     }
   }
 
-  runClassicOptimization(subToOptimize, previousValidSum, theo, testParamsList, bestWithAllPass, bestWithoutAllPass) {
+  runClassicOptimization(
+    subToOptimize,
+    previousValidSum,
+    theo,
+    testParamsList,
+    bestWithAllPass,
+    bestWithoutAllPass
+  ) {
     for (const param of testParamsList) {
       subToOptimize.param = param;
       const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
@@ -622,25 +629,19 @@ class MultiSubOptimizer {
 
     // Different optimization strategies
     if (method === 'genetic') {
-      this.runGeneticOptimization(
-        subToOptimize,
-        previousValidSum,
-        theo,
-        testParamsList,
-        {
-          runs,
-          populationSize,
-          withAllPassProbability,
-          generations,
-          eliteCount,
-          tournamentSize,
-          mutationRate,
-          mutationAmount,
-          maxNoImprovementGenerations,
-          bestWithAllPass,
-          bestWithoutAllPass,
-        }
-      );
+      this.runGeneticOptimization(subToOptimize, previousValidSum, theo, testParamsList, {
+        runs,
+        populationSize,
+        withAllPassProbability,
+        generations,
+        eliteCount,
+        tournamentSize,
+        mutationRate,
+        mutationAmount,
+        maxNoImprovementGenerations,
+        bestWithAllPass,
+        bestWithoutAllPass,
+      });
     } else if (method === 'classic') {
       this.runClassicOptimization(
         subToOptimize,
@@ -784,7 +785,9 @@ class MultiSubOptimizer {
     const modalRegionFrequency = 160; // Hz
 
     // Create weights that consider multiple factors important for subwoofer optimization
-    return frequencies.map(freq => {
+    const weights = new Float32Array(frequencies.length);
+    for (let i = 0; i < frequencies.length; i++) {
+      const freq = frequencies[i];
       // 1. Basic low-frequency emphasis - more weight for lower frequencies
       const basicWeight = 1 / Math.pow(freq / minFreq, basicweightPower); // Adjust power for smoothness
 
@@ -804,8 +807,9 @@ class MultiSubOptimizer {
       }
 
       // Combine all factors - multiply for compound effect
-      return basicWeight * modalImportance * edgeFactor;
-    });
+      weights[i] = basicWeight * modalImportance * edgeFactor;
+    }
+    return weights;
   }
 
   /**
@@ -841,8 +845,8 @@ class MultiSubOptimizer {
     const freqs = subs[0].freqs;
     const freqStep = subs[0].freqStep;
     const ppo = subs[0].ppo;
-    const combinedMagnitude = new Array(freqs.length);
-    const combinedPhase = new Array(freqs.length);
+    const magnitude = new Float32Array(freqs.length);
+    const phase = new Float32Array(freqs.length);
 
     // For each frequency point
     for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
@@ -856,11 +860,11 @@ class MultiSubOptimizer {
         polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
       }
 
-      combinedMagnitude[freqIndex] = polarSum.magnitudeDb;
-      combinedPhase[freqIndex] = polarSum.phaseDegrees;
+      magnitude[freqIndex] = polarSum.magnitudeDb;
+      phase[freqIndex] = polarSum.phaseDegrees;
     }
 
-    return { freqs, magnitude: combinedMagnitude, phase: combinedPhase, freqStep, ppo };
+    return { freqs, magnitude, phase, freqStep, ppo };
   }
 
   calculateResponseWithParams(sub) {
@@ -869,8 +873,8 @@ class MultiSubOptimizer {
       measurement: sub.measurement,
       name: sub.name,
       freqs: sub.freqs,
-      magnitude: [],
-      phase: [],
+      magnitude: new Float32Array(size),
+      phase: new Float32Array(size),
       freqStep: sub.freqStep,
       param: sub.param,
       ppo: sub.ppo,
@@ -900,8 +904,8 @@ class MultiSubOptimizer {
       }
 
       // Store results
-      response.magnitude.push(polar.magnitudeDb);
-      response.phase.push(polar.phaseDegrees);
+      response.magnitude[freqIndex] = polar.magnitudeDb;
+      response.phase[freqIndex] = polar.phaseDegrees;
     }
 
     return response;
