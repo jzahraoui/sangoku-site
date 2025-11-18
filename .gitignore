@@ -136,3 +136,5 @@ public/ressources
 public/assets
 dist/
 coverage/
+.claude/
+.vscode/
