@@ -987,8 +987,68 @@ class MeasurementViewModel {
 
         // set lpf for lfe according to speaker crossover or 120Hz minimum
         this.lpfForLFE(Math.max(120, speakerItem.crossover()));
+        lm.info(`Setting LFE low pass filter to ${this.lpfForLFE()} Hz`);
       } catch (error) {
         this.handleError(`Alignement search failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
+    this.buttonAutoAdjustInversion = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+        lm.info('Auto adjusting inversion...');
+
+        if (!this.predictedLfeMeasurement()) {
+          throw new Error(`No LFE found, please use sum subs button`);
+        }
+
+        const PredictedLfe = this.predictedLfeMeasurement();
+
+        for (const speakerItem of this.uniqueSpeakersMeasurements()) {
+          const cuttOffFrequency = speakerItem.crossover();
+          const mustBeDeleted = [];
+
+          try {
+            const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
+            mustBeDeleted.push(predictedFrontLeft);
+
+            const { PredictedLfeFiltered, predictedSpeakerFiltered } =
+              await this.businessTools.applyCutOffFilter(
+                PredictedLfe,
+                predictedFrontLeft,
+                cuttOffFrequency
+              );
+            mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
+
+            const { isBInverted } = await this.findAligment(
+              PredictedLfeFiltered,
+              predictedSpeakerFiltered,
+              cuttOffFrequency,
+              1,
+              false,
+              null,
+              -1
+            );
+
+            if (isBInverted) {
+              await speakerItem.toggleInversion();
+              lm.info(`Inversion toggled for ${speakerItem.displayMeasurementTitle()}`);
+            } else {
+              lm.info(`No inversion needed for ${speakerItem.displayMeasurementTitle()}`);
+            }
+          } catch {
+            lm.warn(
+              `Unable to determine inversion for ${speakerItem.displayMeasurementTitle()}`
+            );
+          } finally {
+            await this.removeMeasurements(mustBeDeleted);
+          }
+        }
+      } catch (error) {
+        this.handleError(`Auto adjust inversion failed: ${error.message}`, error);
       } finally {
         await this.setProcessing(false);
       }
@@ -1008,6 +1068,9 @@ class MeasurementViewModel {
         if (predictedLfe.uuid === selectedLfe.uuid) continue;
         await predictedLfe.setcumulativeIRShiftSeconds(selectedLfeIRShift);
         await predictedLfe.setInverted(selectedLfeInverted);
+        lm.debug(
+          `Syncing LFE ${predictedLfe.displayMeasurementTitle()} to selected LFE settings`
+        );
       }
 
       // TODO each related subwoofer measurement should follow the same settings as predicted LFE (applyTimeOffsetToSubs)
@@ -1734,14 +1797,8 @@ class MeasurementViewModel {
     });
 
     this.predictedLfeMeasurementTitle = ko.computed(() => {
-      // Get the unique measurements array
-      const uniqueSubs = this.uniqueSubsMeasurements();
-
-      // Early return if no measurements
-      if (!uniqueSubs?.length) return undefined;
-
       const position = this.currentSelectedPosition();
-      if (!position) return undefined;
+      if (position === undefined || position === null) return undefined;
 
       return `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
     });

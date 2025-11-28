@@ -745,6 +745,18 @@
                   data-bind="text: isProcessing() ? 'Processing...' : 'Find Sub Alignment'"
                 ></span>
               </button>
+              <button
+                class="button action-button"
+                data-bind="
+              click: buttonAutoAdjustInversion,
+              disable: isProcessing(),
+              css: { disabled: isProcessing }"
+              >
+                <i class="fa fa-sync-alt"></i>
+                <span
+                  data-bind="text: isProcessing() ? 'Processing...' : 'Auto Adjust Inversion'"
+                ></span>
+              </button>
             </div>
           </div>
 
