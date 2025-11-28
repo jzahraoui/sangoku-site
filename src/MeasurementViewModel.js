@@ -548,7 +548,7 @@ class MeasurementViewModel {
       if (newValue) {
         this.processingTimeout = setTimeout(() => {
           if (this.isProcessing()) {
-            lm.warn('Processing is taking more than 60 seconds, resetting state.');
+            lm.warn('Processing is taking more than 60 seconds, unloking controls');
             this.isProcessing(false);
           }
         }, 60000);
@@ -715,6 +715,9 @@ class MeasurementViewModel {
         store.clear();
 
         // Reset all application state
+        for (const item of this.measurements()) {
+          item.dispose();
+        }
         this.measurements([]);
         this.jsonAvrData(null);
 
