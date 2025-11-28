@@ -1,3 +1,5 @@
+import lm from './logs.js';
+
 class AvrCaracteristics {
   // Constants
   static SPEED_OF_SOUND = {
@@ -386,7 +388,7 @@ class AvrCaracteristics {
       !this.isFY20AboveAVR(this.targetModelName) &&
       !this.isOldModelForDistanceConversion(this.targetModelName)
     ) {
-      console.warn(`Unknown model: ${this.targetModelName}`);
+      lm.warn(`Unknown model: ${this.targetModelName}`);
     }
   }
 
@@ -399,14 +401,12 @@ class AvrCaracteristics {
    * @private
    */
   logModelSpecs() {
-    console.info(`Target AV receiver model: ${this.targetModelName}`);
-    console.log(`MultEQ Type:: ${AvrCaracteristics.getDescription(this.multEQType)}`);
-    console.info(`Model specific speed of sound setting: ${this.speedOfSound} m/s`);
-    console.info(`Model minimum distance accuracy: ${this.minDistAccuracy} m/s`);
-    console.info(
-      `Model is capable of setting 180Hz crossover: ${this.hasExtendedFrequency}`
-    );
-    console.info(`Model has Cirrus Logic DSP chip: ${this.hasCirrusLogicDsp}`);
+    lm.info(`Target AV receiver model: ${this.targetModelName}`);
+    lm.log(`MultEQ Type:: ${AvrCaracteristics.getDescription(this.multEQType)}`);
+    lm.info(`Model specific speed of sound setting: ${this.speedOfSound} m/s`);
+    lm.info(`Model minimum distance accuracy: ${this.minDistAccuracy} m/s`);
+    lm.info(`Model is capable of setting 180Hz crossover: ${this.hasExtendedFrequency}`);
+    lm.info(`Model has Cirrus Logic DSP chip: ${this.hasCirrusLogicDsp}`);
     this.logDacSpecs();
   }
 
@@ -415,9 +415,9 @@ class AvrCaracteristics {
    * @private
    */
   logDacSpecs() {
-    console.info(`Model has switchable DAC filter: ${this.hasSwitchableDacFilter}`);
+    lm.info(`Model has switchable DAC filter: ${this.hasSwitchableDacFilter}`);
     if (this.hasSwitchableDacFilter) {
-      console.info(
+      lm.info(
         "If 'DAC filter' in your unit is not set to 'Filter 2', " +
           "use 'Remove soft roll-off' optimization option for correct high frequency reproduction"
       );

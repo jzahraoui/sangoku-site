@@ -1,3 +1,13 @@
+/**
+ * REW Client Base
+ * Classe de base pour les clients de l'API REST de Room EQ Wizard
+ * Fournit la connexion HTTP et les méthodes utilitaires communes
+ */
+import REWEQ from './rew-eq.js';
+import REWImport from './rew-import.js';
+import REWAlignmentTool from './rew-alignment-tool.js';
+import REWMeasurements from './rew-measurements.js';
+
 export default class RewApi {
   static TIMEOUT_MS = 15000;
   static WAIT_BETWEEN_RETRIES_MS = 100;
@@ -5,19 +15,34 @@ export default class RewApi {
     RewApi.TIMEOUT_MS / RewApi.WAIT_BETWEEN_RETRIES_MS
   );
   static SPEED_DELAY_INHIBIT_MS = 20;
-  static SPEED_DELAY_NORMAL_MS = 300;
+  static SPEED_DELAY_NORMAL_MS = 500;
   static VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
   static MIN_REQUIRED_VERSION = 54071;
 
-  constructor(baseUrl, inhibitGraphUpdates = false, blocking = false) {
-    if (!baseUrl) {
+  constructor(
+    baseURL = 'http://localhost:4735',
+    inhibitGraphUpdates = false,
+    blocking = false
+  ) {
+    this.setBaseURL(baseURL);
+    this.blocking = blocking;
+    this.inhibitGraphUpdates = inhibitGraphUpdates;
+
+    this.rewEq = new REWEQ(this);
+    this.rewMeasurements = new REWMeasurements(this);
+    this.rewImport = new REWImport(this);
+    this.rewAlignmentTool = new REWAlignmentTool(this);
+  }
+
+  setBaseURL(baseURL) {
+    if (!baseURL) {
       throw new Error('Base URL is required');
     }
-    if (typeof baseUrl !== 'string') {
+    if (typeof baseURL !== 'string') {
       throw new TypeError('Base URL must be a string');
     }
     // Validate URL to prevent SSRF attacks
-    const parsedBase = new URL(baseUrl);
+    const parsedBase = new URL(baseURL);
     if (parsedBase.hostname !== 'localhost') {
       throw new Error('Base URL is not localhost');
     }
@@ -25,92 +50,71 @@ export default class RewApi {
       throw new Error('Base URL must use HTTP or HTTPS protocol');
     }
 
-    this.baseUrl = baseUrl;
-    this.speedDelay = inhibitGraphUpdates
+    this.baseURL = baseURL;
+  }
+
+  async getBlocking() {
+    return this.request('/application/blocking');
+  }
+
+  async setBlocking(enable = true) {
+    this.blocking = enable;
+    return this.request('/application/blocking', 'POST', enable);
+  }
+
+  async getInhibitGraphUpdates() {
+    return this.request('/application/inhibit-graph-updates');
+  }
+
+  async setInhibitGraphUpdates(enable = true) {
+    this.inhibitGraphUpdates = enable;
+    return this.request('/application/inhibit-graph-updates', 'POST', enable);
+  }
+
+  getSpeedDelay() {
+    return this.inhibitGraphUpdates
       ? RewApi.SPEED_DELAY_INHIBIT_MS
       : RewApi.SPEED_DELAY_NORMAL_MS;
-    this.blocking = blocking;
-    this.inhibitGraphUpdates = inhibitGraphUpdates;
-    this.maxMeasurements = 0;
-    this.version = '0.0 Beta 0';
-    this.targetCurve = 'None';
   }
 
-  async setBlocking(blocking = true) {
-    try {
-      // ask the REW API for the current blocking mode
-      const currentBlocking = await this.fetchWithRetry('application/blocking', {
-        method: 'GET',
-      });
-      if (currentBlocking !== blocking) {
-        // Update blocking mode on the REW API
-        await this.postSafe('application/blocking', blocking);
-      }
-      this.blocking = blocking;
-    } catch (error) {
-      const message = error.message || 'Error enabling blocking';
-      throw new Error(message, { cause: error });
-    }
-  }
-
-  async setInhibitGraphUpdates(inhibit = true) {
-    try {
-      await this.postSafe('application/inhibit-graph-updates', inhibit);
-      this.inhibitGraphUpdates = inhibit;
-      this.speedDelay = inhibit
-        ? RewApi.SPEED_DELAY_INHIBIT_MS
-        : RewApi.SPEED_DELAY_NORMAL_MS;
-    } catch (error) {
-      const message = error.message || 'Error setting graph updates inhibition';
-      throw new Error(message, { cause: error });
-    }
-  }
-
+  // Application
   async getLastError() {
-    return await this.fetchWithRetry('application/last-error', { method: 'GET' });
-  }
-
-  async getMaxMeasurements() {
-    return await this.fetchWithRetry('measurements/max-measurements', {
-      method: 'GET',
-    });
+    return this.request('/application/last-error');
   }
 
   async clearCommands() {
-    return await this.fetchWithRetry('application/command', {
-      body: JSON.stringify({ command: 'Clear command in progress' }),
-      method: 'POST',
+    return this.request('/application/command', 'POST', {
+      command: 'Clear command in progress',
     });
   }
 
-  // Move API initialization to separate method
-  async initializeAPI() {
-    try {
-      await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
-      await this.setBlocking(this.blocking);
-      this.maxMeasurements = await this.getMaxMeasurements();
-      this.version = await this.checkVersion();
-      this.targetCurve = await this.checkTargetCurve();
-    } catch (error) {
-      const message = error.message || 'API initialization failed';
-      throw new Error(message, { cause: error });
-    }
+  async setLogging(enable = true) {
+    return this.request('/application/logging', 'POST', enable);
   }
 
-  async checkTargetCurve() {
-    const target = await this.fetchWithRetry('eq/house-curve', { method: 'GET' });
+  async getErrors() {
+    return this.request('/application/errors');
+  }
 
-    const targetCurvePath = target?.message || target;
-    if (!targetCurvePath || typeof targetCurvePath !== 'string') return 'None';
+  /**
+   * Initialisation: Active le mode blocking et vérifie que l'audio est prêt
+   * Règle: Attendre quelques secondes après le démarrage de REW avant toute opération
+   */
+  async initializeAPI() {
+    // actual settings
+    const inhibitGraph = await this.getInhibitGraphUpdates();
+    const blocking = await this.getBlocking();
+    // set to desired settings
+    if (inhibitGraph !== this.inhibitGraphUpdates)
+      await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
+    if (blocking !== this.blocking) await this.setBlocking(this.blocking);
+    await this.rewEq.setDefaultEqualiser();
 
-    const filename = targetCurvePath.replaceAll('\\', '/').split('/').pop();
-    const dotIndex = filename.lastIndexOf('.');
-    return (dotIndex > 0 ? filename.slice(0, dotIndex) : filename).replaceAll(' ', '');
+    await this.clearCommands();
   }
 
   async checkVersion() {
-    const response = await this.fetchWithRetry('version', { method: 'GET' });
-
+    const response = await this.request('/version');
     if (!response?.message) throw new Error('Invalid version response format');
     const versionString = response.message;
     const versionMatch = RewApi.VERSION_REGEX.exec(versionString);
@@ -119,9 +123,6 @@ export default class RewApi {
     const major = Number.parseInt(versionMatch[1], 10);
     const minor = Number.parseInt(versionMatch[2], 10);
     const beta = Number.parseInt(versionMatch[3], 10);
-    if (Number.isNaN(major) || Number.isNaN(minor) || Number.isNaN(beta)) {
-      throw new TypeError(`Invalid version numbers: ${versionString}`);
-    }
     const versionNum = major * 10000 + minor * 100 + beta;
 
     if (versionNum < RewApi.MIN_REQUIRED_VERSION) {
@@ -130,280 +131,81 @@ export default class RewApi {
           `Please install the latest REW Beta from https://www.avnirvana.com/threads/rew-api-beta-releases.12981/.`
       );
     }
-
     return versionString;
   }
 
-  async fetchREW(indice = null, method = 'GET', rawBody = null, retries = 3) {
-    if (method !== 'GET' && method !== 'PUT') {
-      throw new Error(`Invalid method: ${method}`);
+  async request(endpoint, method = 'GET', body = null) {
+    if (!endpoint) {
+      throw new Error('Missing endpoint');
     }
-    if (method === 'PUT' && (rawBody === null || rawBody === undefined)) {
-      throw new Error('Body is required for PUT requests');
+    if (typeof method !== 'string') {
+      throw new TypeError('Method must be a string');
     }
-    try {
-      const indicePath = indice === null ? '' : `/${indice}`;
-      const requestUrl = `measurements${indicePath}`;
-      let body = null;
-      if (method === 'PUT') {
-        body = typeof rawBody === 'string' ? rawBody : JSON.stringify(rawBody);
-      }
-      const requestOptions = {
-        method,
-        ...(body && { body }),
-      };
-      return await this.fetchWithRetry(requestUrl, requestOptions, retries);
-    } catch (error) {
-      const message =
-        error.message ||
-        `Error fetching REW measurements with body ${String(
-          rawBody
-        )} with method ${method}`;
-      throw new Error(message, { cause: error });
+    if (!['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
+      throw new Error(`Invalid HTTP method: ${method}`);
     }
-  }
-
-  async fetchSafe(requestUrl, indice = null, parameters = null, retries = 3) {
-    if (!requestUrl) {
-      throw new Error('Request URL is required');
-    }
-    try {
-      const indicePath = indice === null ? '' : `/${indice}`;
-      const url = `measurements${indicePath}/${requestUrl}`;
-      const options = {
-        method: parameters ? 'POST' : 'GET',
-        ...(parameters && {
-          body: JSON.stringify(parameters),
-        }),
-      };
-
-      return await this.fetchWithRetry(url, options, retries);
-    } catch (error) {
-      const message = error.message || 'Fetch failed';
-      throw new Error(message, { cause: error });
-    }
-  }
-
-  async fetchAlign(requestUrl) {
-    if (!requestUrl) {
-      throw new Error('Request URL is required');
-    }
-    try {
-      const url = `alignment-tool/${requestUrl}`;
-      return await this.fetchWithRetry(url, { method: 'GET' });
-    } catch (error) {
-      const message = error.message || 'Fetch failed';
-      throw new Error(message, { cause: error });
-    }
-  }
-
-  /**
-   * Executes a process for measurements with retry capability
-   * @param {string} processName - Name of the process to execute
-   * @param {string|string[]} uuids - Single UUID or array of measurement UUIDs
-   * @param {Object} [parameters=null] - Optional parameters for the process
-   * @returns {Promise<Object>} Process result
-   */
-  async postNext(
-    processName,
-    uuids,
-    parameters = null,
-    retries = 0,
-    commandType = 'command'
-  ) {
-    if (!processName || !uuids) {
-      throw new Error('Process name and UUIDs are required');
-    }
-    if (typeof uuids !== 'string' && !Array.isArray(uuids)) {
-      throw new TypeError('UUIDs must be a string or an array of strings');
+    if (['POST', 'PUT'].includes(method.toUpperCase()) && body === null) {
+      throw new Error('Request body is required for non-GET requests');
     }
 
-    const isProcessMeasurements = Array.isArray(uuids);
-
-    if (isProcessMeasurements) {
-      // check if uuids items are not null or undefined
-      for (const uuid of uuids) {
-        if (!uuid) {
-          throw new Error('All UUIDs must be valid non-empty strings');
-        }
-      }
-    }
-
-    // Build the appropriate endpoint based on measurement type
-    const endpoint = isProcessMeasurements
-      ? 'process-measurements'
-      : `${uuids}/${commandType}`;
-    // Set response code based on command type
-    const url = `measurements/${endpoint}`;
-    const body = {
-      ...(isProcessMeasurements
-        ? { processName, measurementUUIDs: uuids }
-        : { command: processName }),
-      ...(parameters && { parameters }),
-    };
-    try {
-      return await this.fetchWithRetry(
-        url,
-        {
-          method: 'POST',
-          body: JSON.stringify(body),
-        },
-        retries
-      );
-    } catch (error) {
-      const message = error.message || 'Process execution failed';
-      throw new Error(message, { cause: error });
-    }
-  }
-
-  async postSafe(requestUrl, parameters, retries = 0, method = 'POST') {
-    try {
-      if (!requestUrl) {
-        throw new Error('Request URL is required');
-      }
-      if (parameters === undefined) {
-        throw new Error('Parameters are required');
-      }
-      if (method !== 'POST' && method !== 'PUT') {
-        throw new Error('Method must be either POST or PUT');
-      }
-
-      const body =
-        typeof parameters === 'string' ? parameters : JSON.stringify(parameters);
-      const fetchOptions = {
-        method,
-        body,
-      };
-
-      return await this.fetchWithRetry(requestUrl, fetchOptions, retries);
-    } catch (error) {
-      const message = error.message || 'Post failed';
-      throw new Error(message, { cause: error });
-    }
-  }
-
-  async putSafe(requestUrl, parameters, retries = 0) {
-    return await this.postSafe(requestUrl, parameters, retries, 'PUT');
-  }
-
-  async postAlign(processName, frequency = null, retries = 3) {
-    try {
-      const result = await this.fetchWithRetry(
-        `alignment-tool/command`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            command: processName,
-            ...(frequency !== null && { frequency }),
-          }),
-        },
-        retries
-      );
-
-      const errorIntoMessage = result.message?.results?.[0]?.Error;
-      if (errorIntoMessage) {
-        const delayMatch = errorIntoMessage.match(
-          /delay required to align the responses.*(-?[\d.]+) ms/
-        );
-        if (delayMatch) {
-          return {
-            message: 'Delay too large',
-            error: errorIntoMessage,
-            delay: Number.parseFloat(delayMatch[1]),
-          };
-        }
-      }
-      return result;
-    } catch (error) {
-      const message = error.message || 'Post failed';
-      throw new Error(message, { cause: error });
-    }
-  }
-  async postDelete(indice, retries = 0) {
-    if (indice === null || indice === undefined) {
-      throw new Error('Indice is required');
-    }
-
-    if (typeof indice !== 'string' && typeof indice !== 'number') {
-      throw new TypeError('Indice must be a string or number');
-    }
-
-    const url = `measurements/${indice}`;
-
-    try {
-      return await this.fetchWithRetry(url, { method: 'DELETE' }, retries);
-    } catch (error) {
-      const message = error.message || 'Delete failed';
-      throw new Error(message, { cause: error });
-    }
-  }
-
-  // Helper to make HTTP requests with consistent error handling
-  async fetchWithRetry(url, options, retries = 3, expectedProcess = null) {
-    if (
-      !url ||
-      options === null ||
-      options === undefined ||
-      typeof options !== 'object'
-    ) {
-      throw new Error('Missing parameters');
-    }
-
-    const completeUrl = `${this.baseUrl}/${url}`;
+    const completeUrl = `${this.baseURL}${endpoint}`;
 
     // Create an abort controller for the timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), RewApi.TIMEOUT_MS);
-    const fetchOptions = {
-      ...options,
-      headers: {
-        ...(options.body && { 'Content-Type': 'application/json' }),
-        ...options.headers,
-      },
+
+    const options = {
+      method,
+      headers: { Accept: 'application/json' },
       signal: controller.signal,
+    };
+    if (body !== null) {
+      options.body = JSON.stringify(body);
+      options.headers['Content-Type'] = 'application/json';
+    }
+
+    const parseMessage = obj => {
+      if (obj.message && typeof obj.message === 'string') {
+        const parsed = RewApi.safeParseJSON(obj.message);
+        if (parsed) Object.assign(obj, parsed);
+      }
     };
 
     try {
-      const response = await fetch(completeUrl, fetchOptions);
+      const response = await fetch(completeUrl, options);
       // Clear the timeout since the request completed
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const data = await response.json().catch(err => {
-          console.warn('Failed to parse error response:', err);
-          return {};
-        });
-        const parsedMessage = RewApi.safeParseJSON(data.message);
+        const error = await response
+          .json()
+          .catch(() => ({ message: response.statusText }));
+
+        // if data contains a message, parse it as JSON if possible
+        parseMessage(error);
         const errorMessage =
-          parsedMessage?.results?.[0]?.Error ||
-          data.message ||
-          `HTTP error! status: ${response.status} for URL: ${completeUrl}`;
-        throw new Error(errorMessage);
+          error?.results?.[0]?.Error ||
+          error.message ||
+          `HTTP error! for URL: ${completeUrl}`;
+        throw new Error(`[${response.status}] ${errorMessage}`);
       }
 
       const data = await response.json();
 
       // Validate data structure
-      if (data === undefined || data === null) {
-        throw new Error('Invalid response data');
-      }
-
-      this.validateExpectedProcess(expectedProcess, data);
-
-      const processID =
-        options.method === 'POST' ? this.extractProcessID(data, url) : null;
+      if (data == null) throw new Error('Invalid response data');
 
       // Prevent overloading the REW API only for write operations
       if (['POST', 'PUT', 'DELETE'].includes(options.method)) {
-        await new Promise(resolve => setTimeout(resolve, this.speedDelay));
+        await new Promise(resolve => setTimeout(resolve, this.getSpeedDelay()));
       }
 
-      // Handle 200: Check if polling is needed for measurements
-      if (processID && response.status === 200) {
-        return this.handleStatus202(url, processID, 0);
-      } else if (!this.blocking && processID && response.status === 202) {
-        return this.handleStatus202(url, processID, RewApi.MAX_POLLING_RETRY);
-      }
+      // if data contains a message, parse it as JSON if possible
+      parseMessage(data);
+
+      // if data contains an error message, throw it
+      const errorMessage = data.results?.[0]?.Error;
+      if (errorMessage) throw new Error(errorMessage);
 
       return data;
     } catch (error) {
@@ -411,30 +213,83 @@ export default class RewApi {
       clearTimeout(timeoutId);
 
       if (error.name === 'AbortError') {
-        throw new Error(`Request ${url} timeout after ${RewApi.TIMEOUT_MS / 1000} s`);
+        const abortError = new Error(
+          `Request ${endpoint} timeout after ${RewApi.TIMEOUT_MS / 1000} s`
+        );
+        abortError.code = 'AbortError';
+        throw abortError;
       }
 
-      if (retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, RewApi.WAIT_BETWEEN_RETRIES_MS));
-        return await this.fetchWithRetry(url, options, retries - 1, expectedProcess);
-      }
-      if (retries <= 0) {
-        throw new Error(`Max retries reached for ${url}`);
-      }
-
-      throw new Error(error.message, { cause: error });
+      throw new Error(`Request failed for ${endpoint}: ${error.message}`);
     }
   }
 
-  extractProcessID(data, url) {
+  async fetchWithRetry(
+    endpoint,
+    method = 'GET',
+    body = null,
+    retries = 2,
+    expectedProcess = null
+  ) {
+    try {
+      const data = await this.request(endpoint, method, body);
+      if (expectedProcess) {
+        this.validateExpectedProcess(expectedProcess, data);
+      }
+
+      if (method === 'GET') {
+        return data;
+      }
+
+      const processID = this.extractProcessID(data);
+
+      if (!processID) {
+        return data;
+      }
+
+      const processExpectedResponse = this.getProcessExpectedResponse(
+        endpoint,
+        processID
+      );
+      const resultUrl = this.getResultUrl(endpoint);
+
+      // Handle 200: Check if polling is needed for measurements
+      if (this.blocking) {
+        return this.request(resultUrl);
+      }
+
+      return this.fetchWithRetry(
+        resultUrl,
+        'GET',
+        null,
+        RewApi.MAX_POLLING_RETRY,
+        processExpectedResponse
+      );
+    } catch (error) {
+      if (error.code === 'AbortError') {
+        throw new Error(
+          `Request ${endpoint} timeout after ${RewApi.TIMEOUT_MS / 1000} s`
+        );
+      }
+      if (retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, RewApi.WAIT_BETWEEN_RETRIES_MS));
+        return this.fetchWithRetry(endpoint, method, body, retries - 1, expectedProcess);
+      }
+      throw new Error(`Max retries reached for ${endpoint}: ${error.message}`);
+    }
+  }
+
+  extractProcessID(data) {
+    if (!data) {
+      throw new Error('API response is empty');
+    }
+
     const idRegex = /ID \d+/;
 
     const extractMatch = str => {
       if (!str) return null;
-      const fromJson = RewApi.safeParseJSON(str);
-      if (fromJson?.processName) {
-        return fromJson.processName;
-      }
+      if (typeof str !== 'string') return null;
+
       const match = idRegex.exec(str);
       if (!match) return null;
       const idIndex = str.indexOf(match[0]);
@@ -442,14 +297,17 @@ export default class RewApi {
     };
 
     if (typeof data === 'string') {
-      return extractMatch(data);
+      return extractMatch(data) || null;
+    }
+    // if data have message try to extract from there
+    if (data.message && typeof data.message === 'string') {
+      const result = extractMatch(data.message);
+      if (result) return result;
     }
 
-    const messageMatch = extractMatch(data.message);
-    if (messageMatch) return messageMatch;
-
-    if (url !== 'measurements/process-result') {
-      return extractMatch(data.processName);
+    if (data.processName && typeof data.processName === 'string') {
+      const result = extractMatch(data.processName);
+      if (result) return result;
     }
 
     return null;
@@ -467,7 +325,7 @@ export default class RewApi {
     };
 
     const caseInsensitiveIncludes = (str, search) => {
-      if (!str || !search || typeof str !== 'string' || typeof search !== 'string') {
+      if (typeof str !== 'string' || typeof search !== 'string') {
         return false;
       }
       return str.toLowerCase().includes(search.toLowerCase());
@@ -482,7 +340,7 @@ export default class RewApi {
     }
 
     if (isExpectedString) {
-      throw new TypeError(generateErrorMessage(expectedProcess, JSON.stringify(data)));
+      throw new Error(generateErrorMessage(expectedProcess, JSON.stringify(data)));
     }
 
     if (
@@ -507,23 +365,13 @@ export default class RewApi {
     if (!url || typeof url !== 'string') {
       throw new Error('URL parameter is required and must be a string');
     }
-
-    return url.startsWith('import')
-      ? processID
-      : { processName: processID, message: 'Completed' };
-  }
-
-  async handleStatus202(url, processID, maxRetries) {
     if (!processID) {
-      throw new Error('Invalid process ID in response');
+      throw new Error('Process ID is required');
     }
 
-    return await this.fetchWithRetry(
-      this.getResultUrl(url),
-      { method: 'GET' },
-      maxRetries,
-      this.getProcessExpectedResponse(url, processID)
-    );
+    return url.startsWith('/import')
+      ? processID
+      : { processName: processID, message: 'Completed' };
   }
 
   // Helper methods
@@ -532,13 +380,13 @@ export default class RewApi {
       throw new Error('URL parameter is required and must be a string');
     }
 
-    if (url.startsWith('alignment-tool/')) {
-      return 'alignment-tool/result';
+    if (url.startsWith('/alignment-tool/')) {
+      return '/alignment-tool/result';
     }
-    if (url.startsWith('import')) {
+    if (url.startsWith('/import')) {
       return url;
     }
-    return 'measurements/process-result';
+    return '/measurements/process-result';
   }
 
   static safeParseJSON(str) {
@@ -556,17 +404,51 @@ export default class RewApi {
     }
   }
 
-  static isValidIpAddress(ip) {
-    if (typeof ip !== 'string') return false;
-    const parts = ip.split('.');
-    if (parts.length !== 4) return false;
-
-    for (const part of parts) {
-      const num = Number(part);
-      if (part !== String(num) || num < 0 || num > 255) {
-        return false;
-      }
+  static decodeBase64ToFloat32(base64String, isLittleEndian = false) {
+    if (typeof base64String !== 'string') {
+      throw new TypeError('Base64 input must be a string');
     }
-    return true;
+    try {
+      const binaryString = atob(base64String);
+      const bytes = Uint8Array.from(binaryString, char => char.codePointAt(0));
+      const view = new DataView(bytes.buffer);
+      const sampleCount = view.byteLength / Float32Array.BYTES_PER_ELEMENT;
+      const floats = new Float32Array(sampleCount);
+      for (let i = 0; i < sampleCount; i++) {
+        floats[i] = view.getFloat32(i * Float32Array.BYTES_PER_ELEMENT, isLittleEndian);
+      }
+      return floats;
+    } catch (error) {
+      throw new Error(`Error decoding base64 data: ${error.message}`, { cause: error });
+    }
+  }
+
+  static encodeFloat32ToBase64(floatArray, isLittleEndian = false) {
+    if (!(floatArray instanceof Float32Array)) {
+      throw new TypeError('Input must be a Float32Array');
+    }
+    try {
+      const buffer = new ArrayBuffer(floatArray.length * Float32Array.BYTES_PER_ELEMENT);
+      const view = new DataView(buffer);
+      for (let i = 0; i < floatArray.length; i++) {
+        view.setFloat32(
+          i * Float32Array.BYTES_PER_ELEMENT,
+          floatArray[i],
+          isLittleEndian
+        );
+      }
+      const bytes = new Uint8Array(buffer);
+      const CHUNK_SIZE = 0x8000;
+      let binaryString = '';
+      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+        const chunk = bytes.slice(i, i + CHUNK_SIZE);
+        binaryString += String.fromCharCode.apply(null, chunk);
+      }
+      return btoa(binaryString);
+    } catch (error) {
+      throw new Error(`Error encoding data to base64: ${error.message}`, {
+        cause: error,
+      });
+    }
   }
 }

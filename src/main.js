@@ -6,6 +6,7 @@ import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import jsyaml from 'js-yaml';
 import DualRangeInput from '@stanko/dual-range-input';
+import lm from './logs.js';
 
 /**
  * LanguageManager is responsible for managing the language settings of the application.
@@ -42,7 +43,7 @@ class LanguageManager {
       // Cache the current language translations
       const currentTranslations = translations[this.currentLanguage];
       if (!currentTranslations) {
-        console.warn(`No translations found for language: ${this.currentLanguage}`);
+        lm.warn(`No translations found for language: ${this.currentLanguage}`);
         return;
       }
 
@@ -62,7 +63,7 @@ class LanguageManager {
         const translation = currentTranslations[key];
 
         if (!translation) {
-          console.warn(`Missing translation for key: ${this.currentLanguage} ${key}`);
+          lm.warn(`Missing translation for key: ${this.currentLanguage} ${key}`);
           continue;
         }
 
@@ -95,7 +96,7 @@ class LanguageManager {
         })
       );
     } catch (error) {
-      console.error('Translation error:', error);
+      lm.error('Translation error:', error);
     }
   }
 
@@ -105,7 +106,7 @@ class LanguageManager {
       const currentTranslations = translations[this.currentLanguage];
 
       if (!currentTranslations) {
-        console.warn(`No translations found for language: ${this.currentLanguage}`);
+        lm.warn(`No translations found for language: ${this.currentLanguage}`);
         return key;
       }
 
@@ -120,7 +121,7 @@ class LanguageManager {
 
       return translation || key;
     } catch (error) {
-      console.error(`Translation error for key "${this.currentLanguage} ${key}":`, error);
+      lm.error(`Translation error for key "${this.currentLanguage} ${key}":`, error);
       return key;
     }
   }
@@ -205,7 +206,7 @@ class RewController {
               popupDescription.innerHTML = text;
             })
             .catch(error => {
-              console.error('Error fetching description:', error);
+              lm.error('Error fetching description:', error);
               popupDescription.textContent = 'Failed to load description.';
             });
           if (popup) popup.style.display = 'block';
@@ -321,7 +322,7 @@ class RewController {
         } else if (page === 'application') {
           appContent.style.display = 'block';
         } else {
-          console.error('Unknown page:', page);
+          lm.error('Unknown page:', page);
           appContent.style.display = 'block'; // Default to application page
           page = 'application';
         }
@@ -384,7 +385,7 @@ class RewController {
               fileExtension = '.txt';
               break;
             default:
-              console.error('Unknown button ID');
+              lm.error('Unknown button ID');
               return;
           }
 
@@ -450,7 +451,7 @@ class RewController {
               }
             }, 3000);
           } catch (error) {
-            console.error('Error creating ZIP file:', error);
+            lm.error('Error creating ZIP file:', error);
             statusDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Error: ${error.message}`;
             statusDiv.style.color = '#dc3545';
           }
@@ -570,7 +571,7 @@ class RewController {
           searchInput.addEventListener('input', filterCommits);
           authorFilter.addEventListener('change', filterCommits);
         } catch (err) {
-          console.error('Error fetching commits:', err);
+          lm.error('Error fetching commits:', err);
           if (loading) loading.style.display = 'none';
           if (error) error.style.display = 'block';
         }
@@ -647,7 +648,7 @@ async function handleFiles(files) {
     try {
       filterConverter = new apo2camilla(content);
     } catch (error) {
-      console.error(`Error initializing FilterConverter: ${error.message}`, error);
+      lm.error(`Error initializing FilterConverter: ${error.message}`, error);
       results.innerHTML = `<div class="error">Error initializing FilterConverter: ${error.message}</div>`;
       return;
     }
@@ -679,7 +680,7 @@ async function handleFiles(files) {
       await item.delete();
     }
   } catch (error) {
-    console.error(error);
+    lm.error(error);
     results.innerHTML = `<div class="error">Error: ${error.message}</div>`;
   }
 }

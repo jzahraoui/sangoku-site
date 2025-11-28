@@ -1,5 +1,6 @@
-import MeasurementItem from './MeasurementItem.js';
+import RewApi from './rew-api.js';
 import { CHANNEL_TYPES } from './audyssey.js';
+import lm from './logs.js';
 
 class MqxTools {
   constructor(fileContent, jsonAvrData) {
@@ -60,17 +61,17 @@ class MqxTools {
       );
 
       if (!measurement?.Data) {
-        console.warn(`No data found for ${identifier}`);
+        lm.warn(`No data found for ${identifier}`);
         continue;
       }
 
       if (position === distancePoisitionGuid && measurement.AvrDistanceMeters) {
         avrChannel.channelReport.distance = measurement.AvrDistanceMeters;
       } else if (position === distancePoisitionGuid) {
-        console.warn(`No distance found for ${identifier}`);
+        lm.warn(`No distance found for ${identifier}`);
       }
 
-      const decodedFloat32Array = MeasurementItem.decodeRewBase64(measurement.Data, true);
+      const decodedFloat32Array = RewApi.decodeBase64ToFloat32(measurement.Data, true);
       avrChannel.responseData[positionNumber] = decodedFloat32Array;
     }
   }
@@ -84,7 +85,7 @@ class MqxTools {
     const avrChannelList = this.jsonAvrData.detectedChannels.map(c => c.commandId);
 
     // Debug logging
-    console.debug('Available channels:', JSON.stringify(avrChannelList));
+    lm.debug('Available channels:', JSON.stringify(avrChannelList));
 
     const AvrOriginatingDesignationList = new Set(
       Object.values(this.fileContent._channelDataMap).map(m =>
@@ -107,7 +108,7 @@ class MqxTools {
         channelData?.Metadata.AvrOriginatingDesignation
       );
 
-      console.debug('Processing channel:', {
+      lm.debug('Processing channel:', {
         channelGuid,
         channelName,
       });

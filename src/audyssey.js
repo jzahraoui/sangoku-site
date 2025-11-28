@@ -435,8 +435,11 @@ const CHANNEL_TYPES = {
   },
 
   getByChannelIndex(index) {
-    return Object.values(this).find(
-      value => value.channelIndex === index && typeof value === 'object'
+    if (index === null || index === undefined || typeof index !== 'number') return null;
+    return (
+      Object.values(this).find(
+        value => value.channelIndex === index && typeof value === 'object'
+      ) || null
     );
   },
 

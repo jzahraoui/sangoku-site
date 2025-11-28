@@ -1,11 +1,11 @@
+import lm from './logs.js';
+
 class PersistentStore {
   constructor(storageKey) {
     if (!storageKey || typeof storageKey !== 'string') {
       throw new Error('Storage key must be a non-empty string');
     }
     this.storageKey = storageKey;
-    // Bind the save method to this instance
-    this.save = this.save.bind(this);
   }
 
   // Save data
@@ -13,13 +13,17 @@ class PersistentStore {
     try {
       // Remove circular references before stringifying
       const sanitizedData = this.removeCircularReferences(data);
-      // const sanitizedData = JSON.stringify(plainData);
+
       // Store the sanitized data
       localStorage.setItem(this.storageKey, sanitizedData);
-      console.debug('Saved data');
+      lm.debug('Saved data');
       return true;
     } catch (error) {
-      console.error(`Error saving data: ${error.message}`);
+      if (error.name === 'QuotaExceededError') {
+        lm.error('Storage quota exceeded - unable to save data');
+      } else {
+        lm.error(`Error saving data: ${error.message}`);
+      }
       return false;
     }
   }
@@ -47,10 +51,10 @@ class PersistentStore {
   load() {
     try {
       const data = localStorage.getItem(this.storageKey);
-      console.debug('Loaded data');
+      lm.debug('Loaded data');
       return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error(`Error loading data: ${error.message}`);
+      lm.error(`Error loading data: ${error.message}`);
       return null;
     }
   }
@@ -58,19 +62,14 @@ class PersistentStore {
   // Clear data
   clear() {
     try {
-      this._data = {};
       localStorage.removeItem(this.storageKey);
       return true;
     } catch (error) {
-      console.error(`Error clearing data: ${error.message}`);
+      lm.error(`Error clearing data: ${error.message}`);
       return false;
     }
   }
-  destroy() {
-    // Clean up event listeners
-    window.removeEventListener('beforeunload', this._boundSave);
-    this.clear();
-  }
+
   // Helper method to check if storage is available
   static isStorageAvailable() {
     try {

@@ -1,4 +1,5 @@
 import MeasurementItem from './MeasurementItem.js';
+import lm from './logs.js';
 
 class BusinessTools {
   static LPF_REVERTED_SUFFIX = ' w/o LPF';
@@ -6,7 +7,15 @@ class BusinessTools {
   static AVERAGE_SUFFIX = 'avg';
 
   constructor(parentViewModel) {
+    // Validate inputs
+    if (!parentViewModel) {
+      throw new Error('Parent ViewModel is required');
+    }
     this.viewModel = parentViewModel;
+  }
+
+  get rewMeasurements() {
+    return this.viewModel.rewMeasurements;
   }
 
   async revertLfeFilterProccess(freq, replaceOriginal = false, deletePrevious = true) {
@@ -29,11 +38,17 @@ class BusinessTools {
   }
 
   async revertLfeFilterProccessList(subResponses, freq, replaceOriginal = false) {
-    try {
-      if (!subResponses?.length) {
-        throw new Error('No subwoofer measurements found');
-      }
+    if (!subResponses?.length) {
+      throw new Error('No subwoofer measurements found');
+    }
+    if (!freq || typeof freq !== 'number') {
+      throw new TypeError('Frequency must be a number');
+    }
+    if (subResponses.some(response => !response.isSub())) {
+      throw new Error('Not all measurements are subwoofer');
+    }
 
+    try {
       // Create low-pass filter using first measurement
       const lowPassFilter = await this.createLowPassFilter(subResponses[0], freq);
       const resultsUuids = [];
@@ -51,11 +66,14 @@ class BusinessTools {
         await subResponse.setInverted(false);
         await subResponse.setcumulativeIRShiftSeconds(0);
 
+        lm.debug(`Setting limit frequency to ${freq * 2}Hz for LFE filter reversion`);
+
         // Create new measurement with canceled LFE filter effect
-        const division = await this.viewModel.doArithmeticOperation(
-          subResponse,
+        const division = await subResponse.arithmeticADividedByB(
           lowPassFilter,
-          { function: 'A / B', upperLimit: '500' }
+          null,
+          null,
+          freq * 2
         );
 
         // Handle original measurement
@@ -167,12 +185,16 @@ class BusinessTools {
       const uuids = usableItems.map(item => item.uuid);
 
       // Cross correlation alignment
-      console.debug(`${code}: ${uuids.length} measures cross corr align...`);
-      await this.viewModel.processCommands('Cross corr align', usableItems);
+      lm.debug(`${code}: ${uuids.length} measures cross corr align...`);
+      await this.rewMeasurements.crossCorrAlign(uuids);
 
       // average processing
-      console.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
-      const vectorAverage = await this.viewModel.processCommands(avgMethod, usableItems);
+      lm.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
+      const apiResponse = await this.rewMeasurements.processMeasurements(
+        avgMethod,
+        uuids
+      );
+      const vectorAverage = await this.viewModel.analyseApiResponse(apiResponse);
 
       // Update title
       if (!vectorAverage) {
@@ -189,6 +211,10 @@ class BusinessTools {
 
   async _deleteOriginalMeasurements(uuids, deleteOriginal) {
     if (!deleteOriginal || uuids.length < 2) {
+      return;
+    }
+
+    if (deleteOriginal === 'none') {
       return;
     }
 
@@ -300,7 +326,7 @@ class BusinessTools {
     if (!speakerItem) throw new Error(`Please select a speaker item`);
     if (!PredictedLfe) throw new Error(`Cannot find predicted LFE`);
     if (cuttOffFrequency === 0) {
-      console.debug('Speaker are full range, no cuttoff frequency');
+      lm.debug('Speaker are full range, no cuttoff frequency');
     }
     if (cuttOffFrequency < 20 || cuttOffFrequency > 250) {
       throw new Error('CuttOffFrequency must be between 20Hz and 250Hz');
@@ -310,15 +336,22 @@ class BusinessTools {
     }
   }
 
+  getAvailableSubDistances(subResponses) {
+    const distances = subResponses.map(sub => sub.distanceInMeters());
+
+    const availableDistance =
+      this.viewModel.maxDistanceInMetersError() - Math.max(...distances);
+
+    return availableDistance;
+  }
+
   /**
    * Aligns a subwoofer (LFE) with a speaker by calculating and applying the optimal time offset
-   * @param {Object} PredictedLfe - The predicted LFE measurement object
-   * @param {number} cuttOffFrequency - Crossover frequency in Hz (default: 120Hz)
-   * @param {Object} speakerItem - The speaker measurement object to align with
-   * @param {Array} subResponses - Array of subwoofer response objects
-   * @returns {string} A message describing the alignment results
+   *
    */
-  async produceAligned(PredictedLfe, cuttOffFrequency, speakerItem, subResponses) {
+  async produceAligned(speakerItem, subResponses) {
+    const cuttOffFrequency = speakerItem.crossover();
+    const PredictedLfe = speakerItem.relatedLfeMeasurement();
     this.validateInputs(PredictedLfe, speakerItem, cuttOffFrequency);
 
     const mustBeDeleted = [];
@@ -327,12 +360,12 @@ class BusinessTools {
       mustBeDeleted.push(predictedFrontLeft);
 
       const { PredictedLfeFiltered, predictedSpeakerFiltered } =
-        await this.applyCuttOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
+        await this.applyCutOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
       mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
 
-      const cutoffPeriod = 1 / cuttOffFrequency;
-      const delay = cutoffPeriod / 4;
-      const maxForwardSearchMs = (cutoffPeriod / 2) * 1000;
+      const cutoffPeriod = 1 / cuttOffFrequency; // for 100Hz, period is 10ms
+      const delay = cutoffPeriod / 16; // for 100Hz, delay is 0.625ms
+      const maxForwardSearchMs = Math.round((cutoffPeriod / 2) * 1000 * 100) / 100;
 
       // get the sub impulse closer to the front left, better method than cros corr align
       const distanceToSpeakerPeak =
@@ -345,10 +378,10 @@ class BusinessTools {
 
       // Calculate and apply adjustment to stay within maximum distance
       const overheadOffset =
-        this.viewModel.maxDistanceInMetersError() - neededDistanceMeter;
+        this.getAvailableSubDistances(subResponses) - neededDistanceMeter;
 
       if (overheadOffset < 0) {
-        console.warn(
+        lm.warn(
           `Adjusting alignment by ${-overheadOffset.toFixed(
             2
           )}m to stay within max distance limit.`
@@ -372,23 +405,20 @@ class BusinessTools {
 
       if (isBInverted) {
         await PredictedLfe.toggleInversion();
-        await PredictedLfeFiltered.toggleInversion();
       }
 
-      await PredictedLfeFiltered.addIROffsetSeconds(-shiftDelay);
+      finalDistance -= shiftDelay;
 
-      const totalOffset =
-        PredictedLfeFiltered.cumulativeIRShiftSeconds() -
-        PredictedLfe.cumulativeIRShiftSeconds();
+      await PredictedLfe.addIROffsetSeconds(finalDistance);
+      await this.applyTimeOffsetToSubs(finalDistance, subResponses, isBInverted);
 
-      await PredictedLfe.addIROffsetSeconds(totalOffset);
-      await this.applyTimeOffsetToSubs(totalOffset, subResponses, isBInverted);
-
-      const shiftDistance = PredictedLfe._computeInMeters(totalOffset).toFixed(2);
-      return `Subwoofer deplaced by: ${shiftDistance}m (alignment:${(
-        (delay + shiftDelay) *
-        1000
-      ).toFixed(2)}ms)`;
+      const shiftDistance = PredictedLfe._computeInMeters(finalDistance).toFixed(2);
+      lm.info(
+        `Subwoofer deplaced by: ${shiftDistance}m (alignment:${(
+          (delay + shiftDelay) *
+          1000
+        ).toFixed(2)}ms)`
+      );
     } finally {
       await this.viewModel.removeMeasurements(mustBeDeleted);
     }
@@ -396,69 +426,73 @@ class BusinessTools {
 
   /**
    * Applies crossover filters to subwoofer and speaker measurements
-   * @param {Object} sub - The subwoofer measurement object
-   * @param {Object} speaker - The speaker measurement object
-   * @param {number} cuttOffFrequency - Crossover frequency in Hz
-   * @returns {Object} Object containing filtered measurements for both sub and speaker
    */
-  async applyCuttOffFilter(sub, speaker, cuttOffFrequency) {
-    if (cuttOffFrequency === 0) {
+  async applyCutOffFilter(sub, speaker, cutOffFrequency) {
+    if (cutOffFrequency === 0) {
       return {
-        PredictedLfeFiltered: await sub.genericCommand('Response copy'),
-        predictedSpeakerFiltered: await speaker.genericCommand('Response copy'),
+        PredictedLfeFiltered: sub.responseCopy(),
+        predictedSpeakerFiltered: speaker.responseCopy(),
       };
     }
 
-    sub.ResetEqualiser();
-    speaker.ResetEqualiser();
+    // make sure equaliser is Generic to allow Low pass and High pass filters
+    await sub.resetEqualiser();
+    await speaker.resetEqualiser();
 
+    // lookup free filter index
     const subIndex = await sub.getFreeXFilterIndex();
-    await sub.setSingleFilter({
-      index: subIndex,
-      enabled: true,
-      isAuto: false,
-      type: 'Low pass',
-      frequency: cuttOffFrequency,
-      shape: 'L-R',
-      slopedBPerOctave: 24,
-    });
-    const PredictedLfeFiltered = await sub.producePredictedMeasurement();
-    await sub.setSingleFilter({
-      index: subIndex,
-      type: 'None',
-      enabled: true,
-      isAuto: false,
-    });
-
     const speakerIndex = await speaker.getFreeXFilterIndex();
-    await speaker.setSingleFilter({
-      index: speakerIndex,
-      enabled: true,
-      isAuto: false,
-      type: 'High pass',
-      frequency: cuttOffFrequency,
-      shape: 'BU',
-      slopedBPerOctave: 12,
-    });
-    const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
-    await speaker.setSingleFilter({
-      index: speakerIndex,
-      type: 'None',
-      enabled: true,
-      isAuto: false,
-    });
+    if (subIndex === -1 || speakerIndex === -1) {
+      throw new Error('Cannot find free filter index');
+    }
 
-    return { PredictedLfeFiltered, predictedSpeakerFiltered };
+    try {
+      // set filters
+      await sub.setSingleFilter({
+        index: subIndex,
+        enabled: true,
+        isAuto: false,
+        type: 'Low pass',
+        frequency: cutOffFrequency,
+        shape: 'L-R',
+        slopedBPerOctave: 24,
+      });
+      await speaker.setSingleFilter({
+        index: speakerIndex,
+        enabled: true,
+        isAuto: false,
+        type: 'High pass',
+        frequency: cutOffFrequency,
+        shape: 'BU',
+        slopedBPerOctave: 12,
+      });
+
+      const PredictedLfeFiltered = await sub.producePredictedMeasurement();
+      const predictedSpeakerFiltered = await speaker.producePredictedMeasurement();
+
+      return { PredictedLfeFiltered, predictedSpeakerFiltered };
+    } finally {
+      // restore filters to None
+      await sub.setSingleFilter({
+        index: subIndex,
+        type: 'None',
+        enabled: true,
+        isAuto: false,
+      });
+
+      await speaker.setSingleFilter({
+        index: speakerIndex,
+        type: 'None',
+        enabled: true,
+        isAuto: false,
+      });
+    }
   }
 
   async createMeasurementPreview(item) {
     // skip subs
-    if (item.isSub()) {
-      return true;
-    }
-    if (item.isUnknownChannel) {
-      return true;
-    }
+    if (item.isSub()) return;
+    if (item.isUnknownChannel) return;
 
     await item.removeWorkingSettings();
 
@@ -478,7 +512,7 @@ class BusinessTools {
       await relatedLfeMeasurement.removeWorkingSettings();
 
       const { PredictedLfeFiltered, predictedSpeakerFiltered } =
-        await this.applyCuttOffFilter(
+        await this.applyCutOffFilter(
           relatedLfeMeasurement,
           predictedChannel,
           item.crossover()
@@ -486,10 +520,8 @@ class BusinessTools {
 
       await this.viewModel.removeMeasurement(predictedChannel);
 
-      finalPredcition = await this.viewModel.doArithmeticOperation(
-        PredictedLfeFiltered,
-        predictedSpeakerFiltered,
-        { function: 'A + B' }
+      finalPredcition = await PredictedLfeFiltered.arithmeticSum(
+        predictedSpeakerFiltered
       );
       // cleanup of predicted measurements
       await this.viewModel.removeMeasurements([
@@ -506,31 +538,25 @@ class BusinessTools {
     }${item.title()} ${cxText}_P${item.position()}`;
     await finalPredcition.setTitle(finalTitle);
 
-    await finalPredcition.genericCommand('Smooth', { smoothing: 'Psy' });
+    await finalPredcition.setSmoothing('Psy');
     await item.applyWorkingSettings();
-
-    return true;
   }
 
   async applyTimeOffsetToSubs(offset, subResponses, mustBeInverted) {
     if (subResponses.length < 1) {
       return;
     }
-    try {
-      for (const subResponse of subResponses) {
-        // shift by offset
-        await subResponse.addIROffsetSeconds(offset);
-        if (mustBeInverted) {
-          await subResponse.toggleInversion();
-        }
+    for (const subResponse of subResponses) {
+      // shift by offset
+      await subResponse.addIROffsetSeconds(offset);
+      if (mustBeInverted) {
+        await subResponse.toggleInversion();
       }
-    } catch (error) {
-      throw new Error(`${error.message}`, { cause: error });
     }
   }
 
   async createsSum(itemList, title, deletePredicted = true) {
-    if (!Array.isArray(itemList) || itemList.length < 1) {
+    if (!Array.isArray(itemList) || !itemList.length) {
       throw new Error('Parameter must be a non-empty array');
     }
 
@@ -538,36 +564,28 @@ class BusinessTools {
     const intermediateSumUuids = [];
 
     try {
+      // Generate predicted measurements
       for (const measurementItem of itemList) {
         await measurementItem.removeWorkingSettings();
         await measurementItem.resetTargetSettings();
-        const rollResponse = await measurementItem.producePredictedMeasurement();
-        generatedPredicted.push(rollResponse);
+        generatedPredicted.push(await measurementItem.producePredictedMeasurement());
         await measurementItem.applyWorkingSettings();
       }
 
-      let lastAlignedSum = generatedPredicted[0];
-
+      // Sum all measurements
+      let result = generatedPredicted[0];
       for (let i = 1; i < generatedPredicted.length; i++) {
-        const newAlignedSum = await this.viewModel.doArithmeticOperation(
-          lastAlignedSum,
-          generatedPredicted[i],
-          { function: 'A + B' }
-        );
-        intermediateSumUuids.push(lastAlignedSum.uuid);
-        lastAlignedSum = newAlignedSum;
+        intermediateSumUuids.push(result);
+        result = await result.arithmeticSum(generatedPredicted[i]);
       }
-      const titles = itemList.map(item => item.displayMeasurementTitle());
-      await lastAlignedSum.setTitle(title, `sum from:\n${titles.join('\n')}`);
-      await lastAlignedSum.applyWorkingSettings();
 
-      return lastAlignedSum;
-    } catch (error) {
-      throw new Error(`Error creating sum: ${error.message}`, { cause: error });
+      const titles = itemList.map(item => item.displayMeasurementTitle());
+      await result.setTitle(title, `sum from:\n${titles.join('\n')}`);
+      await result.applyWorkingSettings();
+
+      return result;
     } finally {
-      for (const uuid of intermediateSumUuids) {
-        await this.viewModel.removeMeasurementUuid(uuid);
-      }
+      await this.viewModel.removeMeasurements(intermediateSumUuids);
 
       if (deletePredicted && generatedPredicted.length > 1) {
         await this.viewModel.removeMeasurements(generatedPredicted);

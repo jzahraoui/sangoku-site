@@ -1,4 +1,5 @@
 import Polar from './Polar.js';
+import lm from './logs.js';
 
 class MultiSubOptimizer {
   // Define constant configurations as static properties
@@ -50,7 +51,6 @@ class MultiSubOptimizer {
     this.config = config;
     this.frequencyWeights = null;
     this.theoreticalMaxResponse = null;
-    this.logText = '\n';
 
     // Validate delay range parameters
     if (this.config.delay.min > this.config.delay.max || this.config.delay.step <= 0) {
@@ -176,24 +176,24 @@ class MultiSubOptimizer {
     return optimizedParams;
   }
 
-  appendLogText(text) {
-    this.logText += text;
-    this.logText += '\n';
-    console.debug(text);
-  }
-
   generatesLogResults(executionTime, optimizedSubs, bestScore) {
-    this.appendLogText('Optimized parameters:');
+    lm.info('Optimized parameters:');
     for (const sub of optimizedSubs) {
-      let allpassLog = 'allpass: disabled';
-      if (sub.param.allPass?.enabled) {
-        allpassLog = `allpass: freq: ${sub.param.allPass.frequency}Hz Q: ${sub.param.allPass.q}`;
-      }
       const delayMs = (sub.param.delay * 1000).toFixed(2);
-      const infoMessage = `${sub.name} inverted: ${
-        sub.param.polarity === -1
-      } delay: ${delayMs}ms`;
-      this.appendLogText(`${infoMessage} ${allpassLog}`);
+      lm.info(`${sub.name}:`);
+      if (sub.param.polarity === 1) {
+        lm.info(` - polarity: normal`);
+      } else {
+        lm.warn(` - polarity: inverted`);
+      }
+      lm.info(` - delay: ${delayMs}ms`);
+      if (sub.param.allPass?.enabled) {
+        lm.success(
+          ` - allpass: freq: ${sub.param.allPass.frequency}Hz Q: ${sub.param.allPass.q}`
+        );
+      } else {
+        lm.info(` - allpass: disabled`);
+      }
     }
 
     // convert execution time to human readable format - FIX: properly format duration in ms
@@ -203,8 +203,8 @@ class MultiSubOptimizer {
     // Format as HH:MM:SS.mmm
     const humanReadableTime = `${seconds}.${milliseconds.toString().padStart(3, '0')}s`;
 
-    this.appendLogText(`Execution time: ${humanReadableTime}`);
-    this.appendLogText(`Best score: ${bestScore.toFixed(2)}`);
+    lm.info(`Execution time: ${humanReadableTime}`);
+    lm.info(`Best score: ${bestScore.toFixed(2)}`);
   }
 
   prepareMeasurements() {
@@ -236,8 +236,8 @@ class MultiSubOptimizer {
         measurement: frequencyResponse.measurement,
         name: frequencyResponse.name,
         freqs: filteredFreqs,
-        magnitude: filteredMagnitude,
-        phase: filteredPhase,
+        magnitude: new Float32Array(filteredMagnitude),
+        phase: new Float32Array(filteredPhase),
         freqStep: frequencyResponse.freqStep,
         endFreq: filteredFreqs.at(-1),
         startFreq: filteredFreqs[0],
@@ -321,9 +321,7 @@ class MultiSubOptimizer {
       method = 'genetic'; // For larger spaces, use genetic search
     }
 
-    this.appendLogText(
-      `Optimizing with ${method} method: ${paramCount} test parameters per sub`
-    );
+    lm.info(`Optimizing with ${method} method: ${paramCount} test parameters per sub`);
 
     // Pre-calculate the reference response once
     let previousValidSum = referenceSub;
@@ -472,7 +470,7 @@ class MultiSubOptimizer {
         generationsWithoutImprovement >= maxNoImprovementGenerations &&
         generation >= 20
       ) {
-        console.debug(
+        lm.debug(
           `Early stopping at generation ${generation} - no improvement for ${maxNoImprovementGenerations} generations`
         );
         break;
@@ -547,7 +545,14 @@ class MultiSubOptimizer {
     }
   }
 
-  runClassicOptimization(subToOptimize, previousValidSum, theo, testParamsList, bestWithAllPass, bestWithoutAllPass) {
+  runClassicOptimization(
+    subToOptimize,
+    previousValidSum,
+    theo,
+    testParamsList,
+    bestWithAllPass,
+    bestWithoutAllPass
+  ) {
     for (const param of testParamsList) {
       subToOptimize.param = param;
       const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
@@ -622,25 +627,19 @@ class MultiSubOptimizer {
 
     // Different optimization strategies
     if (method === 'genetic') {
-      this.runGeneticOptimization(
-        subToOptimize,
-        previousValidSum,
-        theo,
-        testParamsList,
-        {
-          runs,
-          populationSize,
-          withAllPassProbability,
-          generations,
-          eliteCount,
-          tournamentSize,
-          mutationRate,
-          mutationAmount,
-          maxNoImprovementGenerations,
-          bestWithAllPass,
-          bestWithoutAllPass,
-        }
-      );
+      this.runGeneticOptimization(subToOptimize, previousValidSum, theo, testParamsList, {
+        runs,
+        populationSize,
+        withAllPassProbability,
+        generations,
+        eliteCount,
+        tournamentSize,
+        mutationRate,
+        mutationAmount,
+        maxNoImprovementGenerations,
+        bestWithAllPass,
+        bestWithoutAllPass,
+      });
     } else if (method === 'classic') {
       this.runClassicOptimization(
         subToOptimize,
@@ -710,9 +709,8 @@ class MultiSubOptimizer {
       sub.param.delay <= this.config.delay.min
     ) {
       const delayMs = (sub.param.delay * 1000).toFixed(2);
-      const message = `WARNING: Optimal delay for ${sub.name} is at the edge: ${delayMs}ms.
-       This may indicate that the delay range is too narrow.`;
-      this.appendLogText(message);
+      lm.warn(`WARNING: Optimal delay for ${sub.name} is at the edge: ${delayMs}ms.
+       This may indicate that the delay range is too narrow.`);
     }
   }
 
@@ -730,14 +728,14 @@ class MultiSubOptimizer {
   calculateAlignmentScore(response) {
     // Input validation
     if (!response?.magnitude?.length || !response?.phase?.length || !response?.freqs) {
-      console.warn('Invalid response data for alignment score');
+      lm.warn('Invalid response data for alignment score');
       return 0;
     }
     if (
       !this.frequencyWeights ||
       this.frequencyWeights.length !== response.freqs.length
     ) {
-      console.warn('Frequency weights not available or mismatched for alignment score');
+      lm.warn('Frequency weights not available or mismatched for alignment score');
       return 0; // Cannot calculate without proper weights
     }
 
@@ -784,7 +782,9 @@ class MultiSubOptimizer {
     const modalRegionFrequency = 160; // Hz
 
     // Create weights that consider multiple factors important for subwoofer optimization
-    return frequencies.map(freq => {
+    const weights = new Float32Array(frequencies.length);
+    for (let i = 0; i < frequencies.length; i++) {
+      const freq = frequencies[i];
       // 1. Basic low-frequency emphasis - more weight for lower frequencies
       const basicWeight = 1 / Math.pow(freq / minFreq, basicweightPower); // Adjust power for smoothness
 
@@ -804,8 +804,9 @@ class MultiSubOptimizer {
       }
 
       // Combine all factors - multiply for compound effect
-      return basicWeight * modalImportance * edgeFactor;
-    });
+      weights[i] = basicWeight * modalImportance * edgeFactor;
+    }
+    return weights;
   }
 
   /**
@@ -841,8 +842,8 @@ class MultiSubOptimizer {
     const freqs = subs[0].freqs;
     const freqStep = subs[0].freqStep;
     const ppo = subs[0].ppo;
-    const combinedMagnitude = new Array(freqs.length);
-    const combinedPhase = new Array(freqs.length);
+    const magnitude = new Float32Array(freqs.length);
+    const phase = new Float32Array(freqs.length);
 
     // For each frequency point
     for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
@@ -856,11 +857,11 @@ class MultiSubOptimizer {
         polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
       }
 
-      combinedMagnitude[freqIndex] = polarSum.magnitudeDb;
-      combinedPhase[freqIndex] = polarSum.phaseDegrees;
+      magnitude[freqIndex] = polarSum.magnitudeDb;
+      phase[freqIndex] = polarSum.phaseDegrees;
     }
 
-    return { freqs, magnitude: combinedMagnitude, phase: combinedPhase, freqStep, ppo };
+    return { freqs, magnitude, phase, freqStep, ppo };
   }
 
   calculateResponseWithParams(sub) {
@@ -869,8 +870,8 @@ class MultiSubOptimizer {
       measurement: sub.measurement,
       name: sub.name,
       freqs: sub.freqs,
-      magnitude: [],
-      phase: [],
+      magnitude: new Float32Array(size),
+      phase: new Float32Array(size),
       freqStep: sub.freqStep,
       param: sub.param,
       ppo: sub.ppo,
@@ -900,8 +901,8 @@ class MultiSubOptimizer {
       }
 
       // Store results
-      response.magnitude.push(polar.magnitudeDb);
-      response.phase.push(polar.phaseDegrees);
+      response.magnitude[freqIndex] = polar.magnitudeDb;
+      response.phase[freqIndex] = polar.phaseDegrees;
     }
 
     return response;
@@ -928,7 +929,7 @@ class MultiSubOptimizer {
       !this.frequencyWeights ||
       this.frequencyWeights.length !== response.freqs.length
     ) {
-      console.warn('Frequency weights unavailable, using uniform weighting');
+      lm.warn('Frequency weights unavailable, using uniform weighting');
       this.frequencyWeights = new Array(response.freqs.length).fill(1);
     }
 
@@ -1089,11 +1090,10 @@ class MultiSubOptimizer {
     if (bestWithAllPass.score == -Infinity) {
       return;
     }
-    const message = `Sub ${subToOptimize.name} ${method} optimization results:
-    - Best without all-pass: Score ${bestWithoutAllPass.score.toFixed(2)}
-    - Best with all-pass: Score ${bestWithAllPass.score.toFixed(2)}
-    - Improvement with all-pass: ${improvementPercentage}%`;
-    this.appendLogText(message);
+    lm.info(`Sub ${subToOptimize.name} ${method} optimization results:`);
+    lm.info(`- Best without all-pass: Score ${bestWithoutAllPass.score.toFixed(2)}`);
+    lm.info(`- Best with all-pass: Score ${bestWithAllPass.score.toFixed(2)}`);
+    lm.info(`- Improvement with all-pass: ${improvementPercentage}%`);
   }
 
   // Create the next generation for genetic algorithm
@@ -1373,7 +1373,7 @@ class MultiSubOptimizer {
       bestWithAllPass.score >
         bestWithoutAllPass.score * (1 + significantImprovement / 100)
     ) {
-      this.appendLogText(`Using all-pass filter for significant improvement`);
+      lm.info(`Using all-pass filter for significant improvement`);
       return bestWithAllPass;
     } else if (bestWithoutAllPass.score > 0) {
       return bestWithoutAllPass;

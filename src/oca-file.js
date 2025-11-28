@@ -109,14 +109,16 @@ export default class OCAFileGenerator {
           item.inverted()
         );
 
+        const filterString = Array.from(filter, v => Number(v.toFixed(7)));
+
         channels.push({
           channelType: item.channelDetails().channelIndex,
           speakerType: item.speakerType(),
           distanceInMeters: item.distanceInMeters(),
           trimAdjustmentInDbs: item.splForAvr(),
-          filter: filter,
+          filter: filterString,
           ...(this.fileFormat === 'a1' && {
-            filterLV: filter,
+            filterLV: filterString,
             commandId: item.channelName(),
           }),
           ...(item.crossover() !== 0 && { xover: item.crossover() }),
@@ -203,75 +205,59 @@ export default class OCAFileGenerator {
   }
 
   async computeFilterGeneration(filterItem, sampleCount, freq, invert) {
+    if (!filterItem.isFilter) {
+      throw new Error(`${filterItem.displayMeasurementTitle()} is not a filter`);
+    }
+    if (!filterItem.haveImpulseResponse) return;
+    if (!Number.isFinite(sampleCount)) {
+      throw new TypeError(`Invalid sample count: ${sampleCount}`);
+    }
+    if (!Number.isFinite(freq)) {
+      throw new TypeError(`Invalid frequency: ${freq}`);
+    }
+
+    await filterItem.setIrWindows({
+      leftWindowType: 'Rectangular',
+      rightWindowType: 'Rectangular',
+      leftWindowWidthms: '0',
+      rightWindowWidthms: ((sampleCount - 1) * 1000) / freq,
+      refTimems: '0',
+      addFDW: false,
+      addMTW: false,
+    });
+
+    // makes sure the filter was not inverted by user
+    await filterItem.setInverted(false);
+
+    const trimmedFilter = await filterItem.trimIRToWindows();
     try {
-      if (!filterItem.isFilter) {
-        throw new Error(`${filterItem.displayMeasurementTitle()} is not a filter`);
-      }
+      const filterImpulseResponse = await trimmedFilter.getImpulseResponse(
+        freq,
+        'percent',
+        true,
+        true
+      );
 
-      if (!filterItem.haveImpulseResponse) {
-        return;
-      }
-
-      if (!sampleCount || !Number.isFinite(sampleCount)) {
-        throw new Error(`Invalid sample count: ${sampleCount}`);
-      }
-      if (!freq || !Number.isFinite(freq)) {
-        throw new Error(`Invalid frequency: ${freq}`);
-      }
-      const rightWindowWidthRaw = ((sampleCount - 1) * 1000) / freq;
-      const rightWindowWidth = this.cleanFloat32Value(rightWindowWidthRaw);
-
-      // Blackman window tested. Provide worse ETC graph.
-      // moving IR to center of the window is totally worse because of mangling the IR by odd
-      await filterItem.setIrWindows({
-        leftWindowType: 'Rectangular',
-        rightWindowType: 'Rectangular',
-        leftWindowWidthms: '0',
-        rightWindowWidthms: rightWindowWidth,
-        refTimems: '0',
-        addFDW: false,
-        addMTW: false,
-      });
-
-      // makes sure the filter was not inverted by user
-      await filterItem.setInverted(false);
-      let trimmedFilter = null;
-      let filterImpulseResponse = null;
-      let filter = null;
-
-      try {
-        trimmedFilter = await filterItem.genericCommand('Trim IR to windows');
-        filterImpulseResponse = await trimmedFilter.getImpulseResponse(
-          freq,
-          'percent',
-          true,
-          true
+      // first value must be 1
+      if (filterImpulseResponse[0] <= 0.9) {
+        throw new Error(
+          `Unexpected impulse response start value: ${
+            filterImpulseResponse[0]
+          } for ${filterItem.displayMeasurementTitle()}`
         );
-
-        // first value must be 1
-        if (filterImpulseResponse[0] <= 0.9) {
-          throw new Error(
-            `Unexpected impulse response start value: ${
-              filterImpulseResponse[0]
-            } for ${filterItem.displayMeasurementTitle()}`
-          );
-        }
-
-        filter = this.transformIR(filterImpulseResponse, sampleCount, invert);
-      } finally {
-        if (trimmedFilter) {
-          await trimmedFilter.delete();
-        }
       }
 
-      return filter;
-    } catch (error) {
-      throw new Error(`Filter generation failed: ${error.message}`, { cause: error });
+      return this.transformIR(filterImpulseResponse, sampleCount, invert);
+    } finally {
+      await trimmedFilter.delete();
     }
   }
 
   transformIR(filterImpulseResponse, sampleCount, invert = false) {
-    if (!filterImpulseResponse?.length || !Array.isArray(filterImpulseResponse)) {
+    if (
+      !(filterImpulseResponse instanceof Float32Array) ||
+      !filterImpulseResponse.length
+    ) {
       throw new Error('Invalid impulse response data');
     }
     if (!Number.isFinite(sampleCount) || sampleCount !== filterImpulseResponse.length) {
@@ -280,22 +266,7 @@ export default class OCAFileGenerator {
       );
     }
 
-    const operands = new Float32Array([
-      OCAFileGenerator.GAIN_ADJUSTMENT,
-      invert ? -1 : 1,
-      0,
-    ]);
-
-    // multiply each impulse response value by gain adjustment and inversion factor
-    return filterImpulseResponse.map(value => {
-      operands[2] = value;
-      return this.cleanFloat32Value(operands[0] * operands[1] * operands[2]);
-    });
-  }
-
-  cleanFloat32Value(value, precision = 7) {
-    // Use toFixed for direct string conversion to desired precision
-    // Then convert back to number for consistent output
-    return Number(value.toFixed(precision));
+    const multiplier = OCAFileGenerator.GAIN_ADJUSTMENT * (invert ? -1 : 1);
+    return Float32Array.from(filterImpulseResponse, value => value * multiplier);
   }
 }

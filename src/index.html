@@ -92,7 +92,7 @@
               <summary data-i18n="avr_config"></summary>
 
               <!-- File Content Editor -->
-              <!-- ko if: jsonAvrData -->
+              <!-- ko if: jsonAvrData()?.avr -->
               <div class="avr-config-section">
                 <h3 data-i18n="file_details">File Details</h3>
 
@@ -274,10 +274,8 @@
               ></span>
             </button>
 
-            <div
-              data-bind="
-            visible: isPolling"
-            >
+            <!-- ko if: isPolling -->
+            <div>
               <!-- display REW informations -->
               <p>
                 <strong data-i18n="rew_version">REW Version:</strong>
@@ -286,7 +284,7 @@
               <p>
                 <strong data-i18n="loaded_measurements">Loaded Measurements:</strong>
                 <span
-                  data-bind="text: measurements().length + ' / ' + apiService.maxMeasurements"
+                  data-bind="text: measurements().length + ' / ' + maxMeasurements()"
                 ></span>
               </p>
               <p>
@@ -297,7 +295,7 @@
                 <button
                   class="button"
                   style="margin-left: 10px; padding: 2px 8px; font-size: 0.9em"
-                  data-bind="click: refreshTargetCurve, disable: isProcessing()"
+                  data-bind="click: setTargetLevelFromMeasurement, disable: isProcessing()"
                   data-tooltip="Refresh target curve"
                 >
                   ⟳
@@ -311,6 +309,7 @@
                 </label>
               </div>
             </div>
+            <!-- /ko -->
           </div>
 
           <!-- Speakers Controls -->
@@ -569,16 +568,24 @@
                 <label for="additionalGain" style="width: 150px; text-align: left"
                   >Additional gain:</label
                 >
-                <input
-                  id="additionalGain"
-                  type="number"
-                  required
-                  title="Enter a number between -12 and 12"
+                <button
+                  class="button small-button"
                   data-bind="
-                  value: additionalBassGainValue, 
-                  valueUpdate: 'afterkeydown', 
-                  attr: { min: minadditionalBassGainValue, max: maxadditionalBassGainValue, step: 1 }"
-                />
+                  click: decreaseSubTrimGain,
+                  disable: isProcessing(),
+                  css: { disabled: isProcessing }"
+                >
+                  -
+                </button>
+                <button
+                  class="button small-button"
+                  data-bind="
+                  click: increaseSubTrimGain,
+                  disable: isProcessing(),
+                  css: { disabled: isProcessing }"
+                >
+                  +
+                </button>
               </div>
               <div class="number-input">
                 <label for="individualMaxBoostSub" style="width: 150px; text-align: left"
@@ -858,19 +865,72 @@
               </button>
             </div>
           </div>
+          <!-- Error State -->
+          <div data-bind="visible: hasError()" class="error">
+            <button data-bind="click: function() { error('') }">Clear error</button>
+          </div>
         </section>
         <!-- Result Status -->
         <div id="status" data-bind="visible: hasStatus()" class="success">
           <p data-bind="text: status()" class="status-text"></p>
         </div>
-        <div id="measurements-container">
-          <!-- Error State -->
-          <div data-bind="visible: hasError()" class="error">
-            <p data-bind="text: error()"></p>
-            <button data-bind="click: function() { error('') }">Retry</button>
+        <!-- Real-time Logs Container -->
+        <div id="logs-container" class="logs-container">
+          <div class="logs-header">
+            <h3>Application Logs</h3>
+
+            <div class="logs-controls">
+              <!-- switch for autoscroll -->
+              <label class="checkbox-container">
+                <input
+                  type="checkbox"
+                  id="autoscroll-checkbox"
+                  data-bind="checked: lm.autoScroll"
+                />
+                <span class="checkbox-label">Auto-scroll</span>
+                <span class="checkmark"></span>
+              </label>
+
+              <label class="select-container">
+                <span class="select-label">Log Level:</span>
+                <select
+                  class="combo-box"
+                  id="logLevel-select"
+                  data-bind="value: lm.logLevel"
+                >
+                  <option value="ERROR">Error</option>
+                  <option value="WARN">Warning</option>
+                  <option value="SUCCESS">Success</option>
+                  <option value="INFO">Info</option>
+                  <option value="DEBUG">Debug</option>
+                </select>
+              </label>
+
+              <button id="clear-logs" class="clear-btn">Clear</button>
+              <button
+                id="export-logs"
+                class="export-btn"
+                data-bind="click: lm.exportLogs"
+              >
+                Export Logs
+              </button>
+            </div>
           </div>
+          <div
+            id="logs-content"
+            class="logs-content"
+            data-bind="foreach: lm.filteredLogs"
+          >
+            <div class="log-entry" data-bind="css: level.toLowerCase()">
+              <span class="log-timestamp" data-bind="text: timestamp"></span>
+              <span class="log-level" data-bind="text: level"></span>
+              <span class="log-message" data-bind="text: message"></span>
+            </div>
+          </div>
+        </div>
+        <div id="measurements-container">
           <!-- Content -->
-          <div class="table-wrapper" data-bind="visible: !hasError()">
+          <div class="table-wrapper">
             <table class="measurements-table">
               <thead>
                 <tr class="table-header">
@@ -947,9 +1007,7 @@
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <span
-                        data-bind="text: isProcessing() ? 'Processing...' : 'All previews'"
-                      ></span>
+                      <span>All previews</span>
                     </button>
                   </th>
                   <th>
@@ -960,9 +1018,7 @@
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <span
-                        data-bind="text: isProcessing() ? 'Processing...' : 'All Filters'"
-                      ></span>
+                      <span>All Filters</span>
                     </button>
                   </th>
                 </tr>
@@ -983,9 +1039,13 @@
                     data-bind="text: channelName(), css: { success: isChannelDetected() } "
                   ></td>
                   <td data-bind="text: displayMeasurementTitle()"></td>
-                  <td data-bind="text: distanceInUnits(), css: exceedsDistance"></td>
                   <td
-                    data-bind="text: splForAvr(), css: { error: splIsAboveLimit() }"
+                    style="text-align: right"
+                    data-bind="text: distanceInUnits(), css: exceedsDistance"
+                  ></td>
+                  <td
+                    style="text-align: right"
+                    data-bind="text: splOffsetDeltadB().toFixed(1), css: { error: splIsAboveLimit() }"
                   ></td>
                   <td>
                     <select
@@ -995,7 +1055,7 @@
                     options: $parent.alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
-                    visible: !isSub(),
+                    visible: !isSub() && isValid,
                     value: $parent.measurementsByGroup()[groupName()] && $parent.measurementsByGroup()[groupName()].crossover"
                     ></select>
                   </td>
@@ -1005,6 +1065,7 @@
                       data-bind="
                       click: toggleInversion,
                       disable: $parent.isProcessing(),
+                      visible: haveImpulseResponse,
                       css: { disabled: $parent.isProcessing(), warning: inverted() }"
                       data-tooltip="Toggle phase inversion"
                     >
@@ -1014,47 +1075,33 @@
                     </button>
                   </td>
                   <td style="text-align: center">
-                    <!-- ko if: ($parent.uniqueSubsMeasurements().length === 1 || !isSub()) && position() !== 0 -->
                     <button
                       class="button"
                       data-bind="
                       click: previewMeasurement,
                       disable: $parent.isProcessing(),
-                      css: { disabled: $parent.isProcessing }"
+                      css: { disabled: $parent.isProcessing },
+                      visible: !isSub() && isValid"
                       data-tooltip="Create preview"
                     >
                       <i class="fa fa-line-chart"></i>
                     </button>
-                    <!-- /ko -->
                   </td>
                   <td
                     style="text-align: center"
                     data-bind="css: { success: associatedFilterItem() }"
                   >
-                    <!-- ko if: !isSub() && position() !== 0 -->
                     <button
                       class="button"
                       data-bind="
                       click: buttonCreateFilter,
                       disable: $parent.isProcessing(),
-                      css: { disabled: $parent.isProcessing }"
+                      css: { disabled: $parent.isProcessing },
+                      visible: !isSub() && isValid"
                       data-tooltip="Create speaker filter"
                     >
                       <i class="fa fa-wave-square"></i>
                     </button>
-                    <!-- /ko -->
-                    <!-- ko if: isSub() && $parent.uniqueSubsMeasurements().length === 1 && position() !== 0 -->
-                    <button
-                      class="button"
-                      data-bind="
-                      click: $parent.buttonSingleSubOptimizer,
-                      disable: $parent.isProcessing,
-                      css: { disabled: $parent.isProcessing }"
-                      data-tooltip="Create Sub filter"
-                    >
-                      <i class="fa fa-wave-square"></i>
-                    </button>
-                    <!-- /ko -->
                   </td>
                 </tr>
               </tbody>
@@ -1089,7 +1136,7 @@
         <div class="credits-content">
           <p class="copyright" data-i18n="copyright">&copy; 2025 Sangoku</p>
           <p class="credits-text" data-i18n="credits">Designed & Developed by Sangoku</p>
-          <p class="version">Version 1.1.38</p>
+          <p class="version">Version 1.2.00</p>
 
           <!-- Donation Section -->
           <div class="donation-section">

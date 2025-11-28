@@ -1,8 +1,8 @@
 import { CHANNEL_TYPES } from './audyssey.js';
 import 'decimal.js';
 import ko from 'knockout';
-import FrequencyResponse from './FrequencyResponse.js';
 import BusinessTools from './BusinessTools.js';
+import lm from './logs.js';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
@@ -13,9 +13,9 @@ class MeasurementItem {
   static leftWindowWidthMilliseconds = 30;
   static rightWindowWidthMilliseconds = 1000;
   static UNKNOWN_GROUP_NAME = 'UNKNOWN';
+  static DEFAULT_TARGET_LEVEL = 75;
 
   static measurementType = { SPEAKERS: 0, SUB: 1, FILTER: 2, AVERAGE: 3 };
-  static defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
 
   constructor(item, parentViewModel) {
     // Validate inputs
@@ -28,7 +28,6 @@ class MeasurementItem {
       throw new Error('No AVR data loaded');
     }
 
-    this.jsonAvrData = parentViewModel.jsonAvrData();
     this.dectedFallOffLow = -1;
     this.dectedFallOffHigh = +Infinity;
 
@@ -54,6 +53,8 @@ class MeasurementItem {
     this.measurementType = MeasurementItem.measurementType.SPEAKERS;
     this.IRPeakValue = item.IRPeakValue || 0;
     this.revertLfeFrequency = item.revertLfeFrequency || 0;
+    this.isSubOperationResult = item.isSubOperationResult || false;
+    this.parentAttr = item.parentAttr || null;
 
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
@@ -72,12 +73,10 @@ class MeasurementItem {
     );
 
     this.channelDetails = ko.computed(() => {
-      const foundChannel = this.jsonAvrData?.detectedChannels.find(
-        channel => channel.commandId === this.channelName()
-      );
-      if (foundChannel) {
-        return CHANNEL_TYPES.getByChannelIndex(foundChannel.enChannelType);
-      }
+      const foundChannel = this.parentViewModel
+        .jsonAvrData()
+        ?.detectedChannels.find(channel => channel.commandId === this.channelName());
+      return CHANNEL_TYPES.getByChannelIndex(foundChannel?.enChannelType);
     });
 
     this.groupName = ko.computed(() => this.channelDetails()?.group || 'Unknown');
@@ -126,31 +125,34 @@ class MeasurementItem {
             `${MeasurementItem.DEFAULT_LFE_PREDICTED}${this.position()}`
         );
     });
-    this.absoluteIRPeakSeconds = ko.computed(
-      () => this.timeOfIRPeakSeconds() + this.cumulativeIRShiftSeconds()
-    );
+    this.absoluteIRPeakSeconds = ko.computed(() => {
+      if (!this.haveImpulseResponse) return 0;
+      return this.timeOfIRPeakSeconds() + this.cumulativeIRShiftSeconds();
+    });
     this.displayMeasurementTitle = ko.computed(
       () => `${this.measurementIndex()}: ${this.title()}`
     );
-    this.distanceInMeters = ko.computed(() =>
-      this._computeDistanceInMeters(this.cumulativeIRShiftSeconds())
-    );
+    this.distanceInMeters = ko.computed(() => {
+      if (!this.haveImpulseResponse) return 0;
+      return this._computeDistanceInMeters(this.cumulativeIRShiftSeconds());
+    });
     this.distanceInUnits = ko.computed(() => {
-      if (this.parentViewModel.distanceUnit() === 'M') {
+      if (!this.haveImpulseResponse) return 0;
+      const unit = this.parentViewModel.distanceUnit();
+      if (unit === 'M') {
         return this.distanceInMeters();
-      } else if (this.parentViewModel.distanceUnit() === 'ms') {
-        return MeasurementItem.cleanFloat32Value(
-          this.cumulativeIRShiftSeconds() * 1000,
-          2
-        );
-      } else if (this.parentViewModel.distanceUnit() === 'ft') {
+      } else if (unit === 'ms') {
+        const ms = (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
+        const delay = (this.cumulativeIRDistanceSeconds() * 1000).toFixed(1);
+        return `${delay}  -  ${ms}`;
+      } else if (unit === 'ft') {
         return MeasurementItem.cleanFloat32Value(this.distanceInMeters() * 3.28084, 2); // Convert meters to feet
       }
-      throw new Error(`Unknown distance unit: ${this.parentViewModel.distanceUnit()}`);
+      throw new Error(`Unknown distance unit: ${unit}`);
     });
 
-    this.splOffsetDeltadB = ko.computed(
-      () => this.splOffsetdB() - this.initialSplOffsetdB
+    this.splOffsetDeltadB = ko.computed(() =>
+      MeasurementItem.cleanFloat32Value(this.splOffsetdB() - this.initialSplOffsetdB, 2)
     );
     this.splForAvr = ko.computed(() => Math.round(this.splOffsetDeltadB() * 2) / 2);
     this.splIsAboveLimit = ko.computed(
@@ -172,14 +174,13 @@ class MeasurementItem {
 
     // Create a computed observable for the channel detection check
     this.isChannelDetected = ko.computed(() => {
-      if (!this.jsonAvrData || !this.channelDetails()) {
-        return false;
-      }
-      if (!this.isSelected()) {
-        return false;
-      }
-      return this.jsonAvrData.detectedChannels.some(
-        m => m.enChannelType === this.channelDetails().channelIndex
+      const avrData = this.parentViewModel.jsonAvrData();
+      const details = this.channelDetails();
+      return (
+        this.isSelected() &&
+        avrData &&
+        details &&
+        avrData.detectedChannels.some(m => m.enChannelType === details.channelIndex)
       );
     });
     this.exceedsDistance = ko.computed(() => {
@@ -219,41 +220,57 @@ class MeasurementItem {
     this.buttonCreateFilter = async () => {
       if (parentViewModel.isProcessing()) return;
       try {
-        parentViewModel.isProcessing(true);
+        await parentViewModel.setProcessing(true);
 
         await this.createStandardFilter();
       } catch (error) {
-        parentViewModel.handleError(`Filter creation failed: ${error.message}`);
+        parentViewModel.handleError(`Filter creation failed: ${error.message}`, error);
       } finally {
-        parentViewModel.isProcessing(false);
+        await parentViewModel.setProcessing(false);
       }
     };
 
     this.previewMeasurement = async () => {
       if (parentViewModel.isProcessing()) return;
       try {
-        parentViewModel.isProcessing(true);
+        await parentViewModel.setProcessing(true);
         if (this.isSub()) {
           await parentViewModel.produceSumProcess([this]);
         } else {
           await parentViewModel.businessTools.createMeasurementPreview(this);
         }
-        await this.copyAllToOther();
+        // if filters was manually tunned, copy them to other positions
+        await this.copyFiltersToOther();
       } catch (error) {
-        parentViewModel.handleError(`Preview creation failed: ${error.message}`);
+        parentViewModel.handleError(`Preview creation failed: ${error.message}`, error);
       } finally {
-        parentViewModel.isProcessing(false);
+        await parentViewModel.setProcessing(false);
       }
     };
+
+    this.otherPositionMeasurements = ko.computed(() => {
+      return this.parentViewModel
+        .validMeasurements()
+        .filter(
+          response =>
+            response?.channelName() === this.channelName() && response.uuid !== this.uuid
+        );
+    });
+
+    // Subscribe to changes in inverted to to apply to all other positions
+    this.inverted.subscribe(async () => {
+      if (!this.isSelected()) return;
+      await this.copyInversionToOtherPositions();
+    });
+
+    this.cumulativeIRShiftSeconds.subscribe(async () => {
+      if (!this.isSelected()) return;
+      await this.copyCumulativeIRShiftToOther();
+    });
   }
 
   async refresh() {
-    const item = await this.parentViewModel.apiService.fetchREW(
-      this.uuid,
-      'GET',
-      null,
-      0
-    );
+    const item = await this.rewMeasurements.get(this.uuid);
 
     if (!item) {
       throw new Error(`Failed to refresh ${this.displayMeasurementTitle()}`);
@@ -277,12 +294,12 @@ class MeasurementItem {
   // Compute methods
   _computeInMeters(valueInSeconds) {
     const failSafeValue = Number.isFinite(valueInSeconds) ? valueInSeconds : 0;
-    return failSafeValue * this.jsonAvrData.avr.speedOfSound;
+    return failSafeValue * this.parentViewModel.jsonAvrData().avr.speedOfSound;
   }
 
   _computeInSeconds(valueInMeters) {
     const failSafeValue = Number.isFinite(valueInMeters) ? valueInMeters : 0;
-    return failSafeValue / this.jsonAvrData.avr.speedOfSound;
+    return failSafeValue / this.parentViewModel.jsonAvrData().avr.speedOfSound;
   }
 
   _computeDistanceInMeters(valueInSeconds) {
@@ -300,17 +317,33 @@ class MeasurementItem {
     return this._computeInSeconds(valueInMeters - this.parentViewModel.shiftInMeters());
   }
 
+  // funtion is accessible from the UI
   async toggleInversion() {
-    await this.genericCommand('Invert');
+    try {
+      const allreadyProcessing = this.parentViewModel.isProcessing();
+      if (!allreadyProcessing) await this.parentViewModel.setProcessing(true);
+      await this.rewMeasurements.invert(this.uuid);
+      if (!allreadyProcessing) await this.parentViewModel.setProcessing(false);
+
+      // Important to do refresh after allreadyProcessing check
+      await this.refresh();
+    } catch (error) {
+      this.parentViewModel.handleError(
+        `Failed to toggle inversion for ${this.displayMeasurementTitle()}: ${
+          error.message
+        }`,
+        error
+      );
+    }
   }
 
-  async resetAll(targetLevel = 75) {
+  async resetAll(targetLevel = MeasurementItem.DEFAULT_TARGET_LEVEL) {
     try {
       await this.resetSmoothing();
       await this.resetIrWindows();
       await this.resetTargetSettings();
       await this.resetRoomCurveSettings();
-      await this.ResetEqualiser();
+      await this.resetEqualiser();
       await this.resetcumulativeIRShiftSeconds();
       await this.setInverted(false);
       await this.setTargetLevel(targetLevel);
@@ -326,18 +359,25 @@ class MeasurementItem {
   }
 
   async resetSmoothing() {
-    await this.genericCommand('Smooth', { smoothing: 'None' });
+    lm.debug(`${this.displayMeasurementTitle()}: Resetting smoothing`);
+    return this.rewMeasurements.removeSmoothing([this.uuid]);
   }
 
   async defaultSmoothing() {
     // actually not possible to check current smoothing method
-    await this.genericCommand('Smooth', {
-      smoothing: this.parentViewModel.selectedSmoothingMethod(),
-    });
+    return this.rewMeasurements.smoothMeasurements(
+      [this.uuid],
+      this.parentViewModel.selectedSmoothingMethod()
+    );
+  }
+
+  async setSmoothing(smoothingMethod) {
+    // actually not possible to check current smoothing method
+    return this.rewMeasurements.smooth([this.uuid], smoothingMethod);
   }
 
   async resetIrWindows() {
-    await this.setIrWindows({
+    return this.setIrWindows({
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
       leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
@@ -349,51 +389,38 @@ class MeasurementItem {
   }
 
   async resetTargetSettings() {
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      'target-settings',
-      this.uuid
-    );
-
-    const defaultSettings = { shape: 'None' };
-
-    // compare commandResult with defaultSettings
-    if (commandResult.shape === defaultSettings.shape) {
-      return true;
-    }
-
-    await this.setTargetSettings(defaultSettings);
+    lm.debug(`${this.displayMeasurementTitle()}: Resetting target settings`);
+    return this.rewMeasurements.resetTargetSettings(this.uuid);
   }
 
   async resetRoomCurveSettings() {
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/room-curve-settings`,
-      { addRoomCurve: false }
-    );
+    lm.debug(`${this.displayMeasurementTitle()}: Resetting room curve settings`);
+    await this.rewMeasurements.resetRoomCurveSettings(this.uuid);
+  }
+
+  async getEqualiser() {
+    return this.rewMeasurements.getEqualiser(this.uuid);
   }
 
   async isdefaultEqualiser() {
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      'equaliser',
-      this.uuid
-    );
+    const commandResult = await this.getEqualiser();
+    const defaultSettings = this.rewEq.defaulEqtSettings;
 
     // compare commandResult with defaultSettings
     return (
-      commandResult.manufacturer === MeasurementItem.defaulEqtSettings.manufacturer &&
-      commandResult.model === MeasurementItem.defaulEqtSettings.model
+      commandResult.manufacturer === defaultSettings.manufacturer &&
+      commandResult.model === defaultSettings.model
     );
   }
 
-  async ResetEqualiser() {
+  async resetEqualiser() {
+    const defaultSettings = this.rewEq.defaulEqtSettings;
     // compare commandResult with defaultSettings
     if (await this.isdefaultEqualiser()) {
       return true;
     }
-
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/equaliser`,
-      MeasurementItem.defaulEqtSettings
-    );
+    lm.debug(`${this.displayMeasurementTitle()}: Resetting equaliser to Generic EQ`);
+    await this.rewMeasurements.setEqualiser(this.uuid, defaultSettings);
   }
 
   static arraysMatchWithTolerance(arr1, arr2, tolerance = 0.01) {
@@ -431,27 +458,36 @@ class MeasurementItem {
   async setIrWindows(irWindowsObject) {
     // Check if cumulative IR distance exists and is valid
     if (!this.haveImpulseResponse) {
-      return true;
+      return;
     }
 
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(
-      'ir-windows',
-      this.uuid
-    );
+    const commandResult = await this.rewMeasurements.getIRWindows(this.uuid);
 
     if (this.compareIwWindows(commandResult, irWindowsObject)) return true;
 
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/ir-windows`,
-      irWindowsObject
-    );
+    lm.debug(`${this.displayMeasurementTitle()}: Setting IR windows`);
+    return this.rewMeasurements.setIRWindows(this.uuid, irWindowsObject);
+  }
+
+  async trimIRToWindows() {
+    // Check if cumulative IR distance exists and is valid
+    if (!this.haveImpulseResponse) {
+      return;
+    }
+    const result = await this.rewMeasurements.trimIRToWindows(this.uuid);
+    const newMeasurement = await this.parentViewModel.analyseApiResponse(result);
+    if (!newMeasurement) {
+      throw new Error(`trimIRToWindows failed for ${this.displayMeasurementTitle()}`);
+    }
+    return newMeasurement;
+  }
+
+  async responseCopy() {
+    return this.rewMeasurements.responseCopy(this.uuid);
   }
 
   async setTargetSettings(targetSettings) {
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/target-settings`,
-      targetSettings
-    );
+    return this.rewMeasurements.postTargetSettings(this.uuid, targetSettings);
   }
 
   async generateFilterMeasurement() {
@@ -459,7 +495,9 @@ class MeasurementItem {
       return this.associatedFilterItem();
     }
 
-    const filter = await this.eqCommands('Generate filters measurement');
+    const response = await this.rewMeasurements.generateFiltersMeasurement(this.uuid);
+    const filter = await this.parentViewModel.analyseApiResponse(response);
+    filter.isFilter = true;
 
     if (!filter) {
       throw new Error(`filters reponse failed for ${this.displayMeasurementTitle()}`);
@@ -474,27 +512,10 @@ class MeasurementItem {
   }
 
   async getImpulseResponse(freq, unit = 'percent', windowed = true, normalised = true) {
-    let url = `impulse-response?unit=${unit}&windowed=${windowed}&normalised=${normalised}`;
-    if (freq) {
-      // default is the rate of the data being exported
-      url += `&samplerate=${freq}`;
-    }
-    // repsonse example
-    // {
-    //   "unit": "dBFS",
-    //   "startTime": -0.03053968516398206,
-    //   "sampleInterval": 0.000020833333333333333,
-    //   "sampleRate": 48000,
-    //   "timingReference": "Acoustic reference",
-    //   "timingRefTime": -0.01318170882936498,
-    //   "timingOffset": 0,
-    //   "delay": 0.01015496119789816,
-    //   "data": ...
-    // }
+    const options = { unit, windowed, normalised, ...(freq && { samplerate: freq }) };
+    const reponseBody = await this.rewMeasurements.getImpulseResponse(this.uuid, options);
 
-    const reponseBody = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
-
-    return MeasurementItem.decodeRewBase64(reponseBody.data);
+    return reponseBody.dataArray;
   }
 
   async getFilterImpulseResponse(freq, sampleCount) {
@@ -503,11 +524,13 @@ class MeasurementItem {
         `Invalid frequency or sample count for ${this.displayMeasurementTitle()}`
       );
     }
-    const url = `filters-impulse-response?length=${sampleCount}&samplerate=${freq}`;
+    const options = { length: sampleCount, samplerate: freq };
+    const reponseBody = await this.rewMeasurements.getFiltersImpulseResponse(
+      this.uuid,
+      options
+    );
 
-    const reponseBody = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
-
-    return MeasurementItem.decodeRewBase64(reponseBody.data);
+    return reponseBody.dataArray;
   }
 
   async getPredictedImpulseResponse(
@@ -516,38 +539,24 @@ class MeasurementItem {
     windowed = true,
     normalised = true
   ) {
-    let url = `eq/impulse-response?unit=${unit}&windowed=${windowed}&normalised=${normalised}`;
-    if (freq) {
-      // default is the rate of the data being exported
-      url += `&samplerate=${freq}`;
-    }
-    const reponseBody = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
+    const options = { unit, windowed, normalised, ...(freq && { samplerate: freq }) };
+    const reponseBody = await this.rewMeasurements.getPredictedImpulseResponse(
+      this.uuid,
+      options
+    );
 
-    return MeasurementItem.decodeRewBase64(reponseBody.data);
+    return reponseBody.dataArray;
   }
 
   async getFrequencyResponse(unit = 'SPL', smoothing = 'None', ppo = null) {
-    let url = `frequency-response?unit=${unit}&smoothing=${smoothing}`;
-    if (ppo) {
-      // default is the rate of the data being exported
-      url += `&ppo=${ppo}`;
-    }
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
+    const options = { unit, smoothing, ...(ppo && { ppo }) };
 
-    // Create a CommandResult object from the raw API response
-    const frequencyResponse = new FrequencyResponse(commandResult);
-
-    // Process the frequency response data
-    const res = frequencyResponse.processFrequencyResponse(ppo);
-
-    return res;
+    return this.rewMeasurements.getFrequencyResponse(this.uuid, options);
   }
 
   /**
    * Use the target curve frequency response to detect the frequency cutoff points.
    * Strore them in this.dectedFallOffLow and this.dectedFallOffHigh
-   *
-   * @returns {boolean} true if the cutoff points are detected, false otherwise
    */
   async detectFallOff(threshold = -3, ppo = 12) {
     // Reset detection values
@@ -555,7 +564,7 @@ class MeasurementItem {
     this.dectedFallOffHigh = +Infinity;
 
     // Get measurement and target curve data
-    const measurementData = await this.getFrequencyResponse('SPL', 'None', ppo);
+    const measurementData = await this.getFrequencyResponse('SPL', '1/12', ppo);
 
     if (!measurementData.freqs?.length || !measurementData.magnitude?.length) {
       throw new Error(`Invalid frequency response data for ${this.title()}`);
@@ -576,8 +585,6 @@ class MeasurementItem {
       measurementData,
       threshold
     );
-
-    return this.dectedFallOffLow !== -1 && this.dectedFallOffHigh !== +Infinity;
   }
 
   // Find cutoff points by comparing measurement to target curve
@@ -615,19 +622,9 @@ class MeasurementItem {
   }
 
   async getTargetResponse(unit = 'SPL', ppo = 96) {
-    let url = `target-response?unit=${unit}&ppo=${ppo}`;
-    const commandResult = await this.parentViewModel.apiService.fetchSafe(url, this.uuid);
+    const options = { unit, ppo };
 
-    const startFreq = commandResult.startFreq;
-    const magnitude = MeasurementItem.decodeRewBase64(commandResult.magnitude);
-
-    const freqs = Array.from({ length: magnitude.length }, (_, i) =>
-      MeasurementItem.cleanFloat32Value(startFreq * Math.pow(2, i / ppo))
-    );
-
-    const endFreq = freqs.at(-1);
-
-    return { freqs, magnitude, startFreq, endFreq };
+    return this.rewMeasurements.getTargetResponse(this.uuid, options);
   }
 
   async delete() {
@@ -636,20 +633,18 @@ class MeasurementItem {
 
   async setInverted(inverted) {
     // refreshed every seconds when connected
-    if (inverted === this.inverted()) {
-      return false;
-    }
-    await this.toggleInversion();
-    return true;
+    if (inverted === this.inverted()) return;
+    lm.debug(`${this.displayMeasurementTitle()}: Setting inverted to ${inverted}`);
+    return this.toggleInversion();
   }
 
   async setTitle(newTitle, notescontent) {
     if (newTitle === this.title()) {
       return false;
     }
-    await this.parentViewModel.apiService.fetchREW(this.uuid, 'PUT', {
+    await this.rewMeasurements.update(this.uuid, {
       title: newTitle,
-      ...(notescontent && { notes: notescontent }),
+      notes: notescontent,
     });
     await this.refresh();
 
@@ -657,6 +652,7 @@ class MeasurementItem {
   }
 
   async resetcumulativeIRShiftSeconds() {
+    lm.debug(`${this.displayMeasurementTitle()}: Resetting cumulative IR shift to 0s`);
     await this.setcumulativeIRShiftSeconds(0);
   }
 
@@ -673,13 +669,9 @@ class MeasurementItem {
     if (amountToAdd === 0) {
       return false;
     }
-    await this.genericCommand('Offset t=0', {
-      offset: amountToAdd,
-      unit: 'seconds',
-    });
-    console.debug(
-      `Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()}`
-    );
+    await this.rewMeasurements.offsetTZero(this.uuid, amountToAdd);
+    await this.refresh();
+    lm.debug(`Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()}`);
     return true;
   }
 
@@ -688,6 +680,9 @@ class MeasurementItem {
     return true;
   }
 
+  /**
+   * parse the response data to get the alignSPLOffsetdB for the targetUUID
+   */
   static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
     try {
       if (!responseData?.results) {
@@ -716,7 +711,7 @@ class MeasurementItem {
     }
   }
 
-  // TODO: sometime a bug that move to 75dB
+  // TODO: sometime a bug that move to 75dB when frequencyHz is out of range
   async setSPLOffsetDB(newValue) {
     // check if the value is a number
     if (Number.isNaN(newValue)) {
@@ -724,26 +719,26 @@ class MeasurementItem {
     }
     // round the value to 2 decimal places
     newValue = MeasurementItem.cleanFloat32Value(newValue, 2);
-    const currentValue = MeasurementItem.cleanFloat32Value(this.splOffsetDeltadB(), 2);
 
     // Check if the new value is the same as the current value
-    if (newValue === currentValue) {
+    if (newValue === this.splOffsetDeltadB()) {
       return true;
     }
-    console.debug(
+    lm.debug(
       `Setting SPL offset to ${newValue} dB for ${this.displayMeasurementTitle()}`
     );
     // refence level is 75 dB just for the align command
-    const referenceLevel = 75;
-    const defaulParameters = {
-      frequencyHz: 1000,
-      spanOctaves: 0,
-    };
+    const referenceLevel = MeasurementItem.DEFAULT_TARGET_LEVEL;
+    // frequency must be in the mid range
+    const frequencyHz = 100;
+    const spanOctaves = 0;
     // first align the SPL to get the reference level
-    const alignResult = await this.parentViewModel.processCommands('Align SPL', [this], {
-      ...defaulParameters,
-      targetdB: referenceLevel,
-    });
+    const alignResult = await this.rewMeasurements.alignSPL(
+      [this.uuid],
+      referenceLevel,
+      frequencyHz,
+      spanOctaves
+    );
 
     const referenceAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
       alignResult,
@@ -753,13 +748,11 @@ class MeasurementItem {
     const offset = newValue - referenceAlignSPLOffsetdB;
 
     // align a second time to get the rigth level
-    const finalAlignResult = await this.parentViewModel.processCommands(
-      'Align SPL',
-      [this],
-      {
-        ...defaulParameters,
-        targetdB: referenceLevel + offset,
-      }
+    const finalAlignResult = await this.rewMeasurements.alignSPL(
+      [this.uuid],
+      referenceLevel + offset,
+      frequencyHz,
+      spanOctaves
     );
     //check results
     const finalAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
@@ -771,124 +764,16 @@ class MeasurementItem {
         `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`
       );
     }
+    return this.refresh();
   }
 
   async addSPLOffsetDB(amountToAdd) {
-    this.setSPLOffsetDB(this.splOffsetDeltadB() + amountToAdd);
-  }
-
-  async genericCommand(commandName, commandData) {
-    const withoutResultCommands = [
-      'Save',
-      'Mic in box correction',
-      'Merge cal data to IR',
-      'Smooth',
-      'Generate waterfall',
-      'Generate equalised waterfall',
-      'Generate spectrogram',
-      'Generate equalised spectrogram',
-      'Estimate IR delay',
-      'Offset t=0',
-      'Add SPL offset',
-      'Generate RT60',
-      'Invert',
-      'Wrap phase',
-      'Unwrap phase',
-    ];
-
-    const allowedCommands = [
-      ...withoutResultCommands,
-      'Trim IR to windows',
-      'Minimum phase version',
-      'Excess phase version',
-      'Response copy',
-      'Response magnitude copy',
-      'Generate minimum phase',
-    ];
-    if (!allowedCommands.includes(commandName)) {
-      throw new Error(`Command ${commandName} is not allowed`);
-    }
-
-    try {
-      const commandResult = await this.parentViewModel.apiService.postNext(
-        commandName,
-        this.uuid,
-        commandData,
-        2
-      );
-
-      await this.refresh();
-
-      if (!withoutResultCommands.includes(commandName)) {
-        const operationResultUuid = Object.values(commandResult.results || {})[0]?.UUID;
-        const measurement = await this.parentViewModel.addMeasurementApi(
-          operationResultUuid
-        );
-        measurement.parentAttr = this.toJSON();
-        // Save to persistent storage
-        return measurement;
-      }
-      return commandResult;
-    } catch (error) {
-      throw new Error(`Failed to create ${commandName} operation: ${error.message}`, {
-        cause: error,
-      });
-    }
-  }
-
-  async eqCommands(commandName) {
-    const withoutResultCommands = [
-      'Calculate target level',
-      'Match target',
-      'Optimise gains',
-      'Optimise gains and Qs',
-      'Optimise gains, Qs and Fcs',
-    ];
-
-    const allowedCommands = [
-      ...withoutResultCommands,
-      'Generate predicted measurement',
-      'Generate filters measurement',
-      'Generate target measurement',
-    ];
-
-    if (!allowedCommands.includes(commandName)) {
-      throw new Error(`Command ${commandName} is not allowed`);
-    }
-
-    try {
-      const operationResult = await this.parentViewModel.apiService.postNext(
-        commandName,
-        this.uuid,
-        null,
-        0,
-        'eq/command'
-      );
-
-      if (!withoutResultCommands.includes(commandName)) {
-        const operationResultUuid = Object.values(operationResult.results || {})[0]?.UUID;
-        const measurement = await this.parentViewModel.addMeasurementApi(
-          operationResultUuid
-        );
-        measurement.isFilter = commandName === 'Generate filters measurement';
-        measurement.parentAttr = this.toJSON();
-        // Save to persistent storage
-        return measurement;
-      }
-      return operationResult;
-    } catch (error) {
-      throw new Error(`Failed to create ${commandName} operation: ${error.message}`, {
-        cause: error,
-      });
-    }
+    return this.setSPLOffsetDB(this.splOffsetDeltadB() + amountToAdd);
   }
 
   async getFilters() {
     const autoDisableTypes = new Set(['LP', 'HP', 'HS', 'LS', 'All pass']);
-    const measurementFilters = await this.parentViewModel.apiService.fetchSafe(
-      'filters',
-      this.uuid
-    );
+    const measurementFilters = await this.rewMeasurements.getFilters(this.uuid);
     for (const filter of measurementFilters) {
       if (autoDisableTypes.has(filter.type)) {
         filter.isAuto = false;
@@ -902,7 +787,7 @@ class MeasurementItem {
       throw new Error(`Invalid filter: ${filters}`);
     }
     if (filters.length !== 22) {
-      console.debug(`Invalid filter length: ${filters.length} expected 22`);
+      lm.debug(`Invalid filter length: ${filters.length} expected 22`);
     }
 
     const allFilters = await this.getFilters();
@@ -918,7 +803,7 @@ class MeasurementItem {
       const index = filter.index;
       const found = currentFilters.find(f => f.index === index);
       if (!found) {
-        console.warn(`Filter with index ${index} not found in current filters`);
+        lm.warn(`Filter with index ${index} not found in current filters`);
         continue;
       }
       // set auto to false if type is all pass
@@ -933,12 +818,14 @@ class MeasurementItem {
     if (filtersCleaned.length === 0) {
       return true;
     }
-    await this.parentViewModel.apiService.postSafe(`measurements/${this.uuid}/filters`, {
-      filters: filtersCleaned,
-    });
 
     await this.deleteAssociatedFilter();
-    return true;
+    lm.debug(
+      `${this.displayMeasurementTitle()}: Setting ${filtersCleaned.length} filters`
+    );
+    return this.rewMeasurements.postFilters(this.uuid, {
+      filters: filtersCleaned,
+    });
   }
 
   async setSingleFilter(filter) {
@@ -955,10 +842,7 @@ class MeasurementItem {
       return false;
     }
 
-    await this.parentViewModel.apiService.putSafe(
-      `measurements/${this.uuid}/filters`,
-      filter
-    );
+    await this.rewMeasurements.setFilters(this.uuid, filter);
 
     await this.deleteAssociatedFilter();
     return true;
@@ -994,69 +878,74 @@ class MeasurementItem {
   }
 
   async copyFiltersToOther() {
-    const targets = this.parentViewModel
-      .notUniqueMeasurements()
-      .filter(response => response?.channelName() === this.channelName());
+    const targets = this.otherPositionMeasurements();
+    if (!targets.length) return;
 
-    if (!targets.length) {
-      return false;
-    }
-
+    lm.info(`Copying filters to other positions of ${this.displayMeasurementTitle()}...`);
     const measurementFilters = await this.getFilters();
     for (const otherItem of targets) {
       await otherItem.setFilters(measurementFilters);
       otherItem.associatedFilter = this.associatedFilter;
     }
-
-    return true;
   }
 
   async copySplOffsetDeltadBToOther() {
-    const targets = this.parentViewModel
-      .notUniqueMeasurements()
-      .filter(response => response?.channelName() === this.channelName());
+    const targets = this.otherPositionMeasurements();
+    if (!targets.length) return;
 
-    if (!targets.length) {
-      return false;
-    }
-
+    lm.info(
+      `Copying SPL offset to other positions of ${this.displayMeasurementTitle()}...`
+    );
+    const splOffset = this.splOffsetDeltadB();
     for (const otherItem of targets) {
-      await otherItem.setSPLOffsetDB(this.splOffsetDeltadB());
+      await otherItem.setSPLOffsetDB(splOffset);
     }
-
-    return true;
   }
 
   async copyCumulativeIRShiftToOther() {
-    const targets = this.parentViewModel
-      .notUniqueMeasurements()
-      .filter(response => response?.channelName() === this.channelName());
+    if (!this.haveImpulseResponse) return;
+    const targets = this.otherPositionMeasurements();
+    if (!targets.length) return;
 
-    if (!targets.length) {
-      return false;
-    }
-
+    lm.info(
+      `Copying Cumulative IR Shift to other positions of ${this.displayMeasurementTitle()}...`
+    );
+    const irShift = this.cumulativeIRShiftSeconds();
     for (const otherItem of targets) {
-      await otherItem.setcumulativeIRShiftSeconds(this.cumulativeIRShiftSeconds());
-      await otherItem.setInverted(this.inverted());
+      await otherItem.setcumulativeIRShiftSeconds(irShift);
+    }
+  }
+
+  async copyInversionToOtherPositions() {
+    const targets = this.otherPositionMeasurements();
+    if (!targets.length) return;
+
+    const allreadyProcessing = this.parentViewModel.isProcessing();
+    const inverted = this.inverted();
+
+    if (!allreadyProcessing) await this.parentViewModel.setProcessing(true);
+
+    lm.info(
+      `Copying Inversion to other positions of ${this.displayMeasurementTitle()}...`
+    );
+    for (const otherItem of targets) {
+      await otherItem.setInverted(inverted);
     }
 
-    return true;
+    if (!allreadyProcessing) await this.parentViewModel.setProcessing(false);
   }
 
   async copyAllToOther() {
     await this.copySplOffsetDeltadBToOther();
     await this.copyCumulativeIRShiftToOther();
     await this.copyFiltersToOther();
+    await this.copyInversionToOtherPositions();
 
     return true;
   }
 
   async getTargetLevel() {
-    const level = await this.parentViewModel.apiService.fetchSafe(
-      'target-level',
-      this.uuid
-    );
+    const level = await this.rewMeasurements.getTargetLevel(this.uuid);
     return MeasurementItem.cleanFloat32Value(level, 2);
   }
 
@@ -1071,12 +960,13 @@ class MeasurementItem {
     if (level.toFixed(2) === currentLevel.toFixed(2)) {
       return true;
     }
-    await this.parentViewModel.apiService.postSafe(
-      `measurements/${this.uuid}/target-level`,
-      level
+
+    lm.debug(
+      `${this.displayMeasurementTitle()}: Target level set to ${level.toFixed(1)} dB`
     );
-    await this.resetFilters();
-    return true;
+    await this.rewMeasurements.setTargetLevel(this.uuid, level);
+
+    return this.resetFilters();
   }
 
   async resetFilters() {
@@ -1089,10 +979,8 @@ class MeasurementItem {
       })),
     };
 
-    await this.setFilters(emptyFilter.filters);
-
     await this.deleteAssociatedFilter();
-    return true;
+    return this.setFilters(emptyFilter.filters);
   }
 
   async getAssociatedFilterItem() {
@@ -1100,10 +988,10 @@ class MeasurementItem {
       return this.associatedFilterItem();
     }
 
-    console.warn(
+    lm.warn(
       `Associated filter not found: ${this.displayMeasurementTitle()}, creating a new one`
     );
-    return await this.createUserFilter();
+    return this.createUserFilter();
   }
 
   async setAssociatedFilter(filter) {
@@ -1151,11 +1039,7 @@ class MeasurementItem {
 
     const filter = await this.getAssociatedFilterItem();
 
-    const predictedResult = await this.parentViewModel.doArithmeticOperation(
-      this,
-      filter,
-      { function: 'A * B' }
-    );
+    const predictedResult = await this.arithmeticConvolution(filter);
 
     predictedResult.setTitle(`predicted ${this.title()}`);
 
@@ -1169,28 +1053,13 @@ class MeasurementItem {
       );
     }
 
-    // TODO use parentAttr and absoluteIRPeakSeconds instead
-
-    // to preserve invertion info in the result
-    const wasInverted = this.inverted();
-    if (wasInverted) {
-      await this.setInverted(false);
-    }
-    // save current IR shift
-    const currentCumulativeIRShift = this.cumulativeIRShiftSeconds();
-    await this.resetcumulativeIRShiftSeconds();
-
-    const PredictedFiltered = await this.eqCommands('Generate predicted measurement');
+    const apiResponse = await this.rewMeasurements.generatePredictedMeasurement(
+      this.uuid
+    );
+    const PredictedFiltered = await this.parentViewModel.analyseApiResponse(apiResponse);
     if (!PredictedFiltered) {
       throw new Error('Cannot generate predicted measurement');
     }
-    if (wasInverted) {
-      await this.setInverted(true);
-      await PredictedFiltered.setInverted(true);
-    }
-
-    await PredictedFiltered.setcumulativeIRShiftSeconds(currentCumulativeIRShift);
-    await this.setcumulativeIRShiftSeconds(currentCumulativeIRShift);
 
     await PredictedFiltered.setTitle(`predicted ${this.title()}`);
 
@@ -1297,10 +1166,10 @@ class MeasurementItem {
 
       await this.createStandardFilter(false, false);
       const preview = await this.producePredictedMeasurement();
-      toBeDeleted.push(preview.uuid);
+      toBeDeleted.push(preview);
 
       const amplitudeCorrection = await this.generateFilterMeasurement();
-      toBeDeleted.push(amplitudeCorrection.uuid);
+      toBeDeleted.push(amplitudeCorrection);
 
       await preview.setZeroAtIrPeak();
       await preview.resetSmoothing();
@@ -1316,26 +1185,18 @@ class MeasurementItem {
       });
 
       const excessPhase = await preview.createExcessPhaseCopy();
-      toBeDeleted.push(excessPhase.uuid);
+      toBeDeleted.push(excessPhase);
 
       await excessPhase.resetSmoothing();
 
-      const phaseCorrection = await this.parentViewModel.doArithmeticOperation(
-        excessPhase,
+      const phaseCorrection = await excessPhase.arithmeticInvertAPhase(
         this,
-        {
-          function: 'Invert A phase',
-          lowerLimit: startFrequency,
-          upperLimit: stopFrequency,
-        }
+        startFrequency,
+        stopFrequency
       );
-      toBeDeleted.push(phaseCorrection.uuid);
+      toBeDeleted.push(phaseCorrection);
 
-      const finalFIR = await this.parentViewModel.doArithmeticOperation(
-        phaseCorrection,
-        amplitudeCorrection,
-        { function: 'A * B' }
-      );
+      const finalFIR = await phaseCorrection.arithmeticConvolution(amplitudeCorrection);
 
       const cxText = this.crossover() ? `X@${this.crossover()}Hz` : 'FB';
       await finalFIR.setTitle(`Filter ${this.title()} ${cxText}`);
@@ -1350,9 +1211,7 @@ class MeasurementItem {
     } finally {
       await this.applyWorkingSettings();
       // clean up temporary measurements
-      for (const uuid of toBeDeleted) {
-        await this.parentViewModel.removeMeasurementUuid(uuid);
-      }
+      await this.parentViewModel.removeMeasurements(toBeDeleted);
     }
   }
 
@@ -1409,10 +1268,10 @@ class MeasurementItem {
     );
 
     // must be set seaparatly to be taken into account
-    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+    await this.rewEq.setMatchTargetSettings({
       endFrequency: customEndFrequency,
     });
-    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+    await this.rewEq.setMatchTargetSettings({
       startFrequency: customStartFrequency,
       endFrequency: customInterPassFrequency * 2,
       individualMaxBoostdB: 0,
@@ -1424,7 +1283,7 @@ class MeasurementItem {
       allowHighShelf: false,
     });
 
-    await this.eqCommands('Match target');
+    await this.rewMeasurements.matchTarget(this.uuid);
 
     // set filters auto to off to prevent overwriting by the second pass
     await this.setAllFiltersAuto(false);
@@ -1437,14 +1296,14 @@ class MeasurementItem {
       );
     }
 
-    await this.parentViewModel.apiService.postSafe(`eq/match-target-settings`, {
+    await this.rewEq.setMatchTargetSettings({
       startFrequency: customInterPassFrequency / 2,
       endFrequency: customEndFrequency,
       individualMaxBoostdB: this.parentViewModel.individualMaxBoostValue(),
       overallMaxBoostdB: this.parentViewModel.overallBoostValue(),
     });
 
-    await this.eqCommands('Match target');
+    await this.rewMeasurements.matchTarget(this.uuid);
 
     // retore filters auto to on for next iteration
     await this.setAllFiltersAuto(true);
@@ -1477,7 +1336,7 @@ class MeasurementItem {
   }
 
   async createMinimumPhaseCopy() {
-    const minimumPhase = await this.genericCommand('Minimum phase version', {
+    const minimumPhase = await this.rewMeasurements.minimumPhaseVersion(this.uuid, {
       'include cal': true,
       'append lf tail': false,
       'append hf tail': false,
@@ -1489,7 +1348,7 @@ class MeasurementItem {
   }
 
   async createExcessPhaseCopy() {
-    return await this.genericCommand('Excess phase version', {
+    return await this.rewMeasurements.excessPhaseVersion(this.uuid, {
       'include cal': true,
       'append lf tail': false,
       'append hf tail': false,
@@ -1502,125 +1361,12 @@ class MeasurementItem {
     // Handle non-numeric values and NaN
     const num = Number(value);
     if (!Number.isFinite(num)) {
-      console.warn(`Invalid numeric value: ${value}`);
+      lm.warn(`Invalid numeric value: ${value}`);
       return 0;
     }
     // Round to desired precision using Math.round (faster than toFixed)
     const multiplier = 10 ** precision;
     return Math.round(num * multiplier) / multiplier;
-  }
-
-  static decodeRewBase64(encodedData, isLittleEndian = false) {
-    if (!encodedData) {
-      throw new Error(`Invalid encoded data: ${encodedData}`);
-    }
-    try {
-      const bytes = MeasurementItem.decodeBase64ToBinary(encodedData);
-      const dataView = new DataView(bytes.buffer);
-      const sampleCount = dataView.byteLength / Float32Array.BYTES_PER_ELEMENT;
-      const result = new Array(sampleCount);
-      for (let i = 0; i < sampleCount; i++) {
-        const value = dataView.getFloat32(
-          i * Float32Array.BYTES_PER_ELEMENT,
-          isLittleEndian
-        );
-
-        result[i] = MeasurementItem.cleanFloat32Value(value);
-      }
-      return result;
-    } catch (error) {
-      throw new Error(`Error decoding base64 data: ${error.message}`, { cause: error });
-    }
-  }
-
-  // Decode to binary data
-  static decodeBase64ToBinary(base64String) {
-    const binaryString = atob(base64String);
-    const bytes = new Uint8Array(binaryString.length);
-
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.codePointAt(i);
-    }
-
-    return bytes;
-  }
-
-  /**
-   * Validates and converts array elements to numbers
-   * @param {Float32Array} float32Array - The array to validate
-   * @returns {Float32Array} The validated array with numeric values
-   * @throws {Error} If any element cannot be converted to a valid number
-   */
-  static validateArrayElements(float32Array) {
-    // Check if array contains any NaN values
-    if (
-      float32Array.some(
-        element => Number.isFinite(element) && typeof element !== 'string'
-      )
-    ) {
-      return float32Array;
-    }
-    let convertedArray = new Float32Array(float32Array.length);
-    let index = 0;
-    try {
-      // Convert array to numbers and validate
-      for (const element of float32Array) {
-        const num = Number.parseFloat(element);
-
-        // Throw specific error for invalid conversions
-        if (!Number.isFinite(num)) {
-          throw new TypeError(`Invalid numeric value: ${element}`);
-        }
-
-        convertedArray[index++] = num;
-      }
-
-      // Create new Float32Array from converted values
-      return convertedArray;
-    } catch (error) {
-      throw new Error(`Array validation failed:${error.message}`, { cause: error });
-    }
-  }
-
-  static encodeRewToBase64(floatArray) {
-    if (!Array.isArray(floatArray)) {
-      throw new TypeError('Input must be an array of numbers');
-    }
-
-    try {
-      // Create a buffer to hold the Float32 values
-      const buffer = new ArrayBuffer(floatArray.length * Float32Array.BYTES_PER_ELEMENT);
-      const dataView = new DataView(buffer);
-
-      // Write each float value to the buffer
-      for (let i = 0; i < floatArray.length; i++) {
-        dataView.setFloat32(
-          i * Float32Array.BYTES_PER_ELEMENT,
-          floatArray[i],
-          false // use big-endian to match the decoder
-        );
-      }
-
-      // Convert the buffer to a Uint8Array
-      const bytes = new Uint8Array(buffer);
-
-      // Convert to base64 using chunks to avoid call stack size exceeded
-      const CHUNK_SIZE = 0x8000; // 32k
-      let binaryString = '';
-
-      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-        const chunk = bytes.slice(i, i + CHUNK_SIZE);
-        binaryString += String.fromCharCode.apply(null, chunk);
-      }
-
-      const base64String = btoa(binaryString);
-
-      return base64String;
-    } catch (error) {
-      throw new Error(`Error encoding data to base64: ${error.message}`, {
-        cause: error,
-      });
-    }
   }
 
   // Method to get data for saving
@@ -1651,6 +1397,8 @@ class MeasurementItem {
       haveImpulseResponse: this.haveImpulseResponse,
       associatedFilter: this.associatedFilter,
       IRPeakValue: this.IRPeakValue,
+      isSubOperationResult: this.isSubOperationResult,
+      parentAttr: this.parentAttr,
     };
   }
 
@@ -1682,6 +1430,56 @@ class MeasurementItem {
       !this.isUnknownChannel &&
       !this.isLfePredicted
     );
+  }
+
+  get rewMeasurements() {
+    return this.parentViewModel.rewMeasurements;
+  }
+
+  get rewEq() {
+    return this.parentViewModel.rewEq;
+  }
+
+  async arithmeticSum(otherMeasurement) {
+    const apiResponse = await this.rewMeasurements.arithmeticAPlusB(
+      this.uuid,
+      otherMeasurement.uuid
+    );
+    return this.parentViewModel.analyseApiResponse(apiResponse);
+  }
+
+  async arithmeticConvolution(otherMeasurement) {
+    const apiResponse = await this.rewMeasurements.arithmeticATimesB(
+      this.uuid,
+      otherMeasurement.uuid
+    );
+    return this.parentViewModel.analyseApiResponse(apiResponse);
+  }
+
+  async arithmeticADividedByB(
+    otherMeasurement,
+    maxGain = null,
+    lowerLimit = null,
+    upperLimit = null
+  ) {
+    const apiResponse = await this.rewMeasurements.arithmeticADividedByB(
+      this.uuid,
+      otherMeasurement.uuid,
+      maxGain,
+      lowerLimit,
+      upperLimit
+    );
+    return this.parentViewModel.analyseApiResponse(apiResponse);
+  }
+
+  async arithmeticInvertAPhase(otherMeasurement, lowerLimit = null, upperLimit = null) {
+    const apiResponse = await this.rewMeasurements.arithmeticInvertAPhase(
+      this.uuid,
+      otherMeasurement.uuid,
+      lowerLimit,
+      upperLimit
+    );
+    return this.parentViewModel.analyseApiResponse(apiResponse);
   }
 }
 

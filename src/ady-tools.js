@@ -1,5 +1,6 @@
 import * as math from 'mathjs';
 import JSZip from 'jszip';
+import lm from './logs.js';
 
 class AdyTools {
   static MIC_CALIBRATION_URL = 'ressources/mic-cal-imp.txt';
@@ -20,7 +21,7 @@ class AdyTools {
 
     if (needCal) {
       inv_micCal = await AdyTools.getMicCalDataInv();
-      console.debug('Applying calibration to measurement data...');
+      lm.debug('Applying calibration to measurement data...');
     }
 
     try {
@@ -31,6 +32,9 @@ class AdyTools {
           // must start with the channel name to mach
           const measurementName = `${channel.commandId}_${positionName}`;
           const filename = `${measurementName}.txt`;
+
+          // convert measurementData to Float32Array
+          measurementData = new Float32Array(measurementData);
 
           // Only apply calibration if needed
           const processedData = needCal
@@ -63,16 +67,15 @@ class AdyTools {
     }
   }
 
-  // TODO: replace by Polar and Complex class methods
   static vectorDivision(impulseA, impulseB) {
     // Basic input validation
     if (!impulseA?.length || !impulseB?.length) {
-      return [];
+      throw new Error('Invalid input signals for vector division');
     }
 
-    // Convert to math.js compatible complex numbers
-    const signalA = impulseA.map(x => math.complex(Number(x), 0));
-    const signalB = impulseB.map(x => math.complex(Number(x), 0));
+    // Use math.js for frequency domain division: IFFT(FFT(A) / FFT(B))
+    const signalA = Array.from(impulseA, x => math.complex(Number(x), 0));
+    const signalB = Array.from(impulseB, x => math.complex(Number(x), 0));
 
     // Perform FFT
     const freqA = math.fft(signalA);
@@ -82,7 +85,7 @@ class AdyTools {
     const result = freqA.map((val, i) => math.divide(val, freqB[i]));
 
     // Convert back to time domain and return real parts
-    return math.ifft(result).map(x => x.re);
+    return Float32Array.from(math.ifft(result).map(x => x.re));
   }
 
   static async fastConvolution(audioData, calibrationData, samplingRate) {
@@ -113,10 +116,10 @@ class AdyTools {
       // Start processing
       source.start(0);
       const renderedBuffer = await ctx.startRendering();
-      return Array.from(renderedBuffer.getChannelData(0));
+      return renderedBuffer.getChannelData(0);
     } catch (error) {
-      console.error('Convolution failed:', error);
-      return [];
+      lm.error('Convolution failed:', error);
+      return new Float32Array(0);
     }
   }
 
@@ -126,12 +129,12 @@ class AdyTools {
     }
 
     try {
-      let micCalIRData = await AdyTools.readTextToFloatArray(micCalUrl);
+      const micCalIRData = await AdyTools.readTextToFloatArray(micCalUrl);
       // resize micCalData to 16384 if it's smaller
       if (micCalIRData.length < 16384) {
-        micCalIRData = micCalIRData.concat(
-          new Array(16384 - micCalIRData.length).fill(0)
-        );
+        const resized = new Float32Array(16384);
+        resized.set(micCalIRData);
+        return resized;
       }
       return micCalIRData;
     } catch (error) {
@@ -182,7 +185,7 @@ class AdyTools {
         throw new Error('Invalid data format received');
       }
 
-      return floatArray;
+      return Float32Array.from(floatArray);
     } catch (error) {
       throw new Error(`Failed to fetch or process data: ${error.message}`, {
         cause: error,
@@ -251,26 +254,19 @@ class AdyTools {
   }
 
   static async applyCal(measurementData, inv_micCal, samplingRate) {
-    // Convert measurement data to numbers and validate
-    const measurementDataFloat = measurementData.map(value => {
-      const num = Number(value);
-      if (!Number.isFinite(num)) {
+    // Validate measurement data
+    for (const value of measurementData) {
+      if (!Number.isFinite(value)) {
         throw new TypeError('Measurement data contains invalid numbers');
       }
-      return num;
-    });
+    }
 
-    const measurementDataCal = await AdyTools.fastConvolution(
-      measurementDataFloat,
-      inv_micCal,
-      samplingRate
-    );
-    return measurementDataCal;
+    return AdyTools.fastConvolution(measurementData, inv_micCal, samplingRate);
   }
 
   static invertIR(impulseResponse) {
     // Create a perfect impulse (Dirac delta)
-    const perfectImpulse = [...new Array(impulseResponse.length).fill(0)];
+    const perfectImpulse = new Float32Array(impulseResponse.length);
     perfectImpulse[0] = 1; // First sample is 1, rest are 0
 
     return AdyTools.vectorDivision(perfectImpulse, impulseResponse);
@@ -299,7 +295,7 @@ class AdyTools {
       AdyTools.#cachedInvMicCal = inv_micCal;
       return inv_micCal;
     } catch (error) {
-      console.error('Mic calibration inversion error:', error);
+      lm.error('Mic calibration inversion error:', error);
       throw new Error(
         `Failed to get inverted microphone calibration data: ${error.message}`
       );
@@ -327,7 +323,7 @@ class AdyTools {
 
     // No subwoofer mode detected with multiple subs
     if (!subwooferMode) {
-      console.warn(
+      lm.warn(
         `WARNING: Subwoofer mode not detected with multiple subs. Make sure Directional bass mode was used`
       );
       return false;
