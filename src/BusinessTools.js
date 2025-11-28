@@ -373,9 +373,7 @@ class BusinessTools {
         predictedSpeakerFiltered.timeOfIRPeakSeconds();
       let finalDistance = distanceToSpeakerPeak - delay;
 
-      const neededDistanceMeter =
-        PredictedLfe.distanceInMeters() + PredictedLfe._computeInMeters(finalDistance);
-
+      const neededDistanceMeter = PredictedLfeFiltered._computeInMeters(finalDistance);
       // Calculate and apply adjustment to stay within maximum distance
       const overheadOffset =
         this.getAvailableSubDistances(subResponses) - neededDistanceMeter;

@@ -3,7 +3,6 @@ import 'decimal.js';
 import ko from 'knockout';
 import BusinessTools from './BusinessTools.js';
 import lm from './logs.js';
-import { i } from 'mathjs';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
