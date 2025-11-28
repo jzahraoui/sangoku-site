@@ -566,7 +566,7 @@
             <div style="display: flex; flex-direction: column">
               <div class="number-input">
                 <label for="additionalGain" style="width: 150px; text-align: left"
-                  >Additional gain:</label
+                  >Additional gain (+/-0.5):</label
                 >
                 <button
                   class="button small-button"
@@ -877,10 +877,6 @@
               </button>
             </div>
           </div>
-          <!-- Error State -->
-          <div data-bind="visible: hasError()" class="error">
-            <button data-bind="click: function() { error('') }">Clear error</button>
-          </div>
         </section>
         <!-- Result Status -->
         <div id="status" data-bind="visible: hasStatus()" class="success">
@@ -892,6 +888,12 @@
             <h3>Application Logs</h3>
 
             <div class="logs-controls">
+              <!-- Error State -->
+              <div data-bind="visible: hasError()">
+                <button class="clear-btn" data-bind="click: function() { error('') }">
+                  Clear error
+                </button>
+              </div>
               <!-- switch for autoscroll -->
               <label class="checkbox-container">
                 <input
@@ -918,7 +920,7 @@
                 </select>
               </label>
 
-              <button id="clear-logs" class="clear-btn">Clear</button>
+              <button id="clear-logs" class="clear-btn">Clear log</button>
               <button
                 id="export-logs"
                 class="export-btn"
@@ -959,7 +961,7 @@
                           class="button"
                           onclick="document.getElementById('columnDropdown').classList.toggle('show')"
                         >
-                          <i class="fas fa-columns"></i> Colonnes
+                          <i class="fas fa-columns"></i> columns
                         </button>
                         <div id="columnDropdown" class="dropdown-content">
                           <label
