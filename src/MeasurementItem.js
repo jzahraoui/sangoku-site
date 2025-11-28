@@ -28,6 +28,9 @@ class MeasurementItem {
       throw new Error('No AVR data loaded');
     }
 
+    this.speedOfSound = parentViewModel.jsonAvrData().avr.speedOfSound;
+    this.detectedChannels = parentViewModel.jsonAvrData().detectedChannels;
+
     this.dectedFallOffLow = -1;
     this.dectedFallOffHigh = +Infinity;
 
@@ -74,9 +77,9 @@ class MeasurementItem {
     );
 
     this.channelDetails = ko.computed(() => {
-      const foundChannel = this.parentViewModel
-        .jsonAvrData()
-        ?.detectedChannels.find(channel => channel.commandId === this.channelName());
+      const foundChannel = this.detectedChannels.find(
+        channel => channel.commandId === this.channelName()
+      );
       return CHANNEL_TYPES.getByChannelIndex(foundChannel?.enChannelType);
     });
 
@@ -177,13 +180,12 @@ class MeasurementItem {
 
     // Create a computed observable for the channel detection check
     this.isChannelDetected = ko.computed(() => {
-      const avrData = this.parentViewModel.jsonAvrData();
       const details = this.channelDetails();
       return (
         this.isSelected() &&
-        avrData &&
+        this.detectedChannels &&
         details &&
-        avrData.detectedChannels.some(m => m.enChannelType === details.channelIndex)
+        this.detectedChannels.some(m => m.enChannelType === details.channelIndex)
       );
     });
     this.exceedsDistance = ko.computed(() => {
@@ -298,12 +300,12 @@ class MeasurementItem {
   // Compute methods
   _computeInMeters(valueInSeconds) {
     const failSafeValue = Number.isFinite(valueInSeconds) ? valueInSeconds : 0;
-    return failSafeValue * this.parentViewModel.jsonAvrData().avr.speedOfSound;
+    return failSafeValue * this.speedOfSound;
   }
 
   _computeInSeconds(valueInMeters) {
     const failSafeValue = Number.isFinite(valueInMeters) ? valueInMeters : 0;
-    return failSafeValue / this.parentViewModel.jsonAvrData().avr.speedOfSound;
+    return failSafeValue / this.speedOfSound;
   }
 
   _computeDistanceInMeters(valueInSeconds) {
@@ -1485,6 +1487,21 @@ class MeasurementItem {
       upperLimit
     );
     return this.parentViewModel.analyseApiResponse(apiResponse);
+  }
+
+  dispose() {
+    // Disposer tous les computed observables
+    this.cumulativeIRDistanceMeters?.dispose();
+    this.cumulativeIRDistanceSeconds?.dispose();
+    this.isSelected?.dispose();
+    this.getOtherGroupMember?.dispose();
+    this.isChannelDetected?.dispose();
+    this.exceedsDistance?.dispose();
+    this.hasErrors?.dispose();
+    this.otherPositionMeasurements?.dispose();
+    // Disposer les subscriptions
+    this.inverted?.subscription?.dispose();
+    this.cumulativeIRShiftSeconds?.subscription?.dispose();
   }
 }
 
