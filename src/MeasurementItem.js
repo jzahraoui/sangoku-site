@@ -3,6 +3,7 @@ import 'decimal.js';
 import ko from 'knockout';
 import BusinessTools from './BusinessTools.js';
 import lm from './logs.js';
+import { i } from 'mathjs';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
@@ -147,6 +148,10 @@ class MeasurementItem {
         return MeasurementItem.cleanFloat32Value(this.distanceInMeters() * 3.28084, 2); // Convert meters to feet
       } else if (unit === 'delay') {
         return (this.cumulativeIRDistanceSeconds() * 1000).toFixed(2);
+      } else if (unit === 'peaks') {
+        return (this.timeOfIRPeakSeconds() * 1000).toFixed(2);
+      } else if (unit === 'distance') {
+        return (this.absoluteIRPeakSeconds() * 1000).toFixed(2);
       }
 
       throw new Error(`Unknown distance unit: ${unit}`);
