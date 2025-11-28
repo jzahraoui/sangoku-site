@@ -55,6 +55,7 @@ class MeasurementItem {
     this.revertLfeFrequency = item.revertLfeFrequency || 0;
     this.isSubOperationResult = item.isSubOperationResult || false;
     this.parentAttr = item.parentAttr || null;
+    this.shiftDelay = ko.observable(item.shiftDelay || Infinity);
 
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
@@ -142,15 +143,12 @@ class MeasurementItem {
       if (unit === 'M') {
         return this.distanceInMeters();
       } else if (unit === 'ms') {
-        return (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
+        return this.cumulativeIRShiftSeconds() * 1000;
       } else if (unit === 'ft') {
-        return MeasurementItem.cleanFloat32Value(this.distanceInMeters() * 3.28084, 2); // Convert meters to feet
-      } else if (unit === 'delay') {
-        return (this.cumulativeIRDistanceSeconds() * 1000).toFixed(2);
-      } else if (unit === 'peaks') {
-        return (this.timeOfIRPeakSeconds() * 1000).toFixed(2);
-      } else if (unit === 'distance') {
-        return (this.absoluteIRPeakSeconds() * 1000).toFixed(2);
+        return this.distanceInMeters() * 3.28084;
+      } else if (unit === 'shiftDelay') {
+        if (this.shiftDelay() === Infinity) return '∞';
+        return (this.shiftDelay() * 1000).toFixed(2);
       }
 
       throw new Error(`Unknown distance unit: ${unit}`);
@@ -269,6 +267,7 @@ class MeasurementItem {
     });
 
     this.cumulativeIRShiftSeconds.subscribe(async () => {
+      this.shiftDelay(Infinity);
       if (!this.isSelected()) return;
       await this.copyCumulativeIRShiftToOther();
     });
@@ -1404,6 +1403,7 @@ class MeasurementItem {
       IRPeakValue: this.IRPeakValue,
       isSubOperationResult: this.isSubOperationResult,
       parentAttr: this.parentAttr,
+      shiftDelay: this.shiftDelay(),
     };
   }
 

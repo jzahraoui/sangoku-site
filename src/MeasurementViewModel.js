@@ -218,6 +218,12 @@ class MeasurementViewModel {
         : 0
     );
     this.distanceUnit = ko.observable('M');
+    this.visibleColumns = ko.observable({
+      delay: false,
+      peak: false,
+      distance: false,
+      shiftDelay: false,
+    });
 
     // speaker filter options
     this.individualMaxBoostValue = ko.observable(3);
@@ -1023,7 +1029,7 @@ class MeasurementViewModel {
               );
             mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
 
-            const { isBInverted } = await this.findAligment(
+            const { shiftDelay, isBInverted } = await this.findAligment(
               PredictedLfeFiltered,
               predictedSpeakerFiltered,
               cuttOffFrequency,
@@ -1032,6 +1038,8 @@ class MeasurementViewModel {
               null,
               -1
             );
+
+            speakerItem.shiftDelay(shiftDelay);
 
             if (isBInverted) {
               await speakerItem.toggleInversion();

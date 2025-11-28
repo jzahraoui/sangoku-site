@@ -947,6 +947,52 @@
               <thead>
                 <tr class="table-header">
                   <th class="filter-header">
+                    <div
+                      style="
+                        margin-bottom: 10px;
+                        display: flex;
+                        justify-content: flex-end;
+                      "
+                    >
+                      <div class="column-toggle-dropdown">
+                        <button
+                          class="button"
+                          onclick="document.getElementById('columnDropdown').classList.toggle('show')"
+                        >
+                          <i class="fas fa-columns"></i> Colonnes
+                        </button>
+                        <div id="columnDropdown" class="dropdown-content">
+                          <label
+                            ><input
+                              type="checkbox"
+                              data-bind="checked: visibleColumns().delay, event: { change: function() { visibleColumns.notifySubscribers(); } }"
+                            />
+                            Delays</label
+                          >
+                          <label
+                            ><input
+                              type="checkbox"
+                              data-bind="checked: visibleColumns().peak, event: { change: function() { visibleColumns.notifySubscribers(); } }"
+                            />
+                            Peaks</label
+                          >
+                          <label
+                            ><input
+                              type="checkbox"
+                              data-bind="checked: visibleColumns().distance, event: { change: function() { visibleColumns.notifySubscribers(); } }"
+                            />
+                            Distance</label
+                          >
+                          <label
+                            ><input
+                              type="checkbox"
+                              data-bind="checked: visibleColumns().shiftDelay, event: { change: function() { visibleColumns.notifySubscribers(); } }"
+                            />
+                            Required shift</label
+                          >
+                        </div>
+                      </div>
+                    </div>
                     <div class="filter-controls">
                       <select
                         class="combo-box filter-select"
@@ -981,9 +1027,6 @@
                         >
                           <option value="M">Meters</option>
                           <option value="ms">Milliseconds</option>
-                          <option value="delay">Delay (ms)</option>
-                          <option value="distance">Absolute distances (ms)</option>
-                          <option value="peaks">Time of peaks (ms)</option>
                           <option value="ft">Feets</option>
                         </select>
                       </div>
@@ -999,6 +1042,24 @@
                         data-bind="text: `Crit. ${maxDistanceInMetersError()} m`"
                       ></div>
                     </div>
+                  </th>
+                  <th class="column-header" data-bind="visible: visibleColumns().delay">
+                    Delays (ms)
+                  </th>
+                  <th class="column-header" data-bind="visible: visibleColumns().peak">
+                    Peaks time (ms)
+                  </th>
+                  <th
+                    class="column-header"
+                    data-bind="visible: visibleColumns().distance"
+                  >
+                    Absolute distance (m)
+                  </th>
+                  <th
+                    class="column-header"
+                    data-bind="visible: visibleColumns().shiftDelay"
+                  >
+                    Required shift (ms)
                   </th>
                   <th data-i18n="trim_db" class="column-header">Trim (dB)</th>
                   <th class="crossover-column">
@@ -1056,7 +1117,38 @@
                   <td data-bind="text: displayMeasurementTitle()"></td>
                   <td
                     style="text-align: right"
-                    data-bind="text: distanceInUnits(), css: exceedsDistance"
+                    data-bind="
+                    text: distanceInUnits().toFixed(2), 
+                    css: exceedsDistance"
+                  ></td>
+
+                  <td
+                    style="text-align: right"
+                    data-bind="
+                    text: (cumulativeIRDistanceSeconds() * 1000).toFixed(2), 
+                    css: exceedsDistance, 
+                    visible: $parent.visibleColumns().delay"
+                  ></td>
+                  <td
+                    style="text-align: right"
+                    data-bind="
+                    text: (timeOfIRPeakSeconds() * 1000).toFixed(2), 
+                    css: exceedsDistance, 
+                    visible: $parent.visibleColumns().peak"
+                  ></td>
+                  <td
+                    style="text-align: right"
+                    data-bind="
+                    text: _computeDistanceInMeters(absoluteIRPeakSeconds()).toFixed(2), 
+                    css: exceedsDistance, 
+                    visible: $parent.visibleColumns().distance"
+                  ></td>
+                  <td
+                    style="text-align: right"
+                    data-bind="
+                    text: (shiftDelay() === Infinity) ? '∞' : (shiftDelay() * 1000).toFixed(2), 
+                    css: exceedsDistance, 
+                    visible: $parent.visibleColumns().shiftDelay"
                   ></td>
                   <td
                     style="text-align: right"
