@@ -13,8 +13,8 @@ class REWAlignmentTool {
     this.client = client;
   }
 
-  async request(endpoint, method, body) {
-    return this.client.fetchWithRetry(endpoint, method, body);
+  async request(endpoint, method, body, retries = 2) {
+    return this.client.fetchWithRetry(endpoint, method, body, retries);
   }
 
   /**
@@ -43,7 +43,7 @@ class REWAlignmentTool {
     return this.request('/alignment-tool/commands');
   }
 
-  async executeCommand(command, parameters = null, resultUrl = null) {
+  async executeCommand(command, parameters = null, resultUrl = null, retries = 0) {
     if (typeof command !== 'string') {
       throw new TypeError('command must be a string');
     }
@@ -52,7 +52,7 @@ class REWAlignmentTool {
     }
     const body = { command, ...parameters };
     if (resultUrl) body.resultUrl = resultUrl;
-    return this.request('/alignment-tool/command', 'POST', body);
+    return this.request('/alignment-tool/command', 'POST', body, retries);
   }
 
   /**
@@ -92,8 +92,8 @@ class REWAlignmentTool {
   /**
    * Align IRs
    */
-  async alignIRs(parameters) {
-    return this.executeCommand('Align IRs', { frequency: parameters });
+  async alignIRs(parameters, retries = 0) {
+    return this.executeCommand('Align IRs', { frequency: parameters }, retries);
   }
 
   /**
@@ -355,7 +355,7 @@ class REWAlignmentTool {
     await this.setUuidA(uuidA);
     await this.setUuidB(uuidB);
     await this.setMode('Impulse');
-    return this.alignIRs(frequency);
+    return this.alignIRs(frequency, 0);
   }
 }
 
