@@ -743,9 +743,6 @@ class MeasurementViewModel {
     this.buttoncreatesAverages = async () => {
       if (this.isProcessing()) return;
       try {
-        if (!this.isPolling()) {
-          throw new Error('Please connect to REW before creating averages');
-        }
         await this.setProcessing(true);
         lm.info('Average calculation started...');
 
@@ -2779,7 +2776,17 @@ class MeasurementViewModel {
       }, this.pollingInterval);
     } catch (error) {
       this.stopBackgroundPolling();
-      this.handleError(`Failed to start background polling: ${error.message}`, error);
+      if (
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('NetworkError')
+      ) {
+        this.handleError(
+          `Failed to connect to REW API at ${this.apiBaseUrl()}. Please ensure the REW API server is running and accessible.`,
+          error
+        );
+      } else {
+        this.handleError(`Failed to start background polling: ${error.message}`, error);
+      }
     }
   }
 
