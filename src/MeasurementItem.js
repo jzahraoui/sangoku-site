@@ -142,12 +142,13 @@ class MeasurementItem {
       if (unit === 'M') {
         return this.distanceInMeters();
       } else if (unit === 'ms') {
-        const ms = (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
-        const delay = (this.cumulativeIRDistanceSeconds() * 1000).toFixed(1);
-        return `${delay}  -  ${ms}`;
+        return (this.cumulativeIRShiftSeconds() * 1000).toFixed(2);
       } else if (unit === 'ft') {
         return MeasurementItem.cleanFloat32Value(this.distanceInMeters() * 3.28084, 2); // Convert meters to feet
+      } else if (unit === 'delay') {
+        return (this.cumulativeIRDistanceSeconds() * 1000).toFixed(2);
       }
+
       throw new Error(`Unknown distance unit: ${unit}`);
     });
 
