@@ -14,6 +14,7 @@ import JSZip from 'jszip';
 import ampAssignType from './amp-type.js';
 import { CHANNEL_TYPES } from './audyssey.js';
 import lm from './logs.js';
+import { Room3DViewer } from './room-3d-viewer.js';
 
 const store = new PersistentStore('myAppData');
 
@@ -192,6 +193,17 @@ class MeasurementViewModel {
 
     // Observable array to store JSON data
     this.jsonAvrData = ko.observable();
+    this.room3DViewer = null;
+
+    this.jsonAvrData.subscribe(data => {
+      if (data?.detectedChannels) {
+        setTimeout(() => {
+          if (this.room3DViewer) this.room3DViewer.destroy();
+          this.room3DViewer = new Room3DViewer('room-canvas');
+          this.room3DViewer.init(data.detectedChannels);
+        }, 100);
+      }
+    });
 
     // Array of frequency options with fallback values
     this.alingFrequencies = ko.computed(() => {

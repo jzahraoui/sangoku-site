@@ -36,7 +36,8 @@
     "js-yaml": "^4.1.1",
     "jszip": "^3.10.1",
     "knockout": "^3.5.1",
-    "mathjs": "^15.1.0"
+    "mathjs": "^15.1.0",
+    "three": "^0.181.2"
   },
   "devDependencies": {
     "@eslint/css": "^0.14.1",

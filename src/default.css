@@ -1485,3 +1485,8 @@ button:disabled {
 .dropdown-content input[type="checkbox"] {
   margin-right: 10px;
 }
+#room-canvas {
+  display: block;
+  margin: 20px auto;
+  border: none;
+}

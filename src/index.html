@@ -177,19 +177,13 @@
                 </div>
 
                 <!-- Channels Editor -->
-                <h3 data-i18n="detected_channels">Detected Channels</h3>
-                <table style="width: 150px" class="measurements-table">
-                  <thead>
-                    <tr>
-                      <th>Channel Name</th>
-                    </tr>
-                  </thead>
-                  <tbody data-bind="foreach: jsonAvrData().detectedChannels">
-                    <tr>
-                      <td data-bind="text: commandId"></td>
-                    </tr>
-                  </tbody>
-                </table>
+                <h3 data-i18n="detected_channels">Detected Channels:</h3>
+                <ul
+                  class="channel-list"
+                  data-bind="foreach: jsonAvrData().detectedChannels"
+                >
+                  <li data-bind="text: commandId"></li>
+                </ul>
               </div>
               <label
                 >AVR API Address:
@@ -214,6 +208,17 @@
               <!-- /ko -->
             </details>
           </div>
+
+          <!-- ko if: jsonAvrData()?.detectedChannels?.length > 0 -->
+          <div class="control-group">
+            <details open>
+              <summary>3D Room Viewer</summary>
+              <div id="room-3d-container">
+                <canvas id="room-canvas" width="600px" height="400"></canvas>
+              </div>
+            </details>
+          </div>
+          <!-- /ko -->
 
           <div class="control-group">
             <h2 data-i18n="main_commands">Main commands</h2>
