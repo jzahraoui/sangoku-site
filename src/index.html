@@ -88,130 +88,123 @@
               />
             </div>
             <div id="resultsAvr" aria-live="polite"></div>
+          </div>
+          <!-- ko if: jsonAvrData()?.avr -->
+          <div class="control-group">
             <details class="shrinkable-container">
-              <summary data-i18n="avr_config"></summary>
+              <summary data-i18n="avr_config">AVR Configuration</summary>
 
-              <!-- File Content Editor -->
-              <!-- ko if: jsonAvrData()?.avr -->
-              <div class="avr-config-section">
+              <div class="avr-content">
                 <h3 data-i18n="file_details">File Details</h3>
-
-                <div class="avr-details">
-                  <div class="avr-detail-row">
-                    <span class="detail-label">Title:</span>
-                    <span
-                      class="detail-value"
-                      data-bind="text: jsonAvrData().title"
-                    ></span>
+                <div class="avr-grid">
+                  <div class="avr-item">
+                    <span class="label">Title:</span>
+                    <span class="value" data-bind="text: jsonAvrData().title"></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">Target Model:</span>
+                  <div class="avr-item">
+                    <span class="label">Target Model:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().targetModelName"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">MultEQ Version:</span>
+                  <div class="avr-item">
+                    <span class="label">MultEQ Version:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().avr?.multEQDescription"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">Speed of Sound:</span>
+                  <div class="avr-item">
+                    <span class="label">Speed of Sound:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().avr?.speedOfSound + ' m/s'"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">Has Soft Roll:</span>
+                  <div class="avr-item">
+                    <span class="label">Soft Roll DAC:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().avr?.hasSoftRollDac"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">70Hz crossover:</span>
+                  <div class="avr-item">
+                    <span class="label">70Hz Crossover:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().avr?.hasSeventyExtendedFreq"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">180Hz crossover:</span>
+                  <div class="avr-item">
+                    <span class="label">180Hz Crossover:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().avr?.hasExtendedFreq"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">Subwoofer Mode:</span>
+                  <div class="avr-item">
+                    <span class="label">CirrusLogic DSP:</span>
                     <span
-                      class="detail-value"
+                      class="value"
+                      data-bind="text: jsonAvrData().avr?.hasCirrusLogicDsp"
+                    ></span>
+                  </div>
+                  <div class="avr-item">
+                    <span class="label">Subwoofer Mode:</span>
+                    <span
+                      class="value"
                       data-bind="text: jsonAvrData().subwooferMode"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">Subwoofer Layout:</span>
+                  <div class="avr-item">
+                    <span class="label">Subwoofer Layout:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().subwooferLayout"
                     ></span>
                   </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">4 Subwoofers:</span>
+                  <div class="avr-item">
+                    <span class="label">4 Subwoofers:</span>
                     <span
-                      class="detail-value"
+                      class="value"
                       data-bind="text: jsonAvrData().avr?.isFourSubwooferModel"
-                    ></span>
-                  </div>
-                  <div class="avr-detail-row">
-                    <span class="detail-label">CirrusLogic Dsp:</span>
-                    <span
-                      class="detail-value"
-                      data-bind="text: jsonAvrData().avr?.hasCirrusLogicDsp"
                     ></span>
                   </div>
                 </div>
 
-                <!-- Channels Editor -->
-                <h3 data-i18n="detected_channels">Detected Channels:</h3>
-                <ul
+                <h3 data-i18n="detected_channels">Detected Channels</h3>
+                <div
                   class="channel-list"
                   data-bind="foreach: jsonAvrData().detectedChannels"
                 >
-                  <li data-bind="text: commandId"></li>
-                </ul>
+                  <span class="channel-badge" data-bind="text: commandId"></span>
+                </div>
+
+                <label
+                  >AVR API Address:
+                  <input
+                    type="text"
+                    placeholder="ex. 192.168.1.200"
+                    data-bind="value: avrIpAddress"
+                  />
+                </label>
+                <button
+                  class="button"
+                  data-bind="click: buttonDownloadAvr, disable: isProcessing(), css: { disabled: isProcessing }"
+                  data-tooltip="Download .avr to use it in A1 Evo"
+                >
+                  <span
+                    data-bind="text: isProcessing() ? 'Processing...' : 'Download A1 .avr'"
+                  ></span>
+                </button>
               </div>
-              <label
-                >AVR API Address:
-                <input
-                  type="text"
-                  placeholder="ex. 192.168.1.200"
-                  data-bind="value: avrIpAddress"
-                />
-              </label>
-              <button
-                class="button"
-                data-bind="
-                  click: buttonDownloadAvr,
-                  disable: isProcessing(),
-                  css: { disabled: isProcessing }"
-                data-tooltip="Download .avr to use it in A1 Evo"
-              >
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Download A1 .avr'"
-                ></span>
-              </button>
-              <!-- /ko -->
             </details>
           </div>
-
+          <!-- /ko -->
           <!-- ko if: jsonAvrData()?.detectedChannels?.length > 0 -->
           <div class="control-group">
-            <details open>
+            <details class="shrinkable-container" open>
               <summary>3D Room Viewer</summary>
               <div id="room-3d-container">
                 <canvas id="room-canvas" width="600px" height="400"></canvas>
