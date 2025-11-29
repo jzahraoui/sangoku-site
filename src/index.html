@@ -202,6 +202,9 @@
             </details>
           </div>
           <!-- /ko -->
+          <!-- ko ifnot: jsonAvrData()?.avr -->
+          <p class="warning">Please load an AVR file to see configuration details.</p>
+          <!-- /ko -->
           <!-- ko if: jsonAvrData()?.detectedChannels?.length > 0 -->
           <div class="control-group">
             <details class="shrinkable-container" open>
