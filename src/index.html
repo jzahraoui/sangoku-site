@@ -19,6 +19,22 @@
   <body>
     <header>
       <h1 data-i18n="title">Room Correction Helper</h1>
+      <button
+        id="themeToggle"
+        style="
+          position: absolute;
+          top: 20px;
+          right: 120px;
+          padding: 5px 10px;
+          border-radius: 4px;
+          border: 1px solid #ccc;
+          background: white;
+          cursor: pointer;
+        "
+      >
+        🌙
+      </button>
+
       <!-- Add language selector -->
       <select id="languageSelector" class="combo-box">
         <option value="en">English</option>
@@ -52,7 +68,7 @@
         <section
           id="RewCommands"
           class="controls-section"
-          data-bind="style: { backgroundColor: hasError() ? '#ffebee' : '' }"
+          data-bind="css: { 'error-border': hasError() }"
         >
           <!-- Add this HTML for the popup -->
           <div id="descriptionPopup" class="popup">

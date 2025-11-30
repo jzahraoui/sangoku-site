@@ -1198,6 +1198,10 @@ button:disabled {
   animation: spin 1s linear infinite;
 }
 
+.error-border {
+  background-color: var(--error-bg);
+}
+
 .error-message {
   background: var(--error-light-bg);
   color: var(--error-color);
@@ -1577,11 +1581,6 @@ button:disabled {
   height: 21px;
 }
 
-.output-display .channel-badge.inactive {
-  background: #3a3a3a;
-  color: #666;
-}
-
 @media (max-width: 768px) {
   .channel-map {
     border-spacing: 3px;
@@ -1604,4 +1603,136 @@ button:disabled {
     height: 18px;
     line-height: 18px;
   }
+}
+
+/* Dark Mode Styles */
+body.dark-mode {
+  /* Backgrounds */
+  --dark-bg-primary: #050810;
+  --dark-bg-secondary: #0d1220;
+  --dark-bg-tertiary: #151d30;
+
+  /* Borders & Dividers */
+  --dark-border: #1f2d48;
+
+  /* Text */
+  --dark-text: #d4dae8;
+  --dark-text-muted: #7a8599;
+
+  /* Primary Actions */
+  --dark-accent: #5b9fff;
+  --dark-accent-hover: #7db3ff;
+
+  /* Status Colors */
+  --dark-success: #4ade80;
+  --dark-success-hover: #6ee7a7;
+  --dark-success-bg: #0a1f0f;
+
+  --dark-info: #5b9fff;
+  --dark-info-bg: #080f1a;
+
+  --dark-warning: #ffa94d;
+  --dark-warning-bg: #1a1005;
+
+  --dark-error: #ff6b6b;
+  --dark-error-bg: #1a0808;
+
+  background-color: var(--dark-bg-primary);
+  color: var(--dark-text);
+}
+
+body.dark-mode .container,
+body.dark-mode .control-group,
+body.dark-mode .measurement-card,
+body.dark-mode .commit,
+body.dark-mode .shrinkable-container,
+body.dark-mode .dropzone,
+body.dark-mode .log-entry,
+body.dark-mode .dropdown-content,
+body.dark-mode .measurements-table td {
+  background-color: var(--dark-bg-secondary);
+  color: var(--dark-text);
+  border-color: var(--dark-border);
+}
+
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode .combo-box,
+body.dark-mode .filter-dropdown,
+body.dark-mode .measurements-table th,
+body.dark-mode .avr-item,
+body.dark-mode .logs-header,
+body.dark-mode .logs-content,
+body.dark-mode .controls-section,
+body.dark-mode .commit-sha,
+body.dark-mode .version-tag {
+  background-color: var(--dark-bg-primary);
+  color: var(--dark-text);
+  border-color: var(--dark-border);
+}
+
+body.dark-mode .avr-content h3,
+body.dark-mode .commit-header {
+  border-color: var(--dark-border);
+  color: var(--dark-accent);
+}
+
+body.dark-mode button,
+body.dark-mode .button {
+  background: var(--dark-accent);
+  border-color: var(--dark-border);
+}
+
+body.dark-mode button:hover,
+body.dark-mode .button:hover {
+  background: var(--dark-accent-hover);
+}
+
+body.dark-mode .dropdown-content label:hover {
+  background: var(--dark-bg-primary);
+}
+
+body.dark-mode .label {
+  color: var(--dark-text-muted);
+}
+
+body.dark-mode .value,
+body.dark-mode .commit-sha,
+body.dark-mode .version-tag {
+  color: var(--dark-accent);
+}
+body.dark-mode .measurements-table .warning {
+  background-color: var(--dark-warning-bg) !important;
+  color: var(--dark-warning);
+}
+
+body.dark-mode .measurements-table .error {
+  background-color: var(--dark-error-bg) !important;
+  color: var(--dark-error);
+}
+
+body.dark-mode .measurements-table .success {
+  background-color: var(--dark-success-bg) !important;
+  color: var(--dark-success);
+}
+
+body.dark-mode .warning {
+  color: var(--dark-warning);
+}
+
+body.dark-mode .error {
+  color: var(--dark-error);
+}
+
+body.dark-mode .success {
+  color: var(--dark-success);
+  background-color: var(--dark-success-bg);
+}
+
+body.dark-mode .info {
+  color: var(--dark-info);
+}
+
+body.dark-mode .error-border {
+  background-color: var(--dark-error-bg);
 }
