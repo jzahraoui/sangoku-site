@@ -260,7 +260,17 @@
                       </td>
                     </tr>
                     <tr>
-                      <td></td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SHL')"
+                          >SHL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('SDL')"
+                          >SDL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('TML')"
+                          >TML</span
+                        >
+                      </td>
                       <td>
                         <span class="channel-badge" data-bind="visible: hasChannel('FL')"
                           >FL</span
@@ -274,42 +284,6 @@
                       <td>
                         <span class="channel-badge" data-bind="visible: hasChannel('FR')"
                           >FR</span
-                        >
-                      </td>
-                      <td></td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <span class="channel-badge" data-bind="visible: hasChannel('SHL')"
-                          >SHL</span
-                        >
-                        <span class="channel-badge" data-bind="visible: hasChannel('SDL')"
-                          >SDL</span
-                        >
-                        <span class="channel-badge" data-bind="visible: hasChannel('TML')"
-                          >TML</span
-                        >
-                      </td>
-
-                      <td>
-                        <span class="channel-badge" data-bind="visible: hasChannel('SLA')"
-                          >SL</span
-                        >
-                        <span class="channel-badge" data-bind="visible: hasChannel('SLB')"
-                          >SLB</span
-                        >
-                      </td>
-                      <td>
-                        <span class="channel-badge" data-bind="visible: hasChannel('TS')"
-                          >TS</span
-                        >
-                      </td>
-                      <td>
-                        <span class="channel-badge" data-bind="visible: hasChannel('SRA')"
-                          >SR</span
-                        >
-                        <span class="channel-badge" data-bind="visible: hasChannel('SRB')"
-                          >SRB</span
                         >
                       </td>
                       <td>
@@ -336,22 +310,26 @@
                           >TRL</span
                         >
                       </td>
+
                       <td>
-                        <span class="channel-badge" data-bind="visible: hasChannel('SBL')"
-                          >SBL</span
+                        <span class="channel-badge" data-bind="visible: hasChannel('SLA')"
+                          >SL</span
                         >
-                      </td>
-                      <span class="channel-badge" data-bind="visible: hasChannel('SB')"
-                        >SB</span
-                      >
-                      <td>
-                        <span class="channel-badge" data-bind="visible: hasChannel('SB')"
-                          >SB</span
+                        <span class="channel-badge" data-bind="visible: hasChannel('SLB')"
+                          >SLB</span
                         >
                       </td>
                       <td>
-                        <span class="channel-badge" data-bind="visible: hasChannel('SBR')"
-                          >SBR</span
+                        <span class="channel-badge" data-bind="visible: hasChannel('TS')"
+                          >TS</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SRA')"
+                          >SR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('SRB')"
+                          >SRB</span
                         >
                       </td>
                       <td>
@@ -365,6 +343,25 @@
                           >TRR</span
                         >
                       </td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SBL')"
+                          >SBL</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SB')"
+                          >SB</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SBR')"
+                          >SBR</span
+                        >
+                      </td>
+                      <td></td>
                     </tr>
                   </table>
                 </div>
