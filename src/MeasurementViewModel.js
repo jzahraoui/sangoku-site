@@ -721,6 +721,13 @@ class MeasurementViewModel {
       }
     };
 
+    this.buttonClearErrors = async () => {
+      this.error('');
+      this.status('');
+
+      if (this.isPolling()) await this.apiService.clearCommands();
+    };
+
     this.buttonResetApplication = async () => {
       if (this.isProcessing()) return;
       try {
