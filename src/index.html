@@ -665,6 +665,7 @@
               click: buttoncreatesAverages,
               disable: isProcessing(),
               css: { disabled: isProcessing }"
+              data-tooltip="Create averaged measurements from all positions"
             >
               <span
                 data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"
@@ -678,6 +679,7 @@
               click: buttonAlignPeaks,
               disable: isProcessing(),
               css: { disabled: isProcessing }"
+              data-tooltip="Align measurements by time peaks"
             >
               <span
                 data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"
@@ -728,6 +730,7 @@
             click: buttonrevertLfeFilter,
             disable: isProcessing(),
             css: { disabled: isProcessing }"
+              data-tooltip="Revert AVR low pass filter from subwoofer measurements"
             >
               <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
             </button>
@@ -748,6 +751,7 @@
                   click: decreaseSubTrimGain,
                   disable: isProcessing(),
                   css: { disabled: isProcessing }"
+                  data-tooltip="Decrease subwoofer gain by 0.5 dB"
                 >
                   -
                 </button>
@@ -757,6 +761,7 @@
                   click: increaseSubTrimGain,
                   disable: isProcessing(),
                   css: { disabled: isProcessing }"
+                  data-tooltip="Increase subwoofer gain by 0.5 dB"
                 >
                   +
                 </button>
@@ -817,6 +822,7 @@
                     click: buttonMultiSubOptimizer,
                     disable: isProcessing() || uniqueSubsMeasurements().length <= 1,
                     css: { disabled: isProcessing }"
+                  data-tooltip="Optimize alignment for multiple subwoofers"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Align Sub'"
@@ -828,6 +834,7 @@
                     click: buttonEqualizeSub,
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
+                  data-tooltip="Apply equalization to subwoofers"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Equalize Sub'"
@@ -839,6 +846,7 @@
                     click: buttonproduceSubSum,
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
+                  data-tooltip="Generate preview of combined subwoofer response"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Preview Sub'"
@@ -859,6 +867,7 @@
                 click: buttonCreatesMsoExports,
                 disable: isProcessing(),
                 css: { disabled: isProcessing }"
+                  data-tooltip="Export subwoofer measurements for MSO"
                 >
                   <span
                     data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
@@ -913,6 +922,7 @@
               click: buttonproduceAlignedButton,
               disable: isProcessing(),
               css: { disabled: isProcessing }"
+                data-tooltip="Find optimal alignment between subwoofer and selected speaker"
               >
                 <i class="fa fa-magic"></i>
                 <span
@@ -925,6 +935,7 @@
               click: buttonAutoAdjustInversion,
               disable: isProcessing(),
               css: { disabled: isProcessing }"
+                data-tooltip="Automatically adjust phase inversion for optimal response"
               >
                 <i class="fa fa-sync-alt"></i>
                 <span
@@ -1030,6 +1041,7 @@
                 click: buttoncreateOCAButton,
                 disable: isProcessing(),
                 css: { disabled: isProcessing }"
+                data-tooltip="Generate OCA file for upload to AVR"
               >
                 <i class="fa fa-file-export"></i>
                 <span
@@ -1043,6 +1055,7 @@
                 click: buttoncreateSetting,
                 disable: isProcessing(),
                 css: { disabled: isProcessing }"
+                data-tooltip="Export all settings to a file for backup or sharing"
               >
                 <i class="fa fa-file-export"></i>
                 <span
@@ -1134,6 +1147,7 @@
                         <button
                           class="button"
                           onclick="document.getElementById('columnDropdown').classList.toggle('show')"
+                          data-tooltip="Toggle column visibility"
                         >
                           <i class="fas fa-columns"></i> columns
                         </button>
