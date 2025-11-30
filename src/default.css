@@ -331,7 +331,6 @@ button:disabled {
   background: #555;
 }
 
-
 .shrinkable-container summary {
   padding: 10px;
   cursor: pointer;
@@ -872,10 +871,7 @@ button:disabled {
   font: var(--font-size-base) var(--font-family);
   color: var(--gray-700);
   background-color: white;
-  transition:
-    border-color 0.2s,
-    background-color 0.2s,
-    box-shadow 0.2s;
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
   accent-color: var(--primary-color);
 }
 
@@ -949,9 +945,7 @@ button:disabled {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   padding: 20px;
 }
 
@@ -1373,42 +1367,42 @@ button:disabled {
 
 /* Info logs */
 .log-entry.info {
-  border-left-color: #1976D2;
+  border-left-color: #1976d2;
   background: #f3f9ff;
 }
 .log-entry.info .log-level {
   color: white;
-  background: #1976D2;
+  background: #1976d2;
 }
 
 /* Success logs */
 .log-entry.success {
-  border-left-color: #388E3C;
+  border-left-color: #388e3c;
   background: #f1f8e9;
 }
 .log-entry.success .log-level {
   color: white;
-  background: #388E3C;
+  background: #388e3c;
 }
 
 /* Warning logs */
 .log-entry.warn {
-  border-left-color: #F57C00;
+  border-left-color: #f57c00;
   background: #fff8e1;
 }
 .log-entry.warn .log-level {
   color: white;
-  background: #EF6C00;
+  background: #ef6c00;
 }
 
 /* Error logs */
 .log-entry.error {
-  border-left-color: #D32F2F;
+  border-left-color: #d32f2f;
   background: #ffebee;
 }
 .log-entry.error .log-level {
   color: white;
-  background: #D32F2F;
+  background: #d32f2f;
 }
 
 /* Debug logs */
@@ -1420,7 +1414,6 @@ button:disabled {
   color: white;
   background: #616161;
 }
-
 
 /* Scrollbar styling */
 .logs-content::-webkit-scrollbar {
@@ -1452,7 +1445,7 @@ button:disabled {
   left: 0;
   background: white;
   min-width: 200px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   border-radius: 8px;
   padding: 12px;
   z-index: 1000;
@@ -1476,7 +1469,7 @@ button:disabled {
   background: #f5f5f5;
 }
 
-.dropdown-content input[type="checkbox"] {
+.dropdown-content input[type='checkbox'] {
   margin-right: 10px;
 }
 #room-canvas {
@@ -1542,5 +1535,73 @@ button:disabled {
 @media (max-width: 768px) {
   .avr-grid {
     grid-template-columns: 1fr;
+  }
+}
+.output-display {
+  background: #1a1a1a;
+  padding: 8px;
+  border-radius: 4px;
+  margin: 8px auto;
+  width: fit-content;
+}
+
+.output-label {
+  color: #888;
+  font: 600 12px/1 sans-serif;
+  text-align: center;
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+
+.channel-map {
+  margin: 0 auto;
+  border-collapse: separate;
+  border-spacing: 4px;
+}
+
+.channel-map td {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0;
+}
+
+.output-display .channel-badge {
+  background: #7a9f35;
+  color: #000;
+  border-radius: 3px;
+  font: 700 9px/22px sans-serif;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  display: inline-block;
+  width: 29px;
+  height: 21px;
+}
+
+.output-display .channel-badge.inactive {
+  background: #3a3a3a;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .channel-map {
+    border-spacing: 3px;
+  }
+  .output-display .channel-badge {
+    font-size: 8px;
+    width: 30px;
+    height: 20px;
+    line-height: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .channel-map {
+    border-spacing: 2px;
+  }
+  .output-display .channel-badge {
+    font-size: 7px;
+    width: 28px;
+    height: 18px;
+    line-height: 18px;
   }
 }

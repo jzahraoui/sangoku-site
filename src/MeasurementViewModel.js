@@ -205,6 +205,15 @@ class MeasurementViewModel {
       }
     });
 
+    this.hasChannel = channelId => {
+      if (!this.jsonAvrData()?.detectedChannels) {
+        return false;
+      }
+      return this.jsonAvrData().detectedChannels.some(
+        channel => channel.commandId === channelId
+      );
+    };
+
     // Array of frequency options with fallback values
     this.alingFrequencies = ko.computed(() => {
       const indexes = this.jsonAvrData()?.avr?.frequencyIndexes;

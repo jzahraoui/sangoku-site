@@ -173,14 +173,6 @@
                   </div>
                 </div>
 
-                <h3 data-i18n="detected_channels">Detected Channels</h3>
-                <div
-                  class="channel-list"
-                  data-bind="foreach: jsonAvrData().detectedChannels"
-                >
-                  <span class="channel-badge" data-bind="text: commandId"></span>
-                </div>
-
                 <label
                   >AVR API Address:
                   <input
@@ -209,8 +201,176 @@
           <div class="control-group">
             <details class="shrinkable-container" open>
               <summary>3D Room Viewer</summary>
-              <div id="room-3d-container">
-                <canvas id="room-canvas" width="600px" height="400"></canvas>
+              <div
+                style="
+                  display: flex;
+                  gap: 20px;
+                  justify-content: center;
+                  align-items: center;
+                  flex-wrap: wrap;
+                "
+              >
+                <div class="output-display">
+                  <table class="channel-map">
+                    <thead>
+                      <tr>
+                        <th colspan="5" class="output-label">OUTPUT</th>
+                      </tr>
+                    </thead>
+                    <tr>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('FHL')"
+                          >FHL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('FDL')"
+                          >FDL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('TFL')"
+                          >TFL</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('FWL')"
+                          >FWL</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('CH')"
+                          >CH</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('SW1')"
+                          >SW</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('FWR')"
+                          >FWR</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('FHR')"
+                          >FHR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('FDR')"
+                          >FDR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('TFR')"
+                          >TFR</span
+                        >
+                      </td>
+                    </tr>
+                    <tr>
+                      <td></td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('FL')"
+                          >FL</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('C')"
+                          >C</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('FR')"
+                          >FR</span
+                        >
+                      </td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SHL')"
+                          >SHL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('SDL')"
+                          >SDL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('TML')"
+                          >TML</span
+                        >
+                      </td>
+
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SLA')"
+                          >SL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('SLB')"
+                          >SLB</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('TS')"
+                          >TS</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SRA')"
+                          >SR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('SRB')"
+                          >SRB</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SHR')"
+                          >SHR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('SDR')"
+                          >SDR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('TMR')"
+                          >TMR</span
+                        >
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('BDL')"
+                          >BDL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('RHL')"
+                          >RHL</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('TRL')"
+                          >TRL</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SBL')"
+                          >SBL</span
+                        >
+                      </td>
+                      <span class="channel-badge" data-bind="visible: hasChannel('SB')"
+                        >SB</span
+                      >
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SB')"
+                          >SB</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('SBR')"
+                          >SBR</span
+                        >
+                      </td>
+                      <td>
+                        <span class="channel-badge" data-bind="visible: hasChannel('BDR')"
+                          >BDR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('RHR')"
+                          >RHR</span
+                        >
+                        <span class="channel-badge" data-bind="visible: hasChannel('TRR')"
+                          >TRR</span
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                </div>
+                <div id="room-3d-container">
+                  <canvas id="room-canvas" width="600px" height="400"></canvas>
+                </div>
               </div>
             </details>
           </div>
