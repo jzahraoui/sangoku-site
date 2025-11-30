@@ -1336,11 +1336,19 @@
                   ></td>
                   <td
                     style="text-align: right"
-                    data-bind="
-                    text: (shiftDelay() === Infinity) ? '∞' : (shiftDelay() * 1000).toFixed(2), 
-                    css: exceedsDistance, 
-                    visible: $parent.visibleColumns().shiftDelay"
-                  ></td>
+                    data-bind="visible: $parent.visibleColumns().shiftDelay, css: exceedsDistance"
+                  >
+                    <span
+                      data-bind="text: (shiftDelay() === Infinity) ? '∞' : (shiftDelay() * 1000).toFixed(2)"
+                    ></span>
+                    <button
+                      class="button"
+                      style="margin-left: 5px; padding: 2px 6px; font-size: 0.85em"
+                      data-bind="click: $parent.checkAlignment, disable: $parent.isProcessing()"
+                    >
+                      ⟳
+                    </button>
+                  </td>
                   <td
                     style="text-align: right"
                     data-bind="text: splOffsetDeltadB().toFixed(1), css: { error: splIsAboveLimit() }"

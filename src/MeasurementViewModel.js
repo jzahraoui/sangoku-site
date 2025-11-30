@@ -1030,58 +1030,65 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('Auto adjusting inversion...');
 
-        if (!this.predictedLfeMeasurement()) {
-          throw new Error(`No LFE found, please use sum subs button`);
-        }
-
-        const PredictedLfe = this.predictedLfeMeasurement();
-
         for (const speakerItem of this.uniqueSpeakersMeasurements()) {
-          const cuttOffFrequency = speakerItem.crossover();
-          const mustBeDeleted = [];
-
-          try {
-            const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
-            mustBeDeleted.push(predictedFrontLeft);
-
-            const { PredictedLfeFiltered, predictedSpeakerFiltered } =
-              await this.businessTools.applyCutOffFilter(
-                PredictedLfe,
-                predictedFrontLeft,
-                cuttOffFrequency
-              );
-            mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
-
-            const { shiftDelay, isBInverted } = await this.findAligment(
-              PredictedLfeFiltered,
-              predictedSpeakerFiltered,
-              cuttOffFrequency,
-              1,
-              false,
-              null,
-              -1
-            );
-
-            speakerItem.shiftDelay(shiftDelay);
-
-            if (isBInverted) {
-              await speakerItem.toggleInversion();
-              lm.info(`Inversion toggled for ${speakerItem.displayMeasurementTitle()}`);
-            } else {
-              lm.info(`No inversion needed for ${speakerItem.displayMeasurementTitle()}`);
-            }
-          } catch {
-            lm.warn(
-              `Unable to determine inversion for ${speakerItem.displayMeasurementTitle()}`
-            );
-          } finally {
-            await this.removeMeasurements(mustBeDeleted);
-          }
+          await this.checkAlignment(speakerItem);
         }
       } catch (error) {
         this.handleError(`Auto adjust inversion failed: ${error.message}`, error);
       } finally {
         await this.setProcessing(false);
+      }
+    };
+
+    this.checkAlignment = async speakerItem => {
+      const mustBeDeleted = [];
+      const allreadyProcessing = this.isProcessing();
+      try {
+        if (!allreadyProcessing) await this.setProcessing(true);
+        const cuttOffFrequency = speakerItem.crossover();
+        const PredictedLfe = speakerItem.relatedLfeMeasurement();
+
+        if (!PredictedLfe) {
+          throw new Error(`No LFE found, please use sum subs button`);
+        }
+
+        const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
+        mustBeDeleted.push(predictedFrontLeft);
+
+        const { PredictedLfeFiltered, predictedSpeakerFiltered } =
+          await this.businessTools.applyCutOffFilter(
+            PredictedLfe,
+            predictedFrontLeft,
+            cuttOffFrequency
+          );
+        mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
+
+        const { shiftDelay, isBInverted } = await this.findAligment(
+          PredictedLfeFiltered,
+          predictedSpeakerFiltered,
+          cuttOffFrequency,
+          1,
+          false,
+          null,
+          -1
+        );
+
+        speakerItem.shiftDelay(shiftDelay);
+
+        if (isBInverted) {
+          await speakerItem.toggleInversion();
+          lm.info(`Inversion toggled for ${speakerItem.displayMeasurementTitle()}`);
+        } else {
+          lm.info(`No inversion needed for ${speakerItem.displayMeasurementTitle()}`);
+        }
+      } catch {
+        lm.warn(
+          `Unable to determine inversion for ${speakerItem.displayMeasurementTitle()}`
+        );
+        speakerItem.shiftDelay(Infinity);
+      } finally {
+        await this.removeMeasurements(mustBeDeleted);
+        if (!allreadyProcessing) await this.setProcessing(false);
       }
     };
 
