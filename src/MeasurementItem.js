@@ -138,7 +138,10 @@ class MeasurementItem {
     );
     this.distanceInMeters = ko.computed(() => {
       if (!this.haveImpulseResponse) return 0;
-      return this._computeDistanceInMeters(this.cumulativeIRShiftSeconds());
+      return (
+        this._computeInMeters(this.cumulativeIRShiftSeconds()) +
+        this.parentViewModel.shiftInMeters()
+      );
     });
     this.distanceInUnits = ko.computed(() => {
       if (!this.haveImpulseResponse) return 0;

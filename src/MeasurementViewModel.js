@@ -233,11 +233,6 @@ class MeasurementViewModel {
     this.minOverallValue = 0;
     this.maxOverallValue = 3;
     this.loadedFileName = ko.observable('');
-    this.shiftInMeters = ko.computed(() =>
-      this.loadedFileName().endsWith('.avr')
-        ? MeasurementViewModel.DEFAULT_SHIFT_IN_METERS
-        : 0
-    );
     this.distanceUnit = ko.observable('M');
     this.visibleColumns = ko.observable({
       delay: false,
@@ -1851,6 +1846,16 @@ class MeasurementViewModel {
     this.distanceLeftBeforeError = ko.pureComputed(() => {
       const distanceLeft = this.maxDistanceInMetersError() - this.maxDistanceInMeters();
       return distanceLeft > 0 ? MeasurementItem.cleanFloat32Value(distanceLeft, 2) : 0;
+    });
+
+    this.shiftInMeters = ko.computed(() => {
+      const distances = this.uniqueMeasurements().map(item =>
+        item._computeInMeters(item.absoluteIRPeakSeconds())
+      );
+      if (Math.min(...distances) < 1) {
+        return MeasurementViewModel.DEFAULT_SHIFT_IN_METERS;
+      }
+      return 0;
     });
 
     this.uniqueSubsMeasurements = ko.computed(() => {
