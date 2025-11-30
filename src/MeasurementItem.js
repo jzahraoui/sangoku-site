@@ -152,9 +152,6 @@ class MeasurementItem {
         return this.cumulativeIRShiftSeconds() * 1000;
       } else if (unit === 'ft') {
         return this.distanceInMeters() * 3.28084;
-      } else if (unit === 'shiftDelay') {
-        if (this.shiftDelay() === Infinity) return '∞';
-        return (this.shiftDelay() * 1000).toFixed(2);
       }
 
       throw new Error(`Unknown distance unit: ${unit}`);
