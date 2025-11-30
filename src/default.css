@@ -1386,7 +1386,7 @@ button:disabled {
 }
 .log-entry.success .log-level {
   color: white;
-  background: #388e3c;
+  background: #2e7d32;
 }
 
 /* Warning logs */
@@ -1396,7 +1396,7 @@ button:disabled {
 }
 .log-entry.warn .log-level {
   color: white;
-  background: #ef6c00;
+  background: #f57c00;
 }
 
 /* Error logs */
