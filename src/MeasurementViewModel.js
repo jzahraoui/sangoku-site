@@ -1821,6 +1821,11 @@ class MeasurementViewModel {
       )
     );
 
+    this.distanceLeftBeforeError = ko.pureComputed(() => {
+      const distanceLeft = this.maxDistanceInMetersError() - this.maxDistanceInMeters();
+      return distanceLeft > 0 ? MeasurementItem.cleanFloat32Value(distanceLeft, 2) : 0;
+    });
+
     this.uniqueSubsMeasurements = ko.computed(() => {
       return this.uniqueMeasurements().filter(item => item.isSub());
     });

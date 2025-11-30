@@ -1207,15 +1207,16 @@
                         </select>
                       </div>
                       <div
-                        data-bind="text: (jsonAvrData() && jsonAvrData().avr && jsonAvrData().avr.speedOfSound) ? jsonAvrData().avr.speedOfSound + ' m/s' : 'N/A'"
-                      ></div>
-                      <div
                         class="warning-value"
                         data-bind="text: `Warn. ${maxDistanceInMetersWarning()} m`"
                       ></div>
                       <div
                         class="critical-value"
                         data-bind="text: `Crit. ${maxDistanceInMetersError()} m`"
+                      ></div>
+                      <div
+                        class="critical-value"
+                        data-bind="text: `Left ${distanceLeftBeforeError()} m`"
                       ></div>
                     </div>
                   </th>
