@@ -1508,12 +1508,32 @@ class MeasurementViewModel {
       if (!this.jsonAvrData()?.avr) {
         throw new Error('Please load AVR data first');
       }
+
+      const subMeasurement = this.uniqueSubsMeasurements()[0];
+      const headroomSeconds = MeasurementItem.cleanFloat32Value(
+        subMeasurement._computeInSeconds(this.distanceLeftBeforeError()),
+        4
+      );
+      if (headroomSeconds <= 0.002) {
+        lm.warn(
+          `Low distance left before error (${(headroomSeconds * 1000).toFixed(
+            1
+          )} ms). Optimization may fail. Consider increasing the distance left before error in settings.`
+        );
+      }
+      if (headroomSeconds <= 0) {
+        throw new Error(
+          `Distance left before error (${(headroomSeconds * 1000).toFixed(
+            1
+          )} ms) is too low. Please increase the distance left before error in settings.`
+        );
+      }
       return {
         frequency: { min: lowFrequency, max: highFrequency },
         gain: { min: 0, max: 0, step: 0.1 },
         delay: {
-          min: -0.002,
-          max: 0.002,
+          min: -headroomSeconds,
+          max: headroomSeconds,
           step: this.jsonAvrData().avr.minDistAccuracy || 0.00001,
         },
         allPass: {
