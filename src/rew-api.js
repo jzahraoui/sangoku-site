@@ -441,8 +441,10 @@ export default class RewApi {
       const CHUNK_SIZE = 0x8000;
       let binaryString = '';
       for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-        const chunk = bytes.slice(i, i + CHUNK_SIZE);
-        binaryString += String.fromCharCode.apply(null, chunk);
+        const end = Math.min(i + CHUNK_SIZE, bytes.length);
+        for (let j = i; j < end; j++) {
+          binaryString += String.fromCodePoint(bytes[j]);
+        }
       }
       return btoa(binaryString);
     } catch (error) {
