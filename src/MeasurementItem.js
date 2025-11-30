@@ -299,28 +299,13 @@ class MeasurementItem {
 
   // Compute methods
   _computeInMeters(valueInSeconds) {
-    const failSafeValue = Number.isFinite(valueInSeconds) ? valueInSeconds : 0;
-    return failSafeValue * this.speedOfSound;
+    if (!Number.isFinite(valueInSeconds)) return 0;
+    return valueInSeconds * this.speedOfSound;
   }
 
   _computeInSeconds(valueInMeters) {
-    const failSafeValue = Number.isFinite(valueInMeters) ? valueInMeters : 0;
-    return failSafeValue / this.speedOfSound;
-  }
-
-  _computeDistanceInMeters(valueInSeconds) {
-    const valueInMeters =
-      this._computeInMeters(valueInSeconds) + this.parentViewModel.shiftInMeters();
-    if (valueInMeters === undefined || valueInMeters === null) {
-      throw new Error(
-        `Failed to compute distance in meters for ${this.displayMeasurementTitle()}`
-      );
-    }
-    return MeasurementItem.cleanFloat32Value(valueInMeters, 2);
-  }
-
-  _computeDistanceInSeconds(valueInMeters) {
-    return this._computeInSeconds(valueInMeters - this.parentViewModel.shiftInMeters());
+    if (!Number.isFinite(valueInMeters)) return 0;
+    return valueInMeters / this.speedOfSound;
   }
 
   // funtion is accessible from the UI
