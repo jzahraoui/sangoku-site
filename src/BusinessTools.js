@@ -336,15 +336,6 @@ class BusinessTools {
     }
   }
 
-  getAvailableSubDistances(subResponses) {
-    const distances = subResponses.map(sub => sub.distanceInMeters());
-
-    const availableDistance =
-      this.viewModel.maxDistanceInMetersError() - Math.max(...distances);
-
-    return availableDistance;
-  }
-
   /**
    * Aligns a subwoofer (LFE) with a speaker by calculating and applying the optimal time offset
    *
@@ -376,7 +367,7 @@ class BusinessTools {
       const neededDistanceMeter = PredictedLfeFiltered._computeInMeters(finalDistance);
       // Calculate and apply adjustment to stay within maximum distance
       const overheadOffset =
-        this.getAvailableSubDistances(subResponses) - neededDistanceMeter;
+        this.viewModel.subDistanceLeftBeforeError() - neededDistanceMeter;
 
       if (overheadOffset < 0) {
         lm.warn(

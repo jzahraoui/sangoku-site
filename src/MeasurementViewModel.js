@@ -1891,6 +1891,32 @@ class MeasurementViewModel {
     this.uniqueSpeakersMeasurements = ko.computed(() => {
       return this.uniqueMeasurements().filter(item => !item.isSub());
     });
+
+    this.minSpeakersDistanceInMeters = ko.pureComputed(() => {
+      const distances = this.uniqueSpeakersMeasurements().map(item =>
+        item.distanceInMeters()
+      );
+      return distances.length ? Math.min(...distances) : 0;
+    });
+
+    this.maxSubDistanceInMeters = ko.pureComputed(() => {
+      const distances = this.uniqueSubsMeasurements().map(sub => sub.distanceInMeters());
+      return distances.length ? Math.max(...distances) : 0;
+    });
+
+    this.minSubDistanceInMeters = ko.pureComputed(() => {
+      const distances = this.uniqueSubsMeasurements().map(sub => sub.distanceInMeters());
+      return distances.length ? Math.min(...distances) : 0;
+    });
+
+    this.subDistanceLeftBeforeError = ko.pureComputed(() => {
+      const shift = Math.max(
+        0,
+        this.minSpeakersDistanceInMeters() - this.minSubDistanceInMeters()
+      );
+
+      return this.maxDistanceInMetersError() - this.maxSubDistanceInMeters() + shift;
+    });
   }
 
   async updateTargetCurve(referenceMeasurement) {
