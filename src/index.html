@@ -1344,7 +1344,8 @@
                     <button
                       class="button"
                       style="margin-left: 5px; padding: 2px 6px; font-size: 0.85em"
-                      data-bind="click: $parent.checkAlignment, disable: $parent.isProcessing()"
+                      data-bind="click: $parent.checkAlignment, disable: $parent.isProcessing(),
+                      visible: !isSub() && isValid"
                     >
                       ⟳
                     </button>
