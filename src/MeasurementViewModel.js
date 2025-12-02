@@ -1985,10 +1985,7 @@ class MeasurementViewModel {
 
     await this.rewMeasurements.matchTarget(subMeasurement.uuid);
 
-    const isFiltersOk = await subMeasurement.checkFilterGain();
-    if (isFiltersOk !== 'OK') {
-      throw new Error(`Filter gain check failed: ${isFiltersOk}`);
-    }
+    await subMeasurement.checkFilterGain();
 
     return true;
   }

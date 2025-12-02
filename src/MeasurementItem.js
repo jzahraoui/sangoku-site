@@ -1093,24 +1093,26 @@ class MeasurementItem {
   async checkFilterGain() {
     const filters = await this.getFilters();
     for (const filter of filters) {
-      if (filter.type === 'PK') {
-        // check if PK filters are inside limits -25dB to +25dB
-        if (filter.gaindB < -25 || filter.gaindB > 25) {
-          return `${this.displayMeasurementTitle()} Filter ${
+      if (filter.type !== 'PK') continue;
+      // check if PK filters are inside limits -25dB to +25dB
+      if (filter.gaindB < -25 || filter.gaindB > 25) {
+        throw new Error(
+          `${this.displayMeasurementTitle()} Filter ${
             filter.index
           } gain is out of limits: ${Math.round(
             filter.gaindB
-          )}dB. Please add High Pass to X1 or X2 filter`;
-        }
-        // check if PK filters are inside limits 0.1 to 20
-        if (filter.q < 0.1 || filter.q > 20) {
-          return `${this.displayMeasurementTitle()} Filter ${
-            filter.index
-          } Q is out of limits: ${filter.q}.`;
-        }
+          )}dB. Please add High Pass to X1 or X2 filter`
+        );
+      }
+      // check if PK filters are inside limits 0.1 to 20
+      if (filter.q < 0.1 || filter.q > 20) {
+        throw new Error(
+          `${this.displayMeasurementTitle()} Filter ${filter.index} Q is out of limits: ${
+            filter.q
+          }.`
+        );
       }
     }
-    return 'OK';
   }
 
   /**
@@ -1303,10 +1305,7 @@ class MeasurementItem {
       await this.applyWorkingSettings();
     }
 
-    const isFiltersOk = await this.checkFilterGain();
-    if (isFiltersOk !== 'OK') {
-      throw new Error(isFiltersOk);
-    }
+    await this.checkFilterGain();
 
     if (copyFiltersToOther) {
       await this.copyFiltersToOther();
