@@ -118,7 +118,7 @@
                     <span class="value" data-bind="text: jsonAvrData().title"></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">Target Model:</span>
+                    <span class="label">AVR Model:</span>
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().targetModelName"
@@ -181,7 +181,7 @@
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">4 Subwoofers:</span>
+                    <span class="label">4 Subwoofers supported:</span>
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.isFourSubwooferModel"
@@ -216,7 +216,9 @@
           <!-- ko if: jsonAvrData()?.detectedChannels?.length > 0 -->
           <div class="control-group">
             <details class="shrinkable-container" open>
-              <summary>3D Room Viewer</summary>
+              <summary
+                data-bind="text: `${jsonAvrData().targetModelName} - ${jsonAvrData().avr.multEQType}`"
+              ></summary>
               <div
                 style="
                   display: flex;

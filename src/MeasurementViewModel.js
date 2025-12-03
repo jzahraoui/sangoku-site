@@ -564,7 +564,7 @@ class MeasurementViewModel {
       if (newValue) {
         this.processingTimeout = setTimeout(() => {
           if (this.isProcessing()) {
-            lm.warn('Processing is taking more than 60 seconds, unloking controls');
+            lm.warn('Processing is taking more than 60 seconds, unlocking controls');
             this.isProcessing(false);
           }
         }, 60000);
@@ -2773,8 +2773,8 @@ class MeasurementViewModel {
       this.selectedSmoothingMethod(data.selectedSmoothingMethod);
     data.selectedIrWindows && this.selectedIrWindows(data.selectedIrWindows);
     data.individualMaxBoostValue &&
-      this.individualMaxBoostValue(data.individualMaxBoostValue);
-    data.overallBoostValue && this.overallBoostValue(data.overallBoostValue);
+      this.individualMaxBoostValue(+data.individualMaxBoostValue);
+    data.overallBoostValue && this.overallBoostValue(+data.overallBoostValue);
     data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
     data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
     data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
