@@ -1736,3 +1736,41 @@ body.dark-mode .error-border {
 body.dark-mode .shrinkable-container summary:hover {
   background-color: var(--dark-bg-primary);
 }
+
+/* Dark Mode - Log Entry Types */
+body.dark-mode .log-entry.info {
+  border-left-color: var(--dark-accent);
+  background: var(--dark-info-bg);
+}
+body.dark-mode .log-entry.success {
+  border-left-color: var(--dark-success);
+  background: var(--dark-success-bg);
+}
+body.dark-mode .log-entry.warn {
+  border-left-color: var(--dark-warning);
+  background: var(--dark-warning-bg);
+}
+body.dark-mode .log-entry.error {
+  border-left-color: var(--dark-error);
+  background: var(--dark-error-bg);
+}
+body.dark-mode .log-entry.debug {
+  border-left-color: var(--gray-600);
+  background: var(--dark-bg-tertiary);
+}
+
+body.dark-mode .log-entry.info .log-level {
+  background: var(--dark-accent);
+}
+body.dark-mode .log-entry.success .log-level {
+  background: var(--dark-success);
+}
+body.dark-mode .log-entry.warn .log-level {
+  background: var(--dark-warning);
+}
+body.dark-mode .log-entry.error .log-level {
+  background: var(--dark-error);
+}
+body.dark-mode .log-entry.debug .log-level {
+  background: var(--gray-600);
+}
