@@ -107,13 +107,10 @@
   --spacing-xl: 20px;
 
   /* Layout */
-  --max-width: 1000px;
+  --max-width: 80vw;
   --border-radius: 4px;
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-}
 
-/* Dark Mode Styles */
-body.dark-mode {
   /* Backgrounds - Based on Material Design Dark Theme */
   --dark-bg-primary: var(--gray-900);
   --dark-bg-secondary: var(--gray-950);
@@ -148,7 +145,10 @@ body.dark-mode {
 
   --dark-error: var(--error-600);
   --dark-error-bg: rgba(239, 83, 80, 0.25);
+}
 
+/* Dark Mode Styles */
+body.dark-mode {
   background-color: var(--dark-bg-primary);
   color: var(--dark-text-primary);
 }
@@ -158,7 +158,7 @@ body.dark-mode {
   top: 20px;
   right: 20px;
   padding: 5px;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
 }
 
 [data-i18n] {
@@ -291,7 +291,7 @@ button:disabled {
   max-width: 600px;
   max-height: 80%;
   overflow-y: auto;
-  border-radius: 5px;
+  border-radius: var(--border-radius);
   box-shadow: var(--box-shadow);
 }
 
@@ -307,14 +307,14 @@ button:disabled {
 .table-wrapper::-webkit-scrollbar-track,
 .logs-content::-webkit-scrollbar-track {
   background: var(--bg-secondary);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
 }
 
 .popup-content::-webkit-scrollbar-thumb,
 .table-wrapper::-webkit-scrollbar-thumb,
 .logs-content::-webkit-scrollbar-thumb {
   background: var(--gray-500);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
 }
 
 .popup-content::-webkit-scrollbar-thumb:hover,
@@ -534,7 +534,7 @@ button:disabled {
   margin-bottom: 20px;
   padding: 15px;
   border: 1px solid var(--gray-300);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   background: var(--bg-primary);
 }
 
@@ -561,7 +561,7 @@ button:disabled {
 .code-block {
   background-color: var(--dark-bg-secondary);
   border: 1px solid var(--gray-600);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   padding: 2px 5px;
   margin: 15px 0;
   position: relative;
@@ -762,7 +762,7 @@ button:disabled {
   padding: 5px 10px;
   background-color: var(--gray-800);
   color: var(--white);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   font-size: var(--font-size-base);
   white-space: nowrap;
   opacity: 0;
@@ -807,7 +807,7 @@ button:disabled {
   text-decoration: none;
   color: inherit;
   border: 1px solid var(--gray-400);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
 }
 
 .help-link:hover {
@@ -816,7 +816,6 @@ button:disabled {
 
 /* Documentation page styles */
 .documentation {
-  max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
   font-size: var(--font-size-large);
@@ -898,7 +897,7 @@ button:disabled {
   gap: 0.5rem;
   padding: 0.5rem 1rem;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   font-size: var(--font-size-large);
@@ -970,7 +969,7 @@ button:disabled {
   gap: 0.5rem;
   padding: 1rem;
   background-color: var(--bg-secondary);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
 }
 
 .avr-detail-row {
@@ -1107,7 +1106,7 @@ button:disabled {
   outline: none;
   font-size: var(--font-size-extra-large);
   transition: 0.4s;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
 }
 
 .collapsible:hover {
@@ -1141,7 +1140,7 @@ button:disabled {
   margin-top: 10px;
   padding: 8px 12px;
   background-color: var(--bg-light);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   font-size: var(--font-size-sm);
   text-align: center;
   transition: all 0.3s ease;
@@ -1234,7 +1233,7 @@ button:disabled {
 .commit-sha {
   background: var(--bg-secondary);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   font-family: monospace;
   font-size: var(--font-size-sm);
   color: var(--gray-600);
@@ -1288,7 +1287,7 @@ button:disabled {
   width: 100%;
   padding: 10px 15px 10px 35px;
   border: 1px solid var(--gray-300);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   font-size: var(--font-size-sm);
 }
 
@@ -1303,7 +1302,7 @@ button:disabled {
 .filter-dropdown {
   padding: 10px 15px;
   border: 1px solid var(--gray-300);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   background: var(--bg-primary);
 }
 
@@ -1385,7 +1384,7 @@ button:disabled {
   display: flex;
   margin-bottom: var(--spacing-xs);
   padding: var(--spacing-sm);
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   border-left: 4px solid transparent;
   box-shadow: var(--box-shadow);
 }
@@ -1489,7 +1488,7 @@ button:disabled {
   align-items: center;
   padding: 8px 12px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   transition: background 0.2s;
 }
 
@@ -1568,7 +1567,7 @@ button:disabled {
 .output-display {
   background: var(--gray-900);
   padding: 8px;
-  border-radius: 4px;
+  border-radius: var(--border-radius);
   margin: 8px auto;
   width: fit-content;
 }
