@@ -11,6 +11,10 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
   {
+    files: ['test/**/*.js', 'src/**/*.test.js'],
+    languageOptions: { globals: globals.node },
+  },
+  {
     files: ['**/*.css'],
     plugins: { css },
     language: 'css/css',

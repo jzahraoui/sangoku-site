@@ -128,7 +128,7 @@ class Polar {
   }
 
   static DbToLinearGain(magnitudeDb) {
-    return Math.pow(10, magnitudeDb / 20);
+    return Math.max(Math.pow(10, magnitudeDb / 20), 1e-12);
   }
 
   // Static methods for array operations

@@ -1,5 +1,6 @@
 import Polar from './Polar.js';
 import lm from './logs.js';
+import FrequencyResponseProcessor from './frequency-response-processor.js';
 
 class MultiSubOptimizer {
   // Define constant configurations as static properties
@@ -845,14 +846,25 @@ class MultiSubOptimizer {
     const magnitude = new Float32Array(freqs.length);
     const phase = new Float32Array(freqs.length);
 
+    // calculate minimum phase for theoretical response
+    if (theoreticalResponse) {
+      for (const sub of subs) {
+        sub.minimumPhase ??= FrequencyResponseProcessor.calculateMinimumPhase(
+          sub.magnitude
+        );
+      }
+    }
+
     // For each frequency point
     for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
       // Process each subwoofer's response
       let polarSum = null;
       for (const sub of subs) {
-        const phase = theoreticalResponse ? 0 : sub.phase[freqIndex];
+        const subPhase = theoreticalResponse
+          ? sub.minimumPhase[freqIndex]
+          : sub.phase[freqIndex];
         // Convert magnitude from dB to linear voltage
-        const subPolar = Polar.fromDb(sub.magnitude[freqIndex], phase);
+        const subPolar = Polar.fromDb(sub.magnitude[freqIndex], subPhase);
 
         polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
       }
