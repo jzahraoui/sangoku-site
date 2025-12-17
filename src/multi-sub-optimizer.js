@@ -369,25 +369,12 @@ class MultiSubOptimizer {
   }
 
   /**
-   * Calculates the efficiency ratio between actual and theoretical frequency responses.
+   * Calculates weighted efficiency ratio between actual and theoretical responses.
+   * Measures how close the actual response is to the theoretical maximum.
    *
-   * This method compares how well the actual combined subwoofer response performs
-   * relative to the theoretical maximum possible response at each frequency point.
-   *
-   * The calculation process:
-   * 1. Converts dB magnitudes to linear gain values for proper ratio calculation
-   * 2. Calculates point-wise efficiency: (actual/theoretical) × 100%
-   * 3. Applies frequency weighting to emphasize important bass frequencies
-   * 4. Returns the weighted average efficiency across all frequency points
-   *
-   * Higher values indicate better efficiency - the actual response is closer
-   * to the theoretical maximum. Values above 100% indicate constructive
-   * interference beyond the theoretical sum, while lower values indicate
-   * destructive interference or suboptimal alignment.
-   *
-   * @param {Object} actualResponse - Current combined frequency response
-   * @param {Object} theoreticalResponse - Theoretical maximum response (all subs in-phase)
-   * @returns {number} Weighted average efficiency percentage (0-100+%)
+   * @param {Object} actualResponse - Current combined response
+   * @param {Object} theoreticalResponse - Theoretical maximum (minimum phase)
+   * @returns {number} Weighted efficiency percentage (0-100+%)
    */
   calculateEfficiencyRatio(actualResponse, theoreticalResponse) {
     if (!actualResponse?.magnitude?.length || !theoreticalResponse?.magnitude?.length) {
@@ -395,40 +382,44 @@ class MultiSubOptimizer {
     }
 
     let efficiencySum = 0;
-    const count = actualResponse.magnitude.length;
+    let weightSum = 0;
 
-    for (let i = 0; i < count; i++) {
-      // Convert from dB to linear for proper ratio calculation
+    for (let i = 0; i < actualResponse.magnitude.length; i++) {
       const actualLinear = Polar.DbToLinearGain(actualResponse.magnitude[i]);
       const theoreticalLinear = Polar.DbToLinearGain(theoreticalResponse.magnitude[i]);
 
-      // Calculate efficiency at each frequency point (as a percentage)
-      const pointEfficiency = (actualLinear / theoreticalLinear) * 100;
-      const pointEfficiencyWeighted = pointEfficiency * this.frequencyWeights[i];
-      efficiencySum += pointEfficiencyWeighted;
+      if (theoreticalLinear > 0) {
+        const pointEfficiency = (actualLinear / theoreticalLinear) * 100;
+        const weight = this.frequencyWeights[i];
+        efficiencySum += pointEfficiency * weight;
+        weightSum += weight;
+      }
     }
 
-    // Return average efficiency percentage
-    return efficiencySum / count;
+    return weightSum > 0 ? efficiencySum / weightSum : 0;
   }
 
-  updateBestSolutions(evaluated, bestWithAllPass, bestWithoutAllPass) {
-    const highest = evaluated[0];
-    let highestWithoutAllPass, highestWithAllPass;
-    if (highest.hasAllPass) {
-      highestWithAllPass = highest;
-      highestWithoutAllPass = evaluated.find(individual => !individual.hasAllPass);
-    } else {
-      highestWithAllPass = evaluated.find(individual => individual.hasAllPass);
-      highestWithoutAllPass = highest;
+  updateBestSolutions(evaluated) {
+    evaluated.sort((a, b) => b.score - a.score);
+
+    let bestWithAllPass = { score: -Infinity };
+    let bestWithoutAllPass = { score: -Infinity };
+
+    for (const individual of evaluated) {
+      if (individual.hasAllPass && individual.score > bestWithAllPass.score) {
+        bestWithAllPass = individual;
+        break;
+      }
     }
 
-    if (highestWithAllPass?.score > bestWithAllPass.score) {
-      Object.assign(bestWithAllPass, highestWithAllPass);
+    for (const individual of evaluated) {
+      if (!individual.hasAllPass && individual.score > bestWithoutAllPass.score) {
+        bestWithoutAllPass = individual;
+        break;
+      }
     }
-    if (highestWithoutAllPass?.score > bestWithoutAllPass.score) {
-      Object.assign(bestWithoutAllPass, highestWithoutAllPass);
-    }
+
+    return { bestWithAllPass, bestWithoutAllPass };
   }
 
   runGeneticLoop(subToOptimize, previousValidSum, theo, population, options) {
@@ -440,12 +431,12 @@ class MultiSubOptimizer {
       mutationRate,
       mutationAmount,
       maxNoImprovementGenerations,
-      bestWithAllPass,
-      bestWithoutAllPass,
     } = options;
+
+    let bestWithAllPass = { score: -Infinity };
+    let bestWithoutAllPass = { score: -Infinity };
     let generationsWithoutImprovement = 0;
-    let previousBestScore = 0;
-    let bestInRun = null;
+    let previousBestScore = -Infinity;
 
     for (let generation = 0; generation < generations; generation++) {
       const adaptiveMutation = mutationAmount * (1 - generation / generations);
@@ -454,15 +445,17 @@ class MultiSubOptimizer {
         return this.evaluateParameters(subToOptimize, previousValidSum, theo);
       });
 
-      evaluated.sort((a, b) => b.score - a.score);
-      const highest = evaluated[0];
+      const best = this.updateBestSolutions(evaluated);
+      if (best.bestWithAllPass.score > bestWithAllPass.score)
+        bestWithAllPass = best.bestWithAllPass;
+      if (best.bestWithoutAllPass.score > bestWithoutAllPass.score)
+        bestWithoutAllPass = best.bestWithoutAllPass;
 
-      this.updateBestSolutions(evaluated, bestWithAllPass, bestWithoutAllPass);
+      const highest = evaluated[0];
 
       if (highest.score > previousBestScore) {
         previousBestScore = highest.score;
         generationsWithoutImprovement = 0;
-        bestInRun = highest;
       } else {
         generationsWithoutImprovement++;
       }
@@ -477,19 +470,19 @@ class MultiSubOptimizer {
         break;
       }
 
-      if (generation === generations - 1) break;
-
-      population = this.createNextGeneration(
-        evaluated,
-        populationSize,
-        eliteCount,
-        tournamentSize,
-        mutationRate,
-        adaptiveMutation
-      );
+      if (generation < generations - 1) {
+        population = this.createNextGeneration(
+          evaluated,
+          populationSize,
+          eliteCount,
+          tournamentSize,
+          mutationRate,
+          adaptiveMutation
+        );
+      }
     }
 
-    return bestInRun;
+    return { bestWithAllPass, bestWithoutAllPass };
   }
 
   runGeneticOptimization(subToOptimize, previousValidSum, theo, testParamsList, options) {
@@ -503,8 +496,6 @@ class MultiSubOptimizer {
       mutationRate,
       mutationAmount,
       maxNoImprovementGenerations,
-      bestWithAllPass,
-      bestWithoutAllPass,
     } = options;
 
     const coarseBest = this.findBestCoarseParam(
@@ -514,7 +505,9 @@ class MultiSubOptimizer {
       testParamsList
     );
 
-    let bestOverall = null;
+    let bestWithAllPass = { score: -Infinity };
+    let bestWithoutAllPass = { score: -Infinity };
+
     for (let run = 0; run < runs; run++) {
       const population = this.createHybridPopulation(
         coarseBest,
@@ -522,7 +515,7 @@ class MultiSubOptimizer {
         withAllPassProbability
       );
 
-      const bestInRun = this.runGeneticLoop(
+      const result = this.runGeneticLoop(
         subToOptimize,
         previousValidSum,
         theo,
@@ -535,35 +528,35 @@ class MultiSubOptimizer {
           mutationRate,
           mutationAmount,
           maxNoImprovementGenerations,
-          bestWithAllPass,
-          bestWithoutAllPass,
         }
       );
 
-      if (!bestOverall || bestInRun.score > bestOverall.score) {
-        bestOverall = bestInRun;
-      }
+      if (result.bestWithAllPass.score > bestWithAllPass.score)
+        bestWithAllPass = result.bestWithAllPass;
+      if (result.bestWithoutAllPass.score > bestWithoutAllPass.score)
+        bestWithoutAllPass = result.bestWithoutAllPass;
     }
+
+    return { bestWithAllPass, bestWithoutAllPass };
   }
 
-  runClassicOptimization(
-    subToOptimize,
-    previousValidSum,
-    theo,
-    testParamsList,
-    bestWithAllPass,
-    bestWithoutAllPass
-  ) {
+  runClassicOptimization(subToOptimize, previousValidSum, theo, testParamsList) {
+    let bestWithAllPass = { score: -Infinity };
+    let bestWithoutAllPass = { score: -Infinity };
+
     for (const param of testParamsList) {
       subToOptimize.param = param;
       const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
 
       if (individual.hasAllPass && individual.score > bestWithAllPass.score) {
-        Object.assign(bestWithAllPass, individual);
-      } else if (!individual.hasAllPass && individual.score > bestWithoutAllPass.score) {
-        Object.assign(bestWithoutAllPass, individual);
+        bestWithAllPass = individual;
+      }
+      if (!individual.hasAllPass && individual.score > bestWithoutAllPass.score) {
+        bestWithoutAllPass = individual;
       }
     }
+
+    return { bestWithAllPass, bestWithoutAllPass };
   }
 
   findBestCoarseParam(subToOptimize, previousValidSum, theo, testParamsList) {
@@ -609,9 +602,6 @@ class MultiSubOptimizer {
       maxNoImprovementGenerations = 10, // Early stopping criteria
     } = options;
 
-    let bestWithAllPass = { score: -Infinity };
-    let bestWithoutAllPass = { score: -Infinity };
-
     if (!testParamsList) {
       throw new Error('coarseParams is required for genetic optimization');
     }
@@ -624,50 +614,57 @@ class MultiSubOptimizer {
     }
 
     // Calculate theoretical maximum response once
-    const theo = this.calculateCombinedResponse([subToOptimize, previousValidSum], true);
+    const theo = this.calculateCombinedResponse(
+      [subToOptimize, previousValidSum],
+      false,
+      true
+    );
 
-    // Different optimization strategies
-    if (method === 'genetic') {
-      this.runGeneticOptimization(subToOptimize, previousValidSum, theo, testParamsList, {
-        runs,
-        populationSize,
-        withAllPassProbability,
-        generations,
-        eliteCount,
-        tournamentSize,
-        mutationRate,
-        mutationAmount,
-        maxNoImprovementGenerations,
-        bestWithAllPass,
-        bestWithoutAllPass,
-      });
-    } else if (method === 'classic') {
-      this.runClassicOptimization(
-        subToOptimize,
-        previousValidSum,
-        theo,
-        testParamsList,
-        bestWithAllPass,
-        bestWithoutAllPass
-      );
-    }
+    const result =
+      method === 'genetic'
+        ? this.runGeneticOptimization(
+            subToOptimize,
+            previousValidSum,
+            theo,
+            testParamsList,
+            {
+              runs,
+              populationSize,
+              withAllPassProbability,
+              generations,
+              eliteCount,
+              tournamentSize,
+              mutationRate,
+              mutationAmount,
+              maxNoImprovementGenerations,
+            }
+          )
+        : this.runClassicOptimization(
+            subToOptimize,
+            previousValidSum,
+            theo,
+            testParamsList
+          );
 
     // Compare all-pass vs non-all-pass solutions
     const improvementPercentage = this.calculateImprovementPercentage(
-      bestWithAllPass.score,
-      bestWithoutAllPass.score
+      result.bestWithAllPass.score,
+      result.bestWithoutAllPass.score
     );
 
     // Log the comparison results
     this.logComparisonResults(
       subToOptimize,
-      bestWithAllPass,
-      bestWithoutAllPass,
+      result.bestWithAllPass,
+      result.bestWithoutAllPass,
       improvementPercentage,
       method
     );
 
-    const finalResponse = this.chooseBestSolution(bestWithAllPass, bestWithoutAllPass);
+    const finalResponse = this.chooseBestSolution(
+      result.bestWithAllPass,
+      result.bestWithoutAllPass
+    );
 
     return {
       finalResponse,
@@ -775,39 +772,29 @@ class MultiSubOptimizer {
     return (weightedCoherenceSum / totalWeightingFactor) * 100; // Scale to percentage
   }
 
-  // TODO: adjut basicweightPower to get more consistent results
   calculateFrequencyWeights(frequencies) {
-    const minFreq = Math.min(...frequencies);
-    const maxFreq = Math.max(...frequencies);
-    const basicweightPower = 0.15; // Adjust power for smoothness
-    const modalRegionFrequency = 160; // Hz
-
-    // Create weights that consider multiple factors important for subwoofer optimization
     const weights = new Float32Array(frequencies.length);
     for (let i = 0; i < frequencies.length; i++) {
-      const freq = frequencies[i];
-      // 1. Basic low-frequency emphasis - more weight for lower frequencies
-      const basicWeight = 1 / Math.pow(freq / minFreq, basicweightPower); // Adjust power for smoothness
-
-      // 2. Modal region emphasis - most critical for room acoustics (typically 20-80Hz)
-      const modalImportance = freq < modalRegionFrequency ? 1.5 : 1;
-
-      // 4. De-emphasize extremes of range where measurement accuracy might be lower
-      let edgeFactor = 1;
-      if (freq < minFreq * 1.2) {
-        // Low extreme
-        const normalizedPosition = (freq - minFreq) / (minFreq * 0.2);
-        edgeFactor = 0.5 + 0.5 * normalizedPosition;
-      } else if (freq > maxFreq * 0.8) {
-        // High extreme
-        const normalizedPosition = (maxFreq - freq) / (maxFreq * 0.2);
-        edgeFactor = 0.5 + 0.5 * normalizedPosition;
-      }
-
-      // Combine all factors - multiply for compound effect
-      weights[i] = basicWeight * modalImportance * edgeFactor;
+      weights[i] = this.computeFrequencyWeight(frequencies[i]);
     }
     return weights;
+  }
+
+  /**
+   * Computes perceptual frequency weight based on ISO 226 and room acoustics.
+   * Emphasizes critical subwoofer frequencies where room modes are most problematic.
+   * @param {number} freq - Frequency in Hz
+   * @returns {number} Weight between 0.3 and 1.0
+   */
+  computeFrequencyWeight(freq) {
+    if (freq < 20) return 0.3; // Below audible threshold
+    if (freq <= 50) return 1; // Primary room modes (max weight)
+    if (freq <= 80) return 0.95; // Secondary room modes
+    if (freq <= 100) return 0.85; // Transition region
+    if (freq <= 120) return 0.75; // Upper transition
+    if (freq <= 150) return 0.65; // Approaching crossover
+    if (freq <= 200) return 0.55; // Near subwoofer limit
+    return 0.5; // Beyond typical subwoofer range
   }
 
   /**
@@ -836,9 +823,18 @@ class MultiSubOptimizer {
     return lines.join('\n');
   }
 
-  // function to calculate combined response resulting of arthemetic sum operation on magnitude and phase of two responses
-  calculateCombinedResponse(subs, theoreticalResponse = false) {
+  // function to calculate combined response resulting of arithmetic sum operation on magnitude and phase of two responses
+  calculateCombinedResponse(
+    subs,
+    theoreticalResponse = false,
+    realisticTheoreticalResponse = false
+  ) {
     if (!subs?.length) throw new Error('No measurements provided');
+    if (theoreticalResponse && realisticTheoreticalResponse) {
+      throw new Error(
+        'Cannot calculate both theoretical and realistic theoretical response simultaneously'
+      );
+    }
 
     const freqs = subs[0].freqs;
     const freqStep = subs[0].freqStep;
@@ -846,26 +842,27 @@ class MultiSubOptimizer {
     const magnitude = new Float32Array(freqs.length);
     const phase = new Float32Array(freqs.length);
 
-    // calculate minimum phase for theoretical response
-    if (theoreticalResponse) {
-      for (const sub of subs) {
-        sub.minimumPhase ??= FrequencyResponseProcessor.calculateMinimumPhase(
-          sub.magnitude
-        );
+    // Pre-calculate phases for all subs based on calculation mode
+    const subPhases = subs.map(sub => {
+      if (theoreticalResponse) {
+        return new Float32Array(sub.magnitude.length).fill(0);
+      } else if (realisticTheoreticalResponse) {
+        return FrequencyResponseProcessor.calculateMinimumPhase(sub.magnitude);
+      } else {
+        return sub.phase;
       }
-    }
+    });
 
     // For each frequency point
     for (let freqIndex = 0; freqIndex < freqs.length; freqIndex++) {
       // Process each subwoofer's response
       let polarSum = null;
-      for (const sub of subs) {
-        const subPhase = theoreticalResponse
-          ? sub.minimumPhase[freqIndex]
-          : sub.phase[freqIndex];
+      for (let subIndex = 0; subIndex < subs.length; subIndex++) {
         // Convert magnitude from dB to linear voltage
-        const subPolar = Polar.fromDb(sub.magnitude[freqIndex], subPhase);
-
+        const subPolar = Polar.fromDb(
+          subs[subIndex].magnitude[freqIndex],
+          subPhases[subIndex][freqIndex]
+        );
         polarSum = polarSum ? polarSum.add(subPolar) : subPolar;
       }
 
@@ -921,150 +918,146 @@ class MultiSubOptimizer {
   }
 
   /**
-   * Calculates a penalty score for frequency response dips/drops.
-   * Penalizes rapid magnitude drops between adjacent frequency points,
-   * weighted by frequency importance.
+   * Detects modal nulls (destructive interference from phase cancellation).
    *
-   * @param {Object} response - Frequency response with magnitude array
-   * @returns {number} Penalty score where higher values indicate more problematic dips
+   * Modal nulls characteristics:
+   * - Deep narrow dips (>10dB)
+   * - Steep slopes (>20dB/octave)
+   * - Occur in critical bass frequencies (20-80Hz weighted heavily)
+   *
+   * Uses overlapping 1/3 octave analysis to prevent missing nulls at band edges.
+   * Slopes calculated in dB/octave (frequency-independent, works with any spacing).
+   *
+   * @param {Object} response - Frequency response {freqs, magnitude}
+   * @returns {number} Penalty score (higher = more problematic nulls)
    */
   dipPenaltyScore(response) {
-    if (
-      response?.freqs?.length !== response?.magnitude?.length ||
-      response?.freqs?.length === 0
-    ) {
-      return 0; // Return 0 penalty for invalid input instead of -Infinity
+    if (!response?.freqs?.length || response.freqs.length !== response.magnitude.length) {
+      return 0;
     }
 
-    // Validate frequency weights availability
-    if (
-      !this.frequencyWeights ||
-      this.frequencyWeights.length !== response.freqs.length
-    ) {
-      lm.warn('Frequency weights unavailable, using uniform weighting');
-      this.frequencyWeights = new Array(response.freqs.length).fill(1);
+    if (!this.frequencyWeights) {
+      lm.warn('Frequency weights unavailable, recalculating for dip penalty');
+      this.frequencyWeights = this.calculateFrequencyWeights(response.freqs);
     }
 
-    let dipPenalty = 0;
+    const freqs = response.freqs;
+    const magnitude = response.magnitude;
+    const len = freqs.length;
+    let penalty = 0;
 
-    // Fixed threshold - 3dB is a reasonable threshold for detecting problematic drops
-    // Adaptive threshold based on frequency resolution
-    // Higher resolution (smaller spacing) = lower threshold for detecting drops
-    const dropThreshold = Math.max(3, response.freqStep * 17);
+    // Pre-calculate constants
+    const sqrtBandWidth = Math.pow(2, 1 / 6); // sqrt(2^(1/3))
+    const stepRatio = Math.pow(2, 1 / 6);
+    const bandLowRatio = 1 / sqrtBandWidth;
+    const bandHighRatio = sqrtBandWidth;
 
-    let allreadyCountedDip = false;
+    let centerFreq = freqs[0] * sqrtBandWidth;
+    const maxCenterFreq = freqs[len - 1] * bandLowRatio;
 
-    for (let i = 1; i < response.freqs.length; i++) {
-      // Start from i=1
-      const currentLevel = response.magnitude[i];
-      const previousLevel = response.magnitude[i - 1]; // Fixed: use adjacent point
-      const weight = this.frequencyWeights[i];
+    while (centerFreq < maxCenterFreq) {
+      const bandLow = centerFreq * bandLowRatio;
+      const bandHigh = centerFreq * bandHighRatio;
 
-      // Validate individual data points
-      if (
-        !Number.isFinite(currentLevel) ||
-        !Number.isFinite(previousLevel) ||
-        !Number.isFinite(weight)
-      ) {
-        continue;
+      // Find band range using binary-like search
+      let startIdx = 0;
+      let endIdx = len - 1;
+
+      while (startIdx < len && freqs[startIdx] < bandLow) startIdx++;
+      while (endIdx > startIdx && freqs[endIdx] > bandHigh) endIdx--;
+
+      if (endIdx - startIdx > 1) {
+        penalty += this._detectNullInBand(freqs, magnitude, startIdx, endIdx);
       }
 
-      // Calculate drop (positive value indicates a drop in level)
-      const drop = previousLevel - currentLevel;
+      centerFreq *= stepRatio;
+    }
 
-      if (drop > dropThreshold && !allreadyCountedDip) {
-        // Scale penalty by drop severity and frequency importance
-        const severityFactor = Math.min(drop / dropThreshold, 3); // Cap at 3x threshold
-        const weightedPenalty = drop * severityFactor * weight;
+    return penalty;
+  }
 
-        dipPenalty += weightedPenalty;
-        allreadyCountedDip = true; // Set flag to avoid double counting
-      } else {
-        allreadyCountedDip = false; // Reset flag when no drop detected
+  _detectNullInBand(freqs, magnitude, startIdx, endIdx) {
+    // Find minimum in range
+    let minIdx = startIdx;
+    let minMag = magnitude[startIdx];
+    let sum = 0;
+
+    for (let i = startIdx; i <= endIdx; i++) {
+      const mag = magnitude[i];
+      sum += mag;
+      if (mag < minMag) {
+        minMag = mag;
+        minIdx = i;
       }
     }
 
-    return dipPenalty / 2;
+    // Skip if at edges
+    if (minIdx === startIdx || minIdx === endIdx) return 0;
+
+    // Calculate depth
+    const count = endIdx - startIdx + 1;
+    const depth = (sum - minMag) / (count - 1) - minMag;
+
+    if (depth < 10) return 0;
+
+    // Calculate slopes in dB/octave
+    const leftOctaves = Math.log2(freqs[minIdx] / freqs[minIdx - 1]);
+    const rightOctaves = Math.log2(freqs[minIdx + 1] / freqs[minIdx]);
+
+    const avgSlope =
+      (Math.abs(minMag - magnitude[minIdx - 1]) / leftOctaves +
+        Math.abs(magnitude[minIdx + 1] - minMag) / rightOctaves) /
+      2;
+
+    if (avgSlope < 20) return 0;
+
+    // Calculate penalty
+    const depthFactor = Math.pow(depth / 10, 1.5);
+    const steepnessFactor = Math.min(avgSlope / 20, 2);
+
+    return depthFactor * steepnessFactor * this.frequencyWeights[minIdx];
   }
 
   /**
-   * Calculates a comprehensive flatness score for frequency response analysis.
-   *
-   * The score combines three key metrics with configurable weightings:
-   * 1. Overall flatness: Standard deviation from mean magnitude (50% weight)
-   * 2. Local smoothness: RMS of adjacent point variations (30% weight)
-   * 3. Peak-to-peak range: Total dynamic range across frequency band (20% weight)
-   *
-   * Lower scores indicate flatter, smoother responses which are generally
-   * more desirable for subwoofer optimization. The function penalizes both
-   * overall deviations from the mean level and rapid local variations
-   * between adjacent frequency points.
+   * Calculates flatness score using frequency-weighted standard deviation.
+   * Lower scores indicate flatter response in perceptually important regions.
    *
    * @param {Object} response - Frequency response with magnitude array
-   * @returns {number} Flatness where lower values indicate flatter response
+   * @returns {number} Weighted flatness score (lower is better)
    */
   calculateFlatnessScore(response) {
     const magnitudes = response.magnitude;
     const len = magnitudes.length;
 
-    if (len <= 1) return 0; // Handle edge cases
+    if (len <= 1) return 0;
 
-    // Calculate mean level for reference
-    const meanLevel = magnitudes.reduce((sum, val) => sum + val, 0) / len;
-
-    // Calculate variance (squared deviation from mean)
-    let variance = 0;
-    let deviationSum = 0;
-    let localVariationSum = 0;
-    let min = magnitudes[0];
-    let max = magnitudes[0];
-
-    // Weighted analysis of both overall deviation and local variations
-    for (let i = 0; i < len; i++) {
-      // Overall deviation from mean (flatness across whole range)
-      const deviation = magnitudes[i] - meanLevel;
-      deviationSum += Math.pow(deviation, 2);
-
-      // Local variation (smoothness between adjacent points)
-      if (i > 0) {
-        const localDiff = magnitudes[i] - magnitudes[i - 1];
-        // Square the difference to penalize larger jumps more
-        localVariationSum += Math.pow(localDiff, 2);
-      }
-
-      // Track min/max for peak-to-peak measurement
-      min = Math.min(min, magnitudes[i]);
-      max = Math.max(max, magnitudes[i]);
+    if (!this.frequencyWeights) {
+      lm.warn('Frequency weights unavailable, recalculating for flatness score');
+      this.frequencyWeights = this.calculateFrequencyWeights(response.freqs);
     }
 
-    // Calculate standard deviation (overall flatness)
-    variance = deviationSum / len;
-    const stdDev = Math.sqrt(variance);
+    // Weighted mean (target level)
+    let weightedSum = 0;
+    let weightSum = 0;
 
-    // Calculate RMS of local variations (smoothness)
-    const localRMS = Math.sqrt(localVariationSum / (len - 1));
+    for (let i = 0; i < len; i++) {
+      const weight = this.frequencyWeights[i];
+      weightedSum += magnitudes[i] * weight;
+      weightSum += weight;
+    }
 
-    // Peak-to-peak range (another flatness indicator)
-    const peakToPeak = max - min;
+    const weightedMean = weightedSum / weightSum;
 
-    // Weighted combination of factors - lower is better (flatter)
-    // Weight factors can be adjusted based on what aspects of flatness are most important
-    const overallWeight = 0.5; // How much we care about overall deviation
-    const localWeight = 0.3; // How much we care about local smoothness
-    const peakWeight = 0.2; // How much we care about peak-to-peak range
+    // Weighted variance
+    let weightedVariance = 0;
 
-    // Combining the metrics (normalizing each factor first)
-    const normalizedStdDev = stdDev;
-    const normalizedLocalRMS = localRMS * 2; // Scale up local variations for better sensitivity
-    const normalizedPeakToPeak = peakToPeak / 3; // Divide by typical range for subwoofers
+    for (let i = 0; i < len; i++) {
+      const weight = this.frequencyWeights[i];
+      const deviation = magnitudes[i] - weightedMean;
+      weightedVariance += weight * deviation * deviation;
+    }
 
-    // Final score (lower is better - flatter response)
-    const flatnessScore =
-      overallWeight * normalizedStdDev +
-      localWeight * normalizedLocalRMS +
-      peakWeight * normalizedPeakToPeak;
-
-    return flatnessScore;
+    return Math.sqrt(weightedVariance / weightSum);
   }
 
   // Helper method to evaluate parameters
@@ -1075,9 +1068,11 @@ class MultiSubOptimizer {
 
     const efficiencyRatioscore = this.calculateEfficiencyRatio(response, theoreticalMax);
 
+    const flatnessScore = this.calculateFlatnessScore(response);
+
     const dipPenaltyScore = this.dipPenaltyScore(response);
 
-    response.score = efficiencyRatioscore - dipPenaltyScore;
+    response.score = efficiencyRatioscore + flatnessScore - dipPenaltyScore;
     response.param = subToOptimize.param;
     response.hasAllPass = subToOptimize.param.allPass.enabled;
 
