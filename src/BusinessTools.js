@@ -168,17 +168,17 @@ class BusinessTools {
 
       // exclude previous results and create array of UUIDs for the current code group
       const usableItems = groupedResponse[code].items.filter(
-        item => !item.isAverage && !item.isPredicted
+        item => !item.isAverage && !item.isPredicted && item.IRPeakValue <= 1
       );
+
+      // delete the other items
+      const codeItems = groupedResponse[code].items;
+      const itemsToDelete = codeItems.filter(item => !usableItems.includes(item));
+      await this.viewModel.removeMeasurements(itemsToDelete);
 
       // Process the collected indices
       if (usableItems.length < 2) {
         throw new Error(`Need at least 2 measurements to make an average: ${code}`);
-      }
-
-      // remove inversion and gain for each item
-      for (const measurement of usableItems) {
-        await measurement.setInverted(false);
       }
 
       // Get UUIDs of usable items

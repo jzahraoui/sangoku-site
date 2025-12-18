@@ -345,7 +345,9 @@ class MeasurementViewModel {
       measurementItem.IRPeakValue = max;
       if (max >= 1) {
         lm.warn(
-          `${identifier} IR is above 1(${max.toFixed(2)}), please check your measurements`
+          `${identifier} IR is above 1(${max.toFixed(
+            2
+          )}), it will not be used for processing`
         );
       }
     };
@@ -770,8 +772,8 @@ class MeasurementViewModel {
         lm.info('Average calculation started...');
 
         // Get valid measurements to average
-        const filteredMeasurements = this.measurements().filter(
-          item => item.isValid && !item.isAverage && item.IRPeakValue <= 1
+        const filteredMeasurements = this.validMeasurements().filter(
+          item => !item.isAverage && item.IRPeakValue <= 1
         );
 
         // Check if we have enough measurements
@@ -779,31 +781,67 @@ class MeasurementViewModel {
           throw new Error('Need at least 2 valid positions to calculate average');
         }
 
-        const allOffset = filteredMeasurements.map(item => ({
-          title: item.displayMeasurementTitle(),
-          alignOffset: item.alignSPLOffsetdB().toFixed(2),
-          offset: item.splOffsetdB().toFixed(2),
-        }));
-        const uniqueAlignOffsets = new Set(allOffset.map(x => x.alignOffset));
-        if (uniqueAlignOffsets.size !== 1) {
-          const measurementsWithOffsets = allOffset
-            .filter(x => x.alignOffset !== '0.00')
-            .map(x => `${x.title}: ${x.alignOffset}dB`)
-            .join(', ');
+        // Single pass to collect offsets and count occurrences
+        let firstAlignOffset = null;
+        const inconsistentAlignOffsets = [];
+        const inconsistentInvertedMeasurements = [];
+        const offsetCount = {};
+        const offsetDetails = [];
+
+        for (const item of filteredMeasurements) {
+          const title = item.displayMeasurementTitle();
+          const alignOffset = item.alignSPLOffsetdB().toFixed(2);
+          const offset = ((Math.round((item.splOffsetdB() * 10) / 3) * 3) / 10).toFixed(
+            1
+          );
+
+          // Check align offset consistency
+          if (firstAlignOffset === null) {
+            firstAlignOffset = alignOffset;
+          } else if (alignOffset !== firstAlignOffset && alignOffset !== '0.00') {
+            inconsistentAlignOffsets.push(`${title}: ${alignOffset}dB`);
+          }
+
+          // Count offset occurrences and store details
+          offsetCount[offset] = (offsetCount[offset] || 0) + 1;
+          offsetDetails.push({ title, offset });
+
+          // check if measurements have not been inverted
+
+          if (item.inverted()) {
+            inconsistentInvertedMeasurements.push(title);
+          }
+        }
+
+        if (inconsistentAlignOffsets.length > 0) {
           throw new Error(
-            `Some measurements have inconsistent SPL alignment offsets: ${measurementsWithOffsets}`
+            `Some measurements have inconsistent SPL alignment offsets: ${inconsistentAlignOffsets.join(
+              ', '
+            )}`
           );
         }
 
-        const uniqueOffsets = new Set(allOffset.map(x => x.offset));
-        if (uniqueOffsets.size !== 1) {
-          const firstMeasurementOffset = allOffset[0].offset;
-          const measurementsWithOffsets = allOffset
-            .filter(x => x.offset !== firstMeasurementOffset)
+        if (inconsistentInvertedMeasurements.length > 0) {
+          throw new Error(
+            `Some measurements appear to be inverted: ${inconsistentInvertedMeasurements.join(
+              ', '
+            )}`
+          );
+        }
+
+        // Check SPL offset consistency
+        const offsetKeys = Object.keys(offsetCount);
+        if (offsetKeys.length > 1) {
+          const mostCommonOffset = offsetKeys.reduce(
+            (a, b) => (offsetCount[a] > offsetCount[b] ? a : b),
+            offsetKeys[0]
+          );
+          const inconsistentOffsets = offsetDetails
+            .filter(x => x.offset !== mostCommonOffset)
             .map(x => `${x.title}: ${x.offset}dB`)
             .join(', ');
           throw new Error(
-            `Inconsistent SPL offsets detected in measurements: ${measurementsWithOffsets} expected ${firstMeasurementOffset}dB`
+            `Some measurements have inconsistent SPL offsets: ${inconsistentOffsets} expected ${mostCommonOffset}dB`
           );
         }
 
@@ -1391,6 +1429,32 @@ class MeasurementViewModel {
       }
     };
 
+    this.processMsoMeasurement = async (measurement, jszip, minFreq, maxFreq) => {
+      await measurement.resetAll(this.mainTargetLevel());
+      const frequencyResponse = await measurement.getFrequencyResponse();
+      await measurement.applyWorkingSettings();
+      const subName = measurement.channelName().replace('SW', 'SUB');
+      const localFilename = `POS${measurement.position()}-${subName}.txt`;
+
+      const lines = [];
+      for (let i = 0; i < frequencyResponse.freqs.length; i++) {
+        const freq = frequencyResponse.freqs[i];
+        if (freq >= minFreq && freq <= maxFreq) {
+          lines.push(
+            `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(
+              3
+            )} ${frequencyResponse.phase[i].toFixed(4)}`
+          );
+        }
+      }
+
+      if (!lines.length) {
+        throw new Error(`no file content for ${localFilename}`);
+      }
+
+      jszip.file(localFilename, lines.join('\n'));
+    };
+
     this.buttonCreatesMsoExports = async () => {
       if (this.isProcessing()) return;
       try {
@@ -1412,29 +1476,7 @@ class MeasurementViewModel {
         for (let i = 0; i < measurements.length; i += chunkSize) {
           const chunk = measurements.slice(i, i + chunkSize);
           for (const measurement of chunk) {
-            await measurement.resetAll(this.mainTargetLevel());
-            const frequencyResponse = await measurement.getFrequencyResponse();
-            await measurement.applyWorkingSettings();
-            const subName = measurement.channelName().replace('SW', 'SUB');
-            const localFilename = `POS${measurement.position()}-${subName}.txt`;
-
-            const lines = [];
-            for (let i = 0; i < frequencyResponse.freqs.length; i++) {
-              const freq = frequencyResponse.freqs[i];
-              if (freq >= minFreq && freq <= maxFreq) {
-                lines.push(
-                  `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(
-                    3
-                  )} ${frequencyResponse.phase[i].toFixed(4)}`
-                );
-              }
-            }
-
-            if (!lines.length) {
-              throw new Error(`no file content for ${localFilename}`);
-            }
-
-            jszip.file(localFilename, lines.join('\n'));
+            await this.processMsoMeasurement(measurement, jszip, minFreq, maxFreq);
           }
         }
 
@@ -1733,36 +1775,29 @@ class MeasurementViewModel {
     );
 
     this.groupedMeasurements = ko.computed(() => {
-      // group data by channelName attribute and set isSelected to true for the first occurrence
-      return this.measurements().reduce((acc, item) => {
+      const groups = {};
+      for (const item of this.measurements()) {
+        if (item.isUnknownChannel) continue;
+
         const channelName = item.channelName();
-
-        if (item.isUnknownChannel) {
-          return acc;
+        let group = groups[channelName];
+        if (!group) {
+          group = { items: [], count: 0 };
+          groups[channelName] = group;
         }
-
-        if (!acc[channelName]) {
-          acc[channelName] = {
-            items: [],
-            count: 0,
-          };
-        }
-        // Add item to group
-        acc[channelName].items.push(item);
-        acc[channelName].count++;
-        return acc;
-      }, {});
+        group.items.push(item);
+        group.count++;
+      }
+      return groups;
     });
     // creates a map from groupedMeasurements with items grouped by the same position attribute
     this.byPositionsGroupedSubsMeasurements = ko.computed(() => {
-      return this.subsMeasurements().reduce((acc, item) => {
+      const groups = {};
+      for (const item of this.subsMeasurements()) {
         const key = item.position();
-        if (!acc[key]) {
-          acc[key] = [];
-        }
-        acc[key].push(item);
-        return acc;
-      }, {});
+        (groups[key] ??= []).push(item);
+      }
+      return groups;
     });
 
     this.measurementsPositionList = ko.computed(() => {
