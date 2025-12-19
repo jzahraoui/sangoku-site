@@ -355,7 +355,21 @@ class MultiSubOptimizer {
     if (method === 'classic') {
       options.testParamsList = Object.freeze(this.generateTestParams());
     } else if (method === 'genetic') {
-      options.testParamsList = Object.freeze(this.generateTestParams(5)); // Coarse params
+      // Use adaptive step factor based on AllPass complexity
+      // With AllPass enabled, use larger steps (10x) for faster coarse search
+      // The genetic algorithm will refine the solution
+      const stepFactor = this.config.allPass.enabled ? 10 : 2;
+      options.testParamsList = Object.freeze(this.generateTestParams(stepFactor));
+
+      // Speed-optimized parameters for AllPass case
+      // Population 45 and 32 generations balance speed and quality
+      if (this.config.allPass.enabled) {
+        options.runs = 1; // Single run with better initialization
+        options.populationSize = 45;
+        options.generations = 32;
+        options.maxNoImprovementGenerations = 8;
+        options.withAllPassProbability = 0.8; // Favor AllPass exploration
+      }
     }
 
     // Iterate through each sub to optimize
@@ -492,13 +506,14 @@ class MultiSubOptimizer {
         previousBestScore = highest.score;
         generationsWithoutImprovement = 0;
 
-        // Apply local search on the best solution periodically
+        // Apply local search on the best solution periodically (less frequently for speed)
         if (useLocalSearch && generation % 5 === 0 && generation > 0) {
           const improved = this.localSearch(
             highest.param,
             subToOptimize,
             previousValidSum,
-            theo
+            theo,
+            15 // Quick local search during evolution
           );
           if (improved.score > highest.score) {
             evaluated[0] = improved;
@@ -517,10 +532,10 @@ class MultiSubOptimizer {
       } else {
         generationsWithoutImprovement++;
 
-        // Inject diversity when stuck
+        // Inject diversity when stuck (less frequently for speed)
         if (
-          generationsWithoutImprovement >= 5 &&
-          generationsWithoutImprovement % 5 === 0
+          generationsWithoutImprovement >= 8 &&
+          generationsWithoutImprovement % 8 === 0
         ) {
           const diversityInjection = this.createInitialPopulation(
             Math.floor(populationSize * 0.1),
@@ -533,8 +548,10 @@ class MultiSubOptimizer {
         }
       }
 
-      // Calculate population diversity
-      lastDiversity = this.calculatePopulationDiversity(evaluated);
+      // Calculate population diversity (less frequently for speed)
+      if (generation % 3 === 0) {
+        lastDiversity = this.calculatePopulationDiversity(evaluated);
+      }
 
       if (
         generationsWithoutImprovement >= maxNoImprovementGenerations &&
@@ -627,6 +644,34 @@ class MultiSubOptimizer {
       } misses (${cacheRatio.toFixed(1)}% hit rate)`
     );
 
+    // Final intensive local search on best solutions
+    if (useLocalSearch) {
+      if (bestWithoutAllPass.score > -Infinity) {
+        const refinedWithout = this.localSearch(
+          bestWithoutAllPass.param,
+          subToOptimize,
+          previousValidSum,
+          theo,
+          50 // Reduced iterations - most improvement happens early
+        );
+        if (refinedWithout.score > bestWithoutAllPass.score) {
+          bestWithoutAllPass = refinedWithout;
+        }
+      }
+      if (bestWithAllPass.score > -Infinity) {
+        const refinedWith = this.localSearch(
+          bestWithAllPass.param,
+          subToOptimize,
+          previousValidSum,
+          theo,
+          50
+        );
+        if (refinedWith.score > bestWithAllPass.score) {
+          bestWithAllPass = refinedWith;
+        }
+      }
+    }
+
     return { bestWithAllPass, bestWithoutAllPass };
   }
 
@@ -650,8 +695,17 @@ class MultiSubOptimizer {
   }
 
   findBestCoarseParam(subToOptimize, previousValidSum, theo, testParamsList) {
+    // For large parameter spaces, use stratified sampling for speed
+    const maxSamples = 2000; // Maximum coarse evaluations
+
+    let paramsToTest = testParamsList;
+    if (testParamsList.length > maxSamples) {
+      // Use stratified sampling: ensure we cover the parameter space evenly
+      paramsToTest = this._stratifiedSample(testParamsList, maxSamples);
+    }
+
     let bestCoarse = null;
-    for (const param of testParamsList) {
+    for (const param of paramsToTest) {
       subToOptimize.param = param;
       const individual = this.evaluateParameters(subToOptimize, previousValidSum, theo);
       if (!bestCoarse || individual.score > bestCoarse.score) bestCoarse = individual;
@@ -659,17 +713,59 @@ class MultiSubOptimizer {
     return bestCoarse.param;
   }
 
+  /**
+   * Stratified sampling to cover parameter space evenly.
+   * Ensures good coverage of delay range and AllPass combinations.
+   */
+  _stratifiedSample(params, targetSize) {
+    if (params.length <= targetSize) return params;
+
+    const result = [];
+
+    // First, add samples without AllPass (important for baseline)
+    const noAllPass = params.filter(p => !p.allPass.enabled);
+    const noAllPassStep = Math.max(1, Math.floor(noAllPass.length / (targetSize * 0.3)));
+    for (let i = 0; i < noAllPass.length; i += noAllPassStep) {
+      result.push(noAllPass[i]);
+    }
+
+    // Then, add stratified samples with AllPass
+    const withAllPass = params.filter(p => p.allPass.enabled);
+    if (withAllPass.length > 0) {
+      const remaining = targetSize - result.length;
+      const allPassStep = Math.max(1, Math.floor(withAllPass.length / remaining));
+      for (
+        let i = 0;
+        i < withAllPass.length && result.length < targetSize;
+        i += allPassStep
+      ) {
+        result.push(withAllPass[i]);
+      }
+    }
+
+    return result;
+  }
+
   createHybridPopulation(coarseBest, populationSize, withAllPassProbability) {
-    const focusedCount = Math.floor(populationSize * 0.6);
+    // Balance between exploitation (focused) and exploration (random)
+    // 40% focused around best, 60% random for diversity
+    const focusedCount = Math.floor(populationSize * 0.4);
     const randomCount = populationSize - focusedCount;
     const population = [];
 
-    for (let i = 0; i < focusedCount; i++) {
+    // Add the coarse best itself (unmutated) as elite
+    population.push(structuredClone(coarseBest));
+
+    // Add focused mutations around the best
+    for (let i = 1; i < focusedCount; i++) {
       const individual = structuredClone(coarseBest);
-      this.mutate(individual, 0.2);
+      // Use varying mutation amounts for different exploration radii
+      const mutationAmount = 0.1 + this._random() * 0.3;
+      this.mutate(individual, mutationAmount);
       population.push(individual);
     }
 
+    // Add random individuals for exploration
     population.push(...this.createInitialPopulation(randomCount, withAllPassProbability));
     return population;
   }
@@ -677,20 +773,21 @@ class MultiSubOptimizer {
   // Helper method to optimize a single sub
   optimizeSingleSub(subToOptimize, previousValidSum, options = {}) {
     // Set defaults with the genetic algorithm as the default approach
+    // Aggressive defaults for speed - genetic algorithm is efficient
     const {
       method = 'genetic',
       testParamsList = null,
-      populationSize = 110,
-      generations = 80, // Number of generations for genetic algorithm
-      eliteCount = Math.max(1, Math.floor(0.13 * populationSize)), // 13% of population (integer)
-      mutationRate = 0.4, // Mutation rate for genetic algorithm (reduced from 0.5)
-      mutationAmount = 0.4, // Mutation amount for genetic algorithm
-      tournamentSize = 3, // Tournament size for selection
+      populationSize = 80,
+      generations = 50,
+      eliteCount = Math.max(2, Math.floor(0.15 * populationSize)), // 15% elitism for stability
+      mutationRate = 0.25,
+      mutationAmount = 0.2,
+      tournamentSize = 5,
       withAllPassProbability = 0.7,
-      seed = null, // Add seed parameter
-      runs = 1, // Number of independent runs
-      maxNoImprovementGenerations = 15, // Early stopping criteria (increased)
-      useLocalSearch = true, // Enable local search on elites
+      seed = null,
+      runs = 1, // Single run with good initialization
+      maxNoImprovementGenerations = 15,
+      useLocalSearch = true,
     } = options;
 
     if (!testParamsList) {
@@ -698,9 +795,7 @@ class MultiSubOptimizer {
     }
 
     // Set random seed if provided
-    if (seed === null) {
-      this._random = Math.random;
-    } else {
+    if (seed !== null) {
       this._random = this._createSeededRandom(seed);
     }
 
@@ -874,19 +969,38 @@ class MultiSubOptimizer {
 
   /**
    * Computes perceptual frequency weight based on ISO 226 and room acoustics.
+   * Uses a smooth continuous function for stable optimization.
    * Emphasizes critical subwoofer frequencies where room modes are most problematic.
+   *
+   * Based on research:
+   * - Room modes are most problematic 20-80Hz
+   * - Equal loudness contours show reduced sensitivity below 40Hz
+   * - Subwoofer-to-main crossover region (80-120Hz) needs attention
+   *
    * @param {number} freq - Frequency in Hz
-   * @returns {number} Weight between 0.3 and 1.0
+   * @returns {number} Weight between 0.1 and 1.0
    */
   computeFrequencyWeight(freq) {
-    if (freq < 20) return 0.3; // Below audible threshold
-    if (freq <= 50) return 1; // Primary room modes (max weight)
-    if (freq <= 80) return 0.95; // Secondary room modes
-    if (freq <= 100) return 0.85; // Transition region
-    if (freq <= 120) return 0.75; // Upper transition
-    if (freq <= 150) return 0.65; // Approaching crossover
-    if (freq <= 200) return 0.55; // Near subwoofer limit
-    return 0.5; // Beyond typical subwoofer range
+    // Combination of room mode importance and psychoacoustic sensitivity
+    // Peak importance around 50-60Hz where room modes are most audible
+
+    if (freq < 15) return 0.1; // Infrasonic - minimal weight
+
+    // Bell curve centered at 55Hz (primary modal region)
+    // with secondary emphasis at crossover region
+    const modalWeight = Math.exp(-Math.pow((freq - 55) / 35, 2));
+
+    // Crossover region weight (80-120Hz)
+    const crossoverWeight = 0.3 * Math.exp(-Math.pow((freq - 100) / 30, 2));
+
+    // Low frequency rolloff (below 25Hz, reduced audibility)
+    const lowFreqFactor = freq < 25 ? Math.pow(freq / 25, 1.5) : 1.0;
+
+    // High frequency rolloff (above 150Hz, less critical for subs)
+    const highFreqFactor = freq > 150 ? Math.exp(-(freq - 150) / 100) : 1.0;
+
+    const baseWeight = Math.max(modalWeight, crossoverWeight);
+    return Math.max(0.1, Math.min(1.0, baseWeight * lowFreqFactor * highFreqFactor));
   }
 
   /**
@@ -1111,45 +1225,181 @@ class MultiSubOptimizer {
   }
 
   /**
-   * Calculates flatness score using frequency-weighted standard deviation.
-   * Lower scores indicate flatter response in perceptually important regions.
+   * Calculates a comprehensive quality score for frequency response.
    *
-   * @param {Object} response - Frequency response with magnitude array
-   * @returns {number} Weighted flatness score (lower is better)
+   * Based on industry-standard metrics used by:
+   * - MSO (Multi-Sub Optimizer): Peak-to-valley minimization
+   * - Dirac Live: Weighted RMS error to target
+   * - Audyssey: Frequency-weighted smoothness
+   * - Harman/JBL: Preference-based curves
+   *
+   * Key principles:
+   * 1. DIPS ARE WORSE THAN PEAKS (asymmetric penalty)
+   *    - Dips cannot be corrected by EQ without massive amplification
+   *    - Peaks can be easily reduced with EQ
+   * 2. Narrowband nulls are especially problematic (phase cancellation)
+   * 3. Overall level (efficiency) matters for headroom
+   * 4. Smoothness in critical listening region (30-80Hz)
+   *
+   * @param {Object} response - Combined frequency response
+   * @param {Object} theoreticalMax - Theoretical maximum response
+   * @returns {number} Quality score (higher is better)
    */
-  calculateFlatnessScore(response) {
-    const magnitudes = response.magnitude;
-    const len = magnitudes.length;
+  calculateQualityScore(response, theoreticalMax) {
+    const freqs = response.freqs;
+    const magnitude = response.magnitude;
+    const theoMagnitude = theoreticalMax.magnitude;
+    const len = freqs.length;
 
-    if (len <= 1) return 0;
+    if (len === 0) return 0;
 
-    if (!this.frequencyWeights) {
-      this.lm.warn('Frequency weights unavailable, recalculating for flatness score');
-      this.frequencyWeights = this.calculateFrequencyWeights(response.freqs);
-    }
-
-    // Weighted mean (target level)
-    let weightedSum = 0;
-    let weightSum = 0;
-
-    for (let i = 0; i < len; i++) {
-      const weight = this.frequencyWeights[i];
-      weightedSum += magnitudes[i] * weight;
-      weightSum += weight;
-    }
-
-    const weightedMean = weightedSum / weightSum;
-
-    // Weighted variance
-    let weightedVariance = 0;
+    // ========================================
+    // 1. EFFICIENCY SCORE (0-100)
+    // ========================================
+    // Measures how much of the theoretical maximum we achieve
+    let efficiencySum = 0;
+    let efficiencyWeightSum = 0;
 
     for (let i = 0; i < len; i++) {
+      const actualLinear = Polar.DbToLinearGain(magnitude[i]);
+      const theoLinear = Polar.DbToLinearGain(theoMagnitude[i]);
       const weight = this.frequencyWeights[i];
-      const deviation = magnitudes[i] - weightedMean;
-      weightedVariance += weight * deviation * deviation;
+
+      if (theoLinear > 0) {
+        // Ratio of actual to theoretical (capped at 100%)
+        const ratio = Math.min(actualLinear / theoLinear, 1.0);
+        efficiencySum += ratio * weight;
+        efficiencyWeightSum += weight;
+      }
     }
 
-    return Math.sqrt(weightedVariance / weightSum);
+    const efficiency =
+      efficiencyWeightSum > 0 ? (efficiencySum / efficiencyWeightSum) * 100 : 0;
+
+    // ========================================
+    // 2. DIP PENALTY (asymmetric - dips are worse than peaks)
+    // ========================================
+    // Based on MSO methodology: penalize deviations below target more heavily
+
+    // Calculate weighted mean as reference level
+    let levelSum = 0;
+    let levelWeightSum = 0;
+    for (let i = 0; i < len; i++) {
+      levelSum += magnitude[i] * this.frequencyWeights[i];
+      levelWeightSum += this.frequencyWeights[i];
+    }
+    const referenceLevel = levelSum / levelWeightSum;
+
+    let dipPenalty = 0;
+    let peakPenalty = 0;
+
+    for (let i = 0; i < len; i++) {
+      const deviation = magnitude[i] - referenceLevel;
+      const weight = this.frequencyWeights[i];
+
+      if (deviation < 0) {
+        // DIP: Exponential penalty - small dips are OK, deep dips are catastrophic
+        // A 3dB dip is acceptable, 6dB is noticeable, 12dB+ is very bad
+        const dipDepth = -deviation;
+
+        if (dipDepth > 3) {
+          // Quadratic penalty above 3dB threshold
+          const excessDip = dipDepth - 3;
+          dipPenalty += Math.pow(excessDip, 1.8) * weight;
+        }
+      } else {
+        // PEAK: Linear penalty - peaks are less problematic (can be EQ'd)
+        const peakHeight = deviation;
+        if (peakHeight > 3) {
+          peakPenalty += (peakHeight - 3) * 0.3 * weight;
+        }
+      }
+    }
+
+    // Normalize by weight sum
+    dipPenalty = dipPenalty / levelWeightSum;
+    peakPenalty = peakPenalty / levelWeightSum;
+
+    // ========================================
+    // 3. NARROWBAND NULL DETECTION
+    // ========================================
+    // Detect sharp nulls (phase cancellation) - these are unfixable
+    let nullPenalty = 0;
+
+    for (let i = 2; i < len - 2; i++) {
+      const mag = magnitude[i];
+
+      // Local context (2 points on each side)
+      const localAvg =
+        (magnitude[i - 2] + magnitude[i - 1] + magnitude[i + 1] + magnitude[i + 2]) / 4;
+
+      const localDip = localAvg - mag;
+
+      // Detect sharp nulls (>6dB drop from local average)
+      if (localDip > 6) {
+        // Calculate Q factor of the null (narrower = worse)
+        // Find -3dB points
+        let leftIdx = i,
+          rightIdx = i;
+        const halfDepth = mag + localDip / 2;
+
+        while (leftIdx > 0 && magnitude[leftIdx] < halfDepth) leftIdx--;
+        while (rightIdx < len - 1 && magnitude[rightIdx] < halfDepth) rightIdx++;
+
+        // Narrower null = higher Q = worse (harder to fix)
+        const nullWidth = freqs[rightIdx] - freqs[leftIdx];
+        const nullQ = freqs[i] / Math.max(nullWidth, 1);
+
+        // High Q nulls in critical bass frequencies are catastrophic
+        const qFactor = Math.min(nullQ / 5, 3); // Cap at Q=15
+        const depthFactor = Math.pow(localDip / 6, 1.5);
+
+        nullPenalty += depthFactor * qFactor * this.frequencyWeights[i];
+      }
+    }
+
+    nullPenalty = nullPenalty / levelWeightSum;
+
+    // ========================================
+    // 4. SMOOTHNESS SCORE (Spectral Flatness)
+    // ========================================
+    // Penalize rapid fluctuations (ringing, comb filtering)
+    let smoothnessPenalty = 0;
+
+    for (let i = 1; i < len; i++) {
+      // Calculate slope in dB/octave
+      const octaveSpan = Math.log2(freqs[i] / freqs[i - 1]);
+      if (octaveSpan > 0) {
+        const slope = Math.abs(magnitude[i] - magnitude[i - 1]) / octaveSpan;
+
+        // Penalize slopes > 12dB/octave (natural rolloff is ~12dB/oct for subs)
+        if (slope > 12) {
+          const excessSlope = slope - 12;
+          smoothnessPenalty += excessSlope * 0.05 * this.frequencyWeights[i];
+        }
+      }
+    }
+
+    smoothnessPenalty = smoothnessPenalty / levelWeightSum;
+
+    // ========================================
+    // FINAL SCORE CALCULATION
+    // ========================================
+    // Weights determined by psychoacoustic importance:
+    // - Efficiency: Base score (we want maximum output)
+    // - Dips: Very bad (2x weight) - cannot be fixed
+    // - Nulls: Catastrophic (3x weight) - phase cancellation
+    // - Peaks: Minor issue (0.5x weight) - can be EQ'd
+    // - Smoothness: Quality factor (1x weight)
+
+    const score =
+      efficiency -
+      dipPenalty * 2.0 -
+      nullPenalty * 3.0 -
+      peakPenalty * 0.5 -
+      smoothnessPenalty * 1.0;
+
+    return score;
   }
 
   // Helper method to evaluate parameters
@@ -1158,14 +1408,38 @@ class MultiSubOptimizer {
 
     const response = this.calculateCombinedResponse([subModified, previousValidSum]);
 
-    const efficiencyRatioscore = this.calculateEfficiencyRatio(response, theoreticalMax);
+    // Use the comprehensive quality score
+    let score = this.calculateQualityScore(response, theoreticalMax);
 
-    const flatnessScore = this.calculateFlatnessScore(response);
+    // ========================================
+    // DELAY REGULARIZATION (Occam's Razor)
+    // ========================================
+    // Add a penalty for large absolute delays.
+    // This breaks ties between acoustically similar solutions,
+    // preferring solutions with smaller delays which are:
+    // 1. Easier to implement physically
+    // 2. Less prone to temporal smearing
+    // 3. More likely to be the "correct" physical alignment
+    //
+    // The penalty is strong enough to guide the optimizer toward
+    // solutions with minimal delays, but not so strong as to
+    // override significant acoustic quality differences.
+    //
+    // At typical delay ranges (±17ms), this adds up to ~2 point penalty
+    const maxDelay = Math.max(
+      Math.abs(this.config.delay.max),
+      Math.abs(this.config.delay.min)
+    );
+    if (maxDelay > 0) {
+      const normalizedDelay = Math.abs(subToOptimize.param.delay) / maxDelay;
+      // Quadratic penalty: small delays are almost free, large delays get penalized
+      const delayPenalty = Math.pow(normalizedDelay, 2) * 2.0;
+      score -= delayPenalty;
+    }
 
-    const dipPenaltyScore = this.dipPenaltyScore(response);
-
-    response.score = efficiencyRatioscore + flatnessScore - dipPenaltyScore;
-    response.param = subToOptimize.param;
+    response.score = score;
+    // CRITICAL: Store a deep copy of params to prevent mutation issues with cache
+    response.param = structuredClone(subToOptimize.param);
     response.hasAllPass = subToOptimize.param.allPass.enabled;
 
     return response;
@@ -1180,7 +1454,12 @@ class MultiSubOptimizer {
 
     if (this._evaluationCache.has(cacheKey)) {
       this._cacheHits++;
-      return this._evaluationCache.get(cacheKey);
+      const cached = this._evaluationCache.get(cacheKey);
+      // Return a shallow copy with deep-cloned param to prevent mutation issues
+      return {
+        ...cached,
+        param: structuredClone(cached.param),
+      };
     }
 
     this._cacheMisses++;
@@ -1226,14 +1505,14 @@ class MultiSubOptimizer {
 
   /**
    * Local search (hill climbing) to refine a solution.
-   * Explores small perturbations around the current best.
+   * Uses best-improvement strategy with adaptive step sizes.
    */
   localSearch(
     param,
     subToOptimize,
     previousValidSum,
     theoreticalMax,
-    maxIterations = 20
+    maxIterations = 30
   ) {
     let currentParam = structuredClone(param);
     subToOptimize.param = currentParam;
@@ -1242,79 +1521,91 @@ class MultiSubOptimizer {
       previousValidSum,
       theoreticalMax
     );
-    let improved = true;
-    let iterations = 0;
 
-    const stepSizes = {
-      delay: this.config.delay.step * 2,
-      gain: this.config.gain.step * 2,
-      allPassFreq: this.config.allPass?.frequency?.step
-        ? this.config.allPass.frequency.step * 2
-        : 1,
-      allPassQ: this.config.allPass?.q?.step ? this.config.allPass.q.step * 2 : 0.1,
-    };
+    // Multi-scale search: start coarse, then refine
+    const scales = [4.0, 2.0, 1.0, 0.5, 0.25];
 
-    while (improved && iterations < maxIterations) {
-      improved = false;
-      iterations++;
+    for (const stepMultiplier of scales) {
+      let iterationsAtScale = Math.ceil(maxIterations / scales.length);
 
-      // Try perturbations in each dimension
-      const perturbations = [
-        { key: 'delay', delta: stepSizes.delay },
-        { key: 'delay', delta: -stepSizes.delay },
-        { key: 'gain', delta: stepSizes.gain },
-        { key: 'gain', delta: -stepSizes.gain },
-      ];
+      for (let iter = 0; iter < iterationsAtScale; iter++) {
+        const stepSizes = {
+          delay: this.config.delay.step * stepMultiplier,
+          gain: this.config.gain.step * stepMultiplier,
+          allPassFreq: this.config.allPass?.frequency?.step
+            ? this.config.allPass.frequency.step * stepMultiplier
+            : 1,
+          allPassQ: this.config.allPass?.q?.step
+            ? this.config.allPass.q.step * stepMultiplier
+            : 0.1,
+        };
 
-      if (currentParam.allPass.enabled) {
-        perturbations.push(
-          { key: 'allPassFreq', delta: stepSizes.allPassFreq },
-          { key: 'allPassFreq', delta: -stepSizes.allPassFreq },
-          { key: 'allPassQ', delta: stepSizes.allPassQ },
-          { key: 'allPassQ', delta: -stepSizes.allPassQ }
-        );
-      }
+        const perturbations = [
+          { key: 'delay', delta: stepSizes.delay },
+          { key: 'delay', delta: -stepSizes.delay },
+          { key: 'gain', delta: stepSizes.gain },
+          { key: 'gain', delta: -stepSizes.gain },
+        ];
 
-      for (const pert of perturbations) {
-        const testParam = structuredClone(currentParam);
-
-        if (pert.key === 'delay') {
-          testParam.delay = Math.max(
-            this.config.delay.min,
-            Math.min(this.config.delay.max, testParam.delay + pert.delta)
-          );
-        } else if (pert.key === 'gain') {
-          testParam.gain = Math.max(
-            this.config.gain.min,
-            Math.min(this.config.gain.max, testParam.gain + pert.delta)
-          );
-        } else if (pert.key === 'allPassFreq') {
-          testParam.allPass.frequency = Math.max(
-            this.config.allPass.frequency.min,
-            Math.min(
-              this.config.allPass.frequency.max,
-              testParam.allPass.frequency + pert.delta
-            )
-          );
-        } else if (pert.key === 'allPassQ') {
-          testParam.allPass.q = Math.max(
-            this.config.allPass.q.min,
-            Math.min(this.config.allPass.q.max, testParam.allPass.q + pert.delta)
+        if (currentParam.allPass.enabled) {
+          perturbations.push(
+            { key: 'allPassFreq', delta: stepSizes.allPassFreq },
+            { key: 'allPassFreq', delta: -stepSizes.allPassFreq },
+            { key: 'allPassQ', delta: stepSizes.allPassQ },
+            { key: 'allPassQ', delta: -stepSizes.allPassQ }
           );
         }
 
-        subToOptimize.param = testParam;
-        const testResult = this.evaluateParametersCached(
-          subToOptimize,
-          previousValidSum,
-          theoreticalMax
-        );
+        // Best-improvement strategy: evaluate all neighbors, pick the best
+        let bestNeighbor = null;
+        let bestNeighborScore = currentResult.score;
 
-        if (testResult.score > currentResult.score) {
-          currentParam = testParam;
-          currentResult = testResult;
-          improved = true;
-          break; // First improvement strategy
+        for (const pert of perturbations) {
+          const testParam = structuredClone(currentParam);
+
+          if (pert.key === 'delay') {
+            testParam.delay = Math.max(
+              this.config.delay.min,
+              Math.min(this.config.delay.max, testParam.delay + pert.delta)
+            );
+          } else if (pert.key === 'gain') {
+            testParam.gain = Math.max(
+              this.config.gain.min,
+              Math.min(this.config.gain.max, testParam.gain + pert.delta)
+            );
+          } else if (pert.key === 'allPassFreq') {
+            testParam.allPass.frequency = Math.max(
+              this.config.allPass.frequency.min,
+              Math.min(
+                this.config.allPass.frequency.max,
+                testParam.allPass.frequency + pert.delta
+              )
+            );
+          } else if (pert.key === 'allPassQ') {
+            testParam.allPass.q = Math.max(
+              this.config.allPass.q.min,
+              Math.min(this.config.allPass.q.max, testParam.allPass.q + pert.delta)
+            );
+          }
+
+          subToOptimize.param = testParam;
+          const testResult = this.evaluateParametersCached(
+            subToOptimize,
+            previousValidSum,
+            theoreticalMax
+          );
+
+          if (testResult.score > bestNeighborScore) {
+            bestNeighbor = { param: testParam, result: testResult };
+            bestNeighborScore = testResult.score;
+          }
+        }
+
+        if (bestNeighbor) {
+          currentParam = bestNeighbor.param;
+          currentResult = bestNeighbor.result;
+        } else {
+          break; // No improvement at this scale, try finer
         }
       }
     }
@@ -1613,9 +1904,21 @@ class MultiSubOptimizer {
 
   // Add a method to create seeded random function
   _createSeededRandom(seed) {
-    // Simple xorshift implementation
+    if (typeof seed !== 'number') {
+      throw new Error('Seed must be a number');
+    }
+    if (seed % 1 !== 0) {
+      throw new Error('Seed must be an integer');
+    }
+    // ensure non-zero state (zero produces only zeros)
+    if (seed === 0) {
+      throw new Error('Seed must be a non-zero integer');
+    }
+    if (seed < 0) {
+      throw new Error('Seed must be a positive integer');
+    }
     let state = seed;
-    return function () {
+    return () => {
       state ^= state << 13;
       state ^= state >>> 17;
       state ^= state << 5;
