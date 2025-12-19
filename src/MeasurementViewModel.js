@@ -1681,7 +1681,7 @@ class MeasurementViewModel {
         }
 
         lm.info(`Sarting lookup...`);
-        const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
+        const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, lm);
         const optimizerResults = optimizer.optimizeSubwoofers();
 
         for (const sub of optimizerResults.optimizedSubs) {
@@ -2350,7 +2350,7 @@ class MeasurementViewModel {
         await measurement.applyWorkingSettings();
       }
 
-      const optimizer = new MultiSubOptimizer(frequencyResponses);
+      const optimizer = new MultiSubOptimizer(frequencyResponses, MultiSubOptimizer.DEFAULT_CONFIG, lm );
       const optimizedSubsSum = optimizer.calculateCombinedResponse(frequencyResponses);
       const data = optimizer.displayResponse(optimizedSubsSum);
 
@@ -2759,7 +2759,7 @@ class MeasurementViewModel {
 
       const frequencyResponses = [channelAFrequencyResponse, channelBFrequencyResponse];
 
-      const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig);
+      const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, lm);
       const optimizerResults = optimizer.optimizeSubwoofers();
 
       const optimizedResults = optimizerResults.optimizedSubs[0].param;

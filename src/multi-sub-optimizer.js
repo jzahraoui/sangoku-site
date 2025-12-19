@@ -48,7 +48,7 @@ class MultiSubOptimizer {
    * @param {Array} subMeasurements - Array of subwoofer frequency response measurements
    * @param {Object} config - Configuration object for optimization parameters
    */
-  constructor(subMeasurements, config = MultiSubOptimizer.DEFAULT_CONFIG) {
+  constructor(subMeasurements, config = MultiSubOptimizer.DEFAULT_CONFIG, lm = console) {
     this.validateMeasurements(subMeasurements);
     this.subMeasurements = subMeasurements;
     this.optimizedSubs = [];
@@ -56,11 +56,13 @@ class MultiSubOptimizer {
     this.frequencyWeights = null;
     this.theoreticalMaxResponse = null;
 
+    this.lm = lm;
+
     // Evaluation cache for performance optimization
     this._evaluationCache = new Map();
     this._cacheHits = 0;
     this._cacheMisses = 0;
-    
+
     // Default random function (can be overridden for reproducible results)
     this._random = Math.random;
 
@@ -189,22 +191,22 @@ class MultiSubOptimizer {
   }
 
   generatesLogResults(executionTime, optimizedSubs, bestScore) {
-    lm.info('Optimized parameters:');
+    this.lm.info('Optimized parameters:');
     for (const sub of optimizedSubs) {
       const delayMs = (sub.param.delay * 1000).toFixed(2);
-      lm.info(`${sub.name}:`);
+      this.lm.info(`${sub.name}:`);
       if (sub.param.polarity === 1) {
-        lm.info(` - polarity: normal`);
+        this.lm.info(` - polarity: normal`);
       } else {
-        lm.warn(` - polarity: inverted`);
+        this.lm.warn(` - polarity: inverted`);
       }
-      lm.info(` - delay: ${delayMs}ms`);
+      this.lm.info(` - delay: ${delayMs}ms`);
       if (sub.param.allPass?.enabled) {
-        lm.success(
+        this.lm.success(
           ` - allpass: freq: ${sub.param.allPass.frequency}Hz Q: ${sub.param.allPass.q}`
         );
       } else {
-        lm.info(` - allpass: disabled`);
+        this.lm.info(` - allpass: disabled`);
       }
     }
 
@@ -215,8 +217,8 @@ class MultiSubOptimizer {
     // Format as HH:MM:SS.mmm
     const humanReadableTime = `${seconds}.${milliseconds.toString().padStart(3, '0')}s`;
 
-    lm.info(`Execution time: ${humanReadableTime}`);
-    lm.info(`Best score: ${bestScore.toFixed(2)}`);
+    this.lm.info(`Execution time: ${humanReadableTime}`);
+    this.lm.info(`Best score: ${bestScore.toFixed(2)}`);
   }
 
   prepareMeasurements() {
@@ -340,7 +342,9 @@ class MultiSubOptimizer {
       method = 'genetic'; // For larger spaces, use genetic search
     }
 
-    lm.info(`Optimizing with ${method} method: ${paramCount} test parameters per sub`);
+    this.lm.info(
+      `Optimizing with ${method} method: ${paramCount} test parameters per sub`
+    );
 
     // Pre-calculate the reference response once
     let previousValidSum = referenceSub;
@@ -536,7 +540,7 @@ class MultiSubOptimizer {
         generationsWithoutImprovement >= maxNoImprovementGenerations &&
         generation >= 20
       ) {
-        lm.debug(
+        this.lm.debug(
           `Early stopping at generation ${generation} - no improvement for ${maxNoImprovementGenerations} generations`
         );
         break;
@@ -617,7 +621,7 @@ class MultiSubOptimizer {
 
     // Log cache statistics
     const cacheRatio = (this._cacheHits / (this._cacheHits + this._cacheMisses)) * 100;
-    lm.debug(
+    this.lm.debug(
       `Evaluation cache: ${this._cacheHits} hits, ${
         this._cacheMisses
       } misses (${cacheRatio.toFixed(1)}% hit rate)`
@@ -795,7 +799,7 @@ class MultiSubOptimizer {
       sub.param.delay <= this.config.delay.min
     ) {
       const delayMs = (sub.param.delay * 1000).toFixed(2);
-      lm.warn(`WARNING: Optimal delay for ${sub.name} is at the edge: ${delayMs}ms.
+      this.lm.warn(`WARNING: Optimal delay for ${sub.name} is at the edge: ${delayMs}ms.
        This may indicate that the delay range is too narrow.`);
     }
   }
@@ -814,14 +818,14 @@ class MultiSubOptimizer {
   calculateAlignmentScore(response) {
     // Input validation
     if (!response?.magnitude?.length || !response?.phase?.length || !response?.freqs) {
-      lm.warn('Invalid response data for alignment score');
+      this.lm.warn('Invalid response data for alignment score');
       return 0;
     }
     if (
       !this.frequencyWeights ||
       this.frequencyWeights.length !== response.freqs.length
     ) {
-      lm.warn('Frequency weights not available or mismatched for alignment score');
+      this.lm.warn('Frequency weights not available or mismatched for alignment score');
       return 0; // Cannot calculate without proper weights
     }
 
@@ -1025,7 +1029,7 @@ class MultiSubOptimizer {
     }
 
     if (!this.frequencyWeights) {
-      lm.warn('Frequency weights unavailable, recalculating for dip penalty');
+      this.lm.warn('Frequency weights unavailable, recalculating for dip penalty');
       this.frequencyWeights = this.calculateFrequencyWeights(response.freqs);
     }
 
@@ -1120,7 +1124,7 @@ class MultiSubOptimizer {
     if (len <= 1) return 0;
 
     if (!this.frequencyWeights) {
-      lm.warn('Frequency weights unavailable, recalculating for flatness score');
+      this.lm.warn('Frequency weights unavailable, recalculating for flatness score');
       this.frequencyWeights = this.calculateFrequencyWeights(response.freqs);
     }
 
@@ -1244,7 +1248,9 @@ class MultiSubOptimizer {
     const stepSizes = {
       delay: this.config.delay.step * 2,
       gain: this.config.gain.step * 2,
-      allPassFreq: this.config.allPass?.frequency?.step ? this.config.allPass.frequency.step * 2 : 1,
+      allPassFreq: this.config.allPass?.frequency?.step
+        ? this.config.allPass.frequency.step * 2
+        : 1,
       allPassQ: this.config.allPass?.q?.step ? this.config.allPass.q.step * 2 : 0.1,
     };
 
@@ -1370,10 +1376,10 @@ class MultiSubOptimizer {
     if (bestWithAllPass.score == -Infinity) {
       return;
     }
-    lm.info(`Sub ${subToOptimize.name} ${method} optimization results:`);
-    lm.info(`- Best without all-pass: Score ${bestWithoutAllPass.score.toFixed(2)}`);
-    lm.info(`- Best with all-pass: Score ${bestWithAllPass.score.toFixed(2)}`);
-    lm.info(`- Improvement with all-pass: ${improvementPercentage}%`);
+    this.lm.info(`Sub ${subToOptimize.name} ${method} optimization results:`);
+    this.lm.info(`- Best without all-pass: Score ${bestWithoutAllPass.score.toFixed(2)}`);
+    this.lm.info(`- Best with all-pass: Score ${bestWithAllPass.score.toFixed(2)}`);
+    this.lm.info(`- Improvement with all-pass: ${improvementPercentage}%`);
   }
 
   // Create the next generation for genetic algorithm
@@ -1653,7 +1659,7 @@ class MultiSubOptimizer {
       bestWithAllPass.score >
         bestWithoutAllPass.score * (1 + significantImprovement / 100)
     ) {
-      lm.info(`Using all-pass filter for significant improvement`);
+      this.lm.info(`Using all-pass filter for significant improvement`);
       return bestWithAllPass;
     } else if (bestWithoutAllPass.score > 0) {
       return bestWithoutAllPass;
