@@ -767,7 +767,7 @@ button:disabled {
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.3s ease 0.7s;
 }
 
 .donate-button:hover::after,
