@@ -384,7 +384,7 @@ class MeasurementViewModel {
     };
 
     this.onFileLoaded = async (data, filename) => {
-      lm.info('Loaded file: ' + filename);
+      lm.info('Loading file: ' + filename);
 
       try {
         if (filename.endsWith('.mqx')) {
@@ -413,6 +413,8 @@ class MeasurementViewModel {
         } else {
           this.ocaFileFormat('odd');
         }
+        // reset application
+        this.resetApplicationState();
 
         // load jsonAvrData to prevent bug when avr data is not loaded
         this.jsonAvrData(data);
@@ -737,27 +739,7 @@ class MeasurementViewModel {
 
         this.error('');
 
-        store.clear();
-
-        // Reset all application state
-        for (const item of this.measurements()) {
-          item.dispose();
-        }
-        this.measurements([]);
-        this.jsonAvrData(null);
-
-        this.targetCurve('');
-        this.rewVersion('');
-        this.maxBoostIndividualValue(0);
-        this.maxBoostOverallValue(0);
-        this.loadedFileName('');
-
-        // Reset selectors to default values
-        this.selectedSpeaker('');
-        this.selectedLfeFrequency(250);
-        this.selectedAverageMethod('');
-        this.selectedMeasurementsFilter(true);
-        this.SubsFrequencyBands = null;
+        this.resetApplicationState();
 
         this.handleSuccess(`Reset successful`);
       } catch (error) {
@@ -1952,6 +1934,30 @@ class MeasurementViewModel {
 
       return this.maxDistanceInMetersError() - this.maxSubDistanceInMeters() + shift;
     });
+  }
+
+  resetApplicationState() {
+    store.clear();
+
+    // Reset all application state
+    for (const item of this.measurements()) {
+      item.dispose();
+    }
+    this.measurements([]);
+    this.jsonAvrData(null);
+
+    this.targetCurve('');
+    this.rewVersion('');
+    this.maxBoostIndividualValue(0);
+    this.maxBoostOverallValue(0);
+    this.loadedFileName('');
+
+    // Reset selectors to default values
+    this.selectedSpeaker('');
+    this.selectedLfeFrequency(250);
+    this.selectedAverageMethod('');
+    this.selectedMeasurementsFilter(true);
+    this.SubsFrequencyBands = null;
   }
 
   async updateTargetCurve(referenceMeasurement) {
