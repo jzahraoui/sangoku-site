@@ -1,5 +1,4 @@
 import Polar from './Polar.js';
-import lm from './logs.js';
 import FrequencyResponseProcessor from './frequency-response-processor.js';
 
 class MultiSubOptimizer {
@@ -45,6 +44,10 @@ class MultiSubOptimizer {
     },
   });
 
+  /**
+   * @param {Array} subMeasurements - Array of subwoofer frequency response measurements
+   * @param {Object} config - Configuration object for optimization parameters
+   */
   constructor(subMeasurements, config = MultiSubOptimizer.DEFAULT_CONFIG) {
     this.validateMeasurements(subMeasurements);
     this.subMeasurements = subMeasurements;
@@ -52,6 +55,14 @@ class MultiSubOptimizer {
     this.config = config;
     this.frequencyWeights = null;
     this.theoreticalMaxResponse = null;
+
+    // Evaluation cache for performance optimization
+    this._evaluationCache = new Map();
+    this._cacheHits = 0;
+    this._cacheMisses = 0;
+    
+    // Default random function (can be overridden for reproducible results)
+    this._random = Math.random;
 
     // Validate delay range parameters
     if (this.config.delay.min > this.config.delay.max || this.config.delay.step <= 0) {
@@ -209,69 +220,76 @@ class MultiSubOptimizer {
   }
 
   prepareMeasurements() {
-    // Normalize measurements and prepare for processing
+    const freqRangeStart = this.config.frequency.min;
+    const freqRangeEnd = this.config.frequency.max;
+
     const preparedSubs = this.subMeasurements.map(frequencyResponse => {
-      // Normalize frequency response
-      // remove outside frequency range
-      const scale = 1e7;
-      const freqRangeStart = Math.fround(this.config.frequency.min);
-      const freqRangeEnd = Math.fround(this.config.frequency.max);
+      const freqs = frequencyResponse.freqs;
+      const len = freqs.length;
 
-      // Create new arrays to store filtered values
-      const filteredFreqs = [];
-      const filteredMagnitude = [];
-      const filteredPhase = [];
-
-      // Iterate through frequencies and keep only those within range
-      for (let index = 0; index < frequencyResponse.freqs.length; index++) {
-        const freq = frequencyResponse.freqs[index];
-        const roundedFreq = Math.floor(freq * scale) / scale;
-
-        if (roundedFreq >= freqRangeStart && roundedFreq <= freqRangeEnd) {
-          filteredFreqs.push(freq);
-          filteredMagnitude.push(frequencyResponse.magnitude[index]);
-          filteredPhase.push(frequencyResponse.phase[index]);
-        }
+      // Binary search for start index (first freq >= freqRangeStart)
+      let startIdx = 0;
+      let lo = 0,
+        hi = len;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (freqs[mid] < freqRangeStart) lo = mid + 1;
+        else hi = mid;
       }
-      return {
-        measurement: frequencyResponse.measurement,
-        name: frequencyResponse.name,
-        freqs: filteredFreqs,
-        magnitude: new Float32Array(filteredMagnitude),
-        phase: new Float32Array(filteredPhase),
-        freqStep: frequencyResponse.freqStep,
-        endFreq: filteredFreqs.at(-1),
-        startFreq: filteredFreqs[0],
-        param: MultiSubOptimizer.EMPTY_CONFIG,
-        ppo: frequencyResponse.ppo,
-      };
+      startIdx = lo;
+
+      // Binary search for end index (last freq <= freqRangeEnd)
+      let endIdx = len;
+      lo = startIdx;
+      hi = len;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (freqs[mid] <= freqRangeEnd) lo = mid + 1;
+        else hi = mid;
+      }
+      endIdx = lo;
+
+      // Slice typed arrays directly (O(n) copy but no branching)
+      const validCount = endIdx - startIdx;
+      const filteredFreqs = freqs.slice(startIdx, endIdx);
+      const filteredMagnitude = frequencyResponse.magnitude.slice(startIdx, endIdx);
+      const filteredPhase = frequencyResponse.phase.slice(startIdx, endIdx);
+
+      // copy frequencyResponse object with filtered data
+      const copiedFrequencyResponse = { ...frequencyResponse };
+      copiedFrequencyResponse.freqs = filteredFreqs;
+      copiedFrequencyResponse.magnitude = filteredMagnitude;
+      copiedFrequencyResponse.phase = filteredPhase;
+      copiedFrequencyResponse.startFreq = filteredFreqs[0];
+      copiedFrequencyResponse.endFreq = filteredFreqs[validCount - 1];
+      copiedFrequencyResponse.param = MultiSubOptimizer.EMPTY_CONFIG;
+
+      return copiedFrequencyResponse;
     });
 
-    // check if all measurements have the same frequency points
+    // Validate all measurements have identical frequency points
     const firstFreqs = preparedSubs[0].freqs;
-    const preparedSubsWithoutFirst = preparedSubs.slice(1);
-    for (let index = 0; index < preparedSubsWithoutFirst.length; index++) {
-      const sub = preparedSubsWithoutFirst[index];
-      if (sub.freqs.length !== firstFreqs.length) {
+    const firstLen = firstFreqs.length;
+    const tolerance = 1e-3; // Tolerance for floating-point comparison
+
+    for (let subIdx = 1; subIdx < preparedSubs.length; subIdx++) {
+      const subFreqs = preparedSubs[subIdx].freqs;
+      if (subFreqs.length !== firstLen) {
         throw new Error(
-          `Sub ${index} has a different number of frequency points than the first sub`
+          `Sub ${subIdx} has a different number of frequency points than the first sub`
         );
       }
-      for (let freqIndex = 0; freqIndex < sub.freqs.length; freqIndex++) {
-        const freq = sub.freqs[freqIndex];
-        const precision = 1e3;
-        const roundedFreq = Math.floor(freq * precision) / precision;
-        const roundedFirstFreq =
-          Math.floor(firstFreqs[freqIndex] * precision) / precision;
-        if (roundedFreq !== roundedFirstFreq) {
+      // Compare frequencies using tolerance (faster than rounding)
+      for (let i = 0; i < firstLen; i++) {
+        if (Math.abs(subFreqs[i] - firstFreqs[i]) > tolerance) {
           throw new Error(
-            `Sub ${index} has a different frequency point at index ${freqIndex} than the first sub`
+            `Sub ${subIdx} has a different frequency point at index ${i} than the first sub`
           );
         }
       }
     }
 
-    this.frequencyWeights = this.calculateFrequencyWeights(preparedSubs[0].freqs);
+    this.frequencyWeights = this.calculateFrequencyWeights(firstFreqs);
 
     return preparedSubs;
   }
@@ -400,21 +418,20 @@ class MultiSubOptimizer {
   }
 
   updateBestSolutions(evaluated) {
-    evaluated.sort((a, b) => b.score - a.score);
-
+    // Note: evaluated is assumed to be already sorted by score descending
     let bestWithAllPass = { score: -Infinity };
     let bestWithoutAllPass = { score: -Infinity };
 
+    // Single pass through sorted array to find best of each type
     for (const individual of evaluated) {
-      if (individual.hasAllPass && individual.score > bestWithAllPass.score) {
+      if (individual.hasAllPass && bestWithAllPass.score === -Infinity) {
         bestWithAllPass = individual;
-        break;
-      }
-    }
-
-    for (const individual of evaluated) {
-      if (!individual.hasAllPass && individual.score > bestWithoutAllPass.score) {
+      } else if (!individual.hasAllPass && bestWithoutAllPass.score === -Infinity) {
         bestWithoutAllPass = individual;
+      }
+
+      // Early exit when both found
+      if (bestWithAllPass.score !== -Infinity && bestWithoutAllPass.score !== -Infinity) {
         break;
       }
     }
@@ -431,6 +448,7 @@ class MultiSubOptimizer {
       mutationRate,
       mutationAmount,
       maxNoImprovementGenerations,
+      useLocalSearch = true,
     } = options;
 
     let bestWithAllPass = { score: -Infinity };
@@ -438,12 +456,24 @@ class MultiSubOptimizer {
     let generationsWithoutImprovement = 0;
     let previousBestScore = -Infinity;
 
+    // Track population diversity for adaptive parameters
+    let lastDiversity = 1.0;
+
     for (let generation = 0; generation < generations; generation++) {
-      const adaptiveMutation = mutationAmount * (1 - generation / generations);
+      // Exponential decay with floor for adaptive mutation (better than linear)
+      const decayFactor = Math.exp((-3 * generation) / generations);
+      const adaptiveMutation = mutationAmount * Math.max(0.1, decayFactor);
+
+      // Adaptive mutation rate based on diversity
+      const adaptiveMutationRate = mutationRate * (lastDiversity < 0.3 ? 1.5 : 1.0);
+
       const evaluated = population.map(param => {
         subToOptimize.param = param;
-        return this.evaluateParameters(subToOptimize, previousValidSum, theo);
+        return this.evaluateParametersCached(subToOptimize, previousValidSum, theo);
       });
+
+      // Sort evaluated array (CRITICAL FIX: was missing before accessing evaluated[0])
+      evaluated.sort((a, b) => b.score - a.score);
 
       const best = this.updateBestSolutions(evaluated);
       if (best.bestWithAllPass.score > bestWithAllPass.score)
@@ -451,14 +481,56 @@ class MultiSubOptimizer {
       if (best.bestWithoutAllPass.score > bestWithoutAllPass.score)
         bestWithoutAllPass = best.bestWithoutAllPass;
 
+      // Now evaluated[0] is correctly the highest scorer
       const highest = evaluated[0];
 
       if (highest.score > previousBestScore) {
         previousBestScore = highest.score;
         generationsWithoutImprovement = 0;
+
+        // Apply local search on the best solution periodically
+        if (useLocalSearch && generation % 5 === 0 && generation > 0) {
+          const improved = this.localSearch(
+            highest.param,
+            subToOptimize,
+            previousValidSum,
+            theo
+          );
+          if (improved.score > highest.score) {
+            evaluated[0] = improved;
+            previousBestScore = improved.score;
+            // Update best tracking
+            if (improved.hasAllPass && improved.score > bestWithAllPass.score) {
+              bestWithAllPass = improved;
+            } else if (
+              !improved.hasAllPass &&
+              improved.score > bestWithoutAllPass.score
+            ) {
+              bestWithoutAllPass = improved;
+            }
+          }
+        }
       } else {
         generationsWithoutImprovement++;
+
+        // Inject diversity when stuck
+        if (
+          generationsWithoutImprovement >= 5 &&
+          generationsWithoutImprovement % 5 === 0
+        ) {
+          const diversityInjection = this.createInitialPopulation(
+            Math.floor(populationSize * 0.1),
+            options.withAllPassProbability || 0.7
+          );
+          // Replace worst individuals with fresh random ones
+          for (let i = 0; i < diversityInjection.length && i < evaluated.length; i++) {
+            evaluated[evaluated.length - 1 - i].param = diversityInjection[i];
+          }
+        }
       }
+
+      // Calculate population diversity
+      lastDiversity = this.calculatePopulationDiversity(evaluated);
 
       if (
         generationsWithoutImprovement >= maxNoImprovementGenerations &&
@@ -474,9 +546,9 @@ class MultiSubOptimizer {
         population = this.createNextGeneration(
           evaluated,
           populationSize,
-          eliteCount,
+          Math.floor(eliteCount), // Ensure integer
           tournamentSize,
-          mutationRate,
+          adaptiveMutationRate,
           adaptiveMutation
         );
       }
@@ -496,7 +568,11 @@ class MultiSubOptimizer {
       mutationRate,
       mutationAmount,
       maxNoImprovementGenerations,
+      useLocalSearch = true,
     } = options;
+
+    // Clear cache at start of optimization
+    this.clearEvaluationCache();
 
     const coarseBest = this.findBestCoarseParam(
       subToOptimize,
@@ -523,11 +599,13 @@ class MultiSubOptimizer {
         {
           generations,
           populationSize,
-          eliteCount,
+          eliteCount: Math.floor(eliteCount), // Ensure integer
           tournamentSize,
           mutationRate,
           mutationAmount,
           maxNoImprovementGenerations,
+          withAllPassProbability,
+          useLocalSearch,
         }
       );
 
@@ -536,6 +614,14 @@ class MultiSubOptimizer {
       if (result.bestWithoutAllPass.score > bestWithoutAllPass.score)
         bestWithoutAllPass = result.bestWithoutAllPass;
     }
+
+    // Log cache statistics
+    const cacheRatio = (this._cacheHits / (this._cacheHits + this._cacheMisses)) * 100;
+    lm.debug(
+      `Evaluation cache: ${this._cacheHits} hits, ${
+        this._cacheMisses
+      } misses (${cacheRatio.toFixed(1)}% hit rate)`
+    );
 
     return { bestWithAllPass, bestWithoutAllPass };
   }
@@ -592,14 +678,15 @@ class MultiSubOptimizer {
       testParamsList = null,
       populationSize = 110,
       generations = 80, // Number of generations for genetic algorithm
-      eliteCount = 0.13 * populationSize, // 13% of population
-      mutationRate = 0.5, // Mutation rate for genetic algorithm
+      eliteCount = Math.max(1, Math.floor(0.13 * populationSize)), // 13% of population (integer)
+      mutationRate = 0.4, // Mutation rate for genetic algorithm (reduced from 0.5)
       mutationAmount = 0.4, // Mutation amount for genetic algorithm
       tournamentSize = 3, // Tournament size for selection
       withAllPassProbability = 0.7,
       seed = null, // Add seed parameter
       runs = 1, // Number of independent runs
-      maxNoImprovementGenerations = 10, // Early stopping criteria
+      maxNoImprovementGenerations = 15, // Early stopping criteria (increased)
+      useLocalSearch = true, // Enable local search on elites
     } = options;
 
     if (!testParamsList) {
@@ -637,6 +724,7 @@ class MultiSubOptimizer {
               mutationRate,
               mutationAmount,
               maxNoImprovementGenerations,
+              useLocalSearch,
             }
           )
         : this.runClassicOptimization(
@@ -1077,6 +1165,191 @@ class MultiSubOptimizer {
     response.hasAllPass = subToOptimize.param.allPass.enabled;
 
     return response;
+  }
+
+  /**
+   * Cached version of evaluateParameters for performance optimization.
+   * Uses a hash of the parameters to avoid redundant calculations.
+   */
+  evaluateParametersCached(subToOptimize, previousValidSum, theoreticalMax) {
+    const cacheKey = this._hashParam(subToOptimize.param);
+
+    if (this._evaluationCache.has(cacheKey)) {
+      this._cacheHits++;
+      return this._evaluationCache.get(cacheKey);
+    }
+
+    this._cacheMisses++;
+    const result = this.evaluateParameters(
+      subToOptimize,
+      previousValidSum,
+      theoreticalMax
+    );
+
+    // Limit cache size to prevent memory issues
+    if (this._evaluationCache.size > 10000) {
+      // Clear oldest entries (simple strategy: clear half)
+      const keysToDelete = Array.from(this._evaluationCache.keys()).slice(0, 5000);
+      keysToDelete.forEach(key => this._evaluationCache.delete(key));
+    }
+
+    this._evaluationCache.set(cacheKey, result);
+    return result;
+  }
+
+  /**
+   * Creates a hash key for parameter caching.
+   */
+  _hashParam(param) {
+    const precision = 1e6;
+    const d = Math.round(param.delay * precision);
+    const g = Math.round(param.gain * precision);
+    const p = param.polarity;
+    const af = param.allPass.enabled ? Math.round(param.allPass.frequency * 100) : 0;
+    const aq = param.allPass.enabled ? Math.round(param.allPass.q * 1000) : 0;
+    const ae = param.allPass.enabled ? 1 : 0;
+    return `${d}|${g}|${p}|${ae}|${af}|${aq}`;
+  }
+
+  /**
+   * Clears the evaluation cache. Call when starting optimization for a new sub.
+   */
+  clearEvaluationCache() {
+    this._evaluationCache.clear();
+    this._cacheHits = 0;
+    this._cacheMisses = 0;
+  }
+
+  /**
+   * Local search (hill climbing) to refine a solution.
+   * Explores small perturbations around the current best.
+   */
+  localSearch(
+    param,
+    subToOptimize,
+    previousValidSum,
+    theoreticalMax,
+    maxIterations = 20
+  ) {
+    let currentParam = structuredClone(param);
+    subToOptimize.param = currentParam;
+    let currentResult = this.evaluateParametersCached(
+      subToOptimize,
+      previousValidSum,
+      theoreticalMax
+    );
+    let improved = true;
+    let iterations = 0;
+
+    const stepSizes = {
+      delay: this.config.delay.step * 2,
+      gain: this.config.gain.step * 2,
+      allPassFreq: this.config.allPass?.frequency?.step ? this.config.allPass.frequency.step * 2 : 1,
+      allPassQ: this.config.allPass?.q?.step ? this.config.allPass.q.step * 2 : 0.1,
+    };
+
+    while (improved && iterations < maxIterations) {
+      improved = false;
+      iterations++;
+
+      // Try perturbations in each dimension
+      const perturbations = [
+        { key: 'delay', delta: stepSizes.delay },
+        { key: 'delay', delta: -stepSizes.delay },
+        { key: 'gain', delta: stepSizes.gain },
+        { key: 'gain', delta: -stepSizes.gain },
+      ];
+
+      if (currentParam.allPass.enabled) {
+        perturbations.push(
+          { key: 'allPassFreq', delta: stepSizes.allPassFreq },
+          { key: 'allPassFreq', delta: -stepSizes.allPassFreq },
+          { key: 'allPassQ', delta: stepSizes.allPassQ },
+          { key: 'allPassQ', delta: -stepSizes.allPassQ }
+        );
+      }
+
+      for (const pert of perturbations) {
+        const testParam = structuredClone(currentParam);
+
+        if (pert.key === 'delay') {
+          testParam.delay = Math.max(
+            this.config.delay.min,
+            Math.min(this.config.delay.max, testParam.delay + pert.delta)
+          );
+        } else if (pert.key === 'gain') {
+          testParam.gain = Math.max(
+            this.config.gain.min,
+            Math.min(this.config.gain.max, testParam.gain + pert.delta)
+          );
+        } else if (pert.key === 'allPassFreq') {
+          testParam.allPass.frequency = Math.max(
+            this.config.allPass.frequency.min,
+            Math.min(
+              this.config.allPass.frequency.max,
+              testParam.allPass.frequency + pert.delta
+            )
+          );
+        } else if (pert.key === 'allPassQ') {
+          testParam.allPass.q = Math.max(
+            this.config.allPass.q.min,
+            Math.min(this.config.allPass.q.max, testParam.allPass.q + pert.delta)
+          );
+        }
+
+        subToOptimize.param = testParam;
+        const testResult = this.evaluateParametersCached(
+          subToOptimize,
+          previousValidSum,
+          theoreticalMax
+        );
+
+        if (testResult.score > currentResult.score) {
+          currentParam = testParam;
+          currentResult = testResult;
+          improved = true;
+          break; // First improvement strategy
+        }
+      }
+    }
+
+    return currentResult;
+  }
+
+  /**
+   * Calculates population diversity based on parameter variance.
+   * Returns value between 0 (no diversity) and 1 (high diversity).
+   */
+  calculatePopulationDiversity(evaluated) {
+    if (evaluated.length < 2) return 1.0;
+
+    const params = evaluated.map(e => e.param);
+
+    // Calculate variance for delay (normalized)
+    const delays = params.map(p => p.delay);
+    const delayRange = this.config.delay.max - this.config.delay.min;
+    const delayMean = delays.reduce((a, b) => a + b, 0) / delays.length;
+    const delayVariance =
+      delays.reduce((sum, d) => sum + Math.pow(d - delayMean, 2), 0) / delays.length;
+    const normalizedDelayVar = delayRange > 0 ? Math.sqrt(delayVariance) / delayRange : 0;
+
+    // Calculate polarity diversity
+    const polarities = params.map(p => p.polarity);
+    const polarityDiversity = Math.abs(
+      polarities.reduce((a, b) => a + b, 0) / polarities.length
+    );
+    const normalizedPolarityVar = 1 - Math.abs(polarityDiversity);
+
+    // Calculate all-pass diversity
+    let allPassDiversity = 0;
+    if (this.config.allPass.enabled) {
+      const enabledCount = params.filter(p => p.allPass.enabled).length;
+      allPassDiversity =
+        Math.min(enabledCount, params.length - enabledCount) / (params.length / 2);
+    }
+
+    // Combine diversities
+    return (normalizedDelayVar + normalizedPolarityVar + allPassDiversity) / 3;
   }
 
   calculateImprovementPercentage(scoreWithAllPass, scoreWithoutAllPass) {
