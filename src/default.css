@@ -4,59 +4,74 @@
   --black: #000000;
 
   /* Primary Brand Colors */
-  --primary-50: #e3f2fd;
-  --primary-100: #bbdefb;
-  --primary-200: #90caf9;
-  --primary-300: #64b5f6;
-  --primary-400: #42a5f5;
-  --primary-500: #1976d2;
-  --primary-600: #1565c0;
-  --primary-700: #0d47a1;
-  --primary-color: var(--primary-500);
-  --primary-hover: var(--primary-600);
+  --primary-50: #e1f0fa;
+  --primary-100: #b3d9f2;
+  --primary-200: #81c0e9;
+  --primary-300: #4fa7e0;
+  --primary-400: #2994d9;
+  --primary-500: #0381d2;
+  --primary-600: #0379cd;
+  --primary-700: #026ec6;
+  --primary-800: #0264c0;
+  --primary-900: #0151b5;
+  --primary-color: var(--primary-700);
+  --primary-hover: var(--primary-900);
 
   /* Semantic Colors - Success */
   --success-50: #e8f5e9;
   --success-100: #c8e6c9;
-  --success-500: #388e3c;
-  --success-600: #2e7d32;
-  --success-700: #1b5e20;
+  --success-200: #a5d6a7;
+  --success-300: #81c784;
+  --success-400: #66bb6a;
+  --success-500: #4caf50;
+  --success-600: #43a047;
+  --success-700: #388e3c;
+  --success-800: #2e7d32;
+  --success-900: #1b5e20;
   --success-color: var(--success-500);
-  --success-light-bg: var(--success-50);
+  --success-bg: var(--success-50);
 
   /* Semantic Colors - Error */
   --error-50: #ffebee;
   --error-100: #ffcdd2;
+  --error-200: #ef9a9a;
+  --error-300: #e57373;
+  --error-400: #ef5350;
   --error-500: #d32f2f;
   --error-600: #c62828;
   --error-700: #b71c1c;
+  --error-800: #a71818;
+  --error-900: #8b0000;
   --error-color: var(--error-500);
-  --error-light-bg: var(--error-50);
-  --error-bg: var(--error-100);
+  --error-hover: var(--error-700);
+  --error-bg: var(--error-200);
 
   /* Semantic Colors - Warning */
   --warning-50: #fff8e1;
   --warning-100: #ffecb3;
-  --warning-500: #ff9800;
-  --warning-600: #f57c00;
-  --warning-700: #e65100;
+  --warning-200: #ffe082;
+  --warning-300: #ffd54f;
+  --warning-400: #ffca28;
+  --warning-500: #ffc107;
+  --warning-600: #ffb300;
+  --warning-700: #ffa000;
+  --warning-800: #ff8f00;
+  --warning-900: #ff6f00;
   --warning-bg: var(--warning-50);
   --orange: var(--warning-600);
 
   /* Neutral Grays (Standard Scale) */
   --gray-50: #fafafa;
   --gray-100: #f5f5f5;
-  --gray-150: #f0f0f0;
   --gray-200: #eeeeee;
-  --gray-250: #e0e0e0;
-  --gray-300: #dddddd;
+  --gray-300: #e0e0e0;
   --gray-400: #bdbdbd;
   --gray-500: #9e9e9e;
   --gray-600: #757575;
   --gray-700: #616161;
   --gray-800: #424242;
   --gray-900: #212121;
-  --gray-950: #181818;
+  --gray-950: #1a1a1a;
   --gray-1000: #121212;
 
   /* Brand Specific Colors */
@@ -65,27 +80,23 @@
   --github-dark: #24292e;
   --github-dark-hover: #2f363d;
   --kofi-blue: #29abe0;
-  --patreon-red: #ff424d;
-  --patreon-red-hover: #ff5761;
+  --patreon-red: #e02838;
+  --patreon-red-hover: #f03848;
 
   /* Utility Colors */
-  --blue: #2196f3;
+  --blue: var(--primary-600);
   --blue-dark: var(--primary-500);
   --blue-light: var(--primary-50);
-  --green: #4caf50;
-  --green-dark: var(--success-500);
+  --green: var(--success-500);
+  --green-dark: var(--success-700);
   --green-light: var(--success-50);
   --lime-green: #7cb342;
-
-  /* Legacy Aliases (for backward compatibility) */
-  --blue-darker: var(--blue-dark);
-  --green-darker: var(--success-600);
   --yellow-light: var(--warning-50);
 
   /* Background Colors */
   --bg-primary: var(--gray-50);
   --bg-secondary: var(--gray-200);
-  --bg-tertiary: var(--gray-250);
+  --bg-tertiary: var(--gray-300);
 
   /* Text Colors */
   --text-primary: var(--gray-800);
@@ -93,10 +104,12 @@
 
   /* Typography */
   --font-family: Arial, sans-serif;
-  --font-size-base: 12px;
-  --font-size-sm: 0.85em;
-  --font-size-large: 1.17em;
-  --font-size-extra-large: 1.5em;
+  --font-size-base: 14px;
+  --font-size-sm: 0.833em;
+  --font-size-md: 1em;
+  --font-size-lg: 1.2em;
+  --font-size-xl: 1.44em;
+  --font-size-xxl: 1.728em;
 
   /* Spacing */
   --spacing-xs: 5px;
@@ -120,29 +133,34 @@
   --dark-divider: rgba(255, 255, 255, 0.12);
 
   /* Text - WCAG AA compliant */
-  --dark-text-primary: var(--gray-100);
+  --dark-text-primary: var(--gray-50);
   --dark-text-secondary: var(--gray-200);
   --dark-text-disabled: var(--gray-400);
 
   /* Primary Actions - Lighter for dark backgrounds */
-  --dark-accent: var(--primary-300);
-  --dark-accent-hover: var(--primary-200);
+  --dark-accent: var(--primary-200);
+  --dark-accent-hover: var(--primary-100);
+
+  --dark-success: var(--success-400);
+  --dark-success-hover: var(--success-200);
+
+  --dark-error: var(--error-200);
+  --dark-error-hover: var(--error-100);
 
   /* Status Colors - Adjusted for dark mode contrast */
-  --dark-success: #66bb6a;
-  --dark-success-hover: #81c784;
+  --dark-success-log: var(--success-800);
   --dark-success-bg: rgba(102, 187, 106, 0.15);
 
   --dark-debug: var(--gray-600);
   --dark-debug-bg: rgba(150, 150, 150, 0.15);
 
-  --dark-info: var(--primary-300);
+  --dark-info: var(--primary-700);
   --dark-info-bg: rgba(100, 181, 246, 0.15);
 
-  --dark-warning: var(--warning-600);
+  --dark-warning: var(--warning-900);
   --dark-warning-bg: rgba(255, 167, 38, 0.15);
 
-  --dark-error: var(--error-600);
+  --dark-error-log: var(--error-500);
   --dark-error-bg: rgba(239, 83, 80, 0.25);
 }
 
@@ -204,7 +222,6 @@ body {
 
 .dropzone p {
   margin: 0;
-  color: var(--gray-600);
 }
 
 .dropzone.loading {
@@ -222,18 +239,18 @@ body {
 
 .error {
   color: var(--error-color);
-  background-color: var(--error-light-bg);
+  background-color: var(--error-bg);
 }
 
 .success {
   color: var(--success-color);
-  background-color: var(--success-light-bg);
+  background-color: var(--success-bg);
 }
 
 /* Button Styles */
 button {
   background-color: var(--primary-color);
-  color: var(--white);
+  color: var(--dark-text-primary);
   border: none;
   padding: var(--spacing-md) var(--spacing-xl);
   border-radius: var(--border-radius);
@@ -327,7 +344,7 @@ button:disabled {
   position: absolute;
   top: 15px;
   right: 35px;
-  color: var(--gray-100);
+  color: var(--dark-text-primary);
   font-weight: bold;
   cursor: pointer;
 }
@@ -383,11 +400,10 @@ button:disabled {
 
 .label {
   font-weight: bold;
-  color: var(--gray-700);
 }
 
 .warning {
-  color: var(--error-color);
+  color: var(--warning-800);
 }
 
 .measurements-table {
@@ -421,6 +437,11 @@ button:disabled {
 
 .measurements-table .error {
   background-color: var(--error-bg);
+}
+
+.measurements-table .success {
+  background-color: var(--success-bg);
+  color: var(--text-primary);
 }
 
 .measurements-table tr:hover {
@@ -642,7 +663,7 @@ button:disabled {
   padding: 8px 16px;
   border-radius: 20px;
   text-decoration: none;
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
   font-weight: 500;
   transition: all 0.3s ease;
   border: 1px solid transparent;
@@ -650,7 +671,7 @@ button:disabled {
 }
 
 .donate-button i {
-  font-size: var(--font-size-extra-large);
+  font-size: var(--font-size-xl);
 }
 
 /* PayPal Button */
@@ -760,7 +781,7 @@ button:disabled {
   transform: translateX(-50%);
   padding: 5px 10px;
   background-color: var(--gray-800);
-  color: var(--white);
+  color: var(--dark-text-primary);
   border-radius: var(--border-radius);
   font-size: var(--font-size-base);
   white-space: nowrap;
@@ -795,7 +816,7 @@ button:disabled {
 
 .polling-indicator.active {
   background-color: var(--green);
-  box-shadow: 0 0 5px var(--green-darker);
+  box-shadow: 0 0 5px var(--green-dark);
 }
 
 .help-link {
@@ -817,7 +838,7 @@ button:disabled {
 .documentation {
   margin: 0 auto;
   padding: 20px;
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
   background-color: var(--bg-secondary);
 }
 
@@ -838,7 +859,7 @@ button:disabled {
 .documentation-nav {
   list-style: none;
   padding: 0;
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
 }
 
 .documentation-nav li {
@@ -897,25 +918,25 @@ button:disabled {
   padding: 0.5rem 1rem;
   border: none;
   border-radius: var(--border-radius);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .nav-button:hover {
-  background-color: var(--bg-primary);
+  background-color: var(--blue);
   transform: translateY(-1px);
 }
 
 .nav-button.active {
-  background-color: var(--blue-dark);
-  color: var(--white);
+  background-color: var(--primary-color);
+  color: var(--dark-text-primary);
 }
 
 .nav-button i {
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
 }
 
 .number-input {
@@ -958,7 +979,7 @@ button:disabled {
 .number-input input[type='number']:disabled {
   background-color: var(--bg-secondary);
   border-color: var(--gray-300);
-  color: var(--gray-500);
+  color: var(--text-primary);
   cursor: not-allowed;
 }
 
@@ -1045,7 +1066,7 @@ button:disabled {
 
 .resource-details p {
   margin-bottom: 15px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-size: var(--font-size-sm);
 }
 
@@ -1055,11 +1076,10 @@ button:disabled {
 }
 
 /* Download Buttons */
-/* Download Buttons */
 .download-button,
 .download-all-button {
   display: inline-block;
-  color: var(--white);
+  color: var(--dark-text-primary);
   border-radius: var(--border-radius);
   text-decoration: none;
   font-weight: 500;
@@ -1081,12 +1101,12 @@ button:disabled {
 }
 
 .download-all-button {
-  background-color: var(--success-color);
+  background-color: var(--green-dark);
   padding: var(--spacing-md) var(--spacing-xl);
 }
 
 .download-all-button:hover {
-  background-color: var(--success-600);
+  background-color: var(--green);
 }
 
 /* Collapsible sections */
@@ -1096,14 +1116,14 @@ button:disabled {
 
 .collapsible {
   background-color: var(--bg-secondary);
-  color: var(--gray-700);
+  color: var(--text-primary);
   cursor: pointer;
   padding: 18px;
   width: 100%;
   border: none;
   text-align: left;
   outline: none;
-  font-size: var(--font-size-extra-large);
+  font-size: var(--font-size-xl);
   transition: 0.4s;
   border-radius: var(--border-radius);
 }
@@ -1114,7 +1134,7 @@ button:disabled {
 
 .collapsible:after {
   content: '\002B';
-  color: var(--gray-600);
+  color: var(--text-secondary);
   font-weight: bold;
   float: right;
   margin-left: 5px;
@@ -1220,19 +1240,19 @@ button i,
 }
 
 .commit-title {
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
   font-weight: 600;
   margin: 0;
-  color: var(--primary-color);
+  color: var(--text-primary);
 }
 
 .commit-date {
-  color: var(--gray-600);
+  color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
 
 .commit-message {
-  color: var(--gray-700);
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -1256,7 +1276,7 @@ button i,
   border-radius: var(--border-radius);
   font-family: monospace;
   font-size: var(--font-size-sm);
-  color: var(--gray-600);
+  color: var(--text-secondary);
   margin-left: 10px;
 }
 
@@ -1265,7 +1285,7 @@ button i,
 }
 
 .error-message {
-  background-color: var(--error-light-bg);
+  background-color: var(--error-bg);
   color: var(--error-color);
   padding: 1rem;
   border-radius: 8px;
@@ -1274,8 +1294,8 @@ button i,
 
 .version-tag {
   display: inline-block;
-  background-color: var(--success-light-bg);
-  color: var(--green-darker);
+  background-color: var(--success-bg);
+  color: var(--green-dark);
   padding: 3px 8px;
   border-radius: 12px;
   font-size: var(--font-size-sm);
@@ -1370,20 +1390,6 @@ button i,
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--border-radius);
   cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.clear-btn {
-  background-color: var(--error-color);
-  color: var(--white);
-}
-
-.export-btn {
-  color: var(--white);
-}
-
-.clear-btn:hover {
-  background-color: var(--error-color);
 }
 
 .logs-content {
@@ -1407,7 +1413,7 @@ button i,
   color: var(--text-primary);
   margin-right: var(--spacing-md);
   min-width: 90px;
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
   font-weight: 500;
 }
 
@@ -1425,7 +1431,7 @@ button i,
 .log-message {
   flex: 1;
   color: var(--text-primary);
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
   font-weight: 500;
 }
 
@@ -1444,7 +1450,7 @@ button i,
 }
 .log-entry.error {
   border-left-color: var(--error-color);
-  background-color: var(--error-light-bg);
+  background-color: var(--error-bg);
 }
 .log-entry.debug {
   border-left-color: var(--gray-600);
@@ -1456,14 +1462,14 @@ button i,
 .log-entry.warn .log-level,
 .log-entry.error .log-level,
 .log-entry.debug .log-level {
-  color: var(--white);
+  color: var(--dark-text-primary);
 }
 
 .log-entry.info .log-level {
   background-color: var(--primary-color);
 }
 .log-entry.success .log-level {
-  background-color: var(--green-darker);
+  background-color: var(--green-dark);
 }
 .log-entry.warn .log-level {
   background-color: var(--orange);
@@ -1527,7 +1533,7 @@ button i,
 
 .avr-content h3 {
   margin: 15px 0 10px 0;
-  color: var(--gray-800);
+  color: var(--text-primary);
   font-size: var(--font-size-base);
   border-bottom: 1px solid var(--gray-300);
   padding-bottom: 5px;
@@ -1551,11 +1557,11 @@ button i,
 
 .avr-item .label {
   font-weight: 600;
-  color: var(--gray-700);
+  color: var(--text-primary);
 }
 
 .avr-item .value {
-  color: var(--gray-600);
+  color: var(--text-secondary);
 }
 
 .channel-list {
@@ -1567,7 +1573,7 @@ button i,
 
 .channel-badge {
   background-color: var(--primary-color);
-  color: var(--white);
+  color: var(--dark-text-primary);
   padding: 4px 10px;
   border-radius: 12px;
   font-size: var(--font-size-sm);
@@ -1588,7 +1594,7 @@ button i,
 }
 
 .output-label {
-  color: var(--gray-500);
+  color: var(--dark-text-secondary);
   font: 600 var(--font-size-base) sans-serif;
   text-align: center;
   margin-bottom: 6px;
@@ -1659,7 +1665,6 @@ body.dark-mode .control-group,
 body.dark-mode .measurement-card,
 body.dark-mode .commit,
 body.dark-mode .shrinkable-container,
-body.dark-mode .dropzone,
 body.dark-mode .log-entry,
 body.dark-mode .logs-header,
 body.dark-mode .logs-header h3,
@@ -1681,6 +1686,7 @@ body.dark-mode .combo-box,
 body.dark-mode .filter-dropdown,
 body.dark-mode .measurements-table th,
 body.dark-mode .avr-item,
+body.dark-mode .dropzone,
 body.dark-mode .logs-content,
 body.dark-mode .controls-section,
 body.dark-mode .commit-sha,
@@ -1732,7 +1738,9 @@ body.dark-mode .search-box input {
 body.dark-mode .label,
 body.dark-mode .commit-message,
 body.dark-mode .log-timestamp,
-body.dark-mode .log-message {
+body.dark-mode .log-message,
+body.dark-mode .credits-text,
+body.dark-mode .version {
   color: var(--dark-text-primary);
 }
 
@@ -1754,7 +1762,7 @@ body.dark-mode .measurements-table .error {
 
 body.dark-mode .measurements-table .success {
   background-color: var(--dark-success-bg);
-  color: var(--dark-success);
+  color: var(--dark-text-primary);
 }
 
 body.dark-mode .warning {
@@ -1788,7 +1796,7 @@ body.dark-mode .log-entry.info {
   background-color: var(--dark-info-bg);
 }
 body.dark-mode .log-entry.success {
-  border-left-color: var(--dark-success);
+  border-left-color: var(--dark-success-log);
   background-color: var(--dark-success-bg);
 }
 body.dark-mode .log-entry.warn {
@@ -1796,7 +1804,7 @@ body.dark-mode .log-entry.warn {
   background-color: var(--dark-warning-bg);
 }
 body.dark-mode .log-entry.error {
-  border-left-color: var(--dark-error);
+  border-left-color: var(--dark-error-log);
   background-color: var(--dark-error-bg);
 }
 body.dark-mode .log-entry.debug {
@@ -1808,13 +1816,13 @@ body.dark-mode .log-entry.info .log-level {
   background-color: var(--dark-info);
 }
 body.dark-mode .log-entry.success .log-level {
-  background-color: var(--dark-success);
+  background-color: var(--dark-success-log);
 }
 body.dark-mode .log-entry.warn .log-level {
   background-color: var(--dark-warning);
 }
 body.dark-mode .log-entry.error .log-level {
-  background-color: var(--dark-error);
+  background-color: var(--dark-error-log);
 }
 body.dark-mode .log-entry.debug .log-level {
   background-color: var(--dark-debug);
@@ -1851,11 +1859,11 @@ body.dark-mode .log-entry.debug .log-level {
 
 .confirm-dialog-header h3 {
   margin: 0;
-  font-size: var(--font-size-large);
+  font-size: var(--font-size-lg);
 }
 .confirm-dialog-header i {
   color: var(--warning-600);
-  font-size: var(--font-size-extra-large);
+  font-size: var(--font-size-xl);
 }
 .confirm-dialog-header.danger i {
   color: var(--error-color);
@@ -1879,7 +1887,7 @@ body.dark-mode .log-entry.debug .log-level {
   border-radius: var(--border-radius);
   cursor: pointer;
   font-weight: 500;
-  color: var(--white);
+  color: var(--dark-text-primary);
 }
 
 .confirm-dialog .btn-cancel {
@@ -1896,7 +1904,7 @@ button.danger,
 .confirm-dialog .btn-confirm:hover,
 button.danger:hover,
 .button.danger:hover {
-  background-color: var(--error-600);
+  background-color: var(--error-hover);
 }
 
 /* Dark Mode - Confirm Dialog */
@@ -1919,4 +1927,16 @@ body.dark-mode .confirm-dialog .btn-cancel {
 }
 body.dark-mode .confirm-dialog .btn-cancel:hover {
   background-color: var(--gray-600);
+}
+
+body.dark-mode .confirm-dialog .btn-confirm,
+body.dark-mode button.danger,
+body.dark-mode .button.danger {
+  background-color: var(--dark-error);
+}
+
+body.dark-mode .confirm-dialog .btn-confirm:hover,
+body.dark-mode button.danger:hover,
+body.dark-mode .button.danger:hover {
+  background-color: var(--dark-error-hover);
 }
