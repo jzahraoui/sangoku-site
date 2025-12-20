@@ -17,6 +17,38 @@
   </head>
 
   <body>
+    <!-- Dialogue de confirmation global -->
+    <div
+      id="confirmDialog"
+      class="confirm-dialog-overlay"
+      style="display: none"
+      data-bind="visible: confirmManager.showConfirmDialog"
+    >
+      <div class="confirm-dialog">
+        <div
+          class="confirm-dialog-header"
+          data-bind="css: { danger: confirmManager.isConfirmDanger }"
+        >
+          <i class="fas fa-exclamation-triangle"></i>
+          <h3 data-bind="text: confirmManager.confirmDialogTitle">Confirmation</h3>
+        </div>
+        <p data-bind="text: confirmManager.confirmDialogMessage"></p>
+        <div class="confirm-dialog-buttons">
+          <button
+            class="btn-cancel"
+            data-bind="click: confirmManager.cancelConfirmDialog"
+          >
+            <i class="fas fa-times"></i> <span data-i18n="cancel">Cancel</span>
+          </button>
+          <button
+            class="btn-confirm"
+            data-bind="click: confirmManager.executeConfirmDialog"
+          >
+            <i class="fas fa-check"></i> <span data-i18n="confirm">Confirm</span>
+          </button>
+        </div>
+      </div>
+    </div>
     <header>
       <h1 data-i18n="title">Room Correction Helper</h1>
       <button
@@ -198,12 +230,16 @@
                 </label>
                 <button
                   class="button"
-                  data-bind="click: buttonDownloadAvr, disable: isProcessing(), css: { disabled: isProcessing }"
+                  data-bind="
+                  click: buttonDownloadAvr, 
+                  disable: isProcessing(), 
+                  css: { disabled: isProcessing, loading: isProcessing }"
                   data-tooltip="Download .avr to use it in A1 Evo"
                 >
-                  <span
-                    data-bind="text: isProcessing() ? 'Processing...' : 'Download A1 .avr'"
-                  ></span>
+                  <i
+                    data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-download'"
+                  ></i>
+                  <span data-i18n="download_a1_avr">Download A1 .avr</span>
                 </button>
               </div>
             </details>
@@ -409,9 +445,10 @@
               data-bind="
               click: buttoncheckREWButton,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Click to connect or disconnect to REW"
             >
+              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-plug'"></i>
               <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
             </button>
             <button
@@ -419,34 +456,35 @@
               data-bind="
               click: renameMeasurement,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Click to rename the measurements for homogenity"
             >
-              <span data-bind="text: isProcessing() ? 'Processing...' : 'Rename'"></span>
+              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-pen'"></i>
+              <span data-i18n="rename">Rename</span>
             </button>
             <button
               class="button"
               data-bind="
-              click: buttonresetREWButton,
+              click: confirmResetMeasurements,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, invertion)"
             >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Reset Measurements'"
-              ></span>
+              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo'"></i>
+              <span data-i18n="reset_measurements">Reset Measurements</span>
             </button>
             <button
-              class="button"
+              class="button danger"
               data-bind="
-              click: buttonResetApplication,
+              click: confirmResetApplication,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Click to reset all application settings to default (including measurements, filters, and all other settings)"
             >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Reset Application'"
-              ></span>
+              <i
+                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-exclamation-triangle'"
+              ></i>
+              <span data-i18n="reset_application">Reset Application</span>
             </button>
 
             <!-- ko if: isPolling -->
@@ -657,12 +695,13 @@
               data-bind="
               click: buttoncreatesAverages,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Create averaged measurements from all positions"
             >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Averages'"
-              ></span>
+              <i
+                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-layer-group'"
+              ></i>
+              <span data-i18n="averages">Averages</span>
             </button>
             <h3 data-i18n="alignment_inside">Alignment inside the selected position</h3>
             <p data-i18n="alignment_note"></p>
@@ -671,24 +710,24 @@
               data-bind="
               click: buttonAlignPeaks,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Align measurements by time peaks"
             >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Time align'"
-              ></span>
+              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-clock'"></i>
+              <span data-i18n="time_align">Time align</span>
             </button>
             <button
               class="button"
               data-bind="
               click: buttonAlignSPL,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="First measurement will be the reference for the SPL alignment"
             >
-              <span
-                data-bind="text: isProcessing() ? 'Processing...' : 'Align SPL'"
-              ></span>
+              <i
+                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-volume-up'"
+              ></i>
+              <span data-i18n="align_spl">Align SPL</span>
             </button>
           </div>
           <!-- MSO Config Import Section -->
@@ -720,12 +759,15 @@
             <button
               class="button"
               data-bind="
-            click: buttonrevertLfeFilter,
-            disable: isProcessing(),
-            css: { disabled: isProcessing }"
+              click: buttonrevertLfeFilter,
+              disable: isProcessing(),
+              css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Revert AVR low pass filter from subwoofer measurements"
             >
-              <span data-bind="text: isProcessing() ? 'Processing...' : 'Revert'"></span>
+              <i
+                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo-alt'"
+              ></i>
+              <span data-i18n="revert">Revert</span>
             </button>
 
             <h4 data-i18n="option2">Generate automated config</h4>
@@ -814,36 +856,39 @@
                   data-bind="
                     click: buttonMultiSubOptimizer,
                     disable: isProcessing() || uniqueSubsMeasurements().length <= 1,
-                    css: { disabled: isProcessing }"
+                    css: { disabled: isProcessing, loading: isProcessing }"
                   data-tooltip="Optimize alignment for multiple subwoofers"
                 >
-                  <span
-                    data-bind="text: isProcessing() ? 'Processing...' : 'Align Sub'"
-                  ></span>
+                  <i
+                    data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-align-center'"
+                  ></i>
+                  <span data-i18n="align_sub">Align Sub</span>
                 </button>
                 <button
                   class="button"
                   data-bind="
                     click: buttonEqualizeSub,
                     disable: isProcessing(),
-                    css: { disabled: isProcessing }"
+                    css: { disabled: isProcessing, loading: isProcessing }"
                   data-tooltip="Apply equalization to subwoofers"
                 >
-                  <span
-                    data-bind="text: isProcessing() ? 'Processing...' : 'Equalize Sub'"
-                  ></span>
+                  <i
+                    data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-sliders-h'"
+                  ></i>
+                  <span data-i18n="equalize_sub">Equalize Sub</span>
                 </button>
                 <button
                   class="button"
                   data-bind="
                     click: buttonproduceSubSum,
                     disable: isProcessing(),
-                    css: { disabled: isProcessing }"
+                    css: { disabled: isProcessing, loading: isProcessing }"
                   data-tooltip="Generate preview of combined subwoofer response"
                 >
-                  <span
-                    data-bind="text: isProcessing() ? 'Processing...' : 'Preview Sub'"
-                  ></span>
+                  <i
+                    data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-eye'"
+                  ></i>
+                  <span data-i18n="preview_sub">Preview Sub</span>
                 </button>
               </div>
             </div>
@@ -859,12 +904,13 @@
                   data-bind="
                 click: buttonCreatesMsoExports,
                 disable: isProcessing(),
-                css: { disabled: isProcessing }"
+                css: { disabled: isProcessing, loading: isProcessing }"
                   data-tooltip="Export subwoofer measurements for MSO"
                 >
-                  <span
-                    data-bind="text: isProcessing() ? 'Processing...' : 'Download Sub exports'"
-                  ></span>
+                  <i
+                    data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-download'"
+                  ></i>
+                  <span data-i18n="download_sub_exports">Download Sub exports</span>
                 </button>
 
                 <!-- File Upload Area -->
@@ -914,26 +960,24 @@
                 data-bind="
               click: buttonproduceAlignedButton,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
                 data-tooltip="Find optimal alignment between subwoofer and selected speaker"
               >
-                <i class="fa fa-magic"></i>
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Find Sub Alignment'"
-                ></span>
+                <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-magic'"></i>
+                <span data-i18n="find_sub_alignment">Find Sub Alignment</span>
               </button>
               <button
                 class="button action-button"
                 data-bind="
               click: buttonAutoAdjustInversion,
               disable: isProcessing(),
-              css: { disabled: isProcessing }"
+              css: { disabled: isProcessing, loading: isProcessing }"
                 data-tooltip="Automatically adjust phase inversion for optimal response"
               >
-                <i class="fa fa-sync-alt"></i>
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Auto Adjust Inversion'"
-                ></span>
+                <i
+                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-sync-alt'"
+                ></i>
+                <span data-i18n="auto_adjust_inversion">Auto Adjust Inversion</span>
               </button>
             </div>
           </div>
@@ -1033,13 +1077,13 @@
                 data-bind="
                 click: buttoncreateOCAButton,
                 disable: isProcessing(),
-                css: { disabled: isProcessing }"
+                css: { disabled: isProcessing, loading: isProcessing }"
                 data-tooltip="Generate OCA file for upload to AVR"
               >
-                <i class="fa fa-file-export"></i>
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Create OCA File'"
-                ></span>
+                <i
+                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
+                ></i>
+                <span data-i18n="create_oca_file">Create OCA File</span>
               </button>
 
               <button
@@ -1047,13 +1091,13 @@
                 data-bind="
                 click: buttoncreateSetting,
                 disable: isProcessing(),
-                css: { disabled: isProcessing }"
+                css: { disabled: isProcessing, loading: isProcessing }"
                 data-tooltip="Export all settings to a file for backup or sharing"
               >
-                <i class="fa fa-file-export"></i>
-                <span
-                  data-bind="text: isProcessing() ? 'Processing...' : 'Create settings File'"
-                ></span>
+                <i
+                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
+                ></i>
+                <span data-i18n="create_settings_file">Create settings File</span>
               </button>
             </div>
           </div>

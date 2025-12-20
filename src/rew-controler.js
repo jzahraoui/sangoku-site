@@ -458,6 +458,13 @@ class RewController {
       // Initialize
       fetchCommits();
     });
+
+    // Fermer le dialogue avec Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && globalThis.viewModel.showConfirmDialog()) {
+        globalThis.viewModel.cancelConfirmDialog();
+      }
+    });
   }
 }
 

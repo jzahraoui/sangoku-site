@@ -16,6 +16,8 @@ import { CHANNEL_TYPES } from './audyssey.js';
 import lm from './logs.js';
 import { Room3DViewer } from './room-3d-viewer.js';
 
+import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
+
 const store = new PersistentStore('myAppData');
 
 class MeasurementViewModel {
@@ -28,6 +30,14 @@ class MeasurementViewModel {
   pollingInterval = 1000; // 1 seconds
 
   constructor() {
+    // Gestionnaire de confirmation
+    this.confirmManager = new ConfirmDialogManager();
+
+    // Exposer les observables pour Knockout
+    this.showConfirmDialog = this.confirmManager.showConfirmDialog;
+    this.confirmDialogTitle = this.confirmManager.confirmDialogTitle;
+    this.confirmDialogMessage = this.confirmManager.confirmDialogMessage;
+
     this.inhibitGraphUpdates = ko.observable(true);
     this.isPolling = ko.observable(false);
     this.pollerId = null;
@@ -1936,6 +1946,31 @@ class MeasurementViewModel {
     });
   }
 
+  // Méthodes de confirmation pour les actions sensibles
+
+  confirmResetApplication = () => {
+    this.confirmManager.show({
+      ...confirmMessages.resetApplication,
+      onConfirm: () => this.buttonResetApplication(),
+    });
+  };
+
+  confirmResetMeasurements = () => {
+    this.confirmManager.show({
+      ...confirmMessages.resetMeasurements,
+      onConfirm: () => this.buttonresetREWButton(),
+    });
+  };
+
+  // Callbacks pour le dialogue
+  cancelConfirmDialog = () => {
+    this.confirmManager.cancel();
+  };
+
+  executeConfirmDialog = () => {
+    this.confirmManager.execute();
+  };
+
   resetApplicationState() {
     store.clear();
 
@@ -2350,7 +2385,11 @@ class MeasurementViewModel {
         await measurement.applyWorkingSettings();
       }
 
-      const optimizer = new MultiSubOptimizer(frequencyResponses, MultiSubOptimizer.DEFAULT_CONFIG, lm );
+      const optimizer = new MultiSubOptimizer(
+        frequencyResponses,
+        MultiSubOptimizer.DEFAULT_CONFIG,
+        lm
+      );
       const optimizedSubsSum = optimizer.calculateCombinedResponse(frequencyResponses);
       const data = optimizer.displayResponse(optimizedSubsSum);
 
