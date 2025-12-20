@@ -1302,19 +1302,29 @@
                     value: gobalCrossover"
                     ></select>
                   </th>
-                  <th data-i18n="inverted" class="column-header">Inverted</th>
-                  <th class="action-column">
+                  <th class="column-header">
                     <button
-                      class="preview-btn action-button"
+                      class="preview-btn"
+                      data-bind="
+                    click: buttonInvertAll,
+                    disable: isProcessing(),
+                    css: { disabled: isProcessing }"
+                    >
+                      <i id="invert-icon" class="fa fa-arrow-up"></i>
+                    </button>
+                  </th>
+                  <th class="column-header">
+                    <button
+                      class="preview-btn"
                       data-bind="
                     click: buttongenratesPreview,
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <span>All previews</span>
+                      <i class="fa fa-line-chart"></i>
                     </button>
                   </th>
-                  <th>
+                  <th class="column-header">
                     <button
                       class="preview-btn"
                       data-bind="
@@ -1322,7 +1332,7 @@
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <span>All Filters</span>
+                      <i class="fa fa-wave-square"></i>
                     </button>
                   </th>
                 </tr>

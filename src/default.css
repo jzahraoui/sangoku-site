@@ -76,7 +76,6 @@
   --green-dark: var(--success-500);
   --green-light: var(--success-50);
   --lime-green: #7cb342;
-  --bg-light: #f8f9fa;
 
   /* Legacy Aliases (for backward compatibility) */
   --blue-darker: var(--blue-dark);
@@ -193,13 +192,13 @@ body {
   padding: var(--spacing-xl);
   text-align: center;
   margin: var(--spacing-xl) 0;
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .dropzone.dragover {
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   border-color: var(--gray-500);
 }
 
@@ -223,17 +222,17 @@ body {
 
 .error {
   color: var(--error-color);
-  background: var(--error-light-bg);
+  background-color: var(--error-light-bg);
 }
 
 .success {
   color: var(--success-color);
-  background: var(--success-light-bg);
+  background-color: var(--success-light-bg);
 }
 
 /* Button Styles */
 button {
-  background: var(--primary-color);
+  background-color: var(--primary-color);
   color: var(--white);
   border: none;
   padding: var(--spacing-md) var(--spacing-xl);
@@ -244,7 +243,7 @@ button {
 }
 
 button:hover {
-  background: var(--primary-hover);
+  background-color: var(--primary-hover);
 }
 
 button:disabled {
@@ -307,21 +306,21 @@ button:disabled {
 .popup-content::-webkit-scrollbar-track,
 .table-wrapper::-webkit-scrollbar-track,
 .logs-content::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   border-radius: var(--border-radius);
 }
 
 .popup-content::-webkit-scrollbar-thumb,
 .table-wrapper::-webkit-scrollbar-thumb,
 .logs-content::-webkit-scrollbar-thumb {
-  background: var(--gray-500);
+  background-color: var(--gray-500);
   border-radius: var(--border-radius);
 }
 
 .popup-content::-webkit-scrollbar-thumb:hover,
 .table-wrapper::-webkit-scrollbar-thumb:hover,
 .logs-content::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-700);
+  background-color: var(--gray-700);
 }
 
 .close-btn {
@@ -360,7 +359,7 @@ button:disabled {
   border: 1px solid var(--gray-300);
   border-radius: var(--border-radius);
   padding: var(--spacing-lg);
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   box-shadow: var(--box-shadow);
 }
 
@@ -397,11 +396,10 @@ button:disabled {
   margin: var(--spacing-xl) 0;
 }
 
-.measurements-table th:first-child,
-.measurements-table td:first-child {
+.measurements-table th:first-child {
   position: sticky;
   left: 0;
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
   z-index: 1;
 }
 
@@ -426,7 +424,7 @@ button:disabled {
 }
 
 .measurements-table tr:hover {
-  background-color: var(--bg-light);
+  background-color: var(--bg-secondary);
 }
 
 .table-wrapper {
@@ -527,7 +525,7 @@ button:disabled {
 
 .controls-section {
   padding: 20px;
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   border-radius: 8px;
 }
 
@@ -536,7 +534,7 @@ button:disabled {
   padding: 15px;
   border: 1px solid var(--gray-300);
   border-radius: var(--border-radius);
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
 }
 
 .control-group:last-child {
@@ -1140,7 +1138,7 @@ button:disabled {
 .download-status {
   margin-top: 10px;
   padding: 8px 12px;
-  background-color: var(--bg-light);
+  background-color: var(--bg-primary);
   border-radius: var(--border-radius);
   font-size: var(--font-size-sm);
   text-align: center;
@@ -1200,7 +1198,7 @@ button i,
 }
 
 .commit {
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 1.5rem;
@@ -1253,7 +1251,7 @@ button i,
 }
 
 .commit-sha {
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   padding: 2px 6px;
   border-radius: var(--border-radius);
   font-family: monospace;
@@ -1267,7 +1265,7 @@ button i,
 }
 
 .error-message {
-  background: var(--error-light-bg);
+  background-color: var(--error-light-bg);
   color: var(--error-color);
   padding: 1rem;
   border-radius: 8px;
@@ -1276,7 +1274,7 @@ button i,
 
 .version-tag {
   display: inline-block;
-  background: var(--success-light-bg);
+  background-color: var(--success-light-bg);
   color: var(--green-darker);
   padding: 3px 8px;
   border-radius: 12px;
@@ -1319,7 +1317,7 @@ button i,
   padding: 10px 15px;
   border: 1px solid var(--gray-300);
   border-radius: var(--border-radius);
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
 }
 
 @media (max-width: 768px) {
@@ -1333,7 +1331,7 @@ button i,
 }
 /* Logs Container Styles */
 .logs-container {
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
   border: 1px solid var(--gray-300);
   border-radius: var(--border-radius);
   margin: var(--spacing-lg) 0;
@@ -1348,7 +1346,7 @@ button i,
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-md) var(--spacing-lg);
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--gray-300);
   border-radius: var(--border-radius) var(--border-radius) 0 0;
 }
@@ -1376,7 +1374,7 @@ button i,
 }
 
 .clear-btn {
-  background: var(--error-color);
+  background-color: var(--error-color);
   color: var(--white);
 }
 
@@ -1385,7 +1383,7 @@ button i,
 }
 
 .clear-btn:hover {
-  background: var(--error-color);
+  background-color: var(--error-color);
 }
 
 .logs-content {
@@ -1393,7 +1391,7 @@ button i,
   overflow-y: auto;
   padding: var(--spacing-sm);
   max-height: 350px;
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
 }
 
 .log-entry {
@@ -1434,23 +1432,23 @@ button i,
 /* Log Entry Types */
 .log-entry.info {
   border-left-color: var(--primary-color);
-  background: var(--blue-light);
+  background-color: var(--blue-light);
 }
 .log-entry.success {
   border-left-color: var(--success-color);
-  background: var(--green-light);
+  background-color: var(--green-light);
 }
 .log-entry.warn {
   border-left-color: var(--orange);
-  background: var(--yellow-light);
+  background-color: var(--yellow-light);
 }
 .log-entry.error {
   border-left-color: var(--error-color);
-  background: var(--error-light-bg);
+  background-color: var(--error-light-bg);
 }
 .log-entry.debug {
   border-left-color: var(--gray-600);
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
 }
 
 .log-entry.info .log-level,
@@ -1462,36 +1460,37 @@ button i,
 }
 
 .log-entry.info .log-level {
-  background: var(--primary-color);
+  background-color: var(--primary-color);
 }
 .log-entry.success .log-level {
-  background: var(--green-darker);
+  background-color: var(--green-darker);
 }
 .log-entry.warn .log-level {
-  background: var(--orange);
+  background-color: var(--orange);
 }
 .log-entry.error .log-level {
-  background: var(--error-color);
+  background-color: var(--error-color);
 }
 .log-entry.debug .log-level {
-  background: var(--gray-600);
+  background-color: var(--gray-600);
 }
 
 .column-toggle-dropdown {
   position: relative;
   display: inline-block;
+  z-index: 1001;
 }
 
 .dropdown-content {
   display: none;
   position: absolute;
   left: 0;
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
   min-width: 200px;
   box-shadow: var(--box-shadow);
   border-radius: 8px;
   padding: 12px;
-  z-index: 1000;
+  z-index: 1002;
   margin-top: 4px;
 }
 
@@ -1509,7 +1508,7 @@ button i,
 }
 
 .dropdown-content label:hover {
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
 }
 
 .dropdown-content input[type='checkbox'] {
@@ -1545,7 +1544,7 @@ button i,
   display: flex;
   justify-content: space-between;
   padding: 8px;
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   border-radius: var(--border-radius);
   font-size: 0.9em;
 }
@@ -1567,7 +1566,7 @@ button i,
 }
 
 .channel-badge {
-  background: var(--primary-color);
+  background-color: var(--primary-color);
   color: var(--white);
   padding: 4px 10px;
   border-radius: 12px;
@@ -1581,7 +1580,7 @@ button i,
   }
 }
 .output-display {
-  background: var(--gray-900);
+  background-color: var(--gray-900);
   padding: 8px;
   border-radius: var(--border-radius);
   margin: 8px auto;
@@ -1609,7 +1608,7 @@ button i,
 }
 
 .output-display .channel-badge {
-  background: var(--lime-green);
+  background-color: var(--lime-green);
   color: var(--black);
   border-radius: 3px;
   font: 700 9px/22px sans-serif;
@@ -1703,25 +1702,25 @@ body.dark-mode .commit-header {
 body.dark-mode button,
 body.dark-mode .button,
 body.dark-mode .download-button {
-  background: var(--dark-accent);
+  background-color: var(--dark-accent);
   border-color: var(--dark-border);
   color: var(--text-primary);
 }
 
 body.dark-mode button:hover,
 body.dark-mode .button:hover {
-  background: var(--dark-accent-hover);
+  background-color: var(--dark-accent-hover);
 }
 
 body.dark-mode button:disabled,
 body.dark-mode .button:disabled {
-  background: var(--dark-bg-tertiary);
+  background-color: var(--dark-bg-tertiary);
   color: var(--dark-text-secondary);
 }
 
 body.dark-mode .dropdown-content label:hover,
 body.dark-mode .measurements-table tr:hover {
-  background: var(--dark-bg-primary);
+  background-color: var(--dark-bg-primary);
 }
 
 body.dark-mode .resource-details p,
@@ -1786,46 +1785,46 @@ body.dark-mode .shrinkable-container summary:hover {
 /* Dark Mode - Log Entry Types */
 body.dark-mode .log-entry.info {
   border-left-color: var(--dark-info);
-  background: var(--dark-info-bg);
+  background-color: var(--dark-info-bg);
 }
 body.dark-mode .log-entry.success {
   border-left-color: var(--dark-success);
-  background: var(--dark-success-bg);
+  background-color: var(--dark-success-bg);
 }
 body.dark-mode .log-entry.warn {
   border-left-color: var(--dark-warning);
-  background: var(--dark-warning-bg);
+  background-color: var(--dark-warning-bg);
 }
 body.dark-mode .log-entry.error {
   border-left-color: var(--dark-error);
-  background: var(--dark-error-bg);
+  background-color: var(--dark-error-bg);
 }
 body.dark-mode .log-entry.debug {
   border-left-color: var(--dark-debug);
-  background: var(--dark-debug-bg);
+  background-color: var(--dark-debug-bg);
 }
 
 body.dark-mode .log-entry.info .log-level {
-  background: var(--dark-info);
+  background-color: var(--dark-info);
 }
 body.dark-mode .log-entry.success .log-level {
-  background: var(--dark-success);
+  background-color: var(--dark-success);
 }
 body.dark-mode .log-entry.warn .log-level {
-  background: var(--dark-warning);
+  background-color: var(--dark-warning);
 }
 body.dark-mode .log-entry.error .log-level {
-  background: var(--dark-error);
+  background-color: var(--dark-error);
 }
 body.dark-mode .log-entry.debug .log-level {
-  background: var(--dark-debug);
+  background-color: var(--dark-debug);
 }
 
 /* Confirm Dialog */
 .confirm-dialog-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1833,7 +1832,7 @@ body.dark-mode .log-entry.debug .log-level {
 }
 
 .confirm-dialog {
-  background: var(--bg-primary);
+  background-color: var(--bg-primary);
   border-radius: var(--border-radius);
   padding: var(--spacing-xl);
   max-width: 420px;
@@ -1884,7 +1883,7 @@ body.dark-mode .log-entry.debug .log-level {
 }
 
 .confirm-dialog .btn-cancel {
-  background: var(--gray-500);
+  background-color: var(--gray-500);
 }
 .confirm-dialog .btn-confirm,
 button.danger,
@@ -1892,7 +1891,7 @@ button.danger,
   background-color: var(--error-color);
 }
 .confirm-dialog .btn-cancel:hover {
-  background: var(--gray-600);
+  background-color: var(--gray-600);
 }
 .confirm-dialog .btn-confirm:hover,
 button.danger:hover,
@@ -1902,7 +1901,7 @@ button.danger:hover,
 
 /* Dark Mode - Confirm Dialog */
 body.dark-mode .confirm-dialog {
-  background: var(--dark-bg-secondary);
+  background-color: var(--dark-bg-secondary);
   border: 1px solid var(--dark-border);
 }
 body.dark-mode .confirm-dialog-header {
@@ -1916,8 +1915,8 @@ body.dark-mode .confirm-dialog p {
   color: var(--dark-text-secondary);
 }
 body.dark-mode .confirm-dialog .btn-cancel {
-  background: var(--dark-bg-tertiary);
+  background-color: var(--dark-bg-tertiary);
 }
 body.dark-mode .confirm-dialog .btn-cancel:hover {
-  background: var(--gray-600);
+  background-color: var(--gray-600);
 }

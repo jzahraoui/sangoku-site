@@ -21,6 +21,13 @@ themeToggle.addEventListener('click', () => {
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
 });
 
+// Close dropdown when clicking outside
+globalThis.addEventListener('click', e => {
+  if (!e.target.closest('.column-toggle-dropdown')) {
+    document.getElementById('columnDropdown')?.classList.remove('show');
+  }
+});
+
 async function downloadConfig(config, channel) {
   try {
     // Convert config to YAML

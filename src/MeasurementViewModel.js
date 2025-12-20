@@ -1173,6 +1173,31 @@ class MeasurementViewModel {
       }
     };
 
+    this.buttonInvertAll = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+        for (const item of this.uniqueSpeakersMeasurements()) {
+          // display progression in the status
+          lm.info(`Inverting channel ${item.channelName()}`);
+          await item.toggleInversion();
+        }
+
+        // toggle inversion icon of element in UI invert-icon
+        const invertIcon = document.getElementById('invert-icon');
+        if (invertIcon) {
+          invertIcon.classList.toggle('fa-arrow-up');
+          invertIcon.classList.toggle('fa-arrow-down');
+        }
+
+        this.handleSuccess(`Preview generated successfully`);
+      } catch (error) {
+        this.handleError(`Inversion failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
     this.softRoll = ko.observable(false);
     this.enableDynamicEq = ko.observable(false);
     this.dynamicEqRefLevel = ko.observable(0);
