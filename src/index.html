@@ -1317,22 +1317,22 @@
                     <button
                       class="preview-btn"
                       data-bind="
-                    click: buttongenratesPreview,
+                    click: buttongeneratesFilters,
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <i class="fa fa-line-chart"></i>
+                      <i class="fa fa-sliders"></i>
                     </button>
                   </th>
                   <th class="column-header">
                     <button
                       class="preview-btn"
                       data-bind="
-                    click: buttongeneratesFilters,
+                    click: buttongenratesPreview,
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <i class="fa fa-wave-square"></i>
+                      <i class="fa fa-eye"></i>
                     </button>
                   </th>
                 </tr>
@@ -1428,19 +1428,6 @@
                       ></i>
                     </button>
                   </td>
-                  <td style="text-align: center">
-                    <button
-                      class="button"
-                      data-bind="
-                      click: previewMeasurement,
-                      disable: $parent.isProcessing(),
-                      css: { disabled: $parent.isProcessing },
-                      visible: !isSub() && isValid"
-                      data-tooltip="Create preview"
-                    >
-                      <i class="fa fa-line-chart"></i>
-                    </button>
-                  </td>
                   <td
                     style="text-align: center"
                     data-bind="css: { success: associatedFilterItem() }"
@@ -1454,7 +1441,20 @@
                       visible: !isSub() && isValid"
                       data-tooltip="Create speaker filter"
                     >
-                      <i class="fa fa-wave-square"></i>
+                      <i class="fa fa-sliders"></i>
+                    </button>
+                  </td>
+                  <td style="text-align: center">
+                    <button
+                      class="button"
+                      data-bind="
+                      click: previewMeasurement,
+                      disable: $parent.isProcessing(),
+                      css: { disabled: $parent.isProcessing },
+                      visible: !isSub() && isValid"
+                      data-tooltip="Create preview"
+                    >
+                      <i class="fa fa-eye"></i>
                     </button>
                   </td>
                 </tr>
