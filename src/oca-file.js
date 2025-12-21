@@ -219,9 +219,9 @@ export default class OCAFileGenerator {
     await filterItem.setIrWindows({
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
-      leftWindowWidthms: '0',
+      leftWindowWidthms: 0,
       rightWindowWidthms: ((sampleCount - 1) * 1000) / freq,
-      refTimems: '0',
+      refTimems: 0,
       addFDW: false,
       addMTW: false,
     });

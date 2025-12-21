@@ -10,8 +10,6 @@ class MeasurementItem {
   static MODEL_DISTANCE_CRITICAL_LIMIT = 7.35;
   static DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
   static DEFAULT_CROSSOVER_VALUE = 80;
-  static leftWindowWidthMilliseconds = 30;
-  static rightWindowWidthMilliseconds = 1000;
   static UNKNOWN_GROUP_NAME = 'UNKNOWN';
   static DEFAULT_TARGET_LEVEL = 75;
 
@@ -93,6 +91,9 @@ class MeasurementItem {
     this.isSub = ko.computed(
       () => this.parentViewModel.measurementsByGroup()[this.groupName()]?.isSub
     );
+
+    this.leftWindowWidthMilliseconds = this.isSub() ? 70 : 30;
+    this.rightWindowWidthMilliseconds = 1000;
 
     this.position = ko.computed(() => {
       const groupedMeasurements = this.parentViewModel.groupedMeasurements();
@@ -258,7 +259,9 @@ class MeasurementItem {
         .validMeasurements()
         .filter(
           response =>
-            response?.channelName() === this.channelName() && response.uuid !== this.uuid
+            response?.channelName() === this.channelName() &&
+            response.uuid !== this.uuid &&
+            response.position() !== this.position()
         );
     });
 
@@ -371,8 +374,8 @@ class MeasurementItem {
     return this.setIrWindows({
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
-      leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
-      rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
+      leftWindowWidthms: this.leftWindowWidthMilliseconds,
+      rightWindowWidthms: this.rightWindowWidthMilliseconds,
       refTimems: this.timeOfIRPeakSeconds() * 1000,
       addFDW: false,
       addMTW: false,
@@ -426,23 +429,30 @@ class MeasurementItem {
   compareIwWindows(source, target) {
     if (!source || !target) return false;
 
+    // Helper: si target a l'attribut défini, vérifier qu'il est égal à source
+    // Si target n'a pas l'attribut, accepter n'importe quelle valeur de source
+    const matches = (sourceVal, targetVal) => {
+      if (targetVal === undefined) return true; // Target n'a pas l'attribut → OK
+      return sourceVal === targetVal;
+    };
+
+    // Helper pour les valeurs numériques avec tolérance
+    const numbersMatch = (sourceVal, targetVal) => {
+      if (targetVal === undefined) return true; // Target n'a pas l'attribut → OK
+      if (sourceVal === undefined) return false; // Target a l'attribut mais pas source → KO
+      return sourceVal.toFixed(2) === targetVal.toFixed(2);
+    };
+
     return (
-      target.leftWindowType &&
-      target.leftWindowType === source.leftWindowType &&
-      target.rightWindowType &&
-      target.rightWindowType === source.rightWindowType &&
-      target.leftWindowWidthms === undefined &&
-      target.leftWindowWidthms.toFixed(2) === source.leftWindowWidthms.toFixed(2) &&
-      target.rightWindowWidthms === undefined &&
-      target.rightWindowWidthms.toFixed(2) === source.rightWindowWidthms.toFixed(2) &&
-      target.refTimems === undefined &&
-      target.refTimems.toFixed(2) === source.refTimems.toFixed(2) &&
-      target.addFDW === undefined &&
-      source.addFDW === target.addFDW &&
-      target.addMTW === undefined &&
-      source.addMTW === target.addMTW &&
-      target.mtwTimesms &&
-      MeasurementItem.arraysMatchWithTolerance(source.mtwTimesms, target.mtwTimesms)
+      matches(source.leftWindowType, target.leftWindowType) &&
+      matches(source.rightWindowType, target.rightWindowType) &&
+      numbersMatch(source.leftWindowWidthms, target.leftWindowWidthms) &&
+      numbersMatch(source.rightWindowWidthms, target.rightWindowWidthms) &&
+      numbersMatch(source.refTimems, target.refTimems) &&
+      matches(source.addFDW, target.addFDW) &&
+      matches(source.addMTW, target.addMTW) &&
+      (!target.mtwTimesms ||
+        MeasurementItem.arraysMatchWithTolerance(source.mtwTimesms, target.mtwTimesms))
     );
   }
 
@@ -794,7 +804,9 @@ class MeasurementItem {
       const index = filter.index;
       const found = currentFilters.find(f => f.index === index);
       if (!found) {
-        lm.warn(`Filter with index ${index} not found in current filters`);
+        lm.warn(
+          `Filter with index ${index} not found in current filters, make sure Generic EQ is selected`
+        );
         continue;
       }
       // set auto to false if type is all pass
@@ -960,18 +972,18 @@ class MeasurementItem {
     return this.resetFilters();
   }
 
-  async resetFilters() {
-    const emptyFilter = {
-      filters: Array.from({ length: 22 }, (_, i) => ({
-        index: i + 1,
-        type: 'None',
-        enabled: true,
-        isAuto: true,
-      })),
-    };
+  get emptyFilters() {
+    return Array.from({ length: 22 }, (_, i) => ({
+      index: i + 1,
+      type: 'None',
+      enabled: true,
+      isAuto: true,
+    }));
+  }
 
+  async resetFilters() {
     await this.deleteAssociatedFilter();
-    return this.setFilters(emptyFilter.filters);
+    return this.setFilters(this.emptyFilters);
   }
 
   async getAssociatedFilterItem() {
@@ -1150,8 +1162,8 @@ class MeasurementItem {
     }
 
     // phase correction to lower frequency can cause ringing fil
-    const startFrequency = 400;
-    const stopFrequency = 2000;
+    const startFrequency = Math.max(400, this.parentViewModel.lowerFrequencyBound());
+    const stopFrequency = Math.min(2000, this.parentViewModel.upperFrequencyBound());
     const toBeDeleted = [];
 
     try {
@@ -1166,16 +1178,7 @@ class MeasurementItem {
 
       await preview.setZeroAtIrPeak();
       await preview.resetSmoothing();
-      await preview.setIrWindows({
-        leftWindowType: 'Rectangular',
-        rightWindowType: 'Rectangular',
-        leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
-        rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
-        refTimems: this.timeOfIRPeakSeconds() * 1000,
-        addFDW: true,
-        addMTW: false,
-        fdwWidthCycles: 6,
-      });
+      await preview.setIrWindows(this.parentViewModel.irWindowsChoices[1].config);
 
       const excessPhase = await preview.createExcessPhaseCopy();
       toBeDeleted.push(excessPhase);

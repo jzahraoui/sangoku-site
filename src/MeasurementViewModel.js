@@ -158,8 +158,6 @@ class MeasurementViewModel {
         config: {
           leftWindowType: 'Rectangular',
           rightWindowType: 'Rectangular',
-          leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
-          rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
           addFDW: false,
           addMTW: false,
         },
@@ -170,8 +168,6 @@ class MeasurementViewModel {
         config: {
           leftWindowType: 'Rectangular',
           rightWindowType: 'Rectangular',
-          leftWindowWidthms: MeasurementItem.leftWindowWidthMilliseconds,
-          rightWindowWidthms: MeasurementItem.rightWindowWidthMilliseconds,
           addFDW: false,
           addMTW: true,
           mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.15],
@@ -382,14 +378,14 @@ class MeasurementViewModel {
 
       try {
         // set processing state to speed up REW operations
-        this.setProcessing(true);
+        await this.setProcessing(true);
         // sort impulses by name to have all related positions together
         adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
         for (const processedResponse of adyTools.impulses) {
           await this.processImpulseResponse(processedResponse, adyTools);
         }
       } finally {
-        this.setProcessing(false);
+        await this.setProcessing(false);
       }
     };
 
@@ -2219,7 +2215,7 @@ class MeasurementViewModel {
     }
     const initialProcessing = this.isProcessing();
     try {
-      if (!initialProcessing) this.setProcessing(true);
+      if (!initialProcessing) await this.setProcessing(true);
       lm.debug(`Setting target level from measurement: ${measurement?.title()}`);
       const targetLevel = measurement
         ? await measurement.getTargetLevel()

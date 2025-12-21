@@ -43,9 +43,6 @@ export default class RewApi {
     }
     // Validate URL to prevent SSRF attacks
     const parsedBase = new URL(baseURL);
-    if (parsedBase.hostname !== 'localhost') {
-      throw new Error('Base URL is not localhost');
-    }
     if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
       throw new Error('Base URL must use HTTP or HTTPS protocol');
     }
