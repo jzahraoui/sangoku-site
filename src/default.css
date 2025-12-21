@@ -817,19 +817,23 @@ button:disabled {
 
 /* Indicators */
 .polling-indicator {
-  display: inline-block;
-  right: -20px;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background-color: var(--gray-400);
-  transition: background-color 0.3s ease;
+  transition: color 0.3s ease;
 }
 
 .polling-indicator.active {
-  background-color: var(--green);
-  box-shadow: 0 0 5px var(--green-dark);
+  color: #00ff00;
+  text-shadow: 0 0 8px #00ff00, 0 0 15px #00ff00;
+  animation: glow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    text-shadow: 0 0 8px #00ff00, 0 0 15px #00ff00;
+  }
+  50% {
+    text-shadow: 0 0 12px #00ff00, 0 0 25px #00ff00, 0 0 35px #00ff00;
+  }
 }
 
 .help-link {
@@ -1724,6 +1728,10 @@ body.dark-mode .avr-content h3,
 body.dark-mode .commit-header {
   border-color: var(--dark-border-color);
   color: var(--dark-accent);
+}
+
+body.dark-mode .logs-container {
+  border-color: var(--dark-border-color);
 }
 
 body.dark-mode button,

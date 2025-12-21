@@ -439,7 +439,6 @@
                 />
               </label>
             </div>
-            <div class="polling-indicator" data-bind="css: { active: isPolling }"></div>
             <button
               class="button"
               data-bind="
@@ -448,7 +447,10 @@
               css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Click to connect or disconnect to REW"
             >
-              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-plug'"></i>
+              <i
+                class="fas fa-plug polling-indicator"
+                data-bind="css: { active: isPolling }"
+              ></i>
               <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
             </button>
             <button
