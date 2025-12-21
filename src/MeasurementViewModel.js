@@ -1,4 +1,4 @@
-import RewApi from './rew-api.js';
+import RewApi from './rew/rew-api.js';
 import MeasurementItem from './MeasurementItem.js';
 import PersistentStore from './PersistentStore.js';
 import BusinessTools from './BusinessTools.js';

@@ -1,4 +1,4 @@
-import RewApi from './rew-api.js';
+import RewApi from './rew/rew-api.js';
 import { CHANNEL_TYPES } from './audyssey.js';
 import lm from './logs.js';
 

@@ -4,7 +4,7 @@
  */
 
 import RewApi from './rew-api.js';
-import lm from './logs.js';
+import lm from '../logs.js';
 
 class REWEQ {
   static defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
