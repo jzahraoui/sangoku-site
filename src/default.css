@@ -120,7 +120,6 @@
 
   /* Layout */
   --max-width: 80vw;
-  --border-radius: 4px;
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 
   /* Backgrounds - Based on Material Design Dark Theme */
@@ -129,7 +128,11 @@
   --dark-bg-tertiary: var(--gray-700);
 
   /* Borders & Dividers */
-  --dark-border: var(--gray-800);
+  --border-radius: 4px;
+  --border-color: var(--gray-300);
+  --border-hover: var(--gray-500);
+  --dark-border-color: var(--gray-800);
+  --dark-border-hover: var(--gray-500);
   --dark-divider: rgba(255, 255, 255, 0.12);
 
   /* Text - WCAG AA compliant */
@@ -205,7 +208,8 @@ body {
 
 /* Dropzone Styles */
 .dropzone {
-  border: 2px dashed var(--gray-400);
+  border: 2px dashed;
+  border-color: var(--border-color);
   border-radius: var(--border-radius);
   padding: var(--spacing-xl);
   text-align: center;
@@ -217,7 +221,7 @@ body {
 
 .dropzone.dragover {
   background-color: var(--bg-secondary);
-  border-color: var(--gray-500);
+  border-color: var(--border-hover);
 }
 
 .dropzone p {
@@ -337,7 +341,7 @@ button:disabled {
 .popup-content::-webkit-scrollbar-thumb:hover,
 .table-wrapper::-webkit-scrollbar-thumb:hover,
 .logs-content::-webkit-scrollbar-thumb:hover {
-  background-color: var(--gray-700);
+  background-color: var(--bg-primary);
 }
 
 .close-btn {
@@ -359,9 +363,14 @@ button:disabled {
 .combo-box {
   padding: var(--spacing-sm);
   margin: var(--spacing-xs) 0;
-  border: 1px solid var(--gray-400);
+  border: 1px solid;
+  border-color: var(--border-color);
   border-radius: var(--border-radius);
   width: 85px;
+}
+
+.combo-box:hover {
+  border-color: var(--border-hover);
 }
 
 /* Measurement Components */
@@ -373,7 +382,8 @@ button:disabled {
 }
 
 .measurement-card {
-  border: 1px solid var(--gray-300);
+  border: 1px solid;
+  border-color: var(--border-color);
   border-radius: var(--border-radius);
   padding: var(--spacing-lg);
   background-color: var(--bg-secondary);
@@ -381,7 +391,8 @@ button:disabled {
 }
 
 .measurement-header {
-  border-bottom: 1px solid var(--gray-300);
+  border-bottom: 1px solid;
+  border-color: var(--border-color);
   margin-bottom: var(--spacing-md);
   padding-bottom: var(--spacing-md);
 }
@@ -422,7 +433,8 @@ button:disabled {
 .measurements-table th,
 .measurements-table td {
   padding: var(--spacing-sm);
-  border: 1px solid var(--gray-300);
+  border: 1px solid;
+  border-color: var(--border-color);
   text-align: left;
 }
 
@@ -507,7 +519,7 @@ button:disabled {
   top: 2px;
   width: 3px;
   height: 8px;
-  border: solid var(--white);
+  border: solid var(--dark-text-primary);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
@@ -553,7 +565,8 @@ button:disabled {
 .control-group {
   margin-bottom: 20px;
   padding: 15px;
-  border: 1px solid var(--gray-300);
+  border: 1px solid;
+  border-color: var(--border-color);
   border-radius: var(--border-radius);
   background-color: var(--bg-primary);
 }
@@ -826,7 +839,7 @@ button:disabled {
   padding: 8px 16px;
   text-decoration: none;
   color: inherit;
-  border: 1px solid var(--gray-400);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
 }
 
@@ -950,7 +963,7 @@ button:disabled {
   width: 40px;
   text-align: center;
   padding: var(--spacing-sm);
-  border: 1px solid var(--gray-300);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   font: var(--font-size-base) var(--font-family);
   transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
@@ -966,19 +979,18 @@ button:disabled {
 }
 
 .number-input input[type='number']:hover {
-  border-color: var(--gray-400);
+  border-color: var(--border-hover);
   background-color: var(--bg-secondary);
 }
 
 .number-input input[type='number']:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: var(--border-hover);
   box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
 }
 
 .number-input input[type='number']:disabled {
   background-color: var(--bg-secondary);
-  border-color: var(--gray-300);
   color: var(--text-primary);
   cursor: not-allowed;
 }
@@ -1320,7 +1332,7 @@ button i,
 .search-box input {
   width: 100%;
   padding: 10px 15px 10px 35px;
-  border: 1px solid var(--gray-300);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   font-size: var(--font-size-sm);
 }
@@ -1335,7 +1347,7 @@ button i,
 
 .filter-dropdown {
   padding: 10px 15px;
-  border: 1px solid var(--gray-300);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   background-color: var(--bg-primary);
 }
@@ -1352,7 +1364,7 @@ button i,
 /* Logs Container Styles */
 .logs-container {
   background-color: var(--bg-primary);
-  border: 1px solid var(--gray-300);
+  border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   margin: var(--spacing-lg) 0;
   max-height: 400px;
@@ -1677,12 +1689,21 @@ body.dark-mode .documentation,
 body.dark-mode .measurements-table td {
   background-color: var(--dark-bg-secondary);
   color: var(--dark-text-primary);
-  border-color: var(--dark-border);
+  border-color: var(--dark-border-color);
+}
+
+body.dark-mode .checkbox-container:hover input ~ .checkmark,
+body.dark-mode .number-input input[type='number']:hover,
+body.dark-mode .combo-box:hover,
+body.dark-mode .filter-dropdown:hover {
+  border-color: var(--dark-border-hover);
 }
 
 body.dark-mode input,
 body.dark-mode select,
 body.dark-mode .combo-box,
+body.dark-mode .number-input input[type='number'],
+body.dark-mode .checkbox-container input ~ .checkmark,
 body.dark-mode .filter-dropdown,
 body.dark-mode .measurements-table th,
 body.dark-mode .avr-item,
@@ -1696,12 +1717,12 @@ body.dark-mode .commit,
 body.dark-mode .version-tag {
   background-color: var(--dark-bg-primary);
   color: var(--dark-text-primary);
-  border-color: var(--dark-border);
+  border-color: var(--dark-border-color);
 }
 
 body.dark-mode .avr-content h3,
 body.dark-mode .commit-header {
-  border-color: var(--dark-border);
+  border-color: var(--dark-border-color);
   color: var(--dark-accent);
 }
 
@@ -1709,7 +1730,6 @@ body.dark-mode button,
 body.dark-mode .button,
 body.dark-mode .download-button {
   background-color: var(--dark-accent);
-  border-color: var(--dark-border);
   color: var(--text-primary);
 }
 
@@ -1721,7 +1741,7 @@ body.dark-mode .button:hover {
 body.dark-mode button:disabled,
 body.dark-mode .button:disabled {
   background-color: var(--dark-bg-tertiary);
-  color: var(--dark-text-secondary);
+  color: var(--dark-text-primary);
 }
 
 body.dark-mode .dropdown-content label:hover,
@@ -1910,10 +1930,10 @@ button.danger:hover,
 /* Dark Mode - Confirm Dialog */
 body.dark-mode .confirm-dialog {
   background-color: var(--dark-bg-secondary);
-  border: 1px solid var(--dark-border);
+  border-color: var(--dark-border-color);
 }
 body.dark-mode .confirm-dialog-header {
-  border-bottom-color: var(--dark-border);
+  border-bottom-color: var(--dark-border-color);
 }
 body.dark-mode .confirm-dialog-header h3,
 body.dark-mode .confirm-dialog .btn-cancel {
