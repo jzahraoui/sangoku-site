@@ -4,7 +4,6 @@
  */
 
 import RewApi from './rew-api.js';
-import lm from '../logs.js';
 
 class REWEQ {
   static defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
@@ -23,9 +22,6 @@ class REWEQ {
 
     const targetCurvePath = target?.message || target;
     if (!targetCurvePath || typeof targetCurvePath !== 'string') {
-      lm.warn(
-        'Warning: No target curve found in REW. Please set a target curve in REW for optimal performance.'
-      );
       return 'None';
     }
 

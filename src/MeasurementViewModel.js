@@ -2226,7 +2226,12 @@ class MeasurementViewModel {
         : await this.rewEq.getDefaultTargetLevel();
       const newValue = targetLevel || MeasurementItem.DEFAULT_TARGET_LEVEL;
 
-      this.targetCurve(await this.rewEq.checkTargetCurve());
+      const currentTc = await this.rewEq.checkTargetCurve();
+      if (currentTc === 'None') {
+        lm.warn('No target curve set in REW, please set a target curve first');
+      }
+
+      this.targetCurve(currentTc);
 
       const newTcName = `${this.targetCurve()} ${newValue}dB`;
 
