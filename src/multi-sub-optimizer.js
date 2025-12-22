@@ -475,7 +475,7 @@ class MultiSubOptimizer {
     let previousBestScore = -Infinity;
 
     // Track population diversity for adaptive parameters
-    let lastDiversity = 1.0;
+    let lastDiversity = 1;
 
     for (let generation = 0; generation < generations; generation++) {
       // Exponential decay with floor for adaptive mutation (better than linear)
@@ -483,7 +483,7 @@ class MultiSubOptimizer {
       const adaptiveMutation = mutationAmount * Math.max(0.1, decayFactor);
 
       // Adaptive mutation rate based on diversity
-      const adaptiveMutationRate = mutationRate * (lastDiversity < 0.3 ? 1.5 : 1.0);
+      const adaptiveMutationRate = mutationRate * (lastDiversity < 0.3 ? 1.5 : 1);
 
       const evaluated = population.map(param => {
         subToOptimize.param = param;
@@ -978,7 +978,7 @@ class MultiSubOptimizer {
    * - Subwoofer-to-main crossover region (80-120Hz) needs attention
    *
    * @param {number} freq - Frequency in Hz
-   * @returns {number} Weight between 0.1 and 1.0
+   * @returns {number} Weight between 0.1 and 1
    */
   computeFrequencyWeight(freq) {
     // Combination of room mode importance and psychoacoustic sensitivity
@@ -994,13 +994,13 @@ class MultiSubOptimizer {
     const crossoverWeight = 0.3 * Math.exp(-Math.pow((freq - 100) / 30, 2));
 
     // Low frequency rolloff (below 25Hz, reduced audibility)
-    const lowFreqFactor = freq < 25 ? Math.pow(freq / 25, 1.5) : 1.0;
+    const lowFreqFactor = freq < 25 ? Math.pow(freq / 25, 1.5) : 1;
 
     // High frequency rolloff (above 150Hz, less critical for subs)
-    const highFreqFactor = freq > 150 ? Math.exp(-(freq - 150) / 100) : 1.0;
+    const highFreqFactor = freq > 150 ? Math.exp(-(freq - 150) / 100) : 1;
 
     const baseWeight = Math.max(modalWeight, crossoverWeight);
-    return Math.max(0.1, Math.min(1.0, baseWeight * lowFreqFactor * highFreqFactor));
+    return Math.max(0.1, Math.min(1, baseWeight * lowFreqFactor * highFreqFactor));
   }
 
   /**
@@ -1267,7 +1267,7 @@ class MultiSubOptimizer {
 
       if (theoLinear > 0) {
         // Ratio of actual to theoretical (capped at 100%)
-        const ratio = Math.min(actualLinear / theoLinear, 1.0);
+        const ratio = Math.min(actualLinear / theoLinear, 1);
         efficiencySum += ratio * weight;
         efficiencyWeightSum += weight;
       }
@@ -1394,10 +1394,10 @@ class MultiSubOptimizer {
 
     const score =
       efficiency -
-      dipPenalty * 2.0 -
-      nullPenalty * 3.0 -
+      dipPenalty * 2 -
+      nullPenalty * 3 -
       peakPenalty * 0.5 -
-      smoothnessPenalty * 1.0;
+      smoothnessPenalty * 1;
 
     return score;
   }
@@ -1433,7 +1433,7 @@ class MultiSubOptimizer {
     if (maxDelay > 0) {
       const normalizedDelay = Math.abs(subToOptimize.param.delay) / maxDelay;
       // Quadratic penalty: small delays are almost free, large delays get penalized
-      const delayPenalty = Math.pow(normalizedDelay, 2) * 2.0;
+      const delayPenalty = Math.pow(normalizedDelay, 2) * 2;
       score -= delayPenalty;
     }
 
@@ -1523,7 +1523,7 @@ class MultiSubOptimizer {
     );
 
     // Multi-scale search: start coarse, then refine
-    const scales = [4.0, 2.0, 1.0, 0.5, 0.25];
+    const scales = [4, 2, 1, 0.5, 0.25];
 
     for (const stepMultiplier of scales) {
       let iterationsAtScale = Math.ceil(maxIterations / scales.length);
@@ -1618,7 +1618,7 @@ class MultiSubOptimizer {
    * Returns value between 0 (no diversity) and 1 (high diversity).
    */
   calculatePopulationDiversity(evaluated) {
-    if (evaluated.length < 2) return 1.0;
+    if (evaluated.length < 2) return 1;
 
     const params = evaluated.map(e => e.param);
 
@@ -1905,7 +1905,7 @@ class MultiSubOptimizer {
   // Add a method to create seeded random function
   _createSeededRandom(seed) {
     if (typeof seed !== 'number') {
-      throw new Error('Seed must be a number');
+      throw new TypeError('Seed must be a number');
     }
     if (seed % 1 !== 0) {
       throw new Error('Seed must be an integer');
