@@ -1521,6 +1521,125 @@ class MultiSubOptimizer {
     this._cacheMisses = 0;
   }
 
+  _buildLocalSearchStepSizes(stepMultiplier) {
+    return {
+      delay: this.config.delay.step * stepMultiplier,
+      gain: this.config.gain.step * stepMultiplier,
+      allPassFreq: this.config.allPass?.frequency?.step
+        ? this.config.allPass.frequency.step * stepMultiplier
+        : 1,
+      allPassQ: this.config.allPass?.q?.step
+        ? this.config.allPass.q.step * stepMultiplier
+        : 0.1,
+    };
+  }
+
+  _buildLocalSearchPerturbations(stepSizes, hasAllPass) {
+    const perturbations = [
+      { key: 'delay', delta: stepSizes.delay },
+      { key: 'delay', delta: -stepSizes.delay },
+      { key: 'gain', delta: stepSizes.gain },
+      { key: 'gain', delta: -stepSizes.gain },
+    ];
+
+    if (hasAllPass) {
+      perturbations.push(
+        { key: 'allPassFreq', delta: stepSizes.allPassFreq },
+        { key: 'allPassFreq', delta: -stepSizes.allPassFreq },
+        { key: 'allPassQ', delta: stepSizes.allPassQ },
+        { key: 'allPassQ', delta: -stepSizes.allPassQ }
+      );
+    }
+
+    return perturbations;
+  }
+
+  _applyLocalSearchPerturbation(param, pert) {
+    const testParam = structuredClone(param);
+
+    if (pert.key === 'delay') {
+      testParam.delay = Math.max(
+        this.config.delay.min,
+        Math.min(this.config.delay.max, testParam.delay + pert.delta)
+      );
+    } else if (pert.key === 'gain') {
+      testParam.gain = Math.max(
+        this.config.gain.min,
+        Math.min(this.config.gain.max, testParam.gain + pert.delta)
+      );
+    } else if (pert.key === 'allPassFreq') {
+      testParam.allPass.frequency = Math.max(
+        this.config.allPass.frequency.min,
+        Math.min(
+          this.config.allPass.frequency.max,
+          testParam.allPass.frequency + pert.delta
+        )
+      );
+    } else if (pert.key === 'allPassQ') {
+      testParam.allPass.q = Math.max(
+        this.config.allPass.q.min,
+        Math.min(this.config.allPass.q.max, testParam.allPass.q + pert.delta)
+      );
+    }
+
+    return testParam;
+  }
+
+  _findLocalSearchBestNeighbor(ctx, perturbations) {
+    const {
+      subToOptimize,
+      previousValidSum,
+      theoreticalMax,
+      currentParam,
+      currentScore,
+    } = ctx;
+
+    let bestNeighbor = null;
+    let bestNeighborScore = currentScore;
+
+    for (const pert of perturbations) {
+      const testParam = this._applyLocalSearchPerturbation(currentParam, pert);
+
+      subToOptimize.param = testParam;
+      const testResult = this.evaluateParametersCached(
+        subToOptimize,
+        previousValidSum,
+        theoreticalMax
+      );
+
+      if (testResult.score > bestNeighborScore) {
+        bestNeighbor = { param: testParam, result: testResult };
+        bestNeighborScore = testResult.score;
+      }
+    }
+
+    return bestNeighbor;
+  }
+
+  _runLocalSearchAtScale(ctx, stepMultiplier, iterationsAtScale) {
+    let { currentParam, currentResult } = ctx;
+    const stepSizes = this._buildLocalSearchStepSizes(stepMultiplier);
+    const perturbations = this._buildLocalSearchPerturbations(
+      stepSizes,
+      currentParam.allPass.enabled
+    );
+
+    for (let iter = 0; iter < iterationsAtScale; iter++) {
+      const bestNeighbor = this._findLocalSearchBestNeighbor(
+        { ...ctx, currentParam, currentScore: currentResult.score },
+        perturbations
+      );
+
+      if (!bestNeighbor) {
+        break;
+      }
+      currentParam = bestNeighbor.param;
+      currentResult = bestNeighbor.result;
+    }
+
+    return { currentParam, currentResult };
+  }
+
   /**
    * Local search (hill climbing) to refine a solution.
    * Uses best-improvement strategy with adaptive step sizes.
@@ -1540,92 +1659,18 @@ class MultiSubOptimizer {
       theoreticalMax
     );
 
-    // Multi-scale search: start coarse, then refine
     const scales = [4, 2, 1, 0.5, 0.25];
+    const iterationsAtScale = Math.ceil(maxIterations / scales.length);
+    const ctx = { subToOptimize, previousValidSum, theoreticalMax };
 
     for (const stepMultiplier of scales) {
-      let iterationsAtScale = Math.ceil(maxIterations / scales.length);
-
-      for (let iter = 0; iter < iterationsAtScale; iter++) {
-        const stepSizes = {
-          delay: this.config.delay.step * stepMultiplier,
-          gain: this.config.gain.step * stepMultiplier,
-          allPassFreq: this.config.allPass?.frequency?.step
-            ? this.config.allPass.frequency.step * stepMultiplier
-            : 1,
-          allPassQ: this.config.allPass?.q?.step
-            ? this.config.allPass.q.step * stepMultiplier
-            : 0.1,
-        };
-
-        const perturbations = [
-          { key: 'delay', delta: stepSizes.delay },
-          { key: 'delay', delta: -stepSizes.delay },
-          { key: 'gain', delta: stepSizes.gain },
-          { key: 'gain', delta: -stepSizes.gain },
-        ];
-
-        if (currentParam.allPass.enabled) {
-          perturbations.push(
-            { key: 'allPassFreq', delta: stepSizes.allPassFreq },
-            { key: 'allPassFreq', delta: -stepSizes.allPassFreq },
-            { key: 'allPassQ', delta: stepSizes.allPassQ },
-            { key: 'allPassQ', delta: -stepSizes.allPassQ }
-          );
-        }
-
-        // Best-improvement strategy: evaluate all neighbors, pick the best
-        let bestNeighbor = null;
-        let bestNeighborScore = currentResult.score;
-
-        for (const pert of perturbations) {
-          const testParam = structuredClone(currentParam);
-
-          if (pert.key === 'delay') {
-            testParam.delay = Math.max(
-              this.config.delay.min,
-              Math.min(this.config.delay.max, testParam.delay + pert.delta)
-            );
-          } else if (pert.key === 'gain') {
-            testParam.gain = Math.max(
-              this.config.gain.min,
-              Math.min(this.config.gain.max, testParam.gain + pert.delta)
-            );
-          } else if (pert.key === 'allPassFreq') {
-            testParam.allPass.frequency = Math.max(
-              this.config.allPass.frequency.min,
-              Math.min(
-                this.config.allPass.frequency.max,
-                testParam.allPass.frequency + pert.delta
-              )
-            );
-          } else if (pert.key === 'allPassQ') {
-            testParam.allPass.q = Math.max(
-              this.config.allPass.q.min,
-              Math.min(this.config.allPass.q.max, testParam.allPass.q + pert.delta)
-            );
-          }
-
-          subToOptimize.param = testParam;
-          const testResult = this.evaluateParametersCached(
-            subToOptimize,
-            previousValidSum,
-            theoreticalMax
-          );
-
-          if (testResult.score > bestNeighborScore) {
-            bestNeighbor = { param: testParam, result: testResult };
-            bestNeighborScore = testResult.score;
-          }
-        }
-
-        if (bestNeighbor) {
-          currentParam = bestNeighbor.param;
-          currentResult = bestNeighbor.result;
-        } else {
-          break; // No improvement at this scale, try finer
-        }
-      }
+      const result = this._runLocalSearchAtScale(
+        { ...ctx, currentParam, currentResult },
+        stepMultiplier,
+        iterationsAtScale
+      );
+      currentParam = result.currentParam;
+      currentResult = result.currentResult;
     }
 
     return currentResult;
