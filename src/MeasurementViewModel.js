@@ -1808,7 +1808,10 @@ class MeasurementViewModel {
       const groups = {};
       for (const item of this.subsMeasurements()) {
         const key = item.position();
-        (groups[key] ??= []).push(item);
+        if (!groups[key]) {
+          groups[key] = [];
+        }
+        groups[key].push(item);
       }
       return groups;
     });
