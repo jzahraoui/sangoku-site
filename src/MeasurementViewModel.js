@@ -2132,7 +2132,7 @@ class MeasurementViewModel {
       await measurement.resetTargetSettings();
 
       // TODO switch to 1/1 smoothing when tests done
-      const frequencyResponse = await measurement.getFrequencyResponse('SPL', '1/2', 6);
+      const frequencyResponse = await measurement.getFrequencyResponse('SPL', '1/3', 6);
       frequencyResponse.measurement = measurement.uuid;
       frequencyResponse.name = measurement.displayMeasurementTitle();
       frequencyResponse.position = measurement.position();
@@ -2141,7 +2141,7 @@ class MeasurementViewModel {
       const detect = this.detectSubwooferCutoff(
         frequencyResponse.freqs,
         frequencyResponse.magnitude,
-        -18
+        -9
       );
 
       lowFrequency = Math.min(lowFrequency, Math.round(detect.lowCutoff));
@@ -2288,13 +2288,14 @@ class MeasurementViewModel {
   }
 
   /**
-   * Detect subwoofer frequency cutoff points
-   * @param {number[]} frequencies - Array of frequency points
-   * @param {number[]} magnitude - Array of magnitude values in dB
+   * Detect subwoofer frequency cutoff points by finding where the response falls off
+   * Uses the "passband" level as reference (not the peak) and searches from extremities inward
+   * @param {number[]} fullFrequencies - Array of frequency points
+   * @param {number[]} fullMagnitude - Array of magnitude values in dB
    * @param {number} thresholdDb - Cutoff threshold in dB (default -6dB)
    * @param {number} low - Lower frequency bound (default 10Hz)
    * @param {number} high - Upper frequency bound (default 500Hz)
-   * @returns {Object} Object containing low and high cutoff frequencies and peak magnitude
+   * @returns {Object} Object containing low and high cutoff frequencies and reference level
    */
   detectSubwooferCutoff(
     fullFrequencies,
@@ -2303,12 +2304,10 @@ class MeasurementViewModel {
     low = 10,
     high = 500
   ) {
-    // Input validation
-    if (
-      !fullFrequencies?.length ||
-      !fullMagnitude?.length ||
-      fullFrequencies.length !== fullMagnitude.length
-    ) {
+    const len = fullFrequencies?.length;
+
+    // Input validation (fast fail)
+    if (!len || fullMagnitude?.length !== len) {
       throw new Error('Invalid input arrays');
     }
 
@@ -2316,80 +2315,232 @@ class MeasurementViewModel {
       throw new Error('Threshold must be negative');
     }
 
-    // Create new arrays to store filtered values
-    const frequencies = [];
-    const magnitude = [];
+    // Binary search for start index (first frequency >= low) - O(log n)
+    let startIdx = this.binarySearchLowerBound(fullFrequencies, low);
+    // Binary search for end index (last frequency <= high) - O(log n)
+    let endIdx = this.binarySearchUpperBound(fullFrequencies, high);
 
-    // Iterate through frequencies and keep only those within range
-    for (let index = 0; index < fullFrequencies.length; index++) {
-      const freq = fullFrequencies[index];
-      if (freq >= low && freq <= high) {
-        frequencies.push(freq);
-        magnitude.push(fullMagnitude[index]);
+    if (startIdx > endIdx || startIdx >= len) {
+      throw new Error(`No data points in frequency range ${low}-${high}Hz`);
+    }
+
+    // Passband zone (30-80 Hz typical for subwoofers)
+    const passbandLow = 30;
+    const passbandHigh = 80;
+
+    // Calculate reference level using optimized median (O(n) average vs O(n log n))
+    const referenceLevel = this.calculatePassbandLevelFast(
+      fullFrequencies,
+      fullMagnitude,
+      startIdx,
+      endIdx,
+      passbandLow,
+      passbandHigh
+    );
+
+    const thresholdLevel = referenceLevel + thresholdDb;
+
+    // Single pass: find cutoffs AND peak simultaneously - O(n)
+    let lowCutoffIndex = -1;
+    let highCutoffIndex = -1;
+    let peakMagnitude = -Infinity;
+    let peakIndex = startIdx;
+
+    for (let i = startIdx; i <= endIdx; i++) {
+      const mag = fullMagnitude[i];
+
+      // Track peak
+      if (mag > peakMagnitude) {
+        peakMagnitude = mag;
+        peakIndex = i;
+      }
+
+      // Track first crossing (low cutoff)
+      if (lowCutoffIndex === -1 && mag >= thresholdLevel) {
+        lowCutoffIndex = i;
+      }
+
+      // Track last crossing (high cutoff) - update whenever above threshold
+      if (mag >= thresholdLevel) {
+        highCutoffIndex = i;
       }
     }
 
-    // Find peak magnitude using array methods instead of loop
-    const peakMagnitude = this.getMaxFromArray(
-      magnitude.filter((_, i) => frequencies[i] >= low && frequencies[i] <= high)
-    );
+    // Handle edge case: no data above threshold
+    if (lowCutoffIndex === -1 || highCutoffIndex === -1) {
+      return {
+        lowCutoff: low,
+        highCutoff: high,
+        centerFrequency: Math.round(Math.sqrt(low * high)),
+        octaves: Math.round(Math.log2(high / low)),
+        referenceLevel,
+        peakMagnitude,
+        peakFrequency: Math.round(fullFrequencies[peakIndex]),
+      };
+    }
 
-    // Calculate threshold level once
-    const thresholdLevel = peakMagnitude + thresholdDb;
-
-    // Find low frequency cutoff using find method
-    const lowIndex = frequencies.findIndex((_, i) => magnitude[i] >= thresholdLevel);
-
-    // Find high frequency cutoff using findLast method
-    const highIndex = frequencies.findLastIndex((_, i) => magnitude[i] >= thresholdLevel);
-
-    // Calculate cutoff frequencies with interpolation
+    // Interpolate for precise cutoff frequencies
     let lowCutoff =
-      lowIndex > 0
+      lowCutoffIndex > startIdx
         ? this.interpolateFrequency(
-            frequencies[lowIndex - 1],
-            frequencies[lowIndex],
-            magnitude[lowIndex - 1],
-            magnitude[lowIndex],
+            fullFrequencies[lowCutoffIndex - 1],
+            fullFrequencies[lowCutoffIndex],
+            fullMagnitude[lowCutoffIndex - 1],
+            fullMagnitude[lowCutoffIndex],
             thresholdLevel
           )
-        : frequencies[lowIndex];
+        : fullFrequencies[lowCutoffIndex];
 
     let highCutoff =
-      highIndex < frequencies.length - 1
+      highCutoffIndex < endIdx
         ? this.interpolateFrequency(
-            frequencies[highIndex],
-            frequencies[highIndex + 1],
-            magnitude[highIndex],
-            magnitude[highIndex + 1],
+            fullFrequencies[highCutoffIndex],
+            fullFrequencies[highCutoffIndex + 1],
+            fullMagnitude[highCutoffIndex],
+            fullMagnitude[highCutoffIndex + 1],
             thresholdLevel
           )
-        : frequencies[highIndex];
+        : fullFrequencies[highCutoffIndex];
 
-    lowCutoff = Math.round(lowCutoff);
-    highCutoff = Math.floor(highCutoff);
+    // Clamp and round
+    lowCutoff = Math.max(low, Math.round(lowCutoff));
+    highCutoff = Math.min(high, Math.floor(highCutoff));
 
-    // find the center frequency by octaves bettween lowCutoff and highCutoff
+    // Geometric center frequency
     const centerFrequency = Math.round(Math.sqrt(lowCutoff * highCutoff));
 
-    // count the number of octaves between low and high cutoff from center frequency and round to lowest integer
-    const octaves = Math.round(Math.log2(highCutoff / centerFrequency) * 2);
+    // Bandwidth in octaves
+    const octaves = Math.max(1, Math.round(Math.log2(highCutoff / lowCutoff)));
 
     return {
       lowCutoff,
       highCutoff,
       centerFrequency,
       octaves,
+      referenceLevel,
       peakMagnitude,
+      peakFrequency: Math.round(fullFrequencies[peakIndex]),
     };
   }
 
   /**
-   * Linear interpolation for frequency
+   * Binary search: find first index where arr[i] >= value
+   * @param {number[]} arr - Sorted array
+   * @param {number} value - Value to search for
+   * @returns {number} Index of first element >= value
+   */
+  binarySearchLowerBound(arr, value) {
+    let lo = 0;
+    let hi = arr.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1; // Unsigned right shift for fast floor division
+      if (arr[mid] < value) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo;
+  }
+
+  /**
+   * Binary search: find last index where arr[i] <= value
+   * @param {number[]} arr - Sorted array
+   * @param {number} value - Value to search for
+   * @returns {number} Index of last element <= value
+   */
+  binarySearchUpperBound(arr, value) {
+    let lo = 0;
+    let hi = arr.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (arr[mid] <= value) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo - 1;
+  }
+
+  /**
+   * Logarithmic interpolation for frequency (correct for audio)
+   * Finds the frequency where magnitude crosses targetMag between two points
+   * @param {number} freq1 - First frequency point
+   * @param {number} freq2 - Second frequency point
+   * @param {number} mag1 - Magnitude at freq1 (dB)
+   * @param {number} mag2 - Magnitude at freq2 (dB)
+   * @param {number} targetMag - Target magnitude to find (dB)
+   * @returns {number} Interpolated frequency
    */
   interpolateFrequency(freq1, freq2, mag1, mag2, targetMag) {
+    // Handle edge case: no magnitude difference (flat response)
+    if (Math.abs(mag2 - mag1) < 1e-10) {
+      // Return geometric mean when magnitudes are equal
+      return Math.sqrt(freq1 * freq2);
+    }
+
+    // Linear interpolation ratio based on magnitude
     const ratio = (targetMag - mag1) / (mag2 - mag1);
-    return freq1 + (freq2 - freq1) * ratio;
+
+    // Clamp ratio to [0, 1] for safety
+    const clampedRatio = Math.max(0, Math.min(1, ratio));
+
+    // Logarithmic interpolation in frequency (correct for audio)
+    // log(f) = log(f1) + ratio * (log(f2) - log(f1))
+    // f = f1 * (f2/f1)^ratio
+    return freq1 * Math.pow(freq2 / freq1, clampedRatio);
+  }
+
+  /**
+   * Calculate the reference level from the subwoofer passband using median
+   * For small arrays (~50 elements), native sort is optimal due to V8's Timsort
+   * @param {Float32Array} frequencies - Frequency array
+   * @param {Float32Array} magnitude - Magnitude array in dB
+   * @param {number} startIdx - Start boundary index
+   * @param {number} endIdx - End boundary index
+   * @param {number} passbandLow - Lower passband frequency (Hz)
+   * @param {number} passbandHigh - Upper passband frequency (Hz)
+   * @returns {number} Reference level in dB
+   */
+  calculatePassbandLevelFast(
+    frequencies,
+    magnitude,
+    startIdx,
+    endIdx,
+    passbandLow,
+    passbandHigh
+  ) {
+    // Use binary search to find passband indices (frequencies are sorted)
+    const pbStartIdx = Math.max(
+      startIdx,
+      this.binarySearchLowerBound(frequencies, passbandLow)
+    );
+    const pbEndIdx = Math.min(
+      endIdx,
+      this.binarySearchUpperBound(frequencies, passbandHigh)
+    );
+
+    let useStart = pbStartIdx;
+    let useEnd = pbEndIdx;
+
+    // Fallback if no data in passband
+    if (pbEndIdx < pbStartIdx) {
+      useStart = startIdx;
+      useEnd = endIdx;
+    }
+
+    // Extract values and sort - optimal for ~50 elements with V8's Timsort
+    const count = useEnd - useStart + 1;
+    const values = new Array(count);
+    for (let i = 0; i < count; i++) {
+      values[i] = magnitude[useStart + i];
+    }
+    values.sort((a, b) => a - b);
+
+    // Return median
+    const mid = count >>> 1;
+    return count & 1 ? values[mid] : (values[mid - 1] + values[mid]) * 0.5;
   }
 
   /**
