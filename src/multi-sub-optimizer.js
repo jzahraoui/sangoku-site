@@ -1274,17 +1274,44 @@ class MultiSubOptimizer {
    * @returns {number} Quality score (higher is better)
    */
   calculateQualityScore(response, theoreticalMax) {
-    const freqs = response.freqs;
-    const magnitude = response.magnitude;
-    const theoMagnitude = theoreticalMax.magnitude;
+    const { freqs, magnitude } = response;
     const len = freqs.length;
-
     if (len === 0) return 0;
 
-    // ========================================
-    // 1. EFFICIENCY SCORE (0-100)
-    // ========================================
-    // Measures how much of the theoretical maximum we achieve
+    const efficiency = this._calculateEfficiencyScore(
+      magnitude,
+      theoreticalMax.magnitude,
+      len
+    );
+    const { referenceLevel, levelWeightSum } = this._calculateReferenceLevel(
+      magnitude,
+      len
+    );
+    const { dipPenalty, peakPenalty } = this._calculateDipPeakPenalties(
+      magnitude,
+      referenceLevel,
+      levelWeightSum,
+      len
+    );
+    const nullPenalty = this._calculateNullPenalty(freqs, magnitude, levelWeightSum, len);
+    const smoothnessPenalty = this._calculateSmoothnessPenalty(
+      freqs,
+      magnitude,
+      levelWeightSum,
+      len
+    );
+
+    // Weights determined by psychoacoustic importance
+    return (
+      efficiency -
+      dipPenalty * 2 -
+      nullPenalty * 3 -
+      peakPenalty * 0.5 -
+      smoothnessPenalty
+    );
+  }
+
+  _calculateEfficiencyScore(magnitude, theoMagnitude, len) {
     let efficiencySum = 0;
     let efficiencyWeightSum = 0;
 
@@ -1294,30 +1321,26 @@ class MultiSubOptimizer {
       const weight = this.frequencyWeights[i];
 
       if (theoLinear > 0) {
-        // Ratio of actual to theoretical (capped at 100%)
         const ratio = Math.min(actualLinear / theoLinear, 1);
         efficiencySum += ratio * weight;
         efficiencyWeightSum += weight;
       }
     }
 
-    const efficiency =
-      efficiencyWeightSum > 0 ? (efficiencySum / efficiencyWeightSum) * 100 : 0;
+    return efficiencyWeightSum > 0 ? (efficiencySum / efficiencyWeightSum) * 100 : 0;
+  }
 
-    // ========================================
-    // 2. DIP PENALTY (asymmetric - dips are worse than peaks)
-    // ========================================
-    // Based on MSO methodology: penalize deviations below target more heavily
-
-    // Calculate weighted mean as reference level
+  _calculateReferenceLevel(magnitude, len) {
     let levelSum = 0;
     let levelWeightSum = 0;
     for (let i = 0; i < len; i++) {
       levelSum += magnitude[i] * this.frequencyWeights[i];
       levelWeightSum += this.frequencyWeights[i];
     }
-    const referenceLevel = levelSum / levelWeightSum;
+    return { referenceLevel: levelSum / levelWeightSum, levelWeightSum };
+  }
 
+  _calculateDipPeakPenalties(magnitude, referenceLevel, levelWeightSum, len) {
     let dipPenalty = 0;
     let peakPenalty = 0;
 
@@ -1326,108 +1349,75 @@ class MultiSubOptimizer {
       const weight = this.frequencyWeights[i];
 
       if (deviation < 0) {
-        // DIP: Exponential penalty - small dips are OK, deep dips are catastrophic
-        // A 3dB dip is acceptable, 6dB is noticeable, 12dB+ is very bad
         const dipDepth = -deviation;
-
         if (dipDepth > 3) {
-          // Quadratic penalty above 3dB threshold
-          const excessDip = dipDepth - 3;
-          dipPenalty += Math.pow(excessDip, 1.8) * weight;
+          dipPenalty += Math.pow(dipDepth - 3, 1.8) * weight;
         }
-      } else {
-        // PEAK: Linear penalty - peaks are less problematic (can be EQ'd)
-        const peakHeight = deviation;
-        if (peakHeight > 3) {
-          peakPenalty += (peakHeight - 3) * 0.3 * weight;
-        }
+      } else if (deviation > 3) {
+        peakPenalty += (deviation - 3) * 0.3 * weight;
       }
     }
 
-    // Normalize by weight sum
-    dipPenalty = dipPenalty / levelWeightSum;
-    peakPenalty = peakPenalty / levelWeightSum;
+    return {
+      dipPenalty: dipPenalty / levelWeightSum,
+      peakPenalty: peakPenalty / levelWeightSum,
+    };
+  }
 
-    // ========================================
-    // 3. NARROWBAND NULL DETECTION
-    // ========================================
-    // Detect sharp nulls (phase cancellation) - these are unfixable
+  _calculateNullPenalty(freqs, magnitude, levelWeightSum, len) {
     let nullPenalty = 0;
 
     for (let i = 2; i < len - 2; i++) {
       const mag = magnitude[i];
-
-      // Local context (2 points on each side)
       const localAvg =
         (magnitude[i - 2] + magnitude[i - 1] + magnitude[i + 1] + magnitude[i + 2]) / 4;
-
       const localDip = localAvg - mag;
 
-      // Detect sharp nulls (>6dB drop from local average)
       if (localDip > 6) {
-        // Calculate Q factor of the null (narrower = worse)
-        // Find -3dB points
-        let leftIdx = i,
-          rightIdx = i;
-        const halfDepth = mag + localDip / 2;
-
-        while (leftIdx > 0 && magnitude[leftIdx] < halfDepth) leftIdx--;
-        while (rightIdx < len - 1 && magnitude[rightIdx] < halfDepth) rightIdx++;
-
-        // Narrower null = higher Q = worse (harder to fix)
-        const nullWidth = freqs[rightIdx] - freqs[leftIdx];
-        const nullQ = freqs[i] / Math.max(nullWidth, 1);
-
-        // High Q nulls in critical bass frequencies are catastrophic
-        const qFactor = Math.min(nullQ / 5, 3); // Cap at Q=15
-        const depthFactor = Math.pow(localDip / 6, 1.5);
-
-        nullPenalty += depthFactor * qFactor * this.frequencyWeights[i];
+        nullPenalty += this._calculateNullPenaltyAtIndex(
+          freqs,
+          magnitude,
+          i,
+          localDip,
+          len
+        );
       }
     }
 
-    nullPenalty = nullPenalty / levelWeightSum;
+    return nullPenalty / levelWeightSum;
+  }
 
-    // ========================================
-    // 4. SMOOTHNESS SCORE (Spectral Flatness)
-    // ========================================
-    // Penalize rapid fluctuations (ringing, comb filtering)
+  _calculateNullPenaltyAtIndex(freqs, magnitude, i, localDip, len) {
+    const mag = magnitude[i];
+    const halfDepth = mag + localDip / 2;
+
+    let leftIdx = i;
+    let rightIdx = i;
+    while (leftIdx > 0 && magnitude[leftIdx] < halfDepth) leftIdx--;
+    while (rightIdx < len - 1 && magnitude[rightIdx] < halfDepth) rightIdx++;
+
+    const nullWidth = freqs[rightIdx] - freqs[leftIdx];
+    const nullQ = freqs[i] / Math.max(nullWidth, 1);
+    const qFactor = Math.min(nullQ / 5, 3);
+    const depthFactor = Math.pow(localDip / 6, 1.5);
+
+    return depthFactor * qFactor * this.frequencyWeights[i];
+  }
+
+  _calculateSmoothnessPenalty(freqs, magnitude, levelWeightSum, len) {
     let smoothnessPenalty = 0;
 
     for (let i = 1; i < len; i++) {
-      // Calculate slope in dB/octave
       const octaveSpan = Math.log2(freqs[i] / freqs[i - 1]);
       if (octaveSpan > 0) {
         const slope = Math.abs(magnitude[i] - magnitude[i - 1]) / octaveSpan;
-
-        // Penalize slopes > 12dB/octave (natural rolloff is ~12dB/oct for subs)
         if (slope > 12) {
-          const excessSlope = slope - 12;
-          smoothnessPenalty += excessSlope * 0.05 * this.frequencyWeights[i];
+          smoothnessPenalty += (slope - 12) * 0.05 * this.frequencyWeights[i];
         }
       }
     }
 
-    smoothnessPenalty = smoothnessPenalty / levelWeightSum;
-
-    // ========================================
-    // FINAL SCORE CALCULATION
-    // ========================================
-    // Weights determined by psychoacoustic importance:
-    // - Efficiency: Base score (we want maximum output)
-    // - Dips: Very bad (2x weight) - cannot be fixed
-    // - Nulls: Catastrophic (3x weight) - phase cancellation
-    // - Peaks: Minor issue (0.5x weight) - can be EQ'd
-    // - Smoothness: Quality factor (1x weight)
-
-    const score =
-      efficiency -
-      dipPenalty * 2 -
-      nullPenalty * 3 -
-      peakPenalty * 0.5 -
-      smoothnessPenalty * 1;
-
-    return score;
+    return smoothnessPenalty / levelWeightSum;
   }
 
   // Helper method to evaluate parameters
