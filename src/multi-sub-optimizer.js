@@ -457,7 +457,62 @@ class MultiSubOptimizer {
     return { bestWithAllPass, bestWithoutAllPass };
   }
 
-  runGeneticLoop(subToOptimize, previousValidSum, theo, population, options) {
+  _applyLocalSearchIfNeeded(ctx, generation, useLocalSearch) {
+    if (!useLocalSearch || generation % 5 !== 0 || generation === 0) {
+      return;
+    }
+    const { highest, evaluated, state, subToOptimize, previousValidSum, theo } = ctx;
+    const improved = this.localSearch(
+      highest.param,
+      subToOptimize,
+      previousValidSum,
+      theo,
+      15
+    );
+    if (improved.score <= highest.score) {
+      return;
+    }
+    evaluated[0] = improved;
+    state.previousBestScore = improved.score;
+    if (improved.hasAllPass && improved.score > state.bestWithAllPass.score) {
+      state.bestWithAllPass = improved;
+    } else if (!improved.hasAllPass && improved.score > state.bestWithoutAllPass.score) {
+      state.bestWithoutAllPass = improved;
+    }
+  }
+
+  _injectDiversityIfStuck(
+    evaluated,
+    generationsWithoutImprovement,
+    populationSize,
+    withAllPassProbability
+  ) {
+    const shouldInject =
+      generationsWithoutImprovement >= 8 && generationsWithoutImprovement % 8 === 0;
+    if (!shouldInject) {
+      return;
+    }
+    const diversityInjection = this.createInitialPopulation(
+      Math.floor(populationSize * 0.1),
+      withAllPassProbability
+    );
+    for (let i = 0; i < diversityInjection.length && i < evaluated.length; i++) {
+      evaluated[evaluated.length - 1 - i].param = diversityInjection[i];
+    }
+  }
+
+  _shouldEarlyStop(
+    generationsWithoutImprovement,
+    maxNoImprovementGenerations,
+    generation
+  ) {
+    return (
+      generationsWithoutImprovement >= maxNoImprovementGenerations && generation >= 20
+    );
+  }
+
+  _processGeneration(ctx, population, options, generation, lastDiversity) {
+    const { subToOptimize, previousValidSum, theo, state } = ctx;
     const {
       generations,
       populationSize,
@@ -465,134 +520,122 @@ class MultiSubOptimizer {
       tournamentSize,
       mutationRate,
       mutationAmount,
+    } = options;
+
+    const decayFactor = Math.exp((-3 * generation) / generations);
+    const adaptiveMutation = mutationAmount * Math.max(0.1, decayFactor);
+    const adaptiveMutationRate = mutationRate * (lastDiversity < 0.3 ? 1.5 : 1);
+
+    const evaluated = population.map(param => {
+      subToOptimize.param = param;
+      return this.evaluateParametersCached(subToOptimize, previousValidSum, theo);
+    });
+    evaluated.sort((a, b) => b.score - a.score);
+
+    const best = this.updateBestSolutions(evaluated);
+    if (best.bestWithAllPass.score > state.bestWithAllPass.score)
+      state.bestWithAllPass = best.bestWithAllPass;
+    if (best.bestWithoutAllPass.score > state.bestWithoutAllPass.score)
+      state.bestWithoutAllPass = best.bestWithoutAllPass;
+
+    const nextPopulation =
+      generation < generations - 1
+        ? this.createNextGeneration(
+            evaluated,
+            populationSize,
+            Math.floor(eliteCount),
+            tournamentSize,
+            adaptiveMutationRate,
+            adaptiveMutation
+          )
+        : population;
+
+    return { evaluated, highest: evaluated[0], nextPopulation };
+  }
+
+  runGeneticLoop(subToOptimize, previousValidSum, theo, population, options) {
+    const {
+      generations,
+      populationSize,
       maxNoImprovementGenerations,
       useLocalSearch = true,
     } = options;
 
-    let bestWithAllPass = { score: -Infinity };
-    let bestWithoutAllPass = { score: -Infinity };
+    const state = {
+      bestWithAllPass: { score: -Infinity },
+      bestWithoutAllPass: { score: -Infinity },
+      previousBestScore: -Infinity,
+    };
+    const ctx = { subToOptimize, previousValidSum, theo, state };
     let generationsWithoutImprovement = 0;
-    let previousBestScore = -Infinity;
-
-    // Track population diversity for adaptive parameters
     let lastDiversity = 1;
 
     for (let generation = 0; generation < generations; generation++) {
-      // Exponential decay with floor for adaptive mutation (better than linear)
-      const decayFactor = Math.exp((-3 * generation) / generations);
-      const adaptiveMutation = mutationAmount * Math.max(0.1, decayFactor);
+      const { evaluated, highest, nextPopulation } = this._processGeneration(
+        ctx,
+        population,
+        options,
+        generation,
+        lastDiversity
+      );
 
-      // Adaptive mutation rate based on diversity
-      const adaptiveMutationRate = mutationRate * (lastDiversity < 0.3 ? 1.5 : 1);
-
-      const evaluated = population.map(param => {
-        subToOptimize.param = param;
-        return this.evaluateParametersCached(subToOptimize, previousValidSum, theo);
-      });
-
-      // Sort evaluated array (CRITICAL FIX: was missing before accessing evaluated[0])
-      evaluated.sort((a, b) => b.score - a.score);
-
-      const best = this.updateBestSolutions(evaluated);
-      if (best.bestWithAllPass.score > bestWithAllPass.score)
-        bestWithAllPass = best.bestWithAllPass;
-      if (best.bestWithoutAllPass.score > bestWithoutAllPass.score)
-        bestWithoutAllPass = best.bestWithoutAllPass;
-
-      // Now evaluated[0] is correctly the highest scorer
-      const highest = evaluated[0];
-
-      if (highest.score > previousBestScore) {
-        previousBestScore = highest.score;
+      if (highest.score > state.previousBestScore) {
+        state.previousBestScore = highest.score;
         generationsWithoutImprovement = 0;
-
-        // Apply local search on the best solution periodically (less frequently for speed)
-        if (useLocalSearch && generation % 5 === 0 && generation > 0) {
-          const improved = this.localSearch(
-            highest.param,
-            subToOptimize,
-            previousValidSum,
-            theo,
-            15 // Quick local search during evolution
-          );
-          if (improved.score > highest.score) {
-            evaluated[0] = improved;
-            previousBestScore = improved.score;
-            // Update best tracking
-            if (improved.hasAllPass && improved.score > bestWithAllPass.score) {
-              bestWithAllPass = improved;
-            } else if (
-              !improved.hasAllPass &&
-              improved.score > bestWithoutAllPass.score
-            ) {
-              bestWithoutAllPass = improved;
-            }
-          }
-        }
+        this._applyLocalSearchIfNeeded(
+          { highest, evaluated, state, subToOptimize, previousValidSum, theo },
+          generation,
+          useLocalSearch
+        );
       } else {
         generationsWithoutImprovement++;
-
-        // Inject diversity when stuck (less frequently for speed)
-        if (
-          generationsWithoutImprovement >= 8 &&
-          generationsWithoutImprovement % 8 === 0
-        ) {
-          const diversityInjection = this.createInitialPopulation(
-            Math.floor(populationSize * 0.1),
-            options.withAllPassProbability || 0.7
-          );
-          // Replace worst individuals with fresh random ones
-          for (let i = 0; i < diversityInjection.length && i < evaluated.length; i++) {
-            evaluated[evaluated.length - 1 - i].param = diversityInjection[i];
-          }
-        }
+        this._injectDiversityIfStuck(
+          evaluated,
+          generationsWithoutImprovement,
+          populationSize,
+          options.withAllPassProbability || 0.7
+        );
       }
 
-      // Calculate population diversity (less frequently for speed)
-      if (generation % 3 === 0) {
+      if (generation % 3 === 0)
         lastDiversity = this.calculatePopulationDiversity(evaluated);
-      }
 
       if (
-        generationsWithoutImprovement >= maxNoImprovementGenerations &&
-        generation >= 20
+        this._shouldEarlyStop(
+          generationsWithoutImprovement,
+          maxNoImprovementGenerations,
+          generation
+        )
       ) {
         this.lm.debug(
           `Early stopping at generation ${generation} - no improvement for ${maxNoImprovementGenerations} generations`
         );
         break;
       }
-
-      if (generation < generations - 1) {
-        population = this.createNextGeneration(
-          evaluated,
-          populationSize,
-          Math.floor(eliteCount), // Ensure integer
-          tournamentSize,
-          adaptiveMutationRate,
-          adaptiveMutation
-        );
-      }
+      population = nextPopulation;
     }
 
-    return { bestWithAllPass, bestWithoutAllPass };
+    return {
+      bestWithAllPass: state.bestWithAllPass,
+      bestWithoutAllPass: state.bestWithoutAllPass,
+    };
+  }
+
+  _runSingleGeneticRun(subToOptimize, previousValidSum, theo, coarseBest, options) {
+    const population = this.createHybridPopulation(
+      coarseBest,
+      options.populationSize,
+      options.withAllPassProbability
+    );
+    return this.runGeneticLoop(subToOptimize, previousValidSum, theo, population, {
+      ...options,
+      eliteCount: Math.floor(options.eliteCount),
+    });
   }
 
   runGeneticOptimization(subToOptimize, previousValidSum, theo, testParamsList, options) {
-    const {
-      runs,
-      populationSize,
-      withAllPassProbability,
-      generations,
-      eliteCount,
-      tournamentSize,
-      mutationRate,
-      mutationAmount,
-      maxNoImprovementGenerations,
-      useLocalSearch = true,
-    } = options;
+    const { runs, useLocalSearch = true } = options;
 
-    // Clear cache at start of optimization
     this.clearEvaluationCache();
 
     const coarseBest = this.findBestCoarseParam(
@@ -606,30 +649,13 @@ class MultiSubOptimizer {
     let bestWithoutAllPass = { score: -Infinity };
 
     for (let run = 0; run < runs; run++) {
-      const population = this.createHybridPopulation(
-        coarseBest,
-        populationSize,
-        withAllPassProbability
-      );
-
-      const result = this.runGeneticLoop(
+      const result = this._runSingleGeneticRun(
         subToOptimize,
         previousValidSum,
         theo,
-        population,
-        {
-          generations,
-          populationSize,
-          eliteCount: Math.floor(eliteCount), // Ensure integer
-          tournamentSize,
-          mutationRate,
-          mutationAmount,
-          maxNoImprovementGenerations,
-          withAllPassProbability,
-          useLocalSearch,
-        }
+        coarseBest,
+        options
       );
-
       if (result.bestWithAllPass.score > bestWithAllPass.score)
         bestWithAllPass = result.bestWithAllPass;
       if (result.bestWithoutAllPass.score > bestWithoutAllPass.score)
@@ -646,33 +672,35 @@ class MultiSubOptimizer {
 
     // Final intensive local search on best solutions
     if (useLocalSearch) {
-      if (bestWithoutAllPass.score > -Infinity) {
-        const refinedWithout = this.localSearch(
-          bestWithoutAllPass.param,
-          subToOptimize,
-          previousValidSum,
-          theo,
-          50 // Reduced iterations - most improvement happens early
-        );
-        if (refinedWithout.score > bestWithoutAllPass.score) {
-          bestWithoutAllPass = refinedWithout;
-        }
-      }
-      if (bestWithAllPass.score > -Infinity) {
-        const refinedWith = this.localSearch(
-          bestWithAllPass.param,
-          subToOptimize,
-          previousValidSum,
-          theo,
-          50
-        );
-        if (refinedWith.score > bestWithAllPass.score) {
-          bestWithAllPass = refinedWith;
-        }
-      }
+      bestWithoutAllPass = this._refineSolution(
+        bestWithoutAllPass,
+        subToOptimize,
+        previousValidSum,
+        theo
+      );
+      bestWithAllPass = this._refineSolution(
+        bestWithAllPass,
+        subToOptimize,
+        previousValidSum,
+        theo
+      );
     }
 
     return { bestWithAllPass, bestWithoutAllPass };
+  }
+
+  _refineSolution(solution, subToOptimize, previousValidSum, theo) {
+    if (solution.score <= -Infinity) {
+      return solution;
+    }
+    const refined = this.localSearch(
+      solution.param,
+      subToOptimize,
+      previousValidSum,
+      theo,
+      50
+    );
+    return refined.score > solution.score ? refined : solution;
   }
 
   runClassicOptimization(subToOptimize, previousValidSum, theo, testParamsList) {
