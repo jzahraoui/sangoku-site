@@ -70,6 +70,12 @@ class MultiSubOptimizer {
     if (this.config.delay.min > this.config.delay.max || this.config.delay.step <= 0) {
       throw new Error('Invalid delay range parameters');
     }
+
+    // 1. Initial measurements preparation
+    this.preparedSubs = this.prepareMeasurements();
+
+    // Calculate theoretical maximum response
+    this.theoreticalMaxResponse = this.calculateCombinedResponse(this.preparedSubs, true);
   }
 
   validateMeasurements(subMeasurements) {
@@ -101,7 +107,9 @@ class MultiSubOptimizer {
       const stepAdjusted = step * stepFactor;
       const count = Math.floor((max - min) / stepAdjusted + 0.5) + 1;
       return Array.from({ length: count }, (_, i) => {
-        const value = round(min + i * stepAdjusted, stepAdjusted);
+        // Round with original step precision, not adjusted step
+        // This prevents rounding errors when stepAdjusted > value range
+        const value = round(min + i * stepAdjusted, step);
         return Math.min(value, max);
       });
     };
@@ -166,18 +174,12 @@ class MultiSubOptimizer {
   }
 
   optimizeSubwoofers() {
-    // 1. Initial measurements preparation
-    const preparedSubs = this.prepareMeasurements();
-
-    // Calculate theoretical maximum response
-    this.theoreticalMaxResponse = this.calculateCombinedResponse(preparedSubs, true);
-
     // 2. Calculate initial response
     // const initialResponse = this.calculateCombinedResponse(preparedSubs);
 
     // 3. Optimize parameters for each sub
     const start = performance.now();
-    const optimizedParams = this.findOptimalParameters(preparedSubs);
+    const optimizedParams = this.findOptimalParameters(this.preparedSubs);
     const end = performance.now();
     const executionTime = end - start;
 
@@ -382,7 +384,8 @@ class MultiSubOptimizer {
 
       // Update for next iteration
       previousValidSum = finalResponse;
-      subToOptimize.param = finalResponse.param;
+      // Deep clone to prevent mutation issues
+      subToOptimize.param = structuredClone(finalResponse.param);
 
       // Store optimization results
       this.optimizedSubs.push(subToOptimize);
@@ -443,9 +446,10 @@ class MultiSubOptimizer {
     // Single pass through sorted array to find best of each type
     for (const individual of evaluated) {
       if (individual.hasAllPass && bestWithAllPass.score === -Infinity) {
-        bestWithAllPass = individual;
+        // Deep clone to prevent mutation by _injectDiversityIfStuck or createNextGeneration
+        bestWithAllPass = { ...individual, param: structuredClone(individual.param) };
       } else if (!individual.hasAllPass && bestWithoutAllPass.score === -Infinity) {
-        bestWithoutAllPass = individual;
+        bestWithoutAllPass = { ...individual, param: structuredClone(individual.param) };
       }
 
       // Early exit when both found
@@ -474,10 +478,12 @@ class MultiSubOptimizer {
     }
     evaluated[0] = improved;
     state.previousBestScore = improved.score;
+    // Deep clone to prevent mutation issues
+    const improvedClone = { ...improved, param: structuredClone(improved.param) };
     if (improved.hasAllPass && improved.score > state.bestWithAllPass.score) {
-      state.bestWithAllPass = improved;
+      state.bestWithAllPass = improvedClone;
     } else if (!improved.hasAllPass && improved.score > state.bestWithoutAllPass.score) {
-      state.bestWithoutAllPass = improved;
+      state.bestWithoutAllPass = improvedClone;
     }
   }
 
@@ -1747,9 +1753,9 @@ class MultiSubOptimizer {
   ) {
     const nextGeneration = [];
 
-    // Elitism - directly copy top performers
+    // Elitism - directly copy top performers (deep clone to prevent mutation issues)
     for (let i = 0; i < eliteCount && i < evaluated.length; i++) {
-      nextGeneration.push({ ...evaluated[i].param });
+      nextGeneration.push(structuredClone(evaluated[i].param));
     }
 
     // Fill the rest through selection and mutation
