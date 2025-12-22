@@ -5,7 +5,23 @@
     <meta charset="UTF-8" />
     <!-- Viewport settings for responsive design -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Compress text content -->
+    <!-- SEO -->
+    <meta
+      name="description"
+      content="Room Correction Helper - A web application for audio room correction, speaker calibration, and AVR configuration with REW integration."
+    />
+    <meta
+      name="keywords"
+      content="room correction, audio, REW, AVR, speaker calibration, Audyssey, MultEQ"
+    />
+    <meta name="author" content="Sangoku" />
+    <!-- Open Graph -->
+    <meta property="og:title" content="Room Correction Helper" />
+    <meta
+      property="og:description"
+      content="Web application for audio room correction and AVR configuration"
+    />
+    <meta property="og:type" content="website" />
     <title data-i18n="title">Room Correction Helper</title>
     <link href="default.css" rel="stylesheet" type="text/css" />
     <link
@@ -17,6 +33,9 @@
   </head>
 
   <body>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#appContent" class="skip-link">Skip to main content</a>
+
     <!-- Dialogue de confirmation global -->
     <div
       id="confirmDialog"
@@ -535,7 +554,6 @@
               <h3>Smoothing/Windowing:</h3>
               <select
                 class="combo-box"
-                style="width: 120px"
                 data-bind="
                 options: smoothingChoices,
                 optionsText: 'text',
@@ -546,7 +564,6 @@
               ></select>
               <select
                 class="combo-box"
-                style="width: 150px"
                 data-bind="
                 options: irWindowsChoices,
                 optionsText: 'text',
@@ -684,7 +701,6 @@
 
             <select
               class="combo-box"
-              style="width: 150px"
               data-bind="
             options: averageMethod,
             optionsText: 'text',
@@ -749,7 +765,6 @@
               <span class="checkmark"></span>
             </label>
             <select
-              id="filterSelect"
               class="combo-box"
               data-bind="
             options: LfeFrequencies,
@@ -1342,14 +1357,18 @@
               <tbody data-bind="foreach: uniqueMeasurementsView">
                 <tr>
                   <td>
-                    <label class="checkbox-container">
-                      <input type="checkbox" disabled data-bind="checked: isSelected" />
+                    <span class="checkbox-container">
+                      <input
+                        type="checkbox"
+                        disabled
+                        data-bind="checked: isSelected, attr: { 'aria-label': displayPositionText() }"
+                      />
                       <span class="checkmark"></span>
                       <span
                         class="checkbox-label"
                         data-bind="text: displayPositionText()"
                       ></span>
-                    </label>
+                    </span>
                   </td>
                   <td
                     data-bind="text: channelName(), css: { success: isChannelDetected() } "
@@ -1405,7 +1424,6 @@
                   ></td>
                   <td>
                     <select
-                      id="crossoverSelect"
                       class="combo-box"
                       data-bind="
                     options: $parent.alingFrequencies,
