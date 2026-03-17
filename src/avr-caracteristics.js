@@ -63,7 +63,6 @@ class AvrCaracteristics {
     },
   });
 
-  // Static set of models that use Cirrus DSP
   static GRIFFIN_LITE_MODEL_PREFIXES = [
     'Denon AVR-X8500H',
     'Denon AVC-X8500H',
@@ -91,6 +90,8 @@ class AvrCaracteristics {
     'Marantz CINEMA 30',
     'Denon AVR-A10H',
     'Denon AVC-A10H',
+    'Marantz AV 20',
+    'Marantz AV 30',
   ];
 
   static FOUR_SUBWOOFER_MODELS = new Set([
@@ -160,6 +161,8 @@ class AvrCaracteristics {
     'Marantz CINEMA 60',
     'Denon AVR-S770H',
     'Denon AVR-X1800H',
+    // + match prefix only pour :
+    //   Denon AVC-X2850H*
   ]);
 
   static FY20_MODELS = new Set([
