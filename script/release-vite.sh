@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
-# Script to increment version and update main branch
+# Bumps the project version, commits it, and updates main from dev.
+# Pushing main triggers the GitHub workflow that deploys the site to production.
 
 # Configuration
 HOME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -11,8 +12,7 @@ MAIN_BRANCH="main"
 NEW_VERSION=""
 
 # Function to increment version
-increment_version()
-{
+increment_version() {
   echo "Incrementing patch version..."
   local current_version
   current_version=$(grep -o 'Version [0-9.]*' "$INDEX_FILE" | cut -d' ' -f2)
@@ -25,8 +25,7 @@ increment_version()
 }
 
 # Function to update version in files and commit
-update_files()
-{
+update_files() {
   if [[ -z "$NEW_VERSION" ]]; then
     echo "Error: NEW_VERSION is not set." >&2
     exit 1
@@ -41,8 +40,7 @@ update_files()
 }
 
 # Function to update main branch
-update_main()
-{
+update_main() {
   echo "Updating $MAIN_BRANCH branch..."
   git stash
   git checkout "$MAIN_BRANCH"

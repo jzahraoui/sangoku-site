@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Publishes the dist folder to the site's S3 bucket.
+# Then invalidates the CloudFront cache so the new version is served.
+
 # Exit immediately if a command exits with a non-zero status
 set -eou pipefail
 
@@ -34,8 +37,7 @@ done
 export AWS_PROFILE AWS_DEFAULT_REGION
 
 # Function to sync files to S3
-sync_to_s3()
-{
+sync_to_s3() {
   echo "Syncing files to S3 bucket..."
   local cmd="aws s3 sync --delete --no-progress --size-only --cache-control \"max-age=3600\" \"$HOME_DIR/\" \"$S3_BUCKET\""
 
@@ -49,8 +51,7 @@ sync_to_s3()
 }
 
 # Function to invalidate CloudFront cache
-invalidate_cache()
-{
+invalidate_cache() {
   echo "Getting distribution ID from CloudFormation..."
   local distribution_id
   distribution_id=$(aws cloudformation list-exports \
@@ -79,8 +80,7 @@ invalidate_cache()
 }
 
 # Main execution
-main()
-{
+main() {
   sync_to_s3
   invalidate_cache
 
