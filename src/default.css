@@ -93,14 +93,62 @@
   --lime-green: #7cb342;
   --yellow-light: var(--warning-50);
 
-  /* Background Colors */
+  /* Background Colors - Light Mode Defaults */
   --bg-primary: var(--gray-50);
   --bg-secondary: var(--gray-200);
   --bg-tertiary: var(--gray-300);
 
-  /* Text Colors */
+  /* Text Colors - Light Mode Defaults */
   --text-primary: var(--gray-800);
   --text-secondary: var(--gray-600);
+
+  /* ==========================================================================
+     SEMANTIC THEME VARIABLES - These change based on light/dark mode
+     ========================================================================== */
+
+  /* Surface colors (containers, cards, sections) */
+  --surface-bg: var(--gray-50);
+  --surface-bg-alt: var(--gray-200);
+  --surface-bg-elevated: var(--gray-100);
+  --surface-border: var(--gray-300);
+  --surface-border-hover: var(--gray-500);
+
+  /* Text on surfaces */
+  --surface-text: var(--gray-800);
+  --surface-text-muted: var(--gray-600);
+
+  /* Interactive elements */
+  --interactive-bg: var(--primary-700);
+  --interactive-bg-hover: var(--primary-900);
+  --interactive-text: var(--gray-50);
+
+  /* Accent/Links */
+  --accent: var(--primary-700);
+  --accent-hover: var(--primary-900);
+
+  /* Status backgrounds */
+  --status-success-bg: var(--success-50);
+  --status-error-bg: var(--error-200);
+  --status-warning-bg: var(--warning-50);
+  --status-info-bg: var(--primary-50);
+
+  /* Status text */
+  --status-success-text: var(--success-700);
+  --status-error-text: var(--error-500);
+  --status-warning-text: var(--warning-800);
+  --status-info-text: var(--primary-700);
+
+  /* Log entry colors */
+  --log-info-border: var(--primary-600);
+  --log-info-bg: var(--primary-50);
+  --log-success-border: var(--success-500);
+  --log-success-bg: var(--success-50);
+  --log-warn-border: var(--warning-600);
+  --log-warn-bg: var(--warning-50);
+  --log-error-border: var(--error-500);
+  --log-error-bg: var(--error-200);
+  --log-debug-border: var(--gray-600);
+  --log-debug-bg: var(--gray-100);
 
   /* Typography */
   --font-family: Arial, sans-serif;
@@ -122,55 +170,10 @@
   --max-width: 80vw;
   --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 
-  /* Backgrounds - Based on Material Design Dark Theme */
-  --dark-bg-primary: var(--gray-900);
-  --dark-bg-secondary: var(--gray-950);
-  --dark-bg-tertiary: var(--gray-700);
-
   /* Borders & Dividers */
   --border-radius: 4px;
   --border-color: var(--gray-300);
   --border-hover: var(--gray-500);
-  --dark-border-color: var(--gray-800);
-  --dark-border-hover: var(--gray-500);
-  --dark-divider: rgba(255, 255, 255, 0.12);
-
-  /* Text - WCAG AA compliant */
-  --dark-text-primary: var(--gray-50);
-  --dark-text-secondary: var(--gray-200);
-  --dark-text-disabled: var(--gray-400);
-
-  /* Primary Actions - Lighter for dark backgrounds */
-  --dark-accent: var(--primary-200);
-  --dark-accent-hover: var(--primary-100);
-
-  --dark-success: var(--success-400);
-  --dark-success-hover: var(--success-200);
-
-  --dark-error: var(--error-200);
-  --dark-error-hover: var(--error-100);
-
-  /* Status Colors - Adjusted for dark mode contrast */
-  --dark-success-log: var(--success-800);
-  --dark-success-bg: rgba(102, 187, 106, 0.15);
-
-  --dark-debug: var(--gray-600);
-  --dark-debug-bg: rgba(150, 150, 150, 0.15);
-
-  --dark-info: var(--primary-700);
-  --dark-info-bg: rgba(100, 181, 246, 0.15);
-
-  --dark-warning: var(--warning-900);
-  --dark-warning-bg: rgba(255, 167, 38, 0.15);
-
-  --dark-error-log: var(--error-500);
-  --dark-error-bg: rgba(239, 83, 80, 0.25);
-}
-
-/* Dark Mode Styles */
-body.dark-mode {
-  background-color: var(--dark-bg-primary);
-  color: var(--dark-text-primary);
 }
 
 #languageSelector {
@@ -254,7 +257,7 @@ body {
 /* Button Styles */
 button {
   background-color: var(--primary-color);
-  color: var(--dark-text-primary);
+  color: var(--white);
   border: none;
   padding: var(--spacing-md) var(--spacing-xl);
   border-radius: var(--border-radius);
@@ -348,7 +351,7 @@ button:disabled {
   position: absolute;
   top: 15px;
   right: 35px;
-  color: var(--dark-text-primary);
+  color: var(--white);
   font-weight: bold;
   cursor: pointer;
 }
@@ -361,12 +364,14 @@ button:disabled {
 
 /* Form Elements */
 .combo-box {
-  padding: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-lg);
   margin: var(--spacing-xs) 0;
   border: 1px solid;
   border-color: var(--border-color);
   border-radius: var(--border-radius);
-  width: 85px;
+  width: fit-content;
+  min-width: 60px;
+  max-width: 100%;
 }
 
 .combo-box:hover {
@@ -519,7 +524,7 @@ button:disabled {
   top: 2px;
   width: 3px;
   height: 8px;
-  border: solid var(--dark-text-primary);
+  border: solid var(--white);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
@@ -588,11 +593,11 @@ button:disabled {
   font-family: 'Lucida Console', Monaco, 'Courier New', monospace;
   font-size: var(--font-size-sm);
   line-height: 1.5;
-  color: var(--dark-text-primary);
+  color: var(--gray-50);
 }
 
 .code-block {
-  background-color: var(--dark-bg-secondary);
+  background-color: var(--gray-950);
   border: 1px solid var(--gray-600);
   border-radius: var(--border-radius);
   padding: 2px 5px;
@@ -607,7 +612,7 @@ button:disabled {
 }
 
 .inline-code {
-  background-color: var(--dark-bg-secondary);
+  background-color: var(--gray-950);
   padding: 2px 5px;
   border-radius: 3px;
   border: 1px solid var(--gray-600);
@@ -727,30 +732,6 @@ button:disabled {
   box-shadow: var(--box-shadow);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .credits-content {
-    flex-direction: column;
-    text-align: center;
-    gap: 15px;
-  }
-
-  .social-credits {
-    justify-content: center;
-  }
-
-  .donation-buttons {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .donate-button {
-    width: 200px;
-    margin: 0 auto;
-    justify-content: center;
-  }
-}
-
 /* Animations */
 @keyframes fadeIn {
   from {
@@ -777,13 +758,6 @@ button:disabled {
   animation: buttonPop 0.3s ease;
 }
 
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .donate-button {
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-}
-
 /* Tooltips */
 .donate-button::after,
 .button::after {
@@ -794,7 +768,7 @@ button:disabled {
   transform: translateX(-50%);
   padding: 5px 10px;
   background-color: var(--gray-800);
-  color: var(--dark-text-primary);
+  color: var(--white);
   border-radius: var(--border-radius);
   font-size: var(--font-size-base);
   white-space: nowrap;
@@ -824,6 +798,7 @@ button:disabled {
   color: #00ff00;
   text-shadow: 0 0 8px #00ff00, 0 0 15px #00ff00;
   animation: glow-pulse 1.5s ease-in-out infinite;
+  will-change: text-shadow;
 }
 
 @keyframes glow-pulse {
@@ -906,21 +881,6 @@ button:disabled {
   padding: 8px 16px;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
-  .documentation-sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid #eee;
-  }
-
-  .documentation-content {
-    margin-left: 0;
-  }
-}
-
 /* Navigation buttons */
 .nav-buttons {
   display: flex;
@@ -949,7 +909,7 @@ button:disabled {
 
 .nav-button.active {
   background-color: var(--primary-color);
-  color: var(--dark-text-primary);
+  color: var(--white);
 }
 
 .nav-button i {
@@ -964,22 +924,23 @@ button:disabled {
 }
 
 .number-input input[type='number'] {
-  width: 40px;
+  width: fit-content;
+  min-width: 50px;
+  max-width: 100%;
   text-align: center;
-  padding: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   font: var(--font-size-base) var(--font-family);
   transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
-.number-input input[type='number']::-webkit-inner-spin-button {
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.number-input:hover input[type='number']::-webkit-inner-spin-button {
+/* Keep native spin buttons visible and improve their appearance */
+.number-input input[type='number']::-webkit-inner-spin-button,
+.number-input input[type='number']::-webkit-outer-spin-button {
   opacity: 1;
+  cursor: pointer;
+  background: var(--bg-secondary);
 }
 
 .number-input input[type='number']:hover {
@@ -989,13 +950,13 @@ button:disabled {
 
 .number-input input[type='number']:focus {
   outline: none;
-  border-color: var(--border-hover);
-  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
 }
 
 .number-input input[type='number']:disabled {
   background-color: var(--bg-secondary);
-  color: var(--text-primary);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
@@ -1095,7 +1056,7 @@ button:disabled {
 .download-button,
 .download-all-button {
   display: inline-block;
-  color: var(--dark-text-primary);
+  color: var(--white);
   border-radius: var(--border-radius);
   text-decoration: none;
   font-weight: 500;
@@ -1356,15 +1317,6 @@ button i,
   background-color: var(--bg-primary);
 }
 
-@media (max-width: 768px) {
-  .filter-controls {
-    flex-direction: column;
-  }
-
-  .search-box {
-    max-width: 100%;
-  }
-}
 /* Logs Container Styles */
 .logs-container {
   background-color: var(--bg-primary);
@@ -1478,7 +1430,7 @@ button i,
 .log-entry.warn .log-level,
 .log-entry.error .log-level,
 .log-entry.debug .log-level {
-  color: var(--dark-text-primary);
+  color: var(--white);
 }
 
 .log-entry.info .log-level {
@@ -1589,18 +1541,13 @@ button i,
 
 .channel-badge {
   background-color: var(--primary-color);
-  color: var(--dark-text-primary);
+  color: var(--white);
   padding: 4px 10px;
   border-radius: 12px;
   font-size: var(--font-size-sm);
   font-weight: 500;
 }
 
-@media (max-width: 768px) {
-  .avr-grid {
-    grid-template-columns: 1fr;
-  }
-}
 .output-display {
   background-color: var(--gray-900);
   padding: 8px;
@@ -1610,7 +1557,7 @@ button i,
 }
 
 .output-label {
-  color: var(--dark-text-secondary);
+  color: var(--gray-200);
   font: 600 var(--font-size-base) sans-serif;
   text-align: center;
   margin-bottom: 6px;
@@ -1648,33 +1595,67 @@ button i,
   font-weight: 500;
 }
 
-@media (max-width: 768px) {
-  .channel-map {
-    border-spacing: 3px;
-  }
-  .output-display .channel-badge {
-    font-size: var(--font-size-sm);
-    width: 30px;
-    height: 20px;
-    line-height: 20px;
-  }
-}
+/* ==========================================================================
+   DARK MODE - Semantic Variable Overrides
+   ========================================================================== */
 
-@media (max-width: 480px) {
-  .channel-map {
-    border-spacing: 2px;
-  }
-  .output-display .channel-badge {
-    font-size: var(--font-size-sm);
-    width: 28px;
-    height: 18px;
-    line-height: 18px;
-  }
+body.dark-mode {
+  /* Surface colors (containers, cards, sections) */
+  --surface-bg: var(--gray-950);
+  --surface-bg-alt: var(--gray-900);
+  --surface-bg-elevated: var(--gray-800);
+  --surface-border: var(--gray-800);
+  --surface-border-hover: var(--gray-500);
+
+  /* Text on surfaces */
+  --surface-text: var(--gray-50);
+  --surface-text-muted: var(--gray-200);
+
+  /* Interactive elements */
+  --interactive-bg: var(--primary-200);
+  --interactive-bg-hover: var(--primary-100);
+  --interactive-text: var(--gray-900);
+
+  /* Accent/Links */
+  --accent: var(--primary-200);
+  --accent-hover: var(--primary-100);
+
+  /* Status backgrounds (semi-transparent for dark mode) */
+  --status-success-bg: rgba(102, 187, 106, 0.15);
+  --status-error-bg: rgba(239, 83, 80, 0.25);
+  --status-warning-bg: rgba(255, 167, 38, 0.15);
+  --status-info-bg: rgba(100, 181, 246, 0.15);
+
+  /* Status text */
+  --status-success-text: var(--success-400);
+  --status-error-text: var(--error-200);
+  --status-warning-text: var(--warning-500);
+  --status-info-text: var(--primary-200);
+
+  /* Log entry colors */
+  --log-info-border: var(--primary-700);
+  --log-info-bg: rgba(100, 181, 246, 0.15);
+  --log-success-border: var(--success-800);
+  --log-success-bg: rgba(102, 187, 106, 0.15);
+  --log-warn-border: var(--warning-900);
+  --log-warn-bg: rgba(255, 167, 38, 0.15);
+  --log-error-border: var(--error-500);
+  --log-error-bg: rgba(239, 83, 80, 0.25);
+  --log-debug-border: var(--gray-600);
+  --log-debug-bg: rgba(150, 150, 150, 0.15);
+
+  /* Core overrides using semantic variables */
+  background-color: var(--surface-bg-alt);
+  color: var(--surface-text);
 }
 
 body.dark-mode a {
-  color: var(--dark-accent);
+  color: var(--accent);
 }
+
+/* ==========================================================================
+   DARK MODE - Component Overrides (use semantic variables)
+   ========================================================================== */
 
 body.dark-mode .container,
 body.dark-mode .control-group,
@@ -1691,16 +1672,16 @@ body.dark-mode .resource-details h4,
 body.dark-mode .resource-details h3,
 body.dark-mode .documentation,
 body.dark-mode .measurements-table td {
-  background-color: var(--dark-bg-secondary);
-  color: var(--dark-text-primary);
-  border-color: var(--dark-border-color);
+  background-color: var(--surface-bg);
+  color: var(--surface-text);
+  border-color: var(--surface-border);
 }
 
 body.dark-mode .checkbox-container:hover input ~ .checkmark,
 body.dark-mode .number-input input[type='number']:hover,
 body.dark-mode .combo-box:hover,
 body.dark-mode .filter-dropdown:hover {
-  border-color: var(--dark-border-hover);
+  border-color: var(--surface-border-hover);
 }
 
 body.dark-mode input,
@@ -1719,48 +1700,48 @@ body.dark-mode .documentation-content,
 body.dark-mode .resources-grid,
 body.dark-mode .commit,
 body.dark-mode .version-tag {
-  background-color: var(--dark-bg-primary);
-  color: var(--dark-text-primary);
-  border-color: var(--dark-border-color);
+  background-color: var(--surface-bg-alt);
+  color: var(--surface-text);
+  border-color: var(--surface-border);
 }
 
 body.dark-mode .avr-content h3,
 body.dark-mode .commit-header {
-  border-color: var(--dark-border-color);
-  color: var(--dark-accent);
+  border-color: var(--surface-border);
+  color: var(--accent);
 }
 
 body.dark-mode .logs-container {
-  border-color: var(--dark-border-color);
+  border-color: var(--surface-border);
 }
 
 body.dark-mode button,
 body.dark-mode .button,
 body.dark-mode .download-button {
-  background-color: var(--dark-accent);
-  color: var(--text-primary);
+  background-color: var(--interactive-bg);
+  color: var(--interactive-text);
 }
 
 body.dark-mode button:hover,
 body.dark-mode .button:hover {
-  background-color: var(--dark-accent-hover);
+  background-color: var(--interactive-bg-hover);
 }
 
 body.dark-mode button:disabled,
 body.dark-mode .button:disabled {
-  background-color: var(--dark-bg-tertiary);
-  color: var(--dark-text-primary);
+  background-color: var(--surface-bg-elevated);
+  color: var(--surface-text-muted);
 }
 
 body.dark-mode .dropdown-content label:hover,
 body.dark-mode .measurements-table tr:hover {
-  background-color: var(--dark-bg-primary);
+  background-color: var(--surface-bg-alt);
 }
 
 body.dark-mode .resource-details p,
 body.dark-mode .search-box i,
 body.dark-mode .search-box input {
-  color: var(--dark-text-secondary);
+  color: var(--surface-text-muted);
 }
 
 body.dark-mode .label,
@@ -1769,91 +1750,98 @@ body.dark-mode .log-timestamp,
 body.dark-mode .log-message,
 body.dark-mode .credits-text,
 body.dark-mode .version {
-  color: var(--dark-text-primary);
+  color: var(--surface-text);
 }
 
 body.dark-mode .value,
 body.dark-mode .commit-title,
 body.dark-mode .commit-sha,
 body.dark-mode .version-tag {
-  color: var(--dark-accent);
+  color: var(--accent);
 }
 body.dark-mode .measurements-table .warning {
-  background-color: var(--dark-warning-bg);
-  color: var(--dark-warning);
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning-text);
 }
 
 body.dark-mode .measurements-table .error {
-  background-color: var(--dark-error-bg);
-  color: var(--dark-error);
+  background-color: var(--status-error-bg);
+  color: var(--status-error-text);
 }
 
 body.dark-mode .measurements-table .success {
-  background-color: var(--dark-success-bg);
-  color: var(--dark-text-primary);
+  background-color: var(--status-success-bg);
+  color: var(--surface-text);
 }
 
 body.dark-mode .warning {
-  color: var(--dark-warning);
+  color: var(--status-warning-text);
 }
 
 body.dark-mode .error {
-  color: var(--dark-error);
+  color: var(--status-error-text);
 }
 
 body.dark-mode .info {
-  color: var(--dark-info);
+  color: var(--status-info-text);
 }
 
 body.dark-mode .success {
-  color: var(--dark-success);
-  background-color: var(--dark-success-bg);
+  color: var(--status-success-text);
+  background-color: var(--status-success-bg);
 }
 
 body.dark-mode .error-border {
-  background-color: var(--dark-error-bg);
+  background-color: var(--status-error-bg);
 }
 
 body.dark-mode .shrinkable-container summary:hover {
-  background-color: var(--dark-bg-primary);
+  background-color: var(--surface-bg-alt);
 }
 
-/* Dark Mode - Log Entry Types */
+/* Dark Mode - Log Entry Types (use semantic --log-* variables) */
 body.dark-mode .log-entry.info {
-  border-left-color: var(--dark-info);
-  background-color: var(--dark-info-bg);
+  border-left-color: var(--log-info-border);
+  background-color: var(--log-info-bg);
 }
 body.dark-mode .log-entry.success {
-  border-left-color: var(--dark-success-log);
-  background-color: var(--dark-success-bg);
+  border-left-color: var(--log-success-border);
+  background-color: var(--log-success-bg);
 }
 body.dark-mode .log-entry.warn {
-  border-left-color: var(--dark-warning);
-  background-color: var(--dark-warning-bg);
+  border-left-color: var(--log-warn-border);
+  background-color: var(--log-warn-bg);
 }
 body.dark-mode .log-entry.error {
-  border-left-color: var(--dark-error-log);
-  background-color: var(--dark-error-bg);
+  border-left-color: var(--log-error-border);
+  background-color: var(--log-error-bg);
 }
 body.dark-mode .log-entry.debug {
-  border-left-color: var(--dark-debug);
-  background-color: var(--dark-debug-bg);
+  border-left-color: var(--log-debug-border);
+  background-color: var(--log-debug-bg);
 }
 
 body.dark-mode .log-entry.info .log-level {
-  background-color: var(--dark-info);
+  background-color: var(--log-info-border);
 }
 body.dark-mode .log-entry.success .log-level {
-  background-color: var(--dark-success-log);
+  background-color: var(--log-success-border);
 }
 body.dark-mode .log-entry.warn .log-level {
-  background-color: var(--dark-warning);
+  background-color: var(--log-warn-border);
 }
 body.dark-mode .log-entry.error .log-level {
-  background-color: var(--dark-error-log);
+  background-color: var(--log-error-border);
 }
 body.dark-mode .log-entry.debug .log-level {
-  background-color: var(--dark-debug);
+  background-color: var(--log-debug-border);
+}
+
+/* Dark mode spin buttons */
+body.dark-mode .number-input input[type='number']::-webkit-inner-spin-button,
+body.dark-mode .number-input input[type='number']::-webkit-outer-spin-button {
+  background: var(--surface-bg-elevated);
+  filter: invert(1);
 }
 
 /* Confirm Dialog */
@@ -1915,7 +1903,7 @@ body.dark-mode .log-entry.debug .log-level {
   border-radius: var(--border-radius);
   cursor: pointer;
   font-weight: 500;
-  color: var(--dark-text-primary);
+  color: var(--gray-50);
 }
 
 .confirm-dialog .btn-cancel {
@@ -1935,23 +1923,23 @@ button.danger:hover,
   background-color: var(--error-hover);
 }
 
-/* Dark Mode - Confirm Dialog */
+/* Dark Mode - Confirm Dialog (uses semantic variables) */
 body.dark-mode .confirm-dialog {
-  background-color: var(--dark-bg-secondary);
-  border-color: var(--dark-border-color);
+  background-color: var(--surface-bg);
+  border-color: var(--surface-border);
 }
 body.dark-mode .confirm-dialog-header {
-  border-bottom-color: var(--dark-border-color);
+  border-bottom-color: var(--surface-border);
 }
 body.dark-mode .confirm-dialog-header h3,
 body.dark-mode .confirm-dialog .btn-cancel {
-  color: var(--dark-text-primary);
+  color: var(--surface-text);
 }
 body.dark-mode .confirm-dialog p {
-  color: var(--dark-text-secondary);
+  color: var(--surface-text-muted);
 }
 body.dark-mode .confirm-dialog .btn-cancel {
-  background-color: var(--dark-bg-tertiary);
+  background-color: var(--surface-bg-elevated);
 }
 body.dark-mode .confirm-dialog .btn-cancel:hover {
   background-color: var(--gray-600);
@@ -1960,11 +1948,161 @@ body.dark-mode .confirm-dialog .btn-cancel:hover {
 body.dark-mode .confirm-dialog .btn-confirm,
 body.dark-mode button.danger,
 body.dark-mode .button.danger {
-  background-color: var(--dark-error);
+  background-color: var(--status-error-text);
 }
 
 body.dark-mode .confirm-dialog .btn-confirm:hover,
 body.dark-mode button.danger:hover,
 body.dark-mode .button.danger:hover {
-  background-color: var(--dark-error-hover);
+  background-color: var(--error-100);
+}
+
+/* Accessibility - Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  /* stylelint-disable declaration-no-important */
+  /* eslint-disable css/no-important */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* stylelint-enable declaration-no-important */
+  /* eslint-enable css/no-important */
+
+  .polling-indicator.active {
+    animation: none;
+    text-shadow: 0 0 10px #00ff00;
+  }
+
+  .fa-spinner {
+    animation: none;
+  }
+}
+
+/* Focus States - Accessibility */
+button:focus-visible,
+.button:focus-visible,
+.combo-box:focus-visible,
+.nav-button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--primary-400);
+  outline-offset: 2px;
+}
+
+body.dark-mode button:focus-visible,
+body.dark-mode .button:focus-visible,
+body.dark-mode .combo-box:focus-visible,
+body.dark-mode input:focus-visible,
+body.dark-mode select:focus-visible {
+  outline-color: var(--accent);
+}
+
+/* Skip to content link - Accessibility */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--primary-color);
+  color: var(--white);
+  padding: 8px 16px;
+  z-index: 10000;
+  text-decoration: none;
+  border-radius: 0 0 var(--border-radius) 0;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ==========================================================================
+   MEDIA QUERIES - Consolidated
+   ========================================================================== */
+
+/* Tablet and below */
+@media (max-width: 768px) {
+  /* Credits & Donation */
+  .credits-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+  }
+
+  .social-credits {
+    justify-content: center;
+  }
+
+  .donation-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .donate-button {
+    width: 200px;
+    margin: 0 auto;
+    justify-content: center;
+  }
+
+  /* Documentation */
+  .documentation-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  .documentation-content {
+    margin-left: 0;
+  }
+
+  /* Filters */
+  .filter-controls {
+    flex-direction: column;
+  }
+
+  .search-box {
+    max-width: 100%;
+  }
+
+  /* AVR Grid */
+  .avr-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Channel Map */
+  .channel-map {
+    border-spacing: 3px;
+  }
+
+  .output-display .channel-badge {
+    font-size: var(--font-size-sm);
+    width: 30px;
+    height: 20px;
+    line-height: 20px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .channel-map {
+    border-spacing: 2px;
+  }
+
+  .output-display .channel-badge {
+    font-size: var(--font-size-sm);
+    width: 28px;
+    height: 18px;
+    line-height: 18px;
+  }
+}
+
+/* Dark mode preference */
+@media (prefers-color-scheme: dark) {
+  .donate-button {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
 }
