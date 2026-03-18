@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <!-- Specify character encoding early -->
@@ -1200,7 +1200,11 @@
                       <div class="column-toggle-dropdown">
                         <button
                           class="button"
-                          onclick="document.getElementById('columnDropdown').classList.toggle('show')"
+                          onclick="
+                            document
+                              .getElementById('columnDropdown')
+                              .classList.toggle('show')
+                          "
                           data-tooltip="Toggle column visibility"
                         >
                           <i class="fas fa-columns"></i> columns
