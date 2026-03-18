@@ -7,7 +7,7 @@ echo "Checking outdated packages..."
 npm outdated || true
 
 echo "Upgrading packages..."
-npx npm-check-updates -u
+npx npm-check-updates -u --reject knockout
 npm install
 npm audit fix
 
