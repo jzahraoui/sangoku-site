@@ -8,6 +8,9 @@
     "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview --host",
+    "test:smoke:knockout": "node test/knockout-trusted-types.smoke.test.js",
+    "test:smoke:browser": "node test/app-startup.browser.smoke.test.js",
+    "test:smoke": "npm run build && npm run test:smoke:knockout && npm run test:smoke:browser",
     "versionCommit": "script/release-vite.sh",
     "publish": "script/publish-vite.sh",
     "clean": "rm -rf dist && rm -rf node_modules"
@@ -44,6 +47,7 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.0.3",
     "globals": "^17.4.0",
+    "playwright": "^1.58.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.0"
   },
