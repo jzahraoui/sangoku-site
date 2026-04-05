@@ -89,7 +89,7 @@
       </button>
 
       <!-- Add language selector -->
-      <select id="languageSelector" class="combo-box">
+      <select id="languageSelector" class="combo-box" aria-label="Select language">
         <option value="en">English</option>
         <option value="fr">Français</option>
       </select>
@@ -623,6 +623,7 @@
               <h3>Smoothing/Windowing:</h3>
               <select
                 class="combo-box"
+                aria-label="Smoothing method"
                 data-bind="
                 options: smoothingChoices,
                 optionsText: 'text',
@@ -633,6 +634,7 @@
               ></select>
               <select
                 class="combo-box"
+                aria-label="IR window"
                 data-bind="
                 options: irWindowsChoices,
                 optionsText: 'text',
@@ -770,6 +772,7 @@
 
             <select
               class="combo-box"
+              aria-label="Average method"
               data-bind="
             options: averageMethod,
             optionsText: 'text',
@@ -835,6 +838,7 @@
             </label>
             <select
               class="combo-box"
+              aria-label="LFE revert frequency"
               data-bind="
             options: LfeFrequencies,
             optionsText: 'text',
@@ -1033,6 +1037,7 @@
               <select
                 id="SpeakerSelect"
                 class="combo-box"
+                aria-label="Speaker channel"
                 data-bind="
               options: uniqueSpeakersMeasurements,
               optionsText: 'title',
@@ -1313,6 +1318,7 @@
                     <div class="filter-controls">
                       <select
                         class="combo-box filter-select"
+                        aria-label="Filter measurements"
                         data-bind="
                       options: selectedMeasurements,
                       optionsText: 'text',
@@ -1322,6 +1328,7 @@
                       <select
                         id="filterSelectproduceAlignedButton"
                         class="combo-box position-select"
+                        aria-label="Select position"
                         data-bind="
                     options: measurementsPositionList,
                     optionsText: 'text',
@@ -1340,6 +1347,7 @@
                         <select
                           id="distanceUnitSelect"
                           class="combo-box"
+                          aria-label="Distance unit"
                           data-bind="value: distanceUnit"
                         >
                           <option value="M">Meters</option>
@@ -1384,6 +1392,7 @@
                     <select
                       id="globalCrossoverSelect"
                       class="combo-box crossover-select"
+                      aria-label="Global crossover frequency"
                       data-bind="
                     options: alingFrequencies,
                     optionsText: 'text',
@@ -1498,6 +1507,7 @@
                   <td>
                     <select
                       class="combo-box"
+                      aria-label="Channel crossover frequency"
                       data-bind="
                     options: $parent.alingFrequencies,
                     optionsText: 'text',
