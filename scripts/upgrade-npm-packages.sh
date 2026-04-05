@@ -7,7 +7,7 @@ echo "Checking outdated packages..."
 npm outdated || true
 
 echo "Upgrading packages..."
-npx npm-check-updates -u --reject knockout
+npx npm-check-updates -u
 npm install
 npm audit fix
 
@@ -16,17 +16,7 @@ if ! npm run test:smoke; then
   cat >&2 << 'EOF'
 
 Dependency upgrade aborted: smoke test failed.
-
-If the browser smoke test reports:
-	- Unable to parse bindings
-	- Strict mode code may not include a with statement
-
-then the regression is the known Knockout + Trusted Types + ESM runtime issue.
-
-Recommended action:
-	1. Keep knockout pinned to 3.5.1 in package.json
-	2. Exclude knockout from automatic upgrades
-	3. Re-run this upgrade script after restoring the pinned version
+Review the test output above to identify the breaking package.
 
 EOF
   exit 1
