@@ -211,6 +211,7 @@ body {
 
 /* Dropzone Styles */
 .dropzone {
+  position: relative;
   border: 2px dashed;
   border-color: var(--border-color);
   border-radius: var(--border-radius);
@@ -220,6 +221,32 @@ body {
   background-color: var(--bg-secondary);
   cursor: pointer;
   transition: all 0.3s ease;
+}
+
+.dropzone-inner,
+.dropzone-text {
+  display: block;
+}
+
+.dropzone-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dropzone:focus-visible {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 3px;
+  border-color: var(--primary-color);
+}
+
+.dropzone:focus-within {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 3px;
+  border-color: var(--primary-color);
 }
 
 .dropzone.dragover {
@@ -288,14 +315,26 @@ button:disabled {
 
 /* Popup Modal */
 .popup {
-  display: none;
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-width: none;
+  max-height: none;
+  background: transparent;
   z-index: 1000;
+}
+
+.popup:not([open]) {
+  display: none;
+}
+
+.popup::backdrop {
+  background-color: rgba(0, 0, 0, 0.9);
 }
 
 .popup img {
@@ -351,9 +390,19 @@ button:disabled {
   position: absolute;
   top: 15px;
   right: 35px;
+  background: transparent;
+  border: 0;
   color: var(--white);
+  font-size: 2rem;
   font-weight: bold;
+  line-height: 1;
+  padding: 0;
   cursor: pointer;
+}
+
+.close-btn:focus-visible {
+  outline: 3px solid var(--white);
+  outline-offset: 4px;
 }
 
 .code-link {
@@ -1473,6 +1522,7 @@ button i,
   left: 0;
   background-color: var(--bg-primary);
   min-width: 200px;
+  border: 0;
   box-shadow: var(--box-shadow);
   border-radius: 8px;
   padding: 12px;

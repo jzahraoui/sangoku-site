@@ -72,6 +72,39 @@ class RewController {
       const popup = document.getElementById('descriptionPopup');
       const popupDescription = document.getElementById('popupDescription');
       const closeBtn = document.querySelector('#descriptionPopup .close-btn'); // More specific selector
+      let lastFocusedElement = null;
+
+      const openDescriptionPopup = () => {
+        if (!popup) return;
+
+        lastFocusedElement = document.activeElement;
+        if (typeof popup.showModal === 'function') {
+          if (!popup.open) {
+            popup.showModal();
+          }
+        } else {
+          popup.style.display = 'block';
+        }
+        globalThis.requestAnimationFrame(() => {
+          closeBtn?.focus();
+        });
+      };
+
+      const closeDescriptionPopup = () => {
+        if (!popup) return;
+
+        if (typeof popup.close === 'function') {
+          if (popup.open) {
+            popup.close();
+          }
+        } else {
+          popup.style.display = 'none';
+        }
+
+        if (lastFocusedElement instanceof HTMLElement) {
+          lastFocusedElement.focus();
+        }
+      };
 
       // Add click event to all code links
       for (const link of document.querySelectorAll('.code-link')) {
@@ -87,14 +120,14 @@ class RewController {
               lm.error('Error fetching description:', error);
               popupDescription.textContent = 'Failed to load description.';
             });
-          if (popup) popup.style.display = 'block';
+          openDescriptionPopup();
         });
       }
 
       // Close popup when clicking the close button
       if (closeBtn) {
         closeBtn.addEventListener('click', function () {
-          if (popup) popup.style.display = 'none';
+          closeDescriptionPopup();
         });
       }
 
@@ -102,7 +135,14 @@ class RewController {
       if (popup) {
         popup.addEventListener('click', function (e) {
           if (e.target === this) {
-            popup.style.display = 'none';
+            closeDescriptionPopup();
+          }
+        });
+
+        popup.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            closeDescriptionPopup();
           }
         });
       }

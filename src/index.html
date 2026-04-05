@@ -125,7 +125,7 @@
 
     <main class="container">
       <!-- App Content Container -->
-      <div id="appContent">
+      <div id="appContent" tabindex="-1">
         <!-- REW Controls Section -->
         <section
           id="RewCommands"
@@ -133,22 +133,35 @@
           data-bind="css: { 'error-border': hasError() }"
         >
           <!-- Add this HTML for the popup -->
-          <div id="descriptionPopup" class="popup">
+          <dialog
+            id="descriptionPopup"
+            class="popup"
+            aria-labelledby="descriptionPopupTitle"
+          >
             <div class="popup-content">
-              <span class="close-btn">&times;</span>
+              <h2 id="descriptionPopupTitle" class="sr-only">Description details</h2>
+              <button
+                type="button"
+                class="close-btn"
+                aria-label="Close description popup"
+              >
+                &times;
+              </button>
               <div id="popupDescription">
                 <!-- Content will be loaded here -->
               </div>
             </div>
-          </div>
+          </dialog>
 
           <div class="control-group">
             <h2>
               <span data-i18n="import_avr">Import AVR</span>
             </h2>
-            <div
+            <label
               class="dropzone"
               id="dropzoneAvr"
+              aria-controls="fileInputAvr"
+              aria-describedby="dropzoneAvrText"
               data-bind="event: { 
                 drop: handleDrop,
                 dragover: handleDragOver,
@@ -156,15 +169,17 @@
                 dragleave: handleDragLeave
               }, css: { 'dragover': isDragging }"
             >
-              <p data-i18n="drop_avr">Drop .avr or .ady file here or click to select</p>
+              <span id="dropzoneAvrText" class="dropzone-text" data-i18n="drop_avr">
+                Drop .avr or .ady file here or click to select
+              </span>
               <input
                 type="file"
+                class="dropzone-input"
                 id="fileInputAvr"
                 accept=".avr,.ady"
                 data-bind="event: { change: handleFileSelect }"
-                style="display: none"
               />
-            </div>
+            </label>
             <div id="resultsAvr" aria-live="polite"></div>
           </div>
           <!-- ko if: jsonAvrData()?.avr -->
@@ -1032,20 +1047,25 @@
                 </button>
 
                 <!-- File Upload Area -->
-                <div class="dropzone" id="dropzoneMso">
-                  <div class="dropzone-inner">
+                <label
+                  class="dropzone"
+                  id="dropzoneMso"
+                  aria-controls="fileInputMso"
+                  aria-describedby="dropzoneMsoText"
+                >
+                  <span class="dropzone-inner">
                     <i class="fa fa-cloud-upload" aria-hidden="true"></i>
-                    <p data-i18n="drop_mso" class="dropzone-text">
+                    <span id="dropzoneMsoText" data-i18n="drop_mso" class="dropzone-text">
                       Drop your Equalizer APO export file here or click to select
-                    </p>
+                    </span>
                     <input
                       type="file"
+                      class="dropzone-input"
                       id="fileInputMso"
                       accept=".txt"
-                      style="display: none"
                     />
-                  </div>
-                </div>
+                  </span>
+                </label>
 
                 <div id="results" aria-live="polite" class="results-container"></div>
               </details>
@@ -1308,12 +1328,17 @@
                       <div class="column-toggle-dropdown">
                         <button
                           id="columnToggleBtn"
+                          type="button"
                           class="button"
+                          aria-haspopup="true"
+                          aria-expanded="false"
+                          aria-controls="columnDropdown"
                           data-tooltip="Toggle column visibility"
                         >
                           <i class="fas fa-columns" aria-hidden="true"></i> columns
                         </button>
-                        <div id="columnDropdown" class="dropdown-content">
+                        <fieldset id="columnDropdown" class="dropdown-content" hidden>
+                          <legend class="sr-only">Column visibility</legend>
                           <label
                             ><input
                               type="checkbox"
@@ -1342,7 +1367,7 @@
                             />
                             Required shift</label
                           >
-                        </div>
+                        </fieldset>
                       </div>
                     </div>
                     <div class="filter-controls">

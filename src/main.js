@@ -21,15 +21,45 @@ themeToggle.addEventListener('click', () => {
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
 });
 
+const columnToggleBtn = document.getElementById('columnToggleBtn');
+const columnDropdown = document.getElementById('columnDropdown');
+
+function setColumnDropdownExpanded(isExpanded) {
+  if (!columnToggleBtn || !columnDropdown) {
+    return;
+  }
+
+  columnToggleBtn.setAttribute('aria-expanded', String(isExpanded));
+  columnDropdown.classList.toggle('show', isExpanded);
+  columnDropdown.hidden = !isExpanded;
+}
+
 // Column visibility toggle
-document.getElementById('columnToggleBtn').addEventListener('click', () => {
-  document.getElementById('columnDropdown').classList.toggle('show');
-});
+if (columnToggleBtn && columnDropdown) {
+  columnToggleBtn.addEventListener('click', () => {
+    const isExpanded = columnToggleBtn.getAttribute('aria-expanded') === 'true';
+    setColumnDropdownExpanded(!isExpanded);
+  });
+
+  columnToggleBtn.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      setColumnDropdownExpanded(false);
+      columnToggleBtn.focus();
+    }
+  });
+
+  columnDropdown.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      setColumnDropdownExpanded(false);
+      columnToggleBtn.focus();
+    }
+  });
+}
 
 // Close dropdown when clicking outside
 globalThis.addEventListener('click', e => {
   if (!e.target.closest('.column-toggle-dropdown')) {
-    document.getElementById('columnDropdown')?.classList.remove('show');
+    setColumnDropdownExpanded(false);
   }
 });
 
@@ -48,19 +78,10 @@ async function downloadConfig(config, channel) {
   }
 }
 
-const dropzoneAvr = document.getElementById('dropzoneAvr');
-const fileInputAvr = document.getElementById('fileInputAvr');
-
-dropzoneAvr.addEventListener('click', () => {
-  fileInputAvr.click();
-});
-
 // UI Setup
 const dropzoneMso = document.getElementById('dropzoneMso');
 const fileInputMso = document.getElementById('fileInputMso');
 const results = document.getElementById('results');
-
-dropzoneMso.addEventListener('click', () => fileInputMso.click());
 
 dropzoneMso.addEventListener('dragover', e => {
   e.preventDefault();
