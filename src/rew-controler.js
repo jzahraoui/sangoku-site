@@ -33,7 +33,7 @@ class RewController {
       globalThis.DualRangeInput = new DualRangeInput($min, $max, 2);
 
       globalThis.addEventListener('beforeunload', () =>
-        globalThis.viewModel.saveMeasurements()
+        globalThis.viewModel.saveMeasurements(),
       );
 
       // Handle visibility change
@@ -155,7 +155,7 @@ class RewController {
               thumbnailPopup.style.display = 'none';
             }
           },
-          { passive: true }
+          { passive: true },
         );
       }
 
@@ -280,7 +280,7 @@ class RewController {
             // Get all links with the specified file extension from the relevant section
             const section = this.closest('section');
             const links = section.querySelectorAll(
-              `a[href^="${folderPath}"][href$="${fileExtension}"]`
+              `a[href^="${folderPath}"][href$="${fileExtension}"]`,
             );
 
             if (links.length === 0) {
@@ -418,7 +418,7 @@ class RewController {
         if (!commitList || !loading || !error || !searchInput || !authorFilter) return;
         try {
           const response = await fetch(
-            'https://api.github.com/repos/jzahraoui/sangoku-site/commits'
+            'https://api.github.com/repos/jzahraoui/sangoku-site/commits',
           );
 
           if (!response.ok) {
@@ -457,13 +457,6 @@ class RewController {
 
       // Initialize
       fetchCommits();
-    });
-
-    // Fermer le dialogue avec Escape
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && globalThis.viewModel.showConfirmDialog()) {
-        globalThis.viewModel.cancelConfirmDialog();
-      }
     });
   }
 }

@@ -15,12 +15,14 @@ export class ConfirmDialogManager {
     this.executeConfirmDialog = this.execute.bind(this);
     this.cancelConfirmDialog = this.cancel.bind(this);
 
-    // Fermer avec Escape
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape' && this.showConfirmDialog()) {
+    // Fermer avec Escape via l'événement natif cancel du <dialog>
+    const dialogEl = document.getElementById('confirmDialog');
+    if (dialogEl) {
+      dialogEl.addEventListener('cancel', e => {
+        e.preventDefault();
         this.cancel();
-      }
-    });
+      });
+    }
   }
 
   show({ title, message, onConfirm, onCancel, danger = false }) {
@@ -29,10 +31,7 @@ export class ConfirmDialogManager {
     this.isConfirmDanger(danger);
     this.pendingAction = { onConfirm, onCancel };
     this.showConfirmDialog(true);
-
-    setTimeout(() => {
-      document.querySelector('.confirm-dialog .btn-cancel')?.focus();
-    }, 100);
+    document.getElementById('confirmDialog').showModal();
   }
 
   execute() {
@@ -48,6 +47,7 @@ export class ConfirmDialogManager {
   close() {
     this.showConfirmDialog(false);
     this.pendingAction = null;
+    document.getElementById('confirmDialog')?.close();
   }
 }
 

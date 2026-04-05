@@ -40,11 +40,10 @@
     <a href="#appContent" class="skip-link">Skip to main content</a>
 
     <!-- Dialogue de confirmation global -->
-    <div
+    <dialog
       id="confirmDialog"
       class="confirm-dialog-overlay"
-      style="display: none"
-      data-bind="visible: confirmManager.showConfirmDialog"
+      aria-labelledby="confirm-dialog-title"
     >
       <div class="confirm-dialog">
         <div
@@ -52,12 +51,18 @@
           data-bind="css: { danger: confirmManager.isConfirmDanger }"
         >
           <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
-          <h3 data-bind="text: confirmManager.confirmDialogTitle">Confirmation</h3>
+          <h3
+            id="confirm-dialog-title"
+            data-bind="text: confirmManager.confirmDialogTitle"
+          >
+            Confirmation
+          </h3>
         </div>
         <p data-bind="text: confirmManager.confirmDialogMessage"></p>
         <div class="confirm-dialog-buttons">
           <button
             class="btn-cancel"
+            autofocus
             data-bind="click: confirmManager.cancelConfirmDialog"
           >
             <i class="fas fa-times" aria-hidden="true"></i>
@@ -72,7 +77,7 @@
           </button>
         </div>
       </div>
-    </div>
+    </dialog>
     <header>
       <h1 data-i18n="title">Room Correction Helper</h1>
       <button

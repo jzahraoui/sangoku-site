@@ -1867,6 +1867,18 @@ body.dark-mode .number-input input[type='number']::-webkit-outer-spin-button {
   z-index: 1001;
 }
 
+/* Reset browser defaults for <dialog> and hide until showModal() adds [open] */
+dialog.confirm-dialog-overlay {
+  border: none;
+  padding: 0;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+dialog.confirm-dialog-overlay:not([open]) {
+  display: none;
+}
+
 .confirm-dialog {
   background-color: var(--bg-primary);
   border-radius: var(--border-radius);
