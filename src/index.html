@@ -51,7 +51,7 @@
           class="confirm-dialog-header"
           data-bind="css: { danger: confirmManager.isConfirmDanger }"
         >
-          <i class="fas fa-exclamation-triangle"></i>
+          <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
           <h3 data-bind="text: confirmManager.confirmDialogTitle">Confirmation</h3>
         </div>
         <p data-bind="text: confirmManager.confirmDialogMessage"></p>
@@ -60,13 +60,15 @@
             class="btn-cancel"
             data-bind="click: confirmManager.cancelConfirmDialog"
           >
-            <i class="fas fa-times"></i> <span data-i18n="cancel">Cancel</span>
+            <i class="fas fa-times" aria-hidden="true"></i>
+            <span data-i18n="cancel">Cancel</span>
           </button>
           <button
             class="btn-confirm"
             data-bind="click: confirmManager.executeConfirmDialog"
           >
-            <i class="fas fa-check"></i> <span data-i18n="confirm">Confirm</span>
+            <i class="fas fa-check" aria-hidden="true"></i>
+            <span data-i18n="confirm">Confirm</span>
           </button>
         </div>
       </div>
@@ -75,6 +77,7 @@
       <h1 data-i18n="title">Room Correction Helper</h1>
       <button
         id="themeToggle"
+        aria-label="Toggle theme / Changer le theme"
         style="
           position: absolute;
           top: 20px;
@@ -89,26 +92,27 @@
       </button>
 
       <!-- Add language selector -->
-      <select id="languageSelector" class="combo-box" aria-label="Select language">
+      <label for="languageSelector" class="sr-only">Language / Langue</label>
+      <select id="languageSelector" class="combo-box">
         <option value="en">English</option>
         <option value="fr">Français</option>
       </select>
       <!-- Navigation buttons -->
       <div class="nav-buttons">
         <button class="nav-button" data-page="application">
-          <i class="fas fa-home"></i>
+          <i class="fas fa-home" aria-hidden="true"></i>
           Application
         </button>
         <button class="nav-button" data-page="documentation">
-          <i class="fas fa-book"></i>
+          <i class="fas fa-book" aria-hidden="true"></i>
           Documentation
         </button>
         <button class="nav-button" data-page="resources">
-          <i class="fas fa-download"></i>
+          <i class="fas fa-download" aria-hidden="true"></i>
           Resources
         </button>
         <button class="nav-button" data-page="changelog">
-          <i class="fas fa-history"></i>
+          <i class="fas fa-history" aria-hidden="true"></i>
           Change Log
         </button>
       </div>
@@ -260,6 +264,7 @@
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-download'"
+                    aria-hidden="true"
                   ></i>
                   <span data-i18n="download_a1_avr">Download A1 .avr</span>
                 </button>
@@ -538,6 +543,7 @@
               <i
                 class="fas fa-plug polling-indicator"
                 data-bind="css: { active: isPolling }"
+                aria-hidden="true"
               ></i>
               <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
             </button>
@@ -549,7 +555,10 @@
               css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Click to rename the measurements for homogeneity"
             >
-              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-pen'"></i>
+              <i
+                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-pen'"
+                aria-hidden="true"
+              ></i>
               <span data-i18n="rename">Rename</span>
             </button>
             <button
@@ -560,7 +569,10 @@
               css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, inversion)"
             >
-              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo'"></i>
+              <i
+                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo'"
+                aria-hidden="true"
+              ></i>
               <span data-i18n="reset_measurements">Reset Measurements</span>
             </button>
             <button
@@ -573,6 +585,7 @@
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-exclamation-triangle'"
+                aria-hidden="true"
               ></i>
               <span data-i18n="reset_application">Reset Application</span>
             </button>
@@ -790,6 +803,7 @@
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-layer-group'"
+                aria-hidden="true"
               ></i>
               <span data-i18n="averages">Averages</span>
             </button>
@@ -803,7 +817,10 @@
               css: { disabled: isProcessing, loading: isProcessing }"
               data-tooltip="Align measurements by time peaks"
             >
-              <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-clock'"></i>
+              <i
+                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-clock'"
+                aria-hidden="true"
+              ></i>
               <span data-i18n="time_align">Time align</span>
             </button>
             <button
@@ -816,6 +833,7 @@
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-volume-up'"
+                aria-hidden="true"
               ></i>
               <span data-i18n="align_spl">Align SPL</span>
             </button>
@@ -856,6 +874,7 @@
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo-alt'"
+                aria-hidden="true"
               ></i>
               <span data-i18n="revert">Revert</span>
             </button>
@@ -951,6 +970,7 @@
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-align-center'"
+                    aria-hidden="true"
                   ></i>
                   <span data-i18n="align_sub">Align Sub</span>
                 </button>
@@ -964,6 +984,7 @@
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-sliders-h'"
+                    aria-hidden="true"
                   ></i>
                   <span data-i18n="equalize_sub">Equalize Sub</span>
                 </button>
@@ -977,6 +998,7 @@
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-eye'"
+                    aria-hidden="true"
                   ></i>
                   <span data-i18n="preview_sub">Preview Sub</span>
                 </button>
@@ -999,6 +1021,7 @@
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-download'"
+                    aria-hidden="true"
                   ></i>
                   <span data-i18n="download_sub_exports">Download Sub exports</span>
                 </button>
@@ -1006,7 +1029,7 @@
                 <!-- File Upload Area -->
                 <div class="dropzone" id="dropzoneMso">
                   <div class="dropzone-inner">
-                    <i class="fa fa-cloud-upload"></i>
+                    <i class="fa fa-cloud-upload" aria-hidden="true"></i>
                     <p data-i18n="drop_mso" class="dropzone-text">
                       Drop your Equalizer APO export file here or click to select
                     </p>
@@ -1054,7 +1077,10 @@
               css: { disabled: isProcessing, loading: isProcessing }"
                 data-tooltip="Find optimal alignment between subwoofer and selected speaker"
               >
-                <i data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-magic'"></i>
+                <i
+                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-magic'"
+                  aria-hidden="true"
+                ></i>
                 <span data-i18n="find_sub_alignment">Find Sub Alignment</span>
               </button>
               <button
@@ -1067,6 +1093,7 @@
               >
                 <i
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-sync-alt'"
+                  aria-hidden="true"
                 ></i>
                 <span data-i18n="auto_adjust_inversion">Auto Adjust Inversion</span>
               </button>
@@ -1173,6 +1200,7 @@
               >
                 <i
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
+                  aria-hidden="true"
                 ></i>
                 <span data-i18n="create_oca_file">Create OCA File</span>
               </button>
@@ -1187,6 +1215,7 @@
               >
                 <i
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
+                  aria-hidden="true"
                 ></i>
                 <span data-i18n="create_settings_file">Create settings File</span>
               </button>
@@ -1281,7 +1310,7 @@
                           "
                           data-tooltip="Toggle column visibility"
                         >
-                          <i class="fas fa-columns"></i> columns
+                          <i class="fas fa-columns" aria-hidden="true"></i> columns
                         </button>
                         <div id="columnDropdown" class="dropdown-content">
                           <label
@@ -1409,7 +1438,8 @@
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <i id="invert-icon" class="fa fa-arrow-up"></i>
+                      <i id="invert-icon" class="fa fa-arrow-up" aria-hidden="true"></i>
+                      <span class="sr-only">Invert all / Tout inverser</span>
                     </button>
                   </th>
                   <th class="column-header">
@@ -1420,7 +1450,8 @@
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <i class="fa fa-sliders"></i>
+                      <i class="fa fa-sliders" aria-hidden="true"></i>
+                      <span class="sr-only" data-i18n="all_filters">All Filters</span>
                     </button>
                   </th>
                   <th class="column-header">
@@ -1431,7 +1462,8 @@
                     disable: isProcessing(),
                     css: { disabled: isProcessing }"
                     >
-                      <i class="fa fa-eye"></i>
+                      <i class="fa fa-eye" aria-hidden="true"></i>
+                      <span class="sr-only" data-i18n="all_previews">All previews</span>
                     </button>
                   </th>
                 </tr>
@@ -1528,6 +1560,7 @@
                     >
                       <i
                         data-bind="css: inverted() ? 'fa fa-arrow-down' : 'fa fa-arrow-up'"
+                        aria-hidden="true"
                       ></i>
                     </button>
                   </td>
@@ -1544,7 +1577,7 @@
                       visible: !isSub() && isValid"
                       data-tooltip="Create speaker filter"
                     >
-                      <i class="fa fa-sliders"></i>
+                      <i class="fa fa-sliders" aria-hidden="true"></i>
                     </button>
                   </td>
                   <td style="text-align: center">
@@ -1557,7 +1590,7 @@
                       visible: !isSub() && isValid"
                       data-tooltip="Create preview"
                     >
-                      <i class="fa fa-eye"></i>
+                      <i class="fa fa-eye" aria-hidden="true"></i>
                     </button>
                   </td>
                 </tr>
@@ -1603,7 +1636,7 @@
                 class="donate-button paypal"
                 data-tooltip="Support via PayPal"
               >
-                <i class="fab fa-paypal"></i>
+                <i class="fab fa-paypal" aria-hidden="true"></i>
                 PayPal
               </a>
               <a
@@ -1611,7 +1644,7 @@
                 class="donate-button patreon"
                 data-tooltip="Support via Patreon"
               >
-                <i class="fab fa-patreon"></i>
+                <i class="fab fa-patreon" aria-hidden="true"></i>
                 Patreon
               </a>
               <a
@@ -1630,7 +1663,7 @@
 
           <div class="social-credits">
             <a href="https://github.com/jzahraoui/sangoku-site" title="GitHub">
-              <i class="fab fa-github"></i>
+              <i class="fab fa-github" aria-hidden="true"></i>
             </a>
           </div>
         </div>
