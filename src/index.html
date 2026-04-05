@@ -517,7 +517,7 @@
                   </table>
                 </div>
                 <div id="room-3d-container">
-                  <canvas id="room-canvas" width="600px" height="400"></canvas>
+                  <canvas id="room-canvas" width="600" height="400"></canvas>
                 </div>
               </div>
             </details>
@@ -1307,12 +1307,8 @@
                     >
                       <div class="column-toggle-dropdown">
                         <button
+                          id="columnToggleBtn"
                           class="button"
-                          onclick="
-                            document
-                              .getElementById('columnDropdown')
-                              .classList.toggle('show')
-                          "
                           data-tooltip="Toggle column visibility"
                         >
                           <i class="fas fa-columns" aria-hidden="true"></i> columns

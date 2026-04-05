@@ -21,6 +21,11 @@ themeToggle.addEventListener('click', () => {
   localStorage.setItem('theme', isDark ? 'dark' : 'light');
 });
 
+// Column visibility toggle
+document.getElementById('columnToggleBtn').addEventListener('click', () => {
+  document.getElementById('columnDropdown').classList.toggle('show');
+});
+
 // Close dropdown when clicking outside
 globalThis.addEventListener('click', e => {
   if (!e.target.closest('.column-toggle-dropdown')) {
