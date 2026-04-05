@@ -52,7 +52,7 @@ class AdyTools {
         Object.entries(channel.responseData).map(async ([position, measurementData]) => {
           const positionIndex = Number(position);
           if (Number.isNaN(positionIndex)) {
-            throw new Error(
+            throw new TypeError(
               `Invalid position key "${position}" in responseData: expected a numeric index.`,
             );
           }
@@ -115,19 +115,15 @@ class AdyTools {
       );
     }
 
-    // Use math.js for frequency domain division: IFFT(FFT(A) / FFT(B))
-    const signalA = Array.from(impulseA, x => math.complex(Number(x), 0));
-    const signalB = Array.from(impulseB, x => math.complex(Number(x), 0));
-
-    // Perform FFT
-    const freqA = math.fft(signalA);
-    const freqB = math.fft(signalB);
+    // Perform FFT (math.fft accepts real-valued arrays directly)
+    const freqA = math.fft(Array.from(impulseA));
+    const freqB = math.fft(Array.from(impulseB));
 
     // Wiener regularization to prevent division by near-zero values
     const EPSILON = 1e-10;
     const result = freqA.map((val, i) => {
       const denom = freqB[i];
-      const denomAbsSq = denom.re * denom.re + denom.im * denom.im + EPSILON;
+      const denomAbsSq = math.abs(denom) ** 2 + EPSILON;
       return math.divide(math.multiply(val, math.conj(denom)), denomAbsSq);
     });
 
@@ -231,14 +227,8 @@ class AdyTools {
       }
     }
     try {
-      // Fetch the text from URL
-
       const response = await fetch(url, {
-        headers: {
-          Accept: 'text/plain',
-          'Cache-Control': 'no-cache',
-        },
-        // Add these options to help prevent fetch errors
+        headers: { Accept: 'text/plain', 'Cache-Control': 'no-cache' },
         mode: 'cors',
         credentials: 'same-origin',
       });
@@ -249,25 +239,17 @@ class AdyTools {
         );
       }
 
-      // Get the text content
       const text = await response.text();
-      // Validate that we actually got content
-      if (!text) {
+      if (!text?.trim()) {
         throw new Error('No content received from server when fetching data from ' + url);
       }
 
-      // Split the text into lines and convert to floats
-      const floatArray = text
-        .trim() // Remove leading/trailing whitespace
-        .split(/\s+/) // Split on whitespace (space, tab, newline)
-        .filter(Boolean) // Remove empty lines
-        .map(num => Number.parseFloat(num)); // Convert strings to floats
-      // Validate the parsed data
-      if (floatArray.length === 0 || floatArray.some(Number.isNaN)) {
+      const floats = Float32Array.from(text.trim().split(/\s+/), Number.parseFloat);
+      if (floats.length === 0 || floats.some(Number.isNaN)) {
         throw new Error('Invalid data format received when fetching data from ' + url);
       }
 
-      return Float32Array.from(floatArray);
+      return floats;
     } catch (error) {
       throw new Error(`Failed to fetch or process data from ${url}: ${error.message}`, {
         cause: error,
@@ -296,14 +278,12 @@ class AdyTools {
     if (measurementData.some(Number.isNaN)) {
       throw new Error(`measurement data for ${measurementName} contains NaN values`);
     }
-    // convert measurementData elements to number
-    const measurementDataNumber = Array.from(measurementData, x => Number(x));
     // Find the sample with the highest absolute amplitude (correct for inverted polarity)
-    const peakIndex = measurementDataNumber.reduce(
+    const peakIndex = measurementData.reduce(
       (maxIdx, val, i, arr) => (Math.abs(val) > Math.abs(arr[maxIdx]) ? i : maxIdx),
       0,
     );
-    const peakValue = measurementDataNumber[peakIndex];
+    const peakValue = measurementData[peakIndex];
     const SAMPLE_INTERVAL = 1 / this.samplingRate;
     const START_TIME = '0.0';
     const options = {
@@ -330,7 +310,7 @@ class AdyTools {
       )} Hz sampling`,
       `${peakValue.toPrecision(18)} // Peak value before normalisation`,
       `${peakIndex} // Peak index`,
-      `${measurementDataNumber.length} // Response length`,
+      `${measurementData.length} // Response length`,
       `${SAMPLE_INTERVAL.toExponential(16).replace(
         'e',
         'E',
