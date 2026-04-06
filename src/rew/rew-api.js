@@ -12,7 +12,7 @@ export default class RewApi {
   static TIMEOUT_MS = 15000;
   static WAIT_BETWEEN_RETRIES_MS = 100;
   static MAX_POLLING_RETRY = Math.floor(
-    RewApi.TIMEOUT_MS / RewApi.WAIT_BETWEEN_RETRIES_MS
+    RewApi.TIMEOUT_MS / RewApi.WAIT_BETWEEN_RETRIES_MS,
   );
   static SPEED_DELAY_INHIBIT_MS = 20;
   static SPEED_DELAY_NORMAL_MS = 500;
@@ -22,7 +22,7 @@ export default class RewApi {
   constructor(
     baseURL = 'http://localhost:4735',
     inhibitGraphUpdates = false,
-    blocking = false
+    blocking = false,
   ) {
     this.setBaseURL(baseURL);
     this.blocking = blocking;
@@ -125,7 +125,7 @@ export default class RewApi {
     if (versionNum < RewApi.MIN_REQUIRED_VERSION) {
       throw new Error(
         `Installed REW version (${versionString}) is outdated and incompatible. ` +
-          `Please install the latest REW Beta from https://www.avnirvana.com/threads/rew-api-beta-releases.12981/.`
+          `Please install the latest REW Beta from https://www.avnirvana.com/threads/rew-api-beta-releases.12981/.`,
       );
     }
     return versionString;
@@ -211,13 +211,15 @@ export default class RewApi {
 
       if (error.name === 'AbortError') {
         const abortError = new Error(
-          `Request ${endpoint} timeout after ${RewApi.TIMEOUT_MS / 1000} s`
+          `Request ${endpoint} timeout after ${RewApi.TIMEOUT_MS / 1000} s`,
         );
         abortError.code = 'AbortError';
         throw abortError;
       }
 
-      throw new Error(`Request failed for ${endpoint}: ${error.message}`);
+      throw new Error(`Request failed for ${endpoint}: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -226,7 +228,7 @@ export default class RewApi {
     method = 'GET',
     body = null,
     retries = 2,
-    expectedProcess = null
+    expectedProcess = null,
   ) {
     try {
       const data = await this.request(endpoint, method, body);
@@ -246,7 +248,7 @@ export default class RewApi {
 
       const processExpectedResponse = this.getProcessExpectedResponse(
         endpoint,
-        processID
+        processID,
       );
       const resultUrl = this.getResultUrl(endpoint);
 
@@ -260,19 +262,22 @@ export default class RewApi {
         'GET',
         null,
         RewApi.MAX_POLLING_RETRY,
-        processExpectedResponse
+        processExpectedResponse,
       );
     } catch (error) {
       if (error.code === 'AbortError') {
         throw new Error(
-          `Request ${endpoint} timeout after ${RewApi.TIMEOUT_MS / 1000} s`
+          `Request ${endpoint} timeout after ${RewApi.TIMEOUT_MS / 1000} s`,
+          { cause: error },
         );
       }
       if (retries > 0) {
         await new Promise(resolve => setTimeout(resolve, RewApi.WAIT_BETWEEN_RETRIES_MS));
         return this.fetchWithRetry(endpoint, method, body, retries - 1, expectedProcess);
       }
-      throw new Error(`Max retries reached for ${endpoint}: ${error.message}`);
+      throw new Error(`Max retries reached for ${endpoint}: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -353,7 +358,7 @@ export default class RewApi {
       !caseInsensitiveIncludes(data.processName, expectedProcess.processName)
     ) {
       throw new Error(
-        generateErrorMessage(expectedProcess.processName, data.processName)
+        generateErrorMessage(expectedProcess.processName, data.processName),
       );
     }
   }
@@ -431,7 +436,7 @@ export default class RewApi {
         view.setFloat32(
           i * Float32Array.BYTES_PER_ELEMENT,
           floatArray[i],
-          isLittleEndian
+          isLittleEndian,
         );
       }
       const bytes = new Uint8Array(buffer);
