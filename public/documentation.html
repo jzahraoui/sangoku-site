@@ -3,7 +3,7 @@
     <li><a href="#introduction">Introduction</a></li>
     <li><a href="#prerequisites">Avant de commencer</a></li>
     <li><a href="#entry-points">Choisir votre point de départ</a></li>
-    <li><a href="#workflow">Workflow recommande</a></li>
+    <li><a href="#workflow">Parcours recommande</a></li>
     <li><a href="#subwoofers">Caissons et MSO</a></li>
     <li><a href="#finalization">Finalisation</a></li>
     <li><a href="#troubleshooting">Depannage</a></li>
@@ -24,8 +24,8 @@
     </p>
     <p>
       RCH n'est pas un bouton magique. Le principe de l'application est au contraire de
-      vous donner une chaine de travail guidee, mais transparente, pour que vous puissiez
-      verifier chaque etape avant l'export final.
+      vous proposer un parcours guide, mais transparent, pour que vous puissiez verifier
+      chaque etape avant l'export final.
     </p>
     <p>
       Cette documentation decrit le fonctionnement actuel de l'application et suit les
@@ -88,7 +88,7 @@
   <section id="entry-points">
     <h2>Choisir votre point de depart</h2>
 
-    <h3>1. Mode basic avec fichier ADY</h3>
+    <h3>1. Mode simple avec fichier ADY</h3>
     <p>
       C'est le point d'entree le plus simple. Vous mesurez avec odd.wtf ou avec
       l'application Audyssey MultEQ Editor, puis vous importez le fichier ADY dans RCH.
@@ -101,8 +101,8 @@
 
     <h3>2. Cas particulier du fichier MQX</h3>
     <p>
-      L'application contient aussi un traitement MQX, mais ce flux ne constitue pas
-      aujourd'hui le parcours standard le plus robuste de la page Application.
+      RCH sait aussi traiter les fichiers MQX, mais ce flux ne constitue pas aujourd'hui
+      le parcours standard le plus robuste dans la page Application.
     </p>
     <p>
       En pratique, retenez surtout ADY comme point d'entree simple, et AVR + REW comme
@@ -110,7 +110,7 @@
       avance a valider avec prudence selon votre projet et votre contexte AVR.
     </p>
     <p>
-      Pour utiliser ce chemin, chargez d'abord les donnees AVR. RCH en a besoin pour
+      Pour utiliser ce flux, chargez d'abord les donnees AVR. RCH en a besoin pour
       reconstruire correctement la correspondance des canaux.
     </p>
 
@@ -132,7 +132,7 @@
   </section>
 
   <section id="workflow">
-    <h2>Workflow recommande</h2>
+    <h2>Parcours recommande</h2>
 
     <h3>Etape 1. Connecter REW et charger le projet</h3>
     <ol>
@@ -154,8 +154,8 @@
     </p>
     <p>
       En mode avance, evitez de charger le MDAT avant la connexion. Le tableau de RCH se
-      remplit plus proprement quand REW est deja lance, API active, puis fichier charge
-      apres avoir clique sur Connect.
+      remplit de facon plus fiable quand REW est deja lance, API active, puis fichier
+      charge apres avoir clique sur Connect.
     </p>
 
     <h3>Etape 2. Reinitialiser proprement l'etat de calcul</h3>
@@ -167,7 +167,7 @@
     </p>
     <p>
       En pratique, Reset Measurements remet notamment a zero le lissage, les fenetres IR,
-      les reglages de cible, la room curve, l'equalizer generique, les delais et les
+      les parametres de cible, la room curve, l'equalizer generique, les delais et les
       inversions. C'est le bon reflexe avant de refaire un passage complet.
     </p>
 
@@ -192,7 +192,7 @@
     </p>
     <p>
       RCH propose trois methodes de moyenne : Vector average, RMS + phase avg. et dB +
-      phase avg. Si vous n'avez pas encore vos habitudes, choisissez une methode et gardez
+      phase avg. Si vous n'avez pas encore de preference, choisissez une methode et gardez
       la meme sur tout le projet pour que les comparaisons restent coherentes.
     </p>
 
@@ -248,7 +248,7 @@
       coupure avant de relancer la recherche d'alignement.
     </p>
     <p>
-      Quand la recherche aboutit, RCH met aussi a jour LPF for LFE avec une valeur
+      Quand l'alignement reussit, RCH met aussi a jour LPF for LFE avec une valeur
       coherente avec l'enceinte retenue, avec un minimum de 120 Hz. Verifiez quand meme ce
       reglage avant l'export final.
     </p>
@@ -265,7 +265,7 @@
     </p>
     <p>
       Si les previews sont bons sur la moyenne mais moins convaincants sur la position
-      d'ecoute principale, refaites une verification en conservant aussi la position 1 au
+      d'ecoute principale, refaites la verification en conservant aussi la position 1 au
       moment du moyennage.
     </p>
   </section>
@@ -314,7 +314,7 @@
     <p>
       Additional Gain ne change pas directement le niveau final envoye a l'AVR. Ce reglage
       deplace surtout la courbe de travail du sub par rapport a la cible pour faciliter
-      l'optimisation. Individual max boost et Overall max boost definissent, eux, le gain
+      l'optimisation. Individual max boost et Overall max boost definissent le gain
       positif maximum que l'algorithme peut utiliser.
     </p>
 
@@ -357,7 +357,7 @@
       Si l'import ADY multi-sub echoue ou affiche un avertissement sur ce point, il faut
       generalement refaire la session de mesures en mode Directional bass. Selon le modele
       d'AVR, RCH peut aussi vous renvoyer vers une methode manuelle REW ou vers un flux
-      odd.wtf adapte.
+      odd.wtf adapte a votre modele.
     </p>
   </section>
 
@@ -391,7 +391,7 @@
       votre AVR avec odd.wtf ou un outil compatible avec votre flux de travail.
     </p>
     <p>
-      Pour un flux standard, Subwoofer Output en mode LFE est le point de depart naturel.
+      Pour un flux standard, Subwoofer Output en mode LFE est la base recommandee.
       N'utilisez LFE + Main que si vous savez exactement pourquoi vous le voulez.
     </p>
     <p>

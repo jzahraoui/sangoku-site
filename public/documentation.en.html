@@ -24,7 +24,7 @@
     </p>
     <p>
       RCH is not a one-click magic button. The goal of the application is to provide a
-      guided but transparent workflow so you can verify each step before the final export.
+      guided but transparent process so you can verify each step before the final export.
     </p>
     <p>
       This documentation describes the current behavior of the application and follows the
@@ -93,8 +93,8 @@
 
     <h3>2. Special case: MQX files</h3>
     <p>
-      The application also includes MQX processing, but this path is not currently the
-      most robust standard workflow in the Application page.
+      RCH can also process MQX files, but this path is not currently the most robust
+      standard workflow in the Application page.
     </p>
     <p>
       In practice, you should mainly rely on ADY for the simple workflow and AVR + REW for
@@ -102,7 +102,7 @@
       should be validated carefully for your project and AVR context.
     </p>
     <p>
-      To use this path, load AVR data first. RCH needs it to rebuild channel mapping
+      To use this path, load AVR data first. RCH needs it to rebuild the channel mapping
       correctly.
     </p>
 
@@ -184,8 +184,8 @@
     </p>
     <p>
       RCH offers three averaging methods: Vector average, RMS + phase avg., and dB + phase
-      avg. If you do not already have a strong preference, pick one method and keep it
-      consistent throughout the project so your comparisons remain meaningful.
+      avg. If you do not already have a clear preference, pick one method and keep it
+      consistent throughout the project so your comparisons stay meaningful.
     </p>
 
     <h3>Step 5. Align speakers in time</h3>
@@ -194,7 +194,7 @@
       alignment. This should be done before fine level adjustments and before working on
       speaker-to-subwoofer integration.
     </p>
-
+    When the alignment succeeds, RCH also updates LPF for LFE to a value consistent with
     <img src="img/doc/rch-time-align-button.png" alt="Time Align button" />
 
     <h3>Step 6. Load the target curve, then run Align SPL</h3>
@@ -256,7 +256,7 @@
     </p>
     <p>
       If the previews look good on the average but less convincing at the main listening
-      position, repeat the check while keeping position 1 when creating averages.
+      position, repeat the check while also keeping position 1 when creating averages.
     </p>
   </section>
 
@@ -335,7 +335,8 @@
     <p>
       If a multi-sub ADY import fails or warns about this, you usually need to repeat the
       measurement session in Directional bass mode. Depending on the AVR model, RCH may
-      also direct you toward a manual REW method or an odd.wtf workflow variant.
+      also direct you toward a manual REW method or an odd.wtf workflow variant for that
+      model.
     </p>
   </section>
 
@@ -369,8 +370,8 @@
       odd.wtf or another tool that matches your workflow.
     </p>
     <p>
-      For a standard workflow, Subwoofer Output in LFE mode is the natural baseline. Use
-      LFE + Main only if you explicitly know why you need it.
+      For a standard workflow, Subwoofer Output in LFE mode is the recommended baseline.
+      Use LFE + Main only if you explicitly know why you need it.
     </p>
     <p>
       The odd.wtf OCA format matches the standard upload flow. The A1 Evo Acoustica format
