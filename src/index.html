@@ -139,11 +139,11 @@
             aria-labelledby="descriptionPopupTitle"
           >
             <div class="popup-content">
-              <h2 id="descriptionPopupTitle" class="sr-only">Description details</h2>
+              <h2 id="descriptionPopupTitle" class="sr-only">Detailed Description</h2>
               <button
                 type="button"
                 class="close-btn"
-                aria-label="Close description popup"
+                aria-label="Close description dialog"
               >
                 &times;
               </button>
@@ -558,7 +558,7 @@
               click: buttoncheckREWButton,
               disable: isProcessing(),
               css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to connect or disconnect to REW"
+              data-tooltip="Click to connect to or disconnect from REW"
             >
               <i
                 class="fas fa-plug polling-indicator"
@@ -573,7 +573,7 @@
               click: renameMeasurement,
               disable: isProcessing(),
               css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to rename the measurements for homogeneity"
+              data-tooltip="Click to rename the measurements for consistency"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-pen'"
@@ -587,7 +587,7 @@
               click: confirmResetMeasurements,
               disable: isProcessing(),
               css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to reset measurements to default settings (smoothing, ir window, target setting, room curve, generic equaliser, delays, inversion)"
+              data-tooltip="Click to reset the measurements to their default settings (smoothing, IR window, target setting, room curve, generic equalizer, delays, and inversion)"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo'"
@@ -601,7 +601,7 @@
               click: confirmResetApplication,
               disable: isProcessing(),
               css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to reset all application settings to default (including measurements, filters, and all other settings)"
+              data-tooltip="Click to reset all application settings to their defaults (including measurements, filters, and all other settings)"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-exclamation-triangle'"
@@ -860,7 +860,7 @@
           </div>
           <!-- MSO Config Import Section -->
           <div class="control-group">
-            <h2 data-i18n="sub_tools">SubWoofers Tools</h2>
+            <h2 data-i18n="sub_tools">Subwoofer Tools</h2>
 
             <h3 data-i18n="revert_avr_filter">(Optional) Revert AVR low pass filter:</h3>
             <p data-i18n="revert_avr_info"></p>
@@ -1242,7 +1242,7 @@
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
                   aria-hidden="true"
                 ></i>
-                <span data-i18n="create_settings_file">Create settings File</span>
+                <span data-i18n="create_settings_file">Create Settings File</span>
               </button>
             </div>
           </div>
@@ -1289,7 +1289,7 @@
                 </select>
               </label>
 
-              <button id="clear-logs" class="clear-btn danger">Clear log</button>
+              <button id="clear-logs" class="clear-btn danger">Clear Logs</button>
               <button
                 id="export-logs"
                 class="export-btn"
@@ -1465,7 +1465,7 @@
                     css: { disabled: isProcessing }"
                     >
                       <i id="invert-icon" class="fa fa-arrow-up" aria-hidden="true"></i>
-                      <span class="sr-only">Invert all / Tout inverser</span>
+                      <span class="sr-only">Invert all</span>
                     </button>
                   </th>
                   <th class="column-header">
