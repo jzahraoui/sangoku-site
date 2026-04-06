@@ -37,7 +37,9 @@
 
   <body>
     <!-- Skip to main content link for accessibility -->
-    <a href="#appContent" class="skip-link">Skip to main content</a>
+    <a href="#appContent" class="skip-link" data-i18n="skip_to_main"
+      >Skip to main content</a
+    >
 
     <!-- Dialogue de confirmation global -->
     <dialog
@@ -83,6 +85,7 @@
       <button
         id="themeToggle"
         aria-label="Toggle theme / Changer le theme"
+        data-bind="attr: { 'aria-label': translations().theme_toggle_label }"
         style="
           position: absolute;
           top: 20px;
@@ -97,28 +100,30 @@
       </button>
 
       <!-- Add language selector -->
-      <label for="languageSelector" class="sr-only">Language / Langue</label>
+      <label for="languageSelector" class="sr-only" data-i18n="language_label"
+        >Language</label
+      >
       <select id="languageSelector" class="combo-box">
-        <option value="en">English</option>
-        <option value="fr">Français</option>
+        <option value="en" data-i18n="language_option_en">English</option>
+        <option value="fr" data-i18n="language_option_fr">French</option>
       </select>
       <!-- Navigation buttons -->
       <div class="nav-buttons">
         <button class="nav-button" data-page="application">
           <i class="fas fa-home" aria-hidden="true"></i>
-          Application
+          <span data-i18n="nav_application">Application</span>
         </button>
         <button class="nav-button" data-page="documentation">
           <i class="fas fa-book" aria-hidden="true"></i>
-          Documentation
+          <span data-i18n="documentation">Documentation</span>
         </button>
         <button class="nav-button" data-page="resources">
           <i class="fas fa-download" aria-hidden="true"></i>
-          Resources
+          <span data-i18n="nav_resources">Resources</span>
         </button>
         <button class="nav-button" data-page="changelog">
           <i class="fas fa-history" aria-hidden="true"></i>
-          Change Log
+          <span data-i18n="nav_changelog">Change Log</span>
         </button>
       </div>
     </header>
@@ -139,11 +144,18 @@
             aria-labelledby="descriptionPopupTitle"
           >
             <div class="popup-content">
-              <h2 id="descriptionPopupTitle" class="sr-only">Detailed Description</h2>
+              <h2
+                id="descriptionPopupTitle"
+                class="sr-only"
+                data-i18n="detailed_description"
+              >
+                Detailed Description
+              </h2>
               <button
                 type="button"
                 class="close-btn"
                 aria-label="Close description dialog"
+                data-bind="attr: { 'aria-label': translations().close_description_dialog }"
               >
                 &times;
               </button>
@@ -195,49 +207,53 @@
                     <span class="value" data-bind="text: jsonAvrData().title"></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">AVR Model:</span>
+                    <span class="label" data-i18n="avr_model">AVR Model:</span>
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().targetModelName"
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">MultEQ Version:</span>
+                    <span class="label" data-i18n="multieq_version">MultEQ Version:</span>
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.multEQDescription"
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">Speed of Sound:</span>
+                    <span class="label" data-i18n="speed_of_sound">Speed of Sound:</span>
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.speedOfSound + ' m/s'"
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">Soft Roll DAC:</span>
+                    <span class="label" data-i18n="soft_roll_dac">Soft Roll DAC:</span>
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.hasSoftRollDac"
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">70Hz Crossover:</span>
+                    <span class="label" data-i18n="crossover_70hz">70Hz Crossover:</span>
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.hasSeventyExtendedFreq"
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">180Hz Crossover:</span>
+                    <span class="label" data-i18n="crossover_180hz"
+                      >180Hz Crossover:</span
+                    >
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.hasExtendedFreq"
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">CirrusLogic DSP:</span>
+                    <span class="label" data-i18n="cirruslogic_dsp"
+                      >CirrusLogic DSP:</span
+                    >
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.hasCirrusLogicDsp"
@@ -251,14 +267,18 @@
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">Subwoofer Layout:</span>
+                    <span class="label" data-i18n="subwoofer_layout"
+                      >Subwoofer Layout:</span
+                    >
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().subwooferLayout"
                     ></span>
                   </div>
                   <div class="avr-item">
-                    <span class="label">4 Subwoofers supported:</span>
+                    <span class="label" data-i18n="four_subwoofers_supported"
+                      >4 Subwoofers supported:</span
+                    >
                     <span
                       class="value"
                       data-bind="text: jsonAvrData().avr?.isFourSubwooferModel"
@@ -267,10 +287,11 @@
                 </div>
 
                 <label
-                  >AVR API Address:
+                  ><span data-i18n="avr_api_address">AVR API Address:</span>
                   <input
                     type="text"
                     placeholder="ex. 192.168.1.200"
+                    data-i18n="avr_api_placeholder"
                     data-bind="value: avrIpAddress"
                   />
                 </label>
@@ -279,8 +300,8 @@
                   data-bind="
                   click: buttonDownloadAvr, 
                   disable: isProcessing(), 
-                  css: { disabled: isProcessing, loading: isProcessing }"
-                  data-tooltip="Download .avr to use it in A1 Evo"
+                  css: { disabled: isProcessing, loading: isProcessing },
+                  attr: { 'data-tooltip': translations().download_a1_avr_tooltip }"
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-download'"
@@ -293,7 +314,9 @@
           </div>
           <!-- /ko -->
           <!-- ko ifnot: jsonAvrData()?.avr -->
-          <p class="warning">Please load an AVR file to see configuration details.</p>
+          <p class="warning" data-i18n="load_avr_warning">
+            Please load an AVR file to see configuration details.
+          </p>
           <!-- /ko -->
           <!-- ko if: jsonAvrData()?.detectedChannels?.length > 0 -->
           <div class="control-group">
@@ -314,7 +337,9 @@
                   <table class="channel-map">
                     <thead>
                       <tr>
-                        <th colspan="5" class="output-label">OUTPUT</th>
+                        <th colspan="5" class="output-label" data-i18n="output_label">
+                          OUTPUT
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -543,11 +568,12 @@
             <h2 data-i18n="main_commands">Main commands</h2>
             <div>
               <label
-                >REW API Address:
+                ><span data-i18n="rew_api_address">REW API Address:</span>
                 <input
                   type="text"
                   id="rew-api-base-url"
                   placeholder="http://localhost:4735"
+                  data-i18n="rew_api_placeholder"
                   data-bind="value: apiBaseUrl"
                 />
               </label>
@@ -557,23 +583,26 @@
               data-bind="
               click: buttoncheckREWButton,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to connect to or disconnect from REW"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().rew_connect_tooltip }"
             >
               <i
                 class="fas fa-plug polling-indicator"
                 data-bind="css: { active: isPolling }"
                 aria-hidden="true"
               ></i>
-              <span data-bind="text: isPolling() ? 'Disconnect' : 'Connect'"></span>
+              <span data-bind="visible: !isPolling()" data-i18n="connect">Connect</span>
+              <span data-bind="visible: isPolling()" data-i18n="disconnect"
+                >Disconnect</span
+              >
             </button>
             <button
               class="button"
               data-bind="
               click: renameMeasurement,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to rename the measurements for consistency"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().rename_measurements_tooltip }"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-pen'"
@@ -586,8 +615,8 @@
               data-bind="
               click: confirmResetMeasurements,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to reset the measurements to their default settings (smoothing, IR window, target setting, room curve, generic equalizer, delays, and inversion)"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().reset_measurements_tooltip }"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo'"
@@ -600,8 +629,8 @@
               data-bind="
               click: confirmResetApplication,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Click to reset all application settings to their defaults (including measurements, filters, and all other settings)"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().reset_application_tooltip }"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-exclamation-triangle'"
@@ -631,8 +660,7 @@
                 <button
                   class="button"
                   style="margin-left: 10px; padding: 2px 8px; font-size: 0.9em"
-                  data-bind="click: setTargetLevelFromMeasurement, disable: isProcessing()"
-                  data-tooltip="Refresh target curve"
+                  data-bind="click: setTargetLevelFromMeasurement, disable: isProcessing(), attr: { 'data-tooltip': translations().refresh_target_curve_tooltip }"
                 >
                   ⟳
                 </button>
@@ -653,11 +681,12 @@
             <h2 data-i18n="speakers_tools">Speaker Tools</h2>
 
             <div>
-              <h3>Smoothing/Windowing:</h3>
+              <h3 data-i18n="smoothing_windowing">Smoothing/Windowing:</h3>
               <select
                 class="combo-box"
                 aria-label="Smoothing method"
                 data-bind="
+                attr: { 'aria-label': translations().smoothing_method_label },
                 options: smoothingChoices,
                 optionsText: 'text',
                 optionsValue: 'value',
@@ -669,6 +698,7 @@
                 class="combo-box"
                 aria-label="IR window"
                 data-bind="
+                attr: { 'aria-label': translations().ir_window_label },
                 options: irWindowsChoices,
                 optionsText: 'text',
                 optionsValue: 'value',
@@ -678,10 +708,13 @@
               ></select>
             </div>
 
-            <h3>Filter settings:</h3>
+            <h3 data-i18n="filter_settings">Filter settings:</h3>
             <div style="display: flex; flex-direction: column">
               <div class="number-input">
-                <label for="individualMaxBoost" style="width: 150px; text-align: left"
+                <label
+                  for="individualMaxBoost"
+                  style="width: 150px; text-align: left"
+                  data-i18n="individual_max_boost"
                   >Individual max boost:</label
                 >
                 <input
@@ -693,16 +726,19 @@
                       attr: {
                           min: individualMaxBoostValueMin,
                           max: individualMaxBoostValueMax,
-                          step: 1
+                          step: 1,
+                          title: translations().number_between_0_and_6
                       },                      
                       event: { change: $root.saveMeasurements },
                       "
                   required
-                  title="Enter a number between 0 and 6"
                 />
               </div>
               <div class="number-input">
-                <label for="overallMaxBoost" style="width: 150px; text-align: left"
+                <label
+                  for="overallMaxBoost"
+                  style="width: 150px; text-align: left"
+                  data-i18n="overall_max_boost"
                   >Overall max boost:</label
                 >
                 <input
@@ -714,17 +750,20 @@
                       attr: {
                           min: overallBoostValueMin,
                           max: overallBoostValueMax,
-                          step: 1
+                          step: 1,
+                          title: translations().number_between_0_and_6
                       },                      
                       event: { change: $root.saveMeasurements },
                       "
                   required
-                  title="Enter a number between 0 and 6"
                 />
               </div>
               <!-- double range slider to select lowerFrequencyBound and upperFrequencyBound -->
               <div>
-                <label style="width: 150px; text-align: left" for="min"
+                <label
+                  style="width: 150px; text-align: left"
+                  for="min"
+                  data-i18n="frequency_range"
                   >Frequency Range:</label
                 >
                 <div>
@@ -783,7 +822,9 @@
                   value="all"
                   data-bind="checked: DeleteOriginalForAverage"
                 />
-                <span>Delete all original measurements</span>
+                <span data-i18n="delete_all_original_measurements"
+                  >Delete all original measurements</span
+                >
               </label>
               <label class="radio-container">
                 <input
@@ -791,7 +832,9 @@
                   value="all_but_1"
                   data-bind="checked: DeleteOriginalForAverage"
                 />
-                <span>Delete all but position 1</span>
+                <span data-i18n="delete_all_but_position_1"
+                  >Delete all but position 1</span
+                >
               </label>
               <label class="radio-container">
                 <input
@@ -799,7 +842,7 @@
                   value="none"
                   data-bind="checked: DeleteOriginalForAverage"
                 />
-                <span>Keep everything</span>
+                <span data-i18n="keep_everything">Keep everything</span>
               </label>
             </div>
 
@@ -807,6 +850,7 @@
               class="combo-box"
               aria-label="Average method"
               data-bind="
+            attr: { 'aria-label': translations().average_method_label },
             options: averageMethod,
             optionsText: 'text',
             optionsValue: 'value',
@@ -818,8 +862,8 @@
               data-bind="
               click: buttoncreatesAverages,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Create averaged measurements from all positions"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().create_averages_tooltip }"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-layer-group'"
@@ -834,8 +878,8 @@
               data-bind="
               click: buttonAlignPeaks,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Align measurements by time peaks"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().align_peaks_tooltip }"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-clock'"
@@ -848,8 +892,8 @@
               data-bind="
               click: buttonAlignSPL,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="First measurement will be the reference for the SPL alignment"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().align_spl_tooltip }"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-volume-up'"
@@ -878,6 +922,7 @@
               class="combo-box"
               aria-label="LFE revert frequency"
               data-bind="
+            attr: { 'aria-label': translations().lfe_revert_frequency_label },
             options: LfeFrequencies,
             optionsText: 'text',
             optionsValue: 'value',
@@ -889,8 +934,8 @@
               data-bind="
               click: buttonrevertLfeFilter,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-              data-tooltip="Revert AVR low pass filter from subwoofer measurements"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().revert_lfe_tooltip }"
             >
               <i
                 data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-undo-alt'"
@@ -906,7 +951,7 @@
 
             <div style="display: flex; flex-direction: column">
               <div class="number-input">
-                <span style="width: 150px; text-align: left"
+                <span style="width: 150px; text-align: left" data-i18n="additional_gain"
                   >Additional gain (+/-0.5):</span
                 >
                 <button
@@ -914,8 +959,8 @@
                   data-bind="
                   click: decreaseSubTrimGain,
                   disable: isProcessing(),
-                  css: { disabled: isProcessing }"
-                  data-tooltip="Decrease subwoofer gain by 0.5 dB"
+                  css: { disabled: isProcessing },
+                  attr: { 'data-tooltip': translations().decrease_sub_gain_tooltip }"
                 >
                   -
                 </button>
@@ -924,14 +969,17 @@
                   data-bind="
                   click: increaseSubTrimGain,
                   disable: isProcessing(),
-                  css: { disabled: isProcessing }"
-                  data-tooltip="Increase subwoofer gain by 0.5 dB"
+                  css: { disabled: isProcessing },
+                  attr: { 'data-tooltip': translations().increase_sub_gain_tooltip }"
                 >
                   +
                 </button>
               </div>
               <div class="number-input">
-                <label for="individualMaxBoostSub" style="width: 150px; text-align: left"
+                <label
+                  for="individualMaxBoostSub"
+                  style="width: 150px; text-align: left"
+                  data-i18n="individual_max_boost"
                   >Individual max boost:</label
                 >
                 <input
@@ -943,14 +991,17 @@
                       attr: {
                           min: minIndividualValue,
                           max: maxIndividualValue,
-                          step: 1
+                          step: 1,
+                          title: translations().number_between_0_and_6
                       }"
                   required
-                  title="Enter a number between 0 and 6"
                 />
               </div>
               <div class="number-input">
-                <label for="overallMaxBoostSub" style="width: 150px; text-align: left"
+                <label
+                  for="overallMaxBoostSub"
+                  style="width: 150px; text-align: left"
+                  data-i18n="overall_max_boost"
                   >Overall max boost:</label
                 >
                 <input
@@ -962,10 +1013,10 @@
                       attr: {
                           min: minOverallValue,
                           max: maxOverallValue,
-                          step: 1
+                          step: 1,
+                          title: translations().number_between_0_and_3
                       }"
                   required
-                  title="Enter a number between 0 and 3"
                 />
               </div>
               <div data-bind="visible: uniqueSubsMeasurements().length > 1">
@@ -975,7 +1026,9 @@
                     type="checkbox"
                     data-bind="checked: useAllPassFiltersForSubs"
                   />
-                  <span>Use all pass filters (slower)</span>
+                  <span data-i18n="use_all_pass_filters"
+                    >Use all pass filters (slower)</span
+                  >
                   <span class="checkmark"></span>
                 </label>
               </div>
@@ -985,8 +1038,8 @@
                   data-bind="
                     click: buttonMultiSubOptimizer,
                     disable: isProcessing() || uniqueSubsMeasurements().length <= 1,
-                    css: { disabled: isProcessing, loading: isProcessing }"
-                  data-tooltip="Optimize alignment for multiple subwoofers"
+                    css: { disabled: isProcessing, loading: isProcessing },
+                    attr: { 'data-tooltip': translations().multi_sub_optimizer_tooltip }"
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-align-center'"
@@ -999,8 +1052,8 @@
                   data-bind="
                     click: buttonEqualizeSub,
                     disable: isProcessing(),
-                    css: { disabled: isProcessing, loading: isProcessing }"
-                  data-tooltip="Apply equalization to subwoofers"
+                    css: { disabled: isProcessing, loading: isProcessing },
+                    attr: { 'data-tooltip': translations().equalize_sub_tooltip }"
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-sliders-h'"
@@ -1013,8 +1066,8 @@
                   data-bind="
                     click: buttonproduceSubSum,
                     disable: isProcessing(),
-                    css: { disabled: isProcessing, loading: isProcessing }"
-                  data-tooltip="Generate preview of combined subwoofer response"
+                    css: { disabled: isProcessing, loading: isProcessing },
+                    attr: { 'data-tooltip': translations().preview_sub_tooltip }"
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-eye'"
@@ -1036,8 +1089,8 @@
                   data-bind="
                 click: buttonCreatesMsoExports,
                 disable: isProcessing(),
-                css: { disabled: isProcessing, loading: isProcessing }"
-                  data-tooltip="Export subwoofer measurements for MSO"
+                css: { disabled: isProcessing, loading: isProcessing },
+                attr: { 'data-tooltip': translations().export_mso_tooltip }"
                 >
                   <i
                     data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-download'"
@@ -1087,11 +1140,12 @@
                 class="combo-box"
                 aria-label="Speaker channel"
                 data-bind="
+              attr: { 'aria-label': translations().speaker_channel_label },
               options: uniqueSpeakersMeasurements,
               optionsText: 'title',
               optionsValue: 'uuid',
               event: { change: $root.saveMeasurements },
-              optionsCaption: 'Select speaker channel',
+              optionsCaption: translations().select_speaker_channel,
               value: selectedSpeaker"
               ></select>
               <button
@@ -1099,8 +1153,8 @@
                 data-bind="
               click: buttonproduceAlignedButton,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-                data-tooltip="Find optimal alignment between subwoofer and selected speaker"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().find_sub_alignment_tooltip }"
               >
                 <i
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-magic'"
@@ -1113,8 +1167,8 @@
                 data-bind="
               click: buttonAutoAdjustInversion,
               disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing }"
-                data-tooltip="Automatically adjust phase inversion for optimal response"
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().auto_adjust_inversion_tooltip }"
               >
                 <i
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-sync-alt'"
@@ -1126,7 +1180,7 @@
           </div>
 
           <div class="control-group">
-            <h2 class="section-title">Finalization</h2>
+            <h2 class="section-title" data-i18n="finalization">Finalization</h2>
 
             <div class="settings-grid">
               <label
@@ -1202,14 +1256,16 @@
                 </label>
               </div>
               <div class="radio-group">
-                <span>OCA file format:</span>
+                <span data-i18n="oca_file_format">OCA file format:</span>
                 <label class="radio-container">
                   <input type="radio" value="odd" data-bind="checked: ocaFileFormat" />
-                  <span>odd.wtf (does not support Cirrus Logic chips)</span>
+                  <span data-i18n="oca_format_odd"
+                    >odd.wtf (does not support Cirrus Logic chips)</span
+                  >
                 </label>
                 <label class="radio-container">
                   <input type="radio" value="a1" data-bind="checked: ocaFileFormat" />
-                  <span>A1 Evo Acoustica</span>
+                  <span data-i18n="oca_format_a1">A1 Evo Acoustica</span>
                 </label>
               </div>
             </div>
@@ -1220,8 +1276,8 @@
                 data-bind="
                 click: buttoncreateOCAButton,
                 disable: isProcessing(),
-                css: { disabled: isProcessing, loading: isProcessing }"
-                data-tooltip="Generate OCA file for upload to AVR"
+                css: { disabled: isProcessing, loading: isProcessing },
+                attr: { 'data-tooltip': translations().create_oca_tooltip }"
               >
                 <i
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
@@ -1235,8 +1291,8 @@
                 data-bind="
                 click: buttoncreateSetting,
                 disable: isProcessing(),
-                css: { disabled: isProcessing, loading: isProcessing }"
-                data-tooltip="Export all settings to a file for backup or sharing"
+                css: { disabled: isProcessing, loading: isProcessing },
+                attr: { 'data-tooltip': translations().export_settings_tooltip }"
               >
                 <i
                   data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
@@ -1254,12 +1310,16 @@
         <!-- Real-time Logs Container -->
         <div id="logs-container" class="logs-container">
           <div class="logs-header">
-            <h3>Application Logs</h3>
+            <h3 data-i18n="application_logs">Application Logs</h3>
 
             <div class="logs-controls">
               <!-- Error State -->
               <div data-bind="visible: hasError()">
-                <button class="clear-btn danger" data-bind="click: buttonClearErrors">
+                <button
+                  class="clear-btn danger"
+                  data-bind="click: buttonClearErrors"
+                  data-i18n="clear_error"
+                >
                   Clear error
                 </button>
               </div>
@@ -1270,30 +1330,33 @@
                   id="autoscroll-checkbox"
                   data-bind="checked: lm.autoScroll"
                 />
-                <span class="checkbox-label">Auto-scroll</span>
+                <span class="checkbox-label" data-i18n="auto_scroll">Auto-scroll</span>
                 <span class="checkmark"></span>
               </label>
 
               <label class="select-container">
-                <span class="select-label">Log Level:</span>
+                <span class="select-label" data-i18n="log_level">Log Level:</span>
                 <select
                   class="combo-box"
                   id="logLevel-select"
                   data-bind="value: lm.logLevel"
                 >
-                  <option value="ERROR">Error</option>
-                  <option value="WARN">Warning</option>
-                  <option value="SUCCESS">Success</option>
-                  <option value="INFO">Info</option>
-                  <option value="DEBUG">Debug</option>
+                  <option value="ERROR" data-i18n="log_error">Error</option>
+                  <option value="WARN" data-i18n="log_warning">Warning</option>
+                  <option value="SUCCESS" data-i18n="log_success">Success</option>
+                  <option value="INFO" data-i18n="log_info">Info</option>
+                  <option value="DEBUG" data-i18n="log_debug">Debug</option>
                 </select>
               </label>
 
-              <button id="clear-logs" class="clear-btn danger">Clear Logs</button>
+              <button id="clear-logs" class="clear-btn danger" data-i18n="clear_logs">
+                Clear Logs
+              </button>
               <button
                 id="export-logs"
                 class="export-btn"
                 data-bind="click: lm.exportLogs"
+                data-i18n="export_logs"
               >
                 Export Logs
               </button>
@@ -1333,39 +1396,42 @@
                           aria-haspopup="true"
                           aria-expanded="false"
                           aria-controls="columnDropdown"
-                          data-tooltip="Toggle column visibility"
+                          data-bind="attr: { 'data-tooltip': translations().toggle_columns_tooltip }"
                         >
-                          <i class="fas fa-columns" aria-hidden="true"></i> columns
+                          <i class="fas fa-columns" aria-hidden="true"></i>
+                          <span data-i18n="columns">Columns</span>
                         </button>
                         <fieldset id="columnDropdown" class="dropdown-content" hidden>
-                          <legend class="sr-only">Column visibility</legend>
+                          <legend class="sr-only" data-i18n="column_visibility">
+                            Column visibility
+                          </legend>
                           <label
                             ><input
                               type="checkbox"
                               data-bind="checked: visibleColumns().delay, event: { change: function() { visibleColumns.notifySubscribers(); } }"
                             />
-                            Delays</label
+                            <span data-i18n="delays">Delays</span></label
                           >
                           <label
                             ><input
                               type="checkbox"
                               data-bind="checked: visibleColumns().peak, event: { change: function() { visibleColumns.notifySubscribers(); } }"
                             />
-                            Peaks</label
+                            <span data-i18n="peaks">Peaks</span></label
                           >
                           <label
                             ><input
                               type="checkbox"
                               data-bind="checked: visibleColumns().distance, event: { change: function() { visibleColumns.notifySubscribers(); } }"
                             />
-                            Distance</label
+                            <span data-i18n="distance">Distance</span></label
                           >
                           <label
                             ><input
                               type="checkbox"
                               data-bind="checked: visibleColumns().shiftDelay, event: { change: function() { visibleColumns.notifySubscribers(); } }"
                             />
-                            Required shift</label
+                            <span data-i18n="required_shift">Required shift</span></label
                           >
                         </fieldset>
                       </div>
@@ -1375,6 +1441,7 @@
                         class="combo-box filter-select"
                         aria-label="Filter measurements"
                         data-bind="
+                      attr: { 'aria-label': translations().filter_measurements_label },
                       options: selectedMeasurements,
                       optionsText: 'text',
                       optionsValue: 'value',
@@ -1385,6 +1452,7 @@
                         class="combo-box position-select"
                         aria-label="Select position"
                         data-bind="
+                    attr: { 'aria-label': translations().select_position_label },
                     options: measurementsPositionList,
                     optionsText: 'text',
                     optionsValue: 'value',
@@ -1398,47 +1466,59 @@
                   <th class="distance-column">
                     <div class="distance-info">
                       <div>
-                        Distance
+                        <span data-i18n="distance">Distance</span>
                         <select
                           id="distanceUnitSelect"
                           class="combo-box"
                           aria-label="Distance unit"
-                          data-bind="value: distanceUnit"
+                          data-bind="attr: { 'aria-label': translations().distance_unit_label }, value: distanceUnit"
                         >
-                          <option value="M">Meters</option>
-                          <option value="ms">Milliseconds</option>
-                          <option value="ft">Feet</option>
+                          <option value="M" data-i18n="meters">Meters</option>
+                          <option value="ms" data-i18n="milliseconds">
+                            Milliseconds
+                          </option>
+                          <option value="ft" data-i18n="feet">Feet</option>
                         </select>
                       </div>
                       <div
                         class="warning-value"
-                        data-bind="text: `Warn. ${maxDistanceInMetersWarning()} m`"
+                        data-bind="text: `${translations().warn_short} ${maxDistanceInMetersWarning()} m`"
                       ></div>
                       <div
                         class="critical-value"
-                        data-bind="text: `Crit. ${maxDistanceInMetersError()} m`"
+                        data-bind="text: `${translations().crit_short} ${maxDistanceInMetersError()} m`"
                       ></div>
                       <div
                         class="critical-value"
-                        data-bind="text: `Left ${distanceLeftBeforeError()} m`"
+                        data-bind="text: `${translations().left_short} ${distanceLeftBeforeError()} m`"
                       ></div>
                     </div>
                   </th>
-                  <th class="column-header" data-bind="visible: visibleColumns().delay">
+                  <th
+                    class="column-header"
+                    data-bind="visible: visibleColumns().delay"
+                    data-i18n="delays_ms"
+                  >
                     Delays (ms)
                   </th>
-                  <th class="column-header" data-bind="visible: visibleColumns().peak">
+                  <th
+                    class="column-header"
+                    data-bind="visible: visibleColumns().peak"
+                    data-i18n="peaks_time_ms"
+                  >
                     Peaks time (ms)
                   </th>
                   <th
                     class="column-header"
                     data-bind="visible: visibleColumns().distance"
+                    data-i18n="absolute_distance_m"
                   >
                     Absolute distance (m)
                   </th>
                   <th
                     class="column-header"
                     data-bind="visible: visibleColumns().shiftDelay"
+                    data-i18n="required_shift_ms"
                   >
                     Required shift (ms)
                   </th>
@@ -1449,10 +1529,11 @@
                       class="combo-box crossover-select"
                       aria-label="Global crossover frequency"
                       data-bind="
+                    attr: { 'aria-label': translations().global_crossover_frequency_label },
                     options: alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
-                    optionsCaption: 'Crossover',
+                    optionsCaption: translations().crossover,
                     value: gobalCrossover"
                     ></select>
                   </th>
@@ -1465,7 +1546,7 @@
                     css: { disabled: isProcessing }"
                     >
                       <i id="invert-icon" class="fa fa-arrow-up" aria-hidden="true"></i>
-                      <span class="sr-only">Invert all</span>
+                      <span class="sr-only" data-i18n="invert_all">Invert all</span>
                     </button>
                   </th>
                   <th class="column-header">
@@ -1567,6 +1648,7 @@
                       class="combo-box"
                       aria-label="Channel crossover frequency"
                       data-bind="
+                    attr: { 'aria-label': $parent.translations().channel_crossover_frequency_label },
                     options: $parent.alingFrequencies,
                     optionsText: 'text',
                     optionsValue: 'value',
@@ -1581,8 +1663,8 @@
                       click: toggleInversion,
                       disable: $parent.isProcessing(),
                       visible: haveImpulseResponse,
-                      css: { disabled: $parent.isProcessing(), warning: inverted() }"
-                      data-tooltip="Toggle phase inversion"
+                      css: { disabled: $parent.isProcessing(), warning: inverted() },
+                      attr: { 'data-tooltip': $parent.translations().toggle_phase_inversion_tooltip }"
                     >
                       <i
                         data-bind="css: inverted() ? 'fa fa-arrow-down' : 'fa fa-arrow-up'"
@@ -1600,8 +1682,8 @@
                       click: buttonCreateFilter,
                       disable: $parent.isProcessing(),
                       css: { disabled: $parent.isProcessing },
-                      visible: !isSub() && isValid"
-                      data-tooltip="Create speaker filter"
+                      visible: !isSub() && isValid,
+                      attr: { 'data-tooltip': $parent.translations().create_speaker_filter_tooltip }"
                     >
                       <i class="fa fa-sliders" aria-hidden="true"></i>
                     </button>
@@ -1613,8 +1695,8 @@
                       click: previewMeasurement,
                       disable: $parent.isProcessing(),
                       css: { disabled: $parent.isProcessing },
-                      visible: !isSub() && isValid"
-                      data-tooltip="Create preview"
+                      visible: !isSub() && isValid,
+                      attr: { 'data-tooltip': $parent.translations().create_preview_tooltip }"
                     >
                       <i class="fa fa-eye" aria-hidden="true"></i>
                     </button>
@@ -1627,8 +1709,11 @@
               class="filter-results"
               data-bind="visible: uniqueMeasurementsView().length !== measurements().length"
             >
-              Showing <span data-bind="text: uniqueMeasurementsView().length"></span> of
-              <span data-bind="text: measurements().length"></span> measurements
+              <span data-i18n="showing">Showing</span>
+              <span data-bind="text: uniqueMeasurementsView().length"></span>
+              <span data-i18n="of">of</span>
+              <span data-bind="text: measurements().length"></span>
+              <span data-i18n="measurements">measurements</span>
             </div>
           </div>
         </div>
@@ -1660,7 +1745,7 @@
               <a
                 href="https://www.paypal.com/donate/?hosted_button_id=V53J7XLBD3A2C"
                 class="donate-button paypal"
-                data-tooltip="Support via PayPal"
+                data-bind="attr: { 'data-tooltip': translations().support_paypal_tooltip }"
               >
                 <i class="fab fa-paypal" aria-hidden="true"></i>
                 PayPal
@@ -1668,7 +1753,7 @@
               <a
                 href="https://www.patreon.com/Sangoku"
                 class="donate-button patreon"
-                data-tooltip="Support via Patreon"
+                data-bind="attr: { 'data-tooltip': translations().support_patreon_tooltip }"
               >
                 <i class="fab fa-patreon" aria-hidden="true"></i>
                 Patreon
@@ -1676,7 +1761,7 @@
               <a
                 href="https://ko-fi.com/sangoku11492"
                 class="donate-button kofi"
-                data-tooltip="Support via Ko-fi"
+                data-bind="attr: { 'data-tooltip': translations().support_kofi_tooltip }"
                 ><img
                   src="img/cup-border.png"
                   alt="Ko-fi"
