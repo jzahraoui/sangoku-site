@@ -1,148 +1,220 @@
 # Room Correction Helper
 
-Room Correction Helper is a web-based tool designed to work alongside REW (Room EQ Wizard) for measuring, aligning, and optimizing room correction settings. It streamlines the process of importing acoustic measurements (AVR/ADY files), aligning timming and SPL (sound pressure level), and generating configurations such as EQ filters and multi‑subwoofer setups into an OCA file.
+Room Correction Helper (RCH) is an open-source web application for advanced home theater calibration on Denon and Marantz AVRs using Audyssey. It works alongside REW (Room EQ Wizard) to import measurements, align speakers and subwoofers, generate correction filters, preview predicted results, and export an OCA file ready to load into compatible hardware.
 
-## Overview
+The project is built for users who want more control than the standard Audyssey workflow offers while keeping a guided, browser-based interface.
 
-Room Correction Helper is a specialized tool designed to assist in:
+![Room Correction Helper interface](https://sangoku.work/img/doc/interface-screenshot.png)
 
-- Processing and analyzing audio measurements
-- Optimizing multi-subwoofer configurations
-- Managing room correction data
-- Integrating with Room EQ Wizard (REW)
+## Who This Is For
 
-## Useful links
+RCH is designed for users who want to go further than a default Audyssey run without giving up visibility into what the calibration is doing.
 
-- [App website](https://sangoku.work/)
-- [Forum HCFR](https://www.homecinema-fr.com/forum/acoustique-correction-active-et-logiciels-de-mesure/room-correction-helper-pour-preampli-audyssey-t30137090.html)
-- [Forum AVS](https://www.avsforum.com/threads/sangoku-room-correction-helper.3320856)
-- [YouTube channel](https://www.youtube.com/@Sangoku-Z/playlists)
+This project is a good fit if you:
 
-## Features
+- use a Denon or Marantz AVR with Audyssey
+- already work with REW, or want a guided workflow around it
+- want tighter control over timing, levels, crossovers, and subwoofer integration
+- need a workflow that can start from `.ady`, `.mqx`, or manual REW measurements
 
-- **Multi-Language Support**
+RCH is probably not the right tool if you want a fully automatic one-click calibration process with no manual validation.
 
-  - English
-  - French
+## Quick Start
 
-- **REW Integration**
+### Basic workflow in 5 steps
 
-  - Direct connection to REW API
-  - Automated measurement renaming
+1. Install a recent REW beta and enable the REW API server.
+2. Open [https://sangoku.work/](https://sangoku.work/).
+3. Import your `.ady` file from odd.wtf or the Audyssey app, or import `.mqx` if relevant.
+4. Connect RCH to REW, then run averages, Time Align, and Align SPL.
+5. Optimize subs, validate previews, and export your `.oca` file for AVR upload.
 
-- **Measurement Import:**
-  - Drag-and-drop support for AVR/ADY files exported from mobile app or similar odd.wtf software.
-  - Automatic channel detection
-  - Configuration visualization
-  - Automatic measurement import into REW
-- **SPL and Multi-Subwoofer Optimization:**  
-  Tools to adjust measurements gain, align subwoofer, and generate optimized configurations. Includes automatic alignment tools to ensure proper synchronization between different speakers. Uses impulse response analysis to determine peak alignment points.
+## What This Tool Does
 
-- **Preview**  
-  Apply AVR filters processing on the current work to generates accurates preview of the signal.
-- **Configuration Export:**  
-  Generate OCA file that can be used to program your audio processing hardware.
+RCH helps you turn raw room measurements into a usable room-correction configuration.
 
-## Project Structure
+Typical use cases include:
 
-- **index.html:**  
-  The main entry point containing the HTML structure, interactive controls, and status messages. It also includes links for donation, social credits, and navigation to help resources.
+- importing measurements from Audyssey-based workflows or manual REW sessions
+- averaging multi-position measurements
+- aligning speakers in time and level
+- optimizing one or multiple subwoofers
+- importing or exporting MSO-related data
+- generating preview responses before committing changes
+- exporting an OCA file for upload to the AVR
 
-- **default.css:**  
-  The stylesheet defining the visual layout and responsive design for the application.
+## Project Goal
 
-- **JavaScript Files:**
-  - **MeasurementItem.js:**  
-    Contains code for processing measurement data including filtering, and transformation.
-  - **MeasurementViewModel.js:**  
-    Implements the view model for handling measurement data, user interactions, and API service communication.
-  - **multi-sub-optimizer.js:**  
-    Implements algorithms to process subwoofer measurements and optimize their alignment and tuning.
+The goal of RCH is to give the user a practical calibration toolbox, not a black box.
 
-## Usage
+Instead of hiding the process, RCH exposes each important step of the workflow:
 
-### Basic Setup
+- measurement import
+- averaging
+- time alignment
+- SPL alignment
+- subwoofer optimization
+- crossover and filter generation
+- preview validation
+- final OCA export
 
-1. Download and install the latest REW beta (minimum v71)
-2. go to the website url of this project: [https://sangoku.work/](https://sangoku.work/)
-3. Import your .ady created from mobile app
-4. Or import your .avr file generated from the odd executable and your manually made measurements in REW
-5. Connect to REW using the "Connect" button
+This makes it possible to build better room-correction results while keeping manual control over key decisions.
 
-### Multi-Sub Optimization
+## When To Use RCH
 
-1. available if multiple subs measurements founds into REW
-2. Use the "Optimize Sub" feature
-3. Suggested configuration is applyed to your subs
-4. Generate preview LFE predicted by using "sum sub" button
+Use RCH when you want a workflow that sits between raw measurement tooling and final AVR deployment.
 
-### Speaker Tools
+Compared to a default AVR calibration flow, RCH gives you more control over:
 
-1. Select measurements to process
-2. Choose averaging method
-3. Apply SPL or peak alignment as needed
-4. Generate filters
-5. use find sub alignement to apply timming to your sub
+- how measurements are imported and organized
+- how speakers are aligned in time and SPL
+- how one or several subwoofers are optimized
+- how crossover decisions are validated through previews
+- how the final OCA payload is generated and documented
 
-### Filter Design & Application
+## Supported Workflows
 
-Users can design custom filters or apply predefined equalization settings.
-Automatic filters implements recursive filtering for smooth transitions between frequency bands. they are limited to 500Hz.
-Filters are applied to measurements using convolution processing.
+RCH supports two main usage styles.
 
-### generates OCA file
+### Basic workflow
 
-check the filters.
-generates preview.
-creates oca file.
-import it to your receiver using the odd program.
+For users working with Audyssey-generated measurements:
 
-## Disclaimer
+- import `.ady` files created from odd.wtf or the Audyssey MultEQ Editor app
+- optionally import `.mqx` data from MultEQ-X workflows
+- automatically load measurements into REW
+- average positions, align speakers, optimize subs, and export OCA
 
-This tool is provided for experimental and informational purposes only. **Before sending any configuration to your equipment, please verify all parameters carefully.** The generated configurations and adjustments are based on user-provided data and may not be appropriate for every scenario. Incorrect settings may lead to undesirable behavior or may potentially damage your audio hardware. By using this tool, you agree that you assume all responsibility and risk associated with its use. The developers are not liable for any damage or malfunction that may occur as a result of applying the generated configurations.
+### Advanced workflow
+
+For users working directly in REW with their own microphone:
+
+- generate an `.avr` file from odd.wtf
+- make and manage measurements manually in REW
+- use RCH for alignment, optimization, preview, and export
+
+## Key Features
+
+- Direct REW API integration
+- Import of `.avr`, `.ady`, and `.mqx` project data
+- Automatic measurement import into REW when connected
+- English and French interface
+- AVR configuration parsing and channel mapping display
+- Multi-position averaging
+- Speaker time alignment and SPL alignment
+- Subwoofer tools for LPF reversion, alignment, EQ, and preview
+- Optional all-pass filters for multi-sub optimization
+- MSO export package generation and MSO Equalizer APO import
+- Predicted preview generation for sub and speaker-plus-sub responses
+- OCA export in odd.wtf or A1 Evo Acoustica compatible formats
+- Settings file export for documenting a calibration session
+
+## Inputs And Outputs
+
+### Inputs
+
+- `.ady` files from odd.wtf or the Audyssey mobile app
+- `.mqx` files from MultEQ-X workflows
+- `.avr` files describing the current AVR configuration
+- REW measurements from manual workflows
+- Equalizer APO exports from MSO
+
+### Outputs
+
+- calibrated data inside REW
+- preview measurements for validation
+- subwoofer export ZIP files for MSO workflows
+- `.oca` calibration files for AVR upload
+- plain-text settings reports documenting the generated configuration
+
+## Requirements
+
+To use the application effectively, you typically need:
+
+- REW with API support enabled
+- an Audyssey-compatible Denon or Marantz AVR
+- odd.wtf for generating AVR files and loading OCA files, depending on workflow
+- measurement data from Audyssey, MultEQ-X, or manual REW sessions
+
+For advanced workflows, a calibrated microphone and solid REW knowledge are recommended.
+
+## Running The Project Locally
+
+```bash
+npm install
+npm run dev
+```
+
+Useful commands:
+
+```bash
+npm run build
+npm run preview
+npm run test:smoke
+npx eslint src/
+```
+
+Notes:
+
+- the project uses Vite for development and production builds
+- the app connects to the REW API at `http://localhost:4735` by default
+- the repository currently declares `node >= 16`, and the deployment workflow runs on a modern Node.js version
+
+## Tech Stack
+
+- Vite
+- Knockout.js
+- mathjs
+- decimal.js
+- JSZip
+- js-yaml
+- FileSaver.js
 
 ## Contributing
 
-Contributions are welcome! Feel free to:
+Contributions are welcome.
 
-- Report issues
-- Suggest new features
-- Submit pull requests
-- Improve documentation
+You can help by:
 
-## Thanks & Acknowledgments
+- reporting bugs
+- improving documentation
+- proposing UX or workflow improvements
+- fixing calibration edge cases
+- adding tests for critical measurement and export paths
+- submitting pull requests
 
-Special thanks to:
+Recommended contribution flow:
 
-- John Mulcahy for his excellent audio measurement software [Room EQ Wizard (REW)](https://www.roomeqwizard.com/)
-- @ratneuron, the author of odd program
-- All users who have supported this project through PayPal and Patreon donations
-- The open-source community for providing the libraries used in this project:
-  - Knockout.js
-  - js-yaml
-  - JSZip
-  - FileSaver.js
-  - math.js
-  - Font Awesome
+1. Fork the repository.
+2. Create a focused branch for a single change.
+3. Run the app locally and verify the affected workflow.
+4. Run `npm run test:smoke` and `npx eslint src/` before submitting.
+5. Open a pull request with a clear description of the problem, the fix, and any calibration impact.
 
-Your support helps maintain and improve this room correction helper tool. Whether through code contributions, bug reports, or donations, every form of support is greatly appreciated.
+If your change affects measurement handling, filter generation, MSO import/export, or OCA generation, include enough detail for reviewers to understand the expected audio behavior.
 
-## Credits
+## Useful Links
 
-Designed & Developed by Sangoku
+- Website: [https://sangoku.work/](https://sangoku.work/)
+- GitHub repository: [https://github.com/jzahraoui/sangoku-site](https://github.com/jzahraoui/sangoku-site)
+- HCFR discussion: [https://www.homecinema-fr.com/forum/acoustique-correction-active-et-logiciels-de-mesure/room-correction-helper-pour-preampli-audyssey-t30137090.html](https://www.homecinema-fr.com/forum/acoustique-correction-active-et-logiciels-de-mesure/room-correction-helper-pour-preampli-audyssey-t30137090.html)
+- AVS Forum thread: [https://www.avsforum.com/threads/sangoku-room-correction-helper.3320856](https://www.avsforum.com/threads/sangoku-room-correction-helper.3320856)
+- YouTube playlists: [https://www.youtube.com/@Sangoku-Z/playlists](https://www.youtube.com/@Sangoku-Z/playlists)
+- REW: [https://www.roomeqwizard.com/](https://www.roomeqwizard.com/)
 
-## Support
+## Disclaimer
 
-If you find this tool helpful, consider supporting the development:
+This project is provided for experimental and informational purposes only.
 
-- [PayPal](https://www.paypal.com/donate/?hosted_button_id=V53J7XLBD3A2C)
-- [Patreon](https://www.patreon.com/Sangoku)
+Before sending any generated configuration to your AVR, verify the parameters carefully. Incorrect settings, measurements, gains, or polarity changes can produce poor results and may put hardware at risk. You remain fully responsible for what you load onto your system.
+
+## Acknowledgments
+
+- John Mulcahy for REW
+- RatNeuron for odd.wtf
+- the users and testers who helped validate the workflows
+- the open-source libraries used by this project
 
 ## License
 
-This project is licensed under the GNUA License. See the LICENSE file for details.
-Copyright © 2025 Sangoku
-
-## Version
-
-Current Version: 1.0
+This project is licensed under the GNU Affero General Public License v3. See the `LICENCE` file for details.
