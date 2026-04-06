@@ -1,6 +1,6 @@
 # Room Correction Helper
 
-Room Correction Helper (RCH) is an open-source web application for advanced home theater calibration on Denon and Marantz AVRs using Audyssey. It works alongside REW (Room EQ Wizard) to import measurements, align speakers and subwoofers, generate correction filters, preview predicted results, and export an OCA file ready to load into compatible hardware.
+Room Correction Helper (RCH) is an open-source browser-based application for advanced home theater calibration on Denon and Marantz AVRs using Audyssey. It works alongside REW (Room EQ Wizard) to import measurements, align speakers and subwoofers, generate correction filters, preview predicted results, and export an OCA file ready to load into compatible hardware.
 
 The project is built for users who want more control than the standard Audyssey workflow offers while keeping a guided, browser-based interface.
 
@@ -25,8 +25,8 @@ RCH is probably not the right tool if you want a fully automatic one-click calib
 
 1. Install a recent REW beta and enable the REW API server.
 2. Open [https://sangoku.work/](https://sangoku.work/).
-3. Import your `.ady` file from odd.wtf or the Audyssey app, or import `.mqx` if relevant.
-4. Connect RCH to REW, then run averages, Time Align, and Align SPL.
+3. Import your `.ady` file from odd.wtf or the Audyssey app. If you work from `.mqx`, load AVR data first.
+4. Connect RCH to REW, create averages, run Time Align, load your target curve in REW, and run Align SPL.
 5. Optimize subs, validate previews, and export your `.oca` file for AVR upload.
 
 ## What This Tool Does
@@ -118,6 +118,7 @@ For users working directly in REW with their own microphone:
 - `.avr` files describing the current AVR configuration
 - REW measurements from manual workflows
 - Equalizer APO exports from MSO
+- target curves loaded in REW for SPL alignment and validation
 
 ### Outputs
 
@@ -132,11 +133,14 @@ For users working directly in REW with their own microphone:
 To use the application effectively, you typically need:
 
 - REW with API support enabled
+- an active REW connection for all calculation steps
 - an Audyssey-compatible Denon or Marantz AVR
 - odd.wtf for generating AVR files and loading OCA files, depending on workflow
 - measurement data from Audyssey, MultEQ-X, or manual REW sessions
 
 For advanced workflows, a calibrated microphone and solid REW knowledge are recommended.
+
+For Align SPL and final validation, a target curve should also be loaded in REW.
 
 ## Running The Project Locally
 
