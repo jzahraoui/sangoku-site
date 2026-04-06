@@ -16,6 +16,76 @@ class RewController {
     return versionMatch ? versionMatch[0] : null;
   }
 
+  getDocumentationPath() {
+    const language = globalThis.langManager?.currentLanguage === 'fr' ? 'fr' : 'en';
+    return language === 'fr' ? '/documentation.html' : `/documentation.${language}.html`;
+  }
+
+  async loadHtmlInto(path, container, fallbackPath) {
+    try {
+      const response = await fetch(path);
+      if (!response.ok) {
+        throw new Error(`Failed to load ${path}`);
+      }
+      container.innerHTML = await response.text();
+    } catch (error) {
+      if (fallbackPath && fallbackPath !== path) {
+        const fallbackResponse = await fetch(fallbackPath);
+        if (!fallbackResponse.ok) {
+          throw error;
+        }
+        container.innerHTML = await fallbackResponse.text();
+        return;
+      }
+      throw error;
+    }
+  }
+
+  bindCodeLinks(root, openDescriptionPopup, popupDescription) {
+    for (const link of root.querySelectorAll('.code-link')) {
+      if (link.dataset.boundCodeLink === 'true') continue;
+      link.dataset.boundCodeLink = 'true';
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        const description = this.dataset.description;
+        fetch(description)
+          .then(response => response.text())
+          .then(text => {
+            popupDescription.innerHTML = text;
+          })
+          .catch(error => {
+            lm.error('Error fetching description:', error);
+            popupDescription.textContent = 'Failed to load description.';
+          });
+        openDescriptionPopup();
+      });
+    }
+  }
+
+  bindThumbnails(root) {
+    const thumbnailPopup = document.getElementById('imagePopup');
+    const fullImage = document.getElementById('fullImage');
+
+    for (const thumb of root.querySelectorAll('.thumbnail')) {
+      if (thumb.dataset.boundThumbnail === 'true') continue;
+      thumb.dataset.boundThumbnail = 'true';
+      thumb.addEventListener('click', function () {
+        if (!thumbnailPopup || !fullImage) return;
+        const img = new Image();
+        img.onload = () => {
+          fullImage.src = this.dataset.full;
+          thumbnailPopup.style.display = 'block';
+        };
+        img.src = this.dataset.full;
+      });
+    }
+  }
+
+  bindDynamicContent(root, openDescriptionPopup, popupDescription) {
+    this.bindCodeLinks(root, openDescriptionPopup, popupDescription);
+    this.bindThumbnails(root);
+  }
+
   initializeEventListeners() {
     document.addEventListener('DOMContentLoaded', async () => {
       globalThis.langManager = new LanguageManager();
@@ -48,26 +118,22 @@ class RewController {
       const resourcesContent = document.getElementById('resourcesContent');
       const changeLogContent = document.getElementById('changeLogContent');
 
+      const loadDocumentationContent = async () => {
+        await this.loadHtmlInto(
+          this.getDocumentationPath(),
+          documentationContent,
+          '/documentation.html',
+        );
+      };
+
       // Load resources content
-      await fetch('/resources.html')
-        .then(response => response.text())
-        .then(data => {
-          resourcesContent.innerHTML = data;
-        });
+      await this.loadHtmlInto('/resources.html', resourcesContent);
 
       // Load documentation content
-      await fetch('/documentation.html')
-        .then(response => response.text())
-        .then(data => {
-          documentationContent.innerHTML = data;
-        });
+      await loadDocumentationContent();
 
       // Load change log content
-      await fetch('/change-log.html')
-        .then(response => response.text())
-        .then(data => {
-          changeLogContent.innerHTML = data;
-        });
+      await this.loadHtmlInto('/change-log.html', changeLogContent);
 
       const popup = document.getElementById('descriptionPopup');
       const popupDescription = document.getElementById('popupDescription');
@@ -76,7 +142,6 @@ class RewController {
 
       const openDescriptionPopup = () => {
         if (!popup) return;
-
         lastFocusedElement = document.activeElement;
         if (typeof popup.showModal === 'function') {
           if (!popup.open) {
@@ -106,23 +171,17 @@ class RewController {
         }
       };
 
-      // Add click event to all code links
-      for (const link of document.querySelectorAll('.code-link')) {
-        link.addEventListener('click', function (e) {
-          e.preventDefault();
-          const description = this.dataset.description;
-          fetch(description)
-            .then(response => response.text())
-            .then(text => {
-              popupDescription.innerHTML = text;
-            })
-            .catch(error => {
-              lm.error('Error fetching description:', error);
-              popupDescription.textContent = 'Failed to load description.';
-            });
-          openDescriptionPopup();
-        });
-      }
+      this.bindDynamicContent(document, openDescriptionPopup, popupDescription);
+
+      globalThis.addEventListener('translationsComplete', async event => {
+        if (!event.detail?.language) return;
+        await loadDocumentationContent();
+        this.bindDynamicContent(
+          documentationContent,
+          openDescriptionPopup,
+          popupDescription,
+        );
+      });
 
       // Close popup when clicking the close button
       if (closeBtn) {
@@ -147,32 +206,11 @@ class RewController {
         });
       }
 
-      // thumnail mamangement
-      const thumbnails = document.querySelectorAll('.thumbnail');
       const thumbnailPopup = document.getElementById('imagePopup');
-      const fullImage = document.getElementById('fullImage');
       // Use a more specific selector for the close button inside the image popup
       const thumbnailCloseBtn = thumbnailPopup
         ? thumbnailPopup.querySelector('.close-btn')
         : null;
-
-      // Function to handle popup visibility - DRY principle
-      const togglePopup = show => {
-        if (thumbnailPopup) thumbnailPopup.style.display = show ? 'block' : 'none';
-      };
-      for (const thumb of thumbnails) {
-        thumb.addEventListener('click', function () {
-          if (!thumbnailPopup || !fullImage) return;
-          // Preload image before showing popup
-          const img = new Image();
-          img.onload = () => {
-            fullImage.src = this.dataset.full;
-            togglePopup(true);
-          };
-          img.src = this.dataset.full;
-          thumbnailPopup.style.display = 'block';
-        });
-      }
 
       // Close thumbnailPopup when clicking the close button
       if (thumbnailCloseBtn && thumbnailPopup) {

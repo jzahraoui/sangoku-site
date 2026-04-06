@@ -1,482 +1,509 @@
 <nav class="documentation-sidebar">
   <ul class="documentation-nav">
     <li><a href="#introduction">Introduction</a></li>
-    <li><a href="#features">Features and Functionality</a></li>
-    <li><a href="#getting-started">Getting Started</a></li>
-    <li><a href="#conclusion">Conclusion</a></li>
-    <li><a href="#help">Help</a></li>
+    <li><a href="#prerequisites">Avant de commencer</a></li>
+    <li><a href="#entry-points">Choisir votre point de départ</a></li>
+    <li><a href="#workflow">Workflow recommande</a></li>
+    <li><a href="#subwoofers">Caissons et MSO</a></li>
+    <li><a href="#finalization">Finalisation</a></li>
+    <li><a href="#troubleshooting">Depannage</a></li>
+    <li><a href="#help">Aide</a></li>
   </ul>
 </nav>
 
 <main class="documentation-content">
   <section id="introduction">
-    <h2 dir="auto">Introduction</h2>
-    <p dir="auto">
-      The Acoustical Correction Assistant is a tool designed to help users enhance their
-      audio experience by correcting room acoustics. It requires Room EQ Wizard (REW) and
-      supports importing ady files and MSO configuration. This guide will help you
-      understand how to use the application efficiently. Basic acoustics understanding are
-      required.
+    <img src="img/doc/banner.png" alt="Room Correction Helper" />
+
+    <h2>Introduction</h2>
+    <p>
+      Room Correction Helper (RCH) est un outil de calibration pour installations home
+      cinema Denon et Marantz basees sur Audyssey. Il travaille avec REW pour importer des
+      mesures, aligner les enceintes et les caissons, generer les filtres, verifier les
+      previews et produire un fichier OCA exploitable par votre AVR.
+    </p>
+    <p>
+      RCH n'est pas un bouton magique. Le principe de l'application est au contraire de
+      vous donner une chaine de travail guidee, mais transparente, pour que vous puissiez
+      verifier chaque etape avant l'export final.
+    </p>
+    <p>
+      Cette documentation decrit le fonctionnement actuel de l'application et suit les
+      commandes visibles dans l'interface.
+    </p>
+    <p>
+      Cette aide est integree directement dans l'application. Les indications ci-dessous
+      supposent donc que vous etes deja dans RCH et que vous pouvez revenir a l'onglet
+      Application a tout moment.
+    </p>
+
+    <img
+      src="img/doc/interface-screenshot.png"
+      alt="Interface de Room Correction Helper"
+    />
+  </section>
+
+  <section id="prerequisites">
+    <h2>Avant de commencer</h2>
+    <p>Avant d'utiliser RCH, verifiez les points suivants :</p>
+    <ul>
+      <li>Vous disposez d'un AVR Denon ou Marantz compatible Audyssey.</li>
+      <li>Vous avez installe une version beta recente de REW.</li>
+      <li>Le serveur API de REW est active sur le port 4735.</li>
+      <li>
+        Toutes les operations de calcul necessitent une connexion active a REW. Sans
+        connexion, RCH peut encore analyser certains fichiers et proposer des exports,
+        mais il ne pourra pas lancer les traitements.
+      </li>
+      <li>
+        Vous avez un point d'entree compatible avec le flux actuel : ADY pour le mode
+        guide, ou AVR + mesures REW pour le mode avance.
+      </li>
+      <li>
+        Pour le mode avance, vous savez deja mesurer correctement dans REW avec un micro
+        de mesure ou une methode equivalente.
+      </li>
+    </ul>
+
+    <p>
+      Si vous prevoyez de generer puis de charger un fichier OCA dans l'AVR, odd.wtf reste
+      l'outil le plus naturel pour ce flux de travail.
+    </p>
+
+    <img
+      src="img/doc/rew-api-preferences.png"
+      alt="Configuration du serveur API de REW"
+    />
+
+    <p>
+      Conseil pratique : gardez un dossier de travail propre avec vos fichiers ADY, MQX,
+      AVR, MDAT, OCA et courbes cibles. Cela evite beaucoup d'erreurs de protocole.
+    </p>
+    <p>
+      Si vous utilisez une courbe cible personnalisee, preparez-la a l'avance. Vous en
+      aurez besoin dans REW pour Align SPL puis pour valider le resultat final.
     </p>
   </section>
-  <section id="features">
-    <h2 dir="auto">Features and Functionality</h2>
-    <h3 dir="auto">1. Import MSO Configuration into REW</h3>
-    <ul>
-      <li dir="auto">
-        <strong>Description</strong>: Allows users to import their Multi-Sub Optimizer
-        (MSO) configurations directly into REW to be directly integrated into the AVR, no
-        minidsp needed.
-      </li>
-      <li dir="auto">
-        <strong>How to Use</strong>:
-        <ul>
-          <li dir="auto">
-            <strong>Export MSO</strong>: Creates a Equalizer APO export file from MSO.
-          </li>
-          <li dir="auto">
-            <strong>Drop Export File</strong>: Then, drag and drop your Equalizer APO
-            export file into the designated area.
-          </li>
-        </ul>
-      </li>
-      <li dir="auto">
-        <strong>Requirements</strong>:
-        <ul>
-          <li dir="auto">
-            <strong>REW API Server</strong>: Ensure that the REW API server is running.
-          </li>
-          <li dir="auto">
-            <strong>Measurement Naming</strong>: Measurements should have names starting
-            with the same name as the configuration (.avr file).
-          </li>
-        </ul>
-      </li>
-    </ul>
 
-    <h3 dir="auto">2. Import AVR Files Generated from ODD Executable</h3>
-    <ul>
-      <li dir="auto">
-        <strong>Description</strong>: Enables users to import AVR files generated by the
-        ODD executable for indicating the current AVR setup.
-      </li>
-      <li dir="auto">
-        <strong>How to Use</strong>:
-        <ul>
-          <li dir="auto">Download odd</li>
-          <li dir="auto">Import AVR File</li>
-        </ul>
-      </li>
-      <li dir="auto">
-        <strong>File Details</strong>: After importing, AVR details such as list of
-        speaker and there attended names are displayed.
-      </li>
-    </ul>
+  <section id="entry-points">
+    <h2>Choisir votre point de depart</h2>
 
-    <h3 dir="auto">3. Customization Options</h3>
-    <ul>
-      <li dir="auto">
-        <strong>LFE Low Pass Filter (LPF) Selection</strong>: Users can select the LPF
-        point for the LFE (Low-Frequency Effects) channel.
-      </li>
-      <li dir="auto">
-        <strong>Inversions and Gains Warning</strong>: A warning message alerts users that
-        all current inversions and gains will be removed.
-      </li>
-    </ul>
+    <h3>1. Mode basic avec fichier ADY</h3>
+    <p>
+      C'est le point d'entree le plus simple. Vous mesurez avec odd.wtf ou avec
+      l'application Audyssey MultEQ Editor, puis vous importez le fichier ADY dans RCH.
+      Quand RCH est connecte a REW, les mesures sont chargees automatiquement dans REW.
+    </p>
+    <p>
+      Si REW n'est pas connecte, RCH peut quand meme extraire les mesures du fichier, mais
+      l'import automatique dans REW ne se fera pas.
+    </p>
 
-    <h3 dir="auto">4. Processing and Preview Features</h3>
-    <ul>
-      <li dir="auto">
-        <strong>Preview Options</strong>: Users can preview adjustments and view all
-        previews.
-      </li>
-      <li dir="auto">
-        <strong>Measurement Display</strong>: Shows which measurements are currently
-        displayed.
-      </li>
-    </ul>
+    <h3>2. Cas particulier du fichier MQX</h3>
+    <p>
+      L'application contient aussi un traitement MQX, mais ce flux ne constitue pas
+      aujourd'hui le parcours standard le plus robuste de la page Application.
+    </p>
+    <p>
+      En pratique, retenez surtout ADY comme point d'entree simple, et AVR + REW comme
+      point d'entree avance. Si vous travaillez avec MQX, considerez-le comme un cas
+      avance a valider avec prudence selon votre projet et votre contexte AVR.
+    </p>
+    <p>
+      Pour utiliser ce chemin, chargez d'abord les donnees AVR. RCH en a besoin pour
+      reconstruire correctement la correspondance des canaux.
+    </p>
 
-    <h3 dir="auto">5. Multilingual Support</h3>
-    <ul>
-      <li dir="auto">
-        The assistant supports French language, as evident from the interface labels and
-        messages.
-      </li>
-    </ul>
+    <h3>3. Mode avance avec REW</h3>
+    <p>
+      Si vous mesurez vous-meme dans REW, vous devez generer un fichier AVR avec odd.wtf,
+      puis charger cet AVR dans RCH. Les noms de vos mesures REW doivent suivre les noms
+      Audyssey exposes par le fichier AVR, sinon elles ne seront pas associees aux bons
+      canaux dans le tableau de parametres.
+    </p>
+    <p>
+      La sequence la plus fiable est la suivante : lancer REW vide, demarrer son API,
+      connecter RCH, puis seulement ouvrir le fichier MDAT dans REW. Avant de calculer,
+      verifiez aussi que vos mesures n'ont pas conserve d'EQ, de delais ou d'inversions
+      parasites.
+    </p>
+
+    <img src="img/doc/rch-avr-configuration.png" alt="Details de configuration AVR" />
   </section>
-  <section id="getting-started">
-    <h2 dir="auto">Getting Started</h2>
-    <ol start="1">
-      <li dir="auto">
-        <p dir="auto"><strong>Download and Install REW</strong>:</p>
-        <ul>
-          <li dir="auto">
-            Visit the
-            <a
-              href="https://www.avnirwana.com/threads/rew-api-beta-releases.12981/"
-              target="_blank"
-              rel="nofollow"
-              >REW (Room EQ Wizard) latest Beta
-            </a>
-            page to download the latest beta version of the software.
-          </li>
-          <li dir="auto">
-            Install REW on your computer following the provided instructions.
-          </li>
-        </ul>
-      </li>
-      <li dir="auto">
-        <p dir="auto"><strong>Download odd program</strong>:</p>
-        <ul>
-          <p>Download from the link according to your system:</p>
-          <ol>
-            <li><a href="ressources/odd.wtf">Windows</a></li>
-            <li><a href="ressources/odd.mac">Mac</a></li>
-            <li><a href="ressources/odd.linux">Linux</a></li>
-          </ol>
-          <li dir="auto">Store it to a stable location on you computer.</li>
-        </ul>
-      </li>
-      <li dir="auto">
-        <p dir="auto"><strong>Start the REW API Server</strong>:</p>
-        <ul>
-          <li dir="auto">
-            Launch REW and start the API server to enable communication with the
-            assistant.
-          </li>
-        </ul>
-      </li>
-      <li dir="auto">
-        <p dir="auto"><strong>Make the measurements</strong>:</p>
-        <ul>
-          <li dir="auto">
-            Use the odd program to makes the measurements, an ady file will be created.
-            option 5 "Start built-in measurement process" (recomended method)
-          </li>
-          <li dir="auto">
-            Or, use the the Audyssey mobile app to makes the measurements, then transfer
-            the ady file to your computer.
-          </li>
-          <li dir="auto">
-            Or, clear your AVR settings (odd program will do it for you) and use your own
-            mic to makes the measurements with REW.
-          </li>
-          <div>
-            <p><strong>AVR settings </strong></p>
-            <ol>
-              <li>
-                Use one way to clear actuals settings:
-                <ol>
-                  <li>use odd program</li>
-                  <li>import FLAT correction curves with MQX previously saved file</li>
-                </ol>
-              </li>
-              <li>
-                Adjust volume level to 62 or -18dB (should give around 75db at Front
-                Right)
-              </li>
-              <li>
-                (Optionnal, depends on you preference) If you want to use Dynamic EQ. Set
-                Audyssey Dynamic EQ ON, Set the strength of DEQ to 5dB, all other Audyssey
-                settings off.
-              </li>
-              <li>Disable loudnees management</li>
-              <li>
-                Sub Measurements:
-                <ol>
-                  <li>
-                    set LFE LPF to 250hz, then use "revert AVR LPF" to cancel the filter
-                    effect
-                  </li>
-                  <li>
-                    Or, Assign XLR sub output to center to bypass LFE Low Pass filter
-                  </li>
-                </ol>
-              </li>
-              <li>Turn off ECO Mode</li>
-              <li>Check :</li>
-              <ul>
-                <li>all distance to 3m (do not use &lsquo;set default&rsquo; button)</li>
-                <li>all levels to 0db</li>
-              </ul>
-            </ol>
-            <p><strong> REW settings</strong></p>
-            <ol>
-              <li>Select java EXCL</li>
-              <li>Sampling rate 48kHz, frequency range 0-24000Hz</li>
-              <li>
-                if you have atmos speakers you must uses dolby atmos truehd files with
-                <a href="https://www.videolan.org/vlc/" target="_blank">VLC</a> :
-                <details class="shrinkable-container">
-                  <summary>Lossless Audio Files</summary>
-                  <ul>
-                    <li>
-                      <a
-                        href="ressources/256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav"
-                        >256kMeasSweep_0_to_24000_-12_dBFS_48k_Float_R_refL.wav</a
-                      >
-                    </li>
-                    <li><a href="ressources/lossless/C.mlp">C.mlp</a></li>
-                    <li><a href="ressources/lossless/FL.mlp">FL.mlp</a></li>
-                    <li><a href="ressources/lossless/FR.mlp">FR.mlp</a></li>
-                    <li><a href="ressources/lossless/SLA.mlp">SLA.mlp</a></li>
-                    <li><a href="ressources/lossless/SRA.mlp">SRA.mlp</a></li>
-                    <li><a href="ressources/lossless/SBL.mlp">SBL.mlp</a></li>
-                    <li><a href="ressources/lossless/SBR.mlp">SBR.mlp</a></li>
-                    <li><a href="ressources/lossless/TFL.mlp">TFL.mlp</a></li>
-                    <li><a href="ressources/lossless/TFR.mlp">TFR.mlp</a></li>
-                    <li><a href="ressources/lossless/TRL.mlp">TRL.mlp</a></li>
-                    <li><a href="ressources/lossless/TRR.mlp">TRR.mlp</a></li>
-                    <li><a href="ressources/lossless/BDL.mlp">BDL.mlp</a></li>
-                    <li><a href="ressources/lossless/BDR.mlp">BDR.mlp</a></li>
-                    <li><a href="ressources/lossless/FDL.mlp">FDL.mlp</a></li>
-                    <li><a href="ressources/lossless/FDR.mlp">FDR.mlp</a></li>
-                    <li><a href="ressources/lossless/FHL.mlp">FHL.mlp</a></li>
-                    <li><a href="ressources/lossless/FHR.mlp">FHR.mlp</a></li>
-                    <li><a href="ressources/lossless/FWL.mlp">FWL.mlp</a></li>
-                    <li><a href="ressources/lossless/FWR.mlp">FWR.mlp</a></li>
-                    <li><a href="ressources/lossless/RHL.mlp">RHL.mlp</a></li>
-                    <li><a href="ressources/lossless/RHR.mlp">RHR.mlp</a></li>
-                    <li><a href="ressources/lossless/SDL.mlp">SDL.mlp</a></li>
-                    <li><a href="ressources/lossless/SDR.mlp">SDR.mlp</a></li>
-                    <li><a href="ressources/lossless/SHL.mlp">SHL.mlp</a></li>
-                    <li><a href="ressources/lossless/SHR.mlp">SHR.mlp</a></li>
-                    <li><a href="ressources/lossless/TML.mlp">TML.mlp</a></li>
-                    <li><a href="ressources/lossless/TMR.mlp">TMR.mlp</a></li>
-                    <li><a href="ressources/lossless/SWx.mlp">SWx.mlp</a></li>
-                    <li>
-                      <a href="ressources/lossless/SWx_10dB_louder.mlp"
-                        >SWx_10dB_louder.mlp</a
-                      >
-                    </li>
-                  </ul>
-                </details>
-              </li>
-              <li>
-                Acoustic Timing reference to Front Left channel (same as atmos files)
-              </li>
-              <li>
-                Measurement loudness to -12dBFS (important for Atmos channels to play at
-                the correct volumes)
-              </li>
-            </ol>
-            <p><strong> Measurements </strong></p>
-            <p>
-              Measure each channel with the played sweeps (preferably multiple times and
-              at multiple locations), measure MLP last and leave the mic at this position.
-              Will be easier for further tests after calibration
-            </p>
-          </div>
-        </ul>
-      </li>
-      <li dir="auto">
-        <p dir="auto"><strong>Load your measurements</strong>:</p>
-        <ul>
-          <li dir="auto">
-            If you used the odd program, you will get an ady file in the “Downloads”
-            folder. Import it into tha main web interface. this will automatically import
-            the measurements into REW.
-          </li>
-          <li dir="auto">
-            If you made your measurement manually, generating AVR files using the ODD
-            executable is required. drag and drop it into the designated area or click to
-            select.
-          </li>
 
-          <p>this is how to creates the avr file:</p>
-          <ol>
-            <li>
-              <ul>
-                <li>
-                  <u>Mac:</u> Start Terminal.app by pressing CMD and space and then typing
-                  Terminal.app
-                </li>
-                <li>
-                  <u>Windows:</u> open a command prompt or use the 'Menu Hepler' program
-                </li>
-                <li><u>linux:</u> open a shell</li>
-              </ul>
-            </li>
-            <li>
-              Run the following commands, this is as examplample for mac, adapt for your
-              system:
-              <ol style="list-style-type: lower-alpha">
-                <li>Change Directory to your odd program folder, for exmaple:</li>
-                <code class="inline-code">cd ~/Downloads</code>
-                <li>List the downloaded/renamed file as a quick test:</li>
-                <code class="inline-code">ls -l ./odd.*</code>
-                <li>
-                  Clear the extended Attributes of the file to allow it to bypass
-                  Gatekeeper:
-                </li>
-                <code class="inline-code">xattr -c ./odd.mac</code>
-                <li>Change the Mode of the file to allow it to run:</li>
-                <code class="inline-code">chmod +x ./odd.mac</code>
-                <li>test odd.mac to show help information. Note the dot in the front:</li>
-                <code class="inline-code">/odd.mac -h</code>
-              </ol>
-            </li>
-            <li>search for your AVR:</li>
-            <div class="code-block">
-              <code class="code-text"
-                >./odd.mac search <br />Searching for AVRs on your network... Found 1
-                AVR(s) 1. Denon AVR-X3800H, AVR-X3800H, 192.168.50.225
-              </code>
-            </div>
-            <li>generate AVR file for your AVR:</li>
-            <div class="code-block">
-              <code class="code-text"
-                >./odd.mac gen <br />
-                Generating .avr file... Searching for compatible AVRs... Found 1
-                compatible AVR(s) 1. Denon AVR-X3800H, AVR-X3800H Selected AVR #1 - Denon
-                AVR-X3800H, AVR-X3800H, 192.168.50.225 Using title
-                Denon_AVR-X3800H_AVR-X3800H_25-01-2025_13-49-35 Using path
-                /Users/X/Downloads/OCA/Neuron/Denon_AVR-X3800H_AVR-X3800H_25-
-                01-2025_13-49-35.avr Success!
-              </code>
-            </div>
-            <p>
-              if the receiver is not found then explicitly using its iP address may work.
-              You can get this information by:
-            </p>
-            <ol style="list-style-type: lower-alpha">
-              <li>installing the free Denon or Marantz app on your smartphone</li>
-              <li>powering the AVR on</li>
-              <li>
-                in the app menu, go to Web Control -&gt; Network -&gt; Information and
-                look for IP Address
-              </li>
-              <li>Note the IP address, e.g. 192.168.52.225</li>
-              <li>
-                Then use the -i parameter when using odd.mac to guide it into
-                finding/using your AVR
-              </li>
+  <section id="workflow">
+    <h2>Workflow recommande</h2>
 
-              <div class="code-block">
-                <code class="code-text"
-                  >./odd.mac gen -i 192.168.50.2.225<br />
-                  Generating .avr file... Querying 192.168.50.225 for AVR info
-                </code>
-              </div>
-            </ol>
-          </ol>
-
-          <li dir="auto">
-            Use the CONNECT button to connect to the REW API server. Your measurements
-            should be loaded into the table below.
-          </li>
-        </ul>
-      </li>
-      <li dir="auto">
-        <p dir="auto"><strong>Multi-Sub, Import from MSO</strong>:</p>
-        <ul>
-          <li dir="auto">
-            A button can generate for you the exports of your subs measurements. this
-            package contains right named file you can use to initialize your MSO project.
-          </li>
-          <li dir="auto">
-            Once your sub configuration is finalised into MSO, use he following method to
-            creates an export file.
-          </li>
-
-          <div>
-            <p>
-              MSO does not provide exports for REW, this is a trick that is using the
-              Equalizer APO to achieve this goal. To make the export from MSO, the related
-              menu is available here:
-            </p>
-          </div>
-          <figure class="thumbnail-container">
-            <img
-              src="img/mso_mini.png"
-              loading="lazy"
-              alt="MSO export menu location"
-              class="thumbnail"
-              data-full="img/mso.png"
-            />
-          </figure>
-          <p>Then drag and drop it into the designated area or click to select.</p>
-
-          <div>
-            <p>you have nothing to do, the import inside REW is done automatically.</p>
-            <p>Requirements to work:</p>
-            <ul>
-              <li>REW API server must be started</li>
-              <li>
-                Measurement having a name beginning by the name in MSO must be loaded
-              </li>
-            </ul>
-            <li>
-              If for some reason you need to import manually, follow the instructions:
-            </li>
-            <p>
-              Download files with buttons. Import can be done through the EQ window with
-              the created file:
-            </p>
-          </div>
-          <figure class="thumbnail-container">
-            <img
-              src="img/rew_mini.png"
-              loading="lazy"
-              alt="REW import location"
-              class="thumbnail"
-              data-full="img/rew.png"
-            />
-          </figure>
-          <div id="imagePopup" class="popup">
-            <span class="close-btn">&times;</span>
-            <img id="fullImage" src="" loading="lazy" alt="Full size" />
-          </div>
-        </ul>
-      </li>
-      <li dir="auto">
-        <p dir="auto"><strong>Review and Customize Settings</strong>:</p>
-        <ul>
-          <li dir="auto">Examine the file details and detected channels.</li>
-          <li dir="auto">
-            Customize settings such as the LFE crossover point and manage inversions and
-            gains as needed.
-          </li>
-        </ul>
-      </li>
-      <li dir="auto">
-        <p dir="auto"><strong>Process and Preview Adjustments</strong>:</p>
-        <ul>
-          <li dir="auto">Use the preview features to get a predicted measure.</li>
-        </ul>
-      </li>
-
-      <li dir="auto">
-        <p dir="auto"><strong>Upload to your AVR</strong>:</p>
-        <ul>
-          <li>
-            upload the &ldquo;.oca&rdquo; file generated to your AVR, your filename will
-            be different:
-            <code class="inline-code"
-              >./odd.mac load 20250125_1341_Sangoku_custom.oca</code
-            >
-          </li>
-        </ul>
+    <h3>Etape 1. Connecter REW et charger le projet</h3>
+    <ol>
+      <li>Lancez REW et demarrez son serveur API.</li>
+      <li>Revenez a l'onglet Application.</li>
+      <li>Cliquez sur Connect dans Main Commands.</li>
+      <li>Glissez-deposez votre fichier ADY ou AVR.</li>
+      <li>
+        Si vous etes en mode avance, ouvrez ensuite votre jeu de mesures dans REW pour que
+        RCH puisse les retrouver.
       </li>
     </ol>
-  </section>
-  <section id="conclusion">
-    <h2 dir="auto">Conclusion</h2>
-    <p dir="auto">
-      The Acoustical Correction Assistant is a comprehensive tool designed to streamline
-      the process of acoustic correction for audio enthusiasts and professionals. By
-      integrating with REW and providing support for various file types and
-      configurations, it offers a versatile platform for optimizing acoustic performance.
+
+    <img src="img/doc/rch-connect-button.png" alt="Bouton de connexion a REW" />
+
+    <p>
+      Une fois le projet charge, ouvrez les details AVR et verifiez que les canaux
+      detectes correspondent bien a votre configuration.
+    </p>
+    <p>
+      En mode avance, evitez de charger le MDAT avant la connexion. Le tableau de RCH se
+      remplit plus proprement quand REW est deja lance, API active, puis fichier charge
+      apres avoir clique sur Connect.
+    </p>
+
+    <h3>Etape 2. Reinitialiser proprement l'etat de calcul</h3>
+    <p>
+      Utilisez Reset Measurements si vous voulez reinitialiser toutes les mesures avec les
+      parametres par defaut avant de relancer les calculs. Utilisez Reset Application si
+      vous voulez repartir d'un projet vide apres une mauvaise manipulation ou un
+      changement complet de projet.
+    </p>
+    <p>
+      En pratique, Reset Measurements remet notamment a zero le lissage, les fenetres IR,
+      les reglages de cible, la room curve, l'equalizer generique, les delais et les
+      inversions. C'est le bon reflexe avant de refaire un passage complet.
+    </p>
+
+    <h3>Etape 3. Regler les options de calcul pour les enceintes</h3>
+    <p>
+      Dans Speaker Tools, vous pouvez regler le lissage, le fenetrage, les limites de
+      boost et la plage de frequence. Ces reglages determinent la facon dont RCH et REW
+      prepareront les calculs suivants.
+    </p>
+
+    <img src="img/doc/speaker-tools-gains-filters.png" alt="Reglages de Speaker Tools" />
+
+    <h3>Etape 4. Faire les moyennes</h3>
+    <p>
+      Si vous avez des mesures sur plusieurs positions, commencez par les moyenner avec
+      Averages. Trois strategies sont disponibles : supprimer toutes les originales,
+      conserver uniquement la position 1, ou tout garder.
+    </p>
+    <p>
+      Conserver la position 1 en plus des moyennes est utile si vous voulez ensuite
+      comparer le resultat au point d'ecoute principal sans perdre les courbes moyennees.
+    </p>
+    <p>
+      RCH propose trois methodes de moyenne : Vector average, RMS + phase avg. et dB +
+      phase avg. Si vous n'avez pas encore vos habitudes, choisissez une methode et gardez
+      la meme sur tout le projet pour que les comparaisons restent coherentes.
+    </p>
+
+    <h3>Etape 5. Aligner les enceintes dans le temps</h3>
+    <p>
+      Utilisez Time Align pour recalculer les distances et remettre les enceintes en phase
+      temporelle. Cette etape doit etre faite avant les reglages fins de niveau et avant
+      le travail sur les raccords enceintes-caisson.
+    </p>
+
+    <img src="img/doc/rch-time-align-button.png" alt="Bouton Time Align" />
+
+    <h3>Etape 6. Charger la courbe cible puis faire Align SPL</h3>
+    <p>
+      La courbe cible doit etre chargee dans REW avant d'utiliser Align SPL. Cette etape
+      ajuste les niveaux des enceintes par rapport a cette cible.
+    </p>
+    <p>
+      Important : faites Align SPL sur la bonne position. En pratique, cela signifie le
+      plus souvent la position moyennee, pas une mesure brute prise isolenment.
+    </p>
+    <p>
+      Si RCH ne trouve pas votre cible, chargez-la dans REW via EQ / Target settings /
+      House curve, puis verifiez que son niveau de reference reste bien a 75 dB.
+    </p>
+
+    <h3>Etape 7. Regler les frequences de coupure et generer les filtres</h3>
+    <p>
+      Dans le tableau de parametres, choisissez une frequence de coupure globale ou par
+      groupe d'enceintes, puis utilisez les boutons Create sur chaque ligne ou All Filters
+      pour tout generer d'un coup.
+    </p>
+    <p>
+      L'idee est de choisir des coupures realistes par rapport a la reponse des enceintes
+      et aux capacites de raccord avec le sub. Une coupure trop basse peut rendre
+      l'alignement plus difficile et produire un raccord mediocre.
+    </p>
+    <p>
+      Pour une paire symetrique comme FL et FR, gardez de preference la meme frequence de
+      coupure tant qu'une mesure ne justifie pas un traitement different.
+    </p>
+
+    <img src="img/doc/rch-parameters-table.png" alt="Tableau de parametres RCH" />
+
+    <h3>Etape 8. Aligner le sub avec une enceinte</h3>
+    <p>
+      Dans Tuning, selectionnez l'enceinte de reference puis utilisez Find Sub Alignment.
+      L'enceinte choisie doit deja avoir son filtre calcule. En pratique, on commence le
+      plus souvent par FL, FR ou la centrale.
+    </p>
+    <p>
+      Si le resultat est mauvais, essayez une autre enceinte, ou relevez la frequence de
+      coupure avant de relancer la recherche d'alignement.
+    </p>
+    <p>
+      Quand la recherche aboutit, RCH met aussi a jour LPF for LFE avec une valeur
+      coherente avec l'enceinte retenue, avec un minimum de 120 Hz. Verifiez quand meme ce
+      reglage avant l'export final.
+    </p>
+
+    <h3>Etape 9. Verifier les previews</h3>
+    <p>
+      Utilisez les boutons Preview ligne par ligne, ou All previews, pour verifier les
+      courbes prevues enceinte + sub avant export. C'est la meilleure facon de detecter un
+      mauvais raccord, une inversion utile ou un crossover mal choisi.
+    </p>
+    <p>
+      Si necessaire, le bouton Auto Adjust Inversion peut aider a trouver une polarite
+      plus favorable sur le raccord avec le sub.
+    </p>
+    <p>
+      Si les previews sont bons sur la moyenne mais moins convaincants sur la position
+      d'ecoute principale, refaites une verification en conservant aussi la position 1 au
+      moment du moyennage.
     </p>
   </section>
-  <section id="help">
-    <h2 dir="auto">Help</h2>
+
+  <section id="subwoofers">
+    <h2>Caissons et MSO</h2>
+
+    <h3>Mesures de caisson faites dans REW</h3>
+    <p>
+      Si les mesures de caisson ont ete faites manuellement dans REW via le canal LFE, le
+      filtre passe-bas du LFE de l'AVR peut biaiser la courbe. Dans ce cas seulement,
+      utilisez Revert dans Subwoofer Tools pour annuler cet effet.
+    </p>
+    <p>
+      Si vos mesures viennent d'odd.wtf ou de l'application Audyssey, cette etape n'est en
+      general pas necessaire.
+    </p>
+    <p>
+      Si vous mesurez via le chemin LFE de l'AVR, regler LPF for LFE a sa valeur la plus
+      haute pendant la campagne de mesures simplifie generalement la compensation ensuite.
+    </p>
+
+    <img src="img/doc/sub-lpf-revert-button.png" alt="Revert AVR low pass filter" />
+
+    <h3>Flux de travail recommande pour les caissons</h3>
+    <ol>
+      <li>
+        Ajustez Additional Gain si vous voulez remonter ou descendre la courbe brute.
+      </li>
+      <li>
+        Reglez Individual max boost et Overall max boost selon votre marge de securite.
+      </li>
+      <li>
+        Si vous avez plusieurs caissons, utilisez Align Sub pour aligner les subs entre
+        eux.
+      </li>
+      <li>Utilisez Equalize Sub pour calculer les filtres d'egalisation.</li>
+      <li>Utilisez Preview Sub pour afficher la reponse previsionnelle resultante.</li>
+    </ol>
+
+    <img
+      src="img/doc/rch-multi-sub-management.png"
+      alt="Outils de gestion des caissons"
+    />
+
+    <p>
+      Additional Gain ne change pas directement le niveau final envoye a l'AVR. Ce reglage
+      deplace surtout la courbe de travail du sub par rapport a la cible pour faciliter
+      l'optimisation. Individual max boost et Overall max boost definissent, eux, le gain
+      positif maximum que l'algorithme peut utiliser.
+    </p>
+
+    <p>
+      La case Use all pass filters est reservee au mode multi-sub. Elle peut aider a
+      obtenir un meilleur alignement, mais elle rend aussi le calcul plus lourd.
+    </p>
+    <p>
+      Avec un seul sub, concentrez-vous surtout sur Equalize Sub puis Preview Sub. Align
+      Sub devient utile seulement a partir de plusieurs caissons.
+    </p>
+
+    <h3>MSO</h3>
+    <p>
+      Si vous travaillez avec plusieurs caissons et MSO, RCH sait exporter les mesures de
+      sub au bon format pour initialiser un projet MSO, puis reimporter dans REW un export
+      Equalizer APO provenant de MSO.
+    </p>
+    <p>
+      Ce bloc n'apparait que dans les configurations multi-sub et suppose que REW soit
+      connecte et que les mesures portent les bons noms.
+    </p>
+
+    <div class="code-block">
+      <code class="code-text"
+        >Principe simple : 1. Exporter les mesures de subs depuis RCH 2. Travailler dans
+        MSO 3. Exporter depuis MSO au format Equalizer APO 4. Importer ce fichier texte
+        dans RCH</code
+      >
+    </div>
+
+    <h3>Cas particulier des mesures ADY avec plusieurs subs</h3>
+    <p>
+      Pour des mesures issues d'odd.wtf ou de l'application Audyssey avec plusieurs
+      caissons, le mode directional bass est important. Sans lui, RCH peut ne pas disposer
+      de mesures individuelles de sub suffisamment exploitables pour un vrai travail
+      multi-sub.
+    </p>
+    <p>
+      Si l'import ADY multi-sub echoue ou affiche un avertissement sur ce point, il faut
+      generalement refaire la session de mesures en mode Directional bass. Selon le modele
+      d'AVR, RCH peut aussi vous renvoyer vers une methode manuelle REW ou vers un flux
+      odd.wtf adapte.
+    </p>
+  </section>
+
+  <section id="finalization">
+    <h2>Finalisation</h2>
+    <p>
+      Une fois les previews valides, ouvrez la zone Finalization pour preparer l'export.
+    </p>
+    <p>
+      Si vous venez d'utiliser Find Sub Alignment, verifiez le champ LPF for LFE avant de
+      creer le fichier OCA. RCH peut l'avoir releve automatiquement pour rester coherent
+      avec la coupure de l'enceinte de reference.
+    </p>
+
+    <img src="img/doc/finalization-box.png" alt="Zone de finalisation" />
+
     <ul>
-      <li dir="auto">
-        For further assistance, refer to gihub repository issue section or contact the
-        developer.
+      <li>Choisissez le LPF du LFE.</li>
+      <li>Choisissez le mode de sortie du subwoofer.</li>
+      <li>Activez ou non les options dynamiques selon votre usage.</li>
+      <li>Choisissez le format OCA adapte a votre materiel.</li>
+      <li>Cliquez sur Create OCA File pour generer le fichier final.</li>
+      <li>
+        Cliquez sur Create Settings File si vous voulez conserver une trace complete des
+        reglages utilises.
       </li>
     </ul>
+
+    <p>
+      Le fichier OCA est la sortie finale de RCH. Vous pourrez ensuite le charger dans
+      votre AVR avec odd.wtf ou un outil compatible avec votre flux de travail.
+    </p>
+    <p>
+      Pour un flux standard, Subwoofer Output en mode LFE est le point de depart naturel.
+      N'utilisez LFE + Main que si vous savez exactement pourquoi vous le voulez.
+    </p>
+    <p>
+      Le format OCA odd.wtf correspond au flux classique. Le format A1 Evo Acoustica est a
+      reserver aux materiels ou workflows qui l'exigent, notamment quand odd.wtf n'est pas
+      adapte au DSP cible.
+    </p>
+  </section>
+
+  <section id="troubleshooting">
+    <h2>Depannage</h2>
+
+    <h3>RCH ne se connecte pas a REW</h3>
+    <ul>
+      <li>Verifiez que REW est lance.</li>
+      <li>Verifiez que le serveur API est demarre.</li>
+      <li>Ne changez pas le port si vous n'avez pas une bonne raison de le faire.</li>
+    </ul>
+
+    <h3>Mes mesures n'apparaissent pas dans le tableau</h3>
+    <ul>
+      <li>En mode avance, verifiez le nommage des mesures dans REW.</li>
+      <li>
+        Les noms doivent commencer par les noms Audyssey attendus, tels qu'ils sont
+        exposes dans les details AVR.
+      </li>
+      <li>Utilisez Reset Measurements si REW est dans un etat incoherent.</li>
+    </ul>
+
+    <h3>Align SPL donne un resultat incoherent</h3>
+    <ul>
+      <li>Chargez d'abord une courbe cible dans REW.</li>
+      <li>Assurez-vous d'etre sur la bonne position, en general la position moyennee.</li>
+      <li>Faites Time Align avant Align SPL.</li>
+      <li>Chargez la cible sous REW / EQ / Target settings / House curve.</li>
+      <li>Verifiez que le niveau de reference de la cible reste a 75 dB.</li>
+    </ul>
+
+    <h3>Le raccord enceinte-sub ne marche pas</h3>
+    <ul>
+      <li>Essayez une autre enceinte de reference dans Tuning.</li>
+      <li>Essayez une coupure plus haute.</li>
+      <li>Regenez le filtre de l'enceinte avant de relancer Find Sub Alignment.</li>
+      <li>Verifiez les previews avant d'exporter.</li>
+    </ul>
+
+    <h3>Le mode avance ne remplit pas correctement le tableau</h3>
+    <ul>
+      <li>Lancez REW vide, connectez RCH, puis ouvrez le MDAT apres Connect.</li>
+      <li>
+        Verifiez que les noms des mesures commencent bien par les noms Audyssey attendus.
+      </li>
+      <li>Utilisez Reset Measurements si REW a conserve un etat de travail precedent.</li>
+    </ul>
+
+    <h3>Le multisub ADY ne se laisse pas exploiter</h3>
+    <ul>
+      <li>Refaites la session de mesures en mode Directional bass.</li>
+      <li>
+        Si RCH vous le demande, basculez vers la methode manuelle REW ou vers le flux
+        odd.wtf adapte a votre AVR.
+      </li>
+    </ul>
+
+    <h3>Une action est grisee ou echoue immediatement</h3>
+    <ul>
+      <li>Verifiez que REW est connecte avant toute operation de calcul.</li>
+      <li>
+        Sans connexion API active, RCH peut charger des fichiers mais ne peut pas lancer
+        les traitements.
+      </li>
+    </ul>
+
+    <h3>Vous voulez repartir de zero</h3>
+    <p>
+      Si vous voulez remettre toutes les mesures a leurs parametres par defaut, utilisez
+      Reset Measurements. Si tout le projet doit etre vide, utilisez Reset Application.
+    </p>
+  </section>
+
+  <section id="help">
+    <h2>Aide</h2>
+    <p>Pour aller plus loin, vous pouvez consulter les ressources suivantes :</p>
+    <ul>
+      <li>
+        Onglet Resources de l'application pour telecharger REW, odd.wtf, les fichiers
+        utiles, les courbes cibles et les aides de workflow.
+      </li>
+      <li>
+        Onglet Change Log de l'application pour suivre les evolutions recentes de RCH.
+      </li>
+      <li>
+        Depot GitHub :
+        <a href="https://github.com/jzahraoui/sangoku-site" target="_blank" rel="nofollow"
+          >https://github.com/jzahraoui/sangoku-site</a
+        >
+      </li>
+      <li>
+        Playlist video :
+        <a
+          href="https://www.youtube.com/@Sangoku-Z/playlists"
+          target="_blank"
+          rel="nofollow"
+          >https://www.youtube.com/@Sangoku-Z/playlists</a
+        >
+      </li>
+    </ul>
+
+    <p>
+      Si vous constatez un ecart entre cette page et l'application, fiez-vous en priorite
+      aux libelles visibles dans l'interface et au comportement observe dans l'onglet
+      Application.
+    </p>
   </section>
 </main>

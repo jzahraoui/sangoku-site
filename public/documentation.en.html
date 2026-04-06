@@ -1,0 +1,480 @@
+<nav class="documentation-sidebar">
+  <ul class="documentation-nav">
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#prerequisites">Before you start</a></li>
+    <li><a href="#entry-points">Choose your starting point</a></li>
+    <li><a href="#workflow">Recommended workflow</a></li>
+    <li><a href="#subwoofers">Subwoofers and MSO</a></li>
+    <li><a href="#finalization">Finalization</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#help">Help</a></li>
+  </ul>
+</nav>
+
+<main class="documentation-content">
+  <section id="introduction">
+    <img src="img/doc/banner.png" alt="Room Correction Helper" />
+
+    <h2>Introduction</h2>
+    <p>
+      Room Correction Helper (RCH) is a calibration tool for Denon and Marantz home
+      theater systems based on Audyssey. It works with REW to import measurements, align
+      speakers and subwoofers, generate filters, verify previews, and produce an OCA file
+      that can be used with your AVR.
+    </p>
+    <p>
+      RCH is not a one-click magic button. The goal of the application is to provide a
+      guided but transparent workflow so you can verify each step before the final export.
+    </p>
+    <p>
+      This documentation describes the current behavior of the application and follows the
+      commands visible in the interface.
+    </p>
+    <p>
+      This help page is integrated directly into the application. The instructions below
+      assume that you are already inside RCH and can switch back to the Application tab at
+      any time.
+    </p>
+
+    <img src="img/doc/interface-screenshot.png" alt="Room Correction Helper interface" />
+  </section>
+
+  <section id="prerequisites">
+    <h2>Before you start</h2>
+    <p>Before using RCH, make sure the following points are covered:</p>
+    <ul>
+      <li>You have a Denon or Marantz AVR compatible with Audyssey.</li>
+      <li>You have installed a recent REW beta version.</li>
+      <li>The REW API server is enabled on port 4735.</li>
+      <li>
+        All calculation steps require an active REW connection. Without it, RCH can still
+        inspect some files and produce exports, but it cannot run processing steps.
+      </li>
+      <li>
+        You have a supported entry point for the current workflow: ADY for the guided
+        mode, or AVR + REW measurements for the advanced mode.
+      </li>
+      <li>
+        For advanced use, you already know how to measure correctly in REW with a
+        measurement microphone or an equivalent method.
+      </li>
+    </ul>
+
+    <p>
+      If you plan to generate and then load an OCA file into the AVR, odd.wtf remains the
+      most natural companion tool for that workflow.
+    </p>
+
+    <img src="img/doc/rew-api-preferences.png" alt="REW API server configuration" />
+
+    <p>
+      Practical advice: keep a clean working folder with your ADY, MQX, AVR, MDAT, OCA,
+      and target curve files. This avoids many protocol and file-handling mistakes.
+    </p>
+    <p>
+      If you use a custom target curve, prepare it in advance as well. You will need it in
+      REW for Align SPL and for final validation.
+    </p>
+  </section>
+
+  <section id="entry-points">
+    <h2>Choose your starting point</h2>
+
+    <h3>1. Basic mode with an ADY file</h3>
+    <p>
+      This is the simplest entry point. You measure with odd.wtf or with the Audyssey
+      MultEQ Editor app, then import the ADY file into RCH. When RCH is connected to REW,
+      the measurements are loaded automatically into REW.
+    </p>
+    <p>
+      If REW is not connected, RCH can still extract the measurements from the file, but
+      the automatic import into REW will not happen.
+    </p>
+
+    <h3>2. Special case: MQX files</h3>
+    <p>
+      The application also includes MQX processing, but this path is not currently the
+      most robust standard workflow in the Application page.
+    </p>
+    <p>
+      In practice, you should mainly rely on ADY for the simple workflow and AVR + REW for
+      the advanced workflow. If you work with MQX, treat it as an advanced case that
+      should be validated carefully for your project and AVR context.
+    </p>
+    <p>
+      To use this path, load AVR data first. RCH needs it to rebuild channel mapping
+      correctly.
+    </p>
+
+    <h3>3. Advanced mode with REW</h3>
+    <p>
+      If you measure manually in REW, you must first generate an AVR file with odd.wtf,
+      then load that AVR file into RCH. Your REW measurement names must follow the
+      Audyssey names exposed by the AVR file, otherwise they will not be matched to the
+      correct channels in the measurement table.
+    </p>
+    <p>
+      The most reliable sequence is: start REW empty, enable its API, connect RCH, and
+      only then open the MDAT file in REW. Before calculating, also make sure your
+      measurements are not carrying leftover EQ, delay, or inversion state.
+    </p>
+
+    <img src="img/doc/rch-avr-configuration.png" alt="AVR configuration details" />
+  </section>
+
+  <section id="workflow">
+    <h2>Recommended workflow</h2>
+
+    <h3>Step 1. Connect REW and load the project</h3>
+    <ol>
+      <li>Start REW and enable its API server.</li>
+      <li>Switch back to the Application tab.</li>
+      <li>Click Connect in Main Commands.</li>
+      <li>Drag and drop your ADY or AVR file.</li>
+      <li>
+        If you are in advanced mode, then open your measurement set in REW so RCH can map
+        the measurements correctly.
+      </li>
+    </ol>
+
+    <img src="img/doc/rch-connect-button.png" alt="REW connection button" />
+
+    <p>
+      Once the project is loaded, open the AVR details and verify that the detected
+      channels match your actual setup.
+    </p>
+    <p>
+      In advanced mode, avoid loading the MDAT before connecting. RCH populates its table
+      more reliably when REW is already running, the API is active, and the file is opened
+      only after clicking Connect.
+    </p>
+
+    <h3>Step 2. Reset the calculation state when needed</h3>
+    <p>
+      Use Reset Measurements if you want to reset all measurements to their default
+      parameters before running calculations again. Use Reset Application if you want to
+      clear the whole project after a bad workflow, a wrong file, or a complete project
+      change.
+    </p>
+    <p>
+      In practice, Reset Measurements clears smoothing, IR windows, target settings, room
+      curve, generic equalizer, delays, and inversion state. It is the right first step
+      before repeating a full workflow.
+    </p>
+
+    <h3>Step 3. Set speaker calculation options</h3>
+    <p>
+      In Speaker Tools, you can configure smoothing, windowing, boost limits, and
+      frequency range. These settings determine how RCH and REW will prepare the next
+      calculations.
+    </p>
+
+    <img src="img/doc/speaker-tools-gains-filters.png" alt="Speaker Tools settings" />
+
+    <h3>Step 4. Create averages</h3>
+    <p>
+      If you have measurements from several positions, start by averaging them with
+      Averages. Three strategies are available: delete all original measurements, keep
+      only position 1, or keep everything.
+    </p>
+    <p>
+      Keeping position 1 in addition to the averages is useful if you later want to
+      compare the result at the main listening position without losing the averaged
+      curves.
+    </p>
+    <p>
+      RCH offers three averaging methods: Vector average, RMS + phase avg., and dB + phase
+      avg. If you do not already have a strong preference, pick one method and keep it
+      consistent throughout the project so your comparisons remain meaningful.
+    </p>
+
+    <h3>Step 5. Align speakers in time</h3>
+    <p>
+      Use Time Align to recalculate distances and bring the speakers into temporal
+      alignment. This should be done before fine level adjustments and before working on
+      speaker-to-subwoofer integration.
+    </p>
+
+    <img src="img/doc/rch-time-align-button.png" alt="Time Align button" />
+
+    <h3>Step 6. Load the target curve, then run Align SPL</h3>
+    <p>
+      The target curve must be loaded in REW before using Align SPL. This step adjusts
+      speaker levels relative to that target.
+    </p>
+    <p>
+      Important: run Align SPL on the correct position. In practice, this usually means
+      the averaged position, not an isolated raw measurement.
+    </p>
+    <p>
+      If RCH cannot find your target curve, load it in REW under EQ / Target settings /
+      House curve, then confirm that the reference level is still set to 75 dB.
+    </p>
+
+    <h3>Step 7. Set crossovers and generate filters</h3>
+    <p>
+      In the measurement table, choose a global crossover or a per-group crossover, then
+      use the Create buttons on each line or All Filters to generate everything at once.
+    </p>
+    <p>
+      The goal is to choose realistic crossover values based on the speaker response and
+      on the practical quality of the speaker-to-subwoofer handoff. A crossover set too
+      low can make alignment harder and produce a poor blend.
+    </p>
+    <p>
+      For a symmetrical pair such as FL and FR, prefer using the same crossover unless the
+      measurements clearly justify doing otherwise.
+    </p>
+
+    <img src="img/doc/rch-parameters-table.png" alt="RCH measurement table" />
+
+    <h3>Step 8. Align the subwoofer with a speaker</h3>
+    <p>
+      In Tuning, select the reference speaker and use Find Sub Alignment. The selected
+      speaker must already have a computed filter. In practice, most users start with FL,
+      FR, or the center speaker.
+    </p>
+    <p>
+      If the result is poor, try another speaker or raise the crossover before launching
+      the alignment search again.
+    </p>
+    <p>
+      When the search succeeds, RCH also updates LPF for LFE to a value consistent with
+      the selected speaker, with a 120 Hz minimum. Still verify that field before the
+      final export.
+    </p>
+
+    <h3>Step 9. Check the previews</h3>
+    <p>
+      Use the Preview buttons line by line, or All previews, to verify predicted
+      speaker-plus-subwoofer responses before export. This is the best way to detect a
+      poor handoff, a useful polarity change, or a wrong crossover choice.
+    </p>
+    <p>
+      If needed, Auto Adjust Inversion can help find a better polarity state for the
+      subwoofer blend.
+    </p>
+    <p>
+      If the previews look good on the average but less convincing at the main listening
+      position, repeat the check while keeping position 1 when creating averages.
+    </p>
+  </section>
+
+  <section id="subwoofers">
+    <h2>Subwoofers and MSO</h2>
+
+    <h3>Subwoofer measurements made in REW</h3>
+    <p>
+      If your subwoofer measurements were made manually in REW through the LFE channel,
+      the AVR LFE low-pass filter can bias the curve. In that case only, use Revert in
+      Subwoofer Tools to compensate for that effect.
+    </p>
+    <p>
+      If your measurements come from odd.wtf or from the Audyssey app, this step is
+      usually not needed.
+    </p>
+    <p>
+      If you measured through the AVR LFE path, using the highest LPF for LFE value during
+      the measurement session generally makes the later compensation easier.
+    </p>
+
+    <img src="img/doc/sub-lpf-revert-button.png" alt="Revert AVR low pass filter" />
+
+    <h3>Recommended subwoofer workflow</h3>
+    <ol>
+      <li>Adjust Additional Gain if you want to raise or lower the raw curve.</li>
+      <li>Set Individual max boost and Overall max boost based on your safety margin.</li>
+      <li>If you have multiple subs, use Align Sub to align them with each other.</li>
+      <li>Use Equalize Sub to compute EQ filters.</li>
+      <li>Use Preview Sub to display the predicted resulting response.</li>
+    </ol>
+
+    <img src="img/doc/rch-multi-sub-management.png" alt="Subwoofer management tools" />
+
+    <p>
+      Additional Gain does not directly change the final AVR trim. It mainly shifts the
+      subwoofer working curve relative to the target so the optimizer can find a better
+      solution. Individual max boost and Overall max boost define how much positive gain
+      the algorithm is allowed to use.
+    </p>
+
+    <p>
+      The Use all pass filters checkbox is intended for multi-sub mode only. It can help
+      achieve better alignment, but it also makes the calculation heavier.
+    </p>
+    <p>
+      With a single subwoofer, focus mainly on Equalize Sub and Preview Sub. Align Sub
+      only becomes useful once you have multiple subwoofers.
+    </p>
+
+    <h3>MSO</h3>
+    <p>
+      If you work with several subwoofers and MSO, RCH can export sub measurements in a
+      format suitable for initializing an MSO project, then reimport into REW an Equalizer
+      APO export produced by MSO.
+    </p>
+    <p>
+      This block appears only for multi-sub configurations and assumes that REW is
+      connected and that measurement names are correct.
+    </p>
+
+    <div class="code-block">
+      <code class="code-text"
+        >Simple principle: 1. Export sub measurements from RCH 2. Work inside MSO 3.
+        Export from MSO in Equalizer APO format 4. Import that text file back into
+        RCH</code
+      >
+    </div>
+
+    <h3>Special case: ADY measurements with multiple subs</h3>
+    <p>
+      For measurements coming from odd.wtf or from the Audyssey app with multiple
+      subwoofers, directional bass mode matters. Without it, RCH may not have enough
+      usable individual subwoofer measurements for a real multi-sub workflow.
+    </p>
+    <p>
+      If a multi-sub ADY import fails or warns about this, you usually need to repeat the
+      measurement session in Directional bass mode. Depending on the AVR model, RCH may
+      also direct you toward a manual REW method or an odd.wtf workflow variant.
+    </p>
+  </section>
+
+  <section id="finalization">
+    <h2>Finalization</h2>
+    <p>
+      Once the previews look correct, open the Finalization area to prepare the export.
+    </p>
+    <p>
+      If you have just used Find Sub Alignment, verify the LPF for LFE field before
+      creating the OCA file. RCH may have raised it automatically to stay consistent with
+      the selected speaker crossover.
+    </p>
+
+    <img src="img/doc/finalization-box.png" alt="Finalization area" />
+
+    <ul>
+      <li>Choose the LPF for LFE value.</li>
+      <li>Choose the subwoofer output mode.</li>
+      <li>Enable or disable dynamic options depending on your use case.</li>
+      <li>Choose the OCA format that matches your hardware.</li>
+      <li>Click Create OCA File to generate the final file.</li>
+      <li>
+        Click Create Settings File if you want to keep a full text record of the settings
+        used for this export.
+      </li>
+    </ul>
+
+    <p>
+      The OCA file is the final output of RCH. You can then load it into your AVR with
+      odd.wtf or another tool that matches your workflow.
+    </p>
+    <p>
+      For a standard workflow, Subwoofer Output in LFE mode is the natural baseline. Use
+      LFE + Main only if you explicitly know why you need it.
+    </p>
+    <p>
+      The odd.wtf OCA format matches the standard upload flow. The A1 Evo Acoustica format
+      is for hardware or workflows that require it, especially when odd.wtf is not suited
+      to the target DSP.
+    </p>
+  </section>
+
+  <section id="troubleshooting">
+    <h2>Troubleshooting</h2>
+
+    <h3>RCH does not connect to REW</h3>
+    <ul>
+      <li>Make sure REW is running.</li>
+      <li>Make sure the API server is started.</li>
+      <li>Do not change the port unless you have a good reason to do so.</li>
+    </ul>
+
+    <h3>My measurements do not appear in the table</h3>
+    <ul>
+      <li>In advanced mode, verify the measurement names in REW.</li>
+      <li>
+        The names must start with the expected Audyssey names shown in the AVR details.
+      </li>
+      <li>Use Reset Measurements if REW is in an inconsistent state.</li>
+    </ul>
+
+    <h3>Align SPL gives an incoherent result</h3>
+    <ul>
+      <li>Load a target curve in REW first.</li>
+      <li>Make sure you are on the correct position, usually the averaged position.</li>
+      <li>Run Time Align before Align SPL.</li>
+      <li>Load the curve under REW / EQ / Target settings / House curve.</li>
+      <li>Confirm that the target reference level is still 75 dB.</li>
+    </ul>
+
+    <h3>The speaker-subwoofer handoff does not work well</h3>
+    <ul>
+      <li>Try another reference speaker in Tuning.</li>
+      <li>Try a higher crossover value.</li>
+      <li>Regenerate the speaker filter before retrying Find Sub Alignment.</li>
+      <li>Check the previews before exporting.</li>
+    </ul>
+
+    <h3>Advanced mode does not populate the table correctly</h3>
+    <ul>
+      <li>Start REW empty, connect RCH, then open the MDAT after Connect.</li>
+      <li>Make sure measurement names begin with the expected Audyssey names.</li>
+      <li>Use Reset Measurements if REW is carrying over a previous working state.</li>
+    </ul>
+
+    <h3>Multi-sub ADY cannot be used properly</h3>
+    <ul>
+      <li>Repeat the measurement session in Directional bass mode.</li>
+      <li>
+        If RCH asks for it, switch to the manual REW method or to the odd.wtf workflow
+        variant that matches your AVR.
+      </li>
+    </ul>
+
+    <h3>An action is disabled or fails immediately</h3>
+    <ul>
+      <li>Confirm that REW is connected before any calculation step.</li>
+      <li>
+        Without an active API connection, RCH can load files but cannot run processing.
+      </li>
+    </ul>
+
+    <h3>You want to start over</h3>
+    <p>
+      If you want to reset all measurements to their default parameters, use Reset
+      Measurements. If you want to clear the whole project, use Reset Application.
+    </p>
+  </section>
+
+  <section id="help">
+    <h2>Help</h2>
+    <p>For more information, you can use the following resources:</p>
+    <ul>
+      <li>
+        The Resources tab inside the application to download REW, odd.wtf, useful helper
+        files, target curves, and workflow assets.
+      </li>
+      <li>The Change Log tab inside the application to track recent RCH changes.</li>
+      <li>
+        GitHub repository:
+        <a href="https://github.com/jzahraoui/sangoku-site" target="_blank" rel="nofollow"
+          >https://github.com/jzahraoui/sangoku-site</a
+        >
+      </li>
+      <li>
+        Video playlist:
+        <a
+          href="https://www.youtube.com/@Sangoku-Z/playlists"
+          target="_blank"
+          rel="nofollow"
+          >https://www.youtube.com/@Sangoku-Z/playlists</a
+        >
+      </li>
+    </ul>
+
+    <p>
+      If you notice a mismatch between this page and the application, trust the labels and
+      behavior currently visible in the Application tab first.
+    </p>
+  </section>
+</main>
