@@ -1,4 +1,3 @@
-/* eslint-disable css/no-important */
 :root {
   /* Base Colors */
   --white: #ffffff;
@@ -15,7 +14,6 @@
   --primary-700: #026ec6;
   --primary-800: #0264c0;
   --primary-900: #0151b5;
-  --primary-color: var(--primary-700);
   --primary-hover: var(--primary-900);
 
   /* Semantic Colors - Success */
@@ -29,8 +27,6 @@
   --success-700: #388e3c;
   --success-800: #2e7d32;
   --success-900: #1b5e20;
-  --success-color: var(--success-500);
-  --success-bg: var(--success-50);
 
   /* Semantic Colors - Error */
   --error-50: #ffebee;
@@ -45,7 +41,6 @@
   --error-900: #8b0000;
   --error-color: var(--error-500);
   --error-hover: var(--error-700);
-  --error-bg: var(--error-200);
 
   /* Semantic Colors - Warning */
   --warning-50: #fff8e1;
@@ -80,6 +75,7 @@
   --github-dark: #24292e;
   --github-dark-hover: #2f363d;
   --kofi-blue: #29abe0;
+  --kofi-blue-hover: #1a8fbf;
   --patreon-red: #e02838;
   --patreon-red-hover: #f03848;
 
@@ -250,8 +246,7 @@ body {
 /* Dropzone Styles */
 .dropzone {
   position: relative;
-  border: 2px dashed;
-  border-color: var(--border-color);
+  border: 2px dashed var(--border-color);
   border-radius: var(--border-radius);
   padding: var(--spacing-xl);
   text-align: center;
@@ -275,12 +270,7 @@ body {
   cursor: pointer;
 }
 
-.dropzone:focus-visible {
-  outline: 3px solid var(--focus-ring-color);
-  outline-offset: 3px;
-  border-color: var(--focus-ring-color);
-}
-
+.dropzone:focus-visible,
 .dropzone:focus-within {
   outline: 3px solid var(--focus-ring-color);
   outline-offset: 3px;
@@ -676,7 +666,6 @@ textarea {
   font-weight: 500;
 }
 
-/* Code block container */
 /* Code Styles */
 .code-text {
   font-family: 'Lucida Console', Monaco, 'Courier New', monospace;
@@ -754,8 +743,7 @@ textarea {
 }
 
 .donate-button {
-  --donate-button-bg: var(--primary-hover);
-  --donate-button-bg-hover: var(--kofi-blue);
+  --donate-button-bg: var(--bg-primary);
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -784,8 +772,8 @@ textarea {
   --donate-button-bg-hover: var(--github-dark-hover);
 }
 .donate-button.kofi {
-  --donate-button-bg: var(--primary-hover);
-  --donate-button-bg-hover: var(--kofi-blue);
+  --donate-button-bg: var(--kofi-blue);
+  --donate-button-bg-hover: var(--kofi-blue-hover);
 }
 .donate-button.patreon {
   --donate-button-bg: var(--patreon-red);
@@ -794,7 +782,6 @@ textarea {
 
 .donate-button:hover {
   background-color: var(--donate-button-bg-hover);
-  color: var(--white);
   transform: translateY(-2px);
   box-shadow: var(--box-shadow);
 }
@@ -1035,7 +1022,6 @@ textarea {
 
 .resource-card:hover {
   transform: translateY(-5px);
-  box-shadow: var(--box-shadow);
 }
 
 .wide-card {
@@ -1096,8 +1082,6 @@ textarea {
 }
 
 .download-button {
-  --download-button-bg: var(--interactive-bg);
-  --download-button-bg-hover: var(--interactive-bg-hover);
   --download-button-text: var(--interactive-text);
 }
 
@@ -1132,14 +1116,8 @@ textarea {
   width: 100%;
   border: none;
   text-align: left;
-  outline: none;
   font-size: var(--font-size-xl);
-  transition: 0.4s;
   border-radius: var(--border-radius);
-}
-
-.collapsible:hover {
-  background-color: var(--bg-secondary);
 }
 
 .collapsible:after {
@@ -1186,16 +1164,6 @@ textarea {
   }
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
   }
 }
 
@@ -1666,7 +1634,10 @@ button i,
   background-color: var(--lime-green);
   color: var(--black);
   border-radius: 3px;
-  font: 700 9px/22px sans-serif;
+  font-weight: 700;
+  font-size: 9px;
+  line-height: 22px;
+  font-family: sans-serif;
   text-align: center;
   box-shadow: var(--box-shadow);
   display: inline-block;
@@ -1865,6 +1836,7 @@ button.danger:hover,
 
 /* Accessibility - Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
+  /* eslint-disable css/no-important -- Required for a11y override */
   /* stylelint-disable declaration-no-important */
   *,
   *::before,
@@ -1875,6 +1847,7 @@ button.danger:hover,
     scroll-behavior: auto !important;
   }
   /* stylelint-enable declaration-no-important */
+  /* eslint-enable css/no-important */
 
   .polling-indicator.active {
     animation: none;
