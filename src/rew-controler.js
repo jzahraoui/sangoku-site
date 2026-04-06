@@ -481,7 +481,7 @@ class RewController {
           for (const commit of commits) {
             const message = document.createElement('div');
             message.className = 'commit-message';
-            message.innerHTML = `- ${commit.commit.message.split('\n').join('<br>')}`;
+            message.innerHTML = `${commit.commit.message.split('\n').join('<br>')}`;
             messagesContainer.appendChild(message);
           }
 

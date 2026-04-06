@@ -86,15 +86,6 @@
         id="themeToggle"
         aria-label="Toggle theme / Changer le theme"
         data-bind="attr: { 'aria-label': translations().theme_toggle_label }"
-        style="
-          position: absolute;
-          top: 20px;
-          right: 120px;
-          padding: 5px 10px;
-          border: 1px solid #ccc;
-          background: white;
-          cursor: pointer;
-        "
       >
         🌙
       </button>
@@ -557,7 +548,12 @@
                   </table>
                 </div>
                 <div id="room-3d-container">
-                  <canvas id="room-canvas" width="600" height="400"></canvas>
+                  <canvas
+                    id="room-canvas"
+                    class="room-canvas"
+                    width="600"
+                    height="400"
+                  ></canvas>
                 </div>
               </div>
             </details>
@@ -1304,7 +1300,7 @@
           </div>
         </section>
         <!-- Result Status -->
-        <div id="status" data-bind="visible: hasStatus()" class="success">
+        <div id="status" data-bind="visible: hasStatus()" class="status-message success">
           <p data-bind="text: status()" class="status-text"></p>
         </div>
         <!-- Real-time Logs Container -->

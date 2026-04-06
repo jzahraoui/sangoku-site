@@ -7,19 +7,51 @@ import RewController from './rew-controler.js';
 globalThis.rewController = new RewController();
 
 const themeToggle = document.getElementById('themeToggle');
-const savedTheme = localStorage.getItem('theme');
+const themeStorageKey = 'theme';
+const systemThemeQuery = globalThis.matchMedia('(prefers-color-scheme: dark)');
 
-if (savedTheme === 'dark') {
-  document.body.classList.add('dark-mode');
-  themeToggle.textContent = '☀️';
+function isStoredTheme(value) {
+  return value === 'dark' || value === 'light';
 }
 
-themeToggle.addEventListener('click', () => {
-  document.body.classList.toggle('dark-mode');
-  const isDark = document.body.classList.contains('dark-mode');
-  themeToggle.textContent = isDark ? '☀️' : '🌙';
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-});
+function getPreferredTheme() {
+  const savedTheme = localStorage.getItem(themeStorageKey);
+  if (isStoredTheme(savedTheme)) {
+    return savedTheme;
+  }
+  return systemThemeQuery.matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme) {
+  const isDark = theme === 'dark';
+  document.body.classList.toggle('dark-mode', isDark);
+  if (themeToggle) {
+    themeToggle.textContent = isDark ? '☀️' : '🌙';
+    themeToggle.setAttribute('aria-pressed', String(isDark));
+  }
+}
+
+applyTheme(getPreferredTheme());
+
+const handleSystemThemeChange = event => {
+  const savedTheme = localStorage.getItem(themeStorageKey);
+  if (isStoredTheme(savedTheme)) {
+    return;
+  }
+  applyTheme(event.matches ? 'dark' : 'light');
+};
+
+if (typeof systemThemeQuery.addEventListener === 'function') {
+  systemThemeQuery.addEventListener('change', handleSystemThemeChange);
+}
+
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    const nextTheme = document.body.classList.contains('dark-mode') ? 'light' : 'dark';
+    applyTheme(nextTheme);
+    localStorage.setItem(themeStorageKey, nextTheme);
+  });
+}
 
 const columnToggleBtn = document.getElementById('columnToggleBtn');
 const columnDropdown = document.getElementById('columnDropdown');
@@ -105,7 +137,7 @@ fileInputMso.addEventListener('change', e => {
 async function handleFiles(files) {
   if (!files?.length) {
     results.innerHTML =
-      '<div class="error">No files selected or invalid file input.</div>';
+      '<div class="status-message error">No files selected or invalid file input.</div>';
     return;
   }
 
@@ -118,7 +150,7 @@ async function handleFiles(files) {
       filterConverter = new apo2camilla(content);
     } catch (error) {
       lm.error(`Error initializing FilterConverter: ${error.message}`, error);
-      results.innerHTML = `<div class="error">Error initializing FilterConverter: ${error.message}</div>`;
+      results.innerHTML = `<div class="status-message error">Error initializing FilterConverter: ${error.message}</div>`;
       return;
     }
 
@@ -129,7 +161,7 @@ async function handleFiles(files) {
 
     // Show success message
     const successDiv = document.createElement('div');
-    successDiv.className = 'success';
+    successDiv.className = 'status-message success';
     successDiv.textContent =
       'Conversion successful! Click buttons below to download configurations:';
     results.appendChild(successDiv);
@@ -150,6 +182,6 @@ async function handleFiles(files) {
     }
   } catch (error) {
     lm.error(error);
-    results.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+    results.innerHTML = `<div class="status-message error">Error: ${error.message}</div>`;
   }
 }
