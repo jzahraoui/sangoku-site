@@ -69,6 +69,11 @@
       Si vous prevoyez de generer puis de charger un fichier OCA dans l'AVR, odd.wtf reste
       l'outil le plus naturel pour ce flux de travail.
     </p>
+    <p>
+      Les binaires odd.wtf par systeme, les sweeps lossless et les fichiers Atmos restent
+      centralises dans l'onglet Resources. Cette page se concentre donc sur le moment ou
+      il faut les utiliser, pas sur une liste complete de fichiers a telecharger.
+    </p>
 
     <img
       src="img/doc/rew-api-preferences.png"
@@ -93,6 +98,11 @@
       C'est le point d'entree le plus simple. Vous mesurez avec odd.wtf ou avec
       l'application Audyssey MultEQ Editor, puis vous importez le fichier ADY dans RCH.
       Quand RCH est connecte a REW, les mesures sont chargees automatiquement dans REW.
+    </p>
+    <p>
+      Avec odd.wtf, le flux le plus simple reste la mesure integree qui produit
+      directement un fichier ADY. Si vous preferez mesurer vous-meme dans REW avec votre
+      propre micro, gardez odd.wtf uniquement pour generer le fichier AVR du mode avance.
     </p>
     <p>
       Si REW n'est pas connecte, RCH peut quand meme extraire les mesures du fichier, mais
@@ -126,6 +136,99 @@
       connecter RCH, puis seulement ouvrir le fichier MDAT dans REW. Avant de calculer,
       verifiez aussi que vos mesures n'ont pas conserve d'EQ, de delais ou d'inversions
       parasites.
+    </p>
+
+    <h4>Preparation recommandee pour des mesures manuelles dans REW</h4>
+    <p>
+      Avant la campagne de mesures, repartez d'un AVR dans un etat simple et previsible.
+      Le minimum utile est le suivant :
+    </p>
+    <ul>
+      <li>Supprimez ou neutralisez une correction precedente avant de mesurer.</li>
+      <li>
+        Reglez le volume autour de 62 ou -18 dB, avec environ 75 dB sur Front Right.
+      </li>
+      <li>
+        Coupez les traitements inutiles pendant la mesure, notamment l'ECO mode et les
+        traitements de loudness.
+      </li>
+      <li>
+        Si vous mesurez les subs via le chemin LFE, montez provisoirement LPF for LFE au
+        maximum, ou prevoyez d'utiliser Revert plus tard dans RCH.
+      </li>
+      <li>
+        Pour un systeme Atmos, utilisez les sweeps lossless correspondants depuis
+        Resources, avec Front Left comme reference d'acoustic timing.
+      </li>
+    </ul>
+    <p>
+      Cote REW, gardez une configuration stable : Java EXCL si votre interface le permet,
+      echantillonnage a 48 kHz, plage 0-24000 Hz et sweeps a -12 dBFS pour rester
+      coherents avec les canaux Atmos.
+    </p>
+
+    <h4>Generer un fichier AVR avec odd.wtf</h4>
+    <p>
+      En mode avance, le fichier AVR sert de reference de nommage pour faire correspondre
+      les mesures REW aux canaux Audyssey.
+    </p>
+    <ol>
+      <li>
+        Telechargez le binaire adapte a votre OS depuis l'onglet Resources et placez-le
+        dans un dossier stable.
+      </li>
+      <li>
+        Sur macOS ou Linux, rendez-le executable si necessaire, puis lancez d'abord une
+        commande d'aide pour verifier qu'il demarre correctement.
+      </li>
+      <li>
+        Utilisez ensuite la commande de recherche reseau pour detecter l'AVR, puis la
+        commande de generation pour produire le fichier AVR a importer dans RCH.
+      </li>
+      <li>
+        Si la detection automatique echoue, relancez la generation en precisant
+        directement l'adresse IP de l'AVR.
+      </li>
+    </ol>
+
+    <figure>
+      <img
+        src="img/doc/odd-menu-screenshot.png"
+        loading="lazy"
+        alt="Menu odd.wtf avec les options de workflow"
+        class="thumbnail"
+        data-full="img/doc/odd-menu-screenshot.png"
+        width="360"
+      />
+      <figcaption>
+        Le menu odd.wtf couvre le flux guide, la generation du fichier AVR et l'envoi du
+        fichier OCA final.
+      </figcaption>
+    </figure>
+
+    <div class="code-block">
+      <code class="code-text">odd search<br />odd gen<br />odd gen -i 192.168.x.x</code>
+    </div>
+
+    <figure>
+      <img
+        src="img/doc/terminal-screenshot.png"
+        loading="lazy"
+        alt="Exemple de ligne de commande odd.wtf"
+        class="thumbnail"
+        data-full="img/doc/terminal-screenshot.png"
+        width="360"
+      />
+      <figcaption>
+        En ligne de commande, commencez par afficher l'aide, puis utilisez search et gen
+        selon votre contexte.
+      </figcaption>
+    </figure>
+
+    <p>
+      Le nom exact du binaire depend de votre systeme. Adaptez simplement la commande a
+      odd.wtf, odd.mac ou odd.linux selon votre cas. L'application Denon ou Marantz sur
+      smartphone permet en general de retrouver rapidement l'adresse IP de l'AVR.
     </p>
 
     <img src="img/doc/rch-avr-configuration.png" alt="Details de configuration AVR" />
@@ -340,11 +443,47 @@
 
     <div class="code-block">
       <code class="code-text"
-        >Principe simple : 1. Exporter les mesures de subs depuis RCH 2. Travailler dans
-        MSO 3. Exporter depuis MSO au format Equalizer APO 4. Importer ce fichier texte
-        dans RCH</code
+        >Principe simple :<br />1. Exporter les mesures de subs depuis RCH<br />2.
+        Travailler dans MSO<br />3. Exporter depuis MSO au format Equalizer APO<br />4.
+        Importer ce fichier texte dans RCH</code
       >
     </div>
+
+    <p>
+      Le menu d'export MSO a utiliser pour ce flux est illustre ci-dessous. Cliquez sur la
+      miniature pour voir l'image en taille complete.
+    </p>
+
+    <figure>
+      <img
+        src="img/mso_mini.png"
+        loading="lazy"
+        alt="Emplacement du menu d'export MSO"
+        class="thumbnail"
+        data-full="img/mso.png"
+      />
+      <figcaption>
+        Export MSO vers un format exploitable pour le reimport dans RCH.
+      </figcaption>
+    </figure>
+
+    <p>
+      Si vous devez terminer l'import a la main dans REW, utilisez la fenetre EQ avec le
+      fichier texte genere pour ce projet.
+    </p>
+
+    <figure>
+      <img
+        src="img/rew_mini.png"
+        loading="lazy"
+        alt="Emplacement de l'import EQ dans REW"
+        class="thumbnail"
+        data-full="img/rew.png"
+      />
+      <figcaption>
+        Point d'entree de l'import manuel dans la fenetre EQ de REW.
+      </figcaption>
+    </figure>
 
     <h3>Cas particulier des mesures ADY avec plusieurs subs</h3>
     <p>
@@ -465,6 +604,22 @@
       </li>
     </ul>
 
+    <h3>odd.wtf ne trouve pas l'AVR</h3>
+    <ul>
+      <li>
+        Verifiez que l'AVR est allume et sur le meme reseau que la machine qui lance
+        odd.wtf.
+      </li>
+      <li>
+        Recuperez l'adresse IP via l'application Denon ou Marantz, puis relancez la
+        commande avec l'option -i.
+      </li>
+      <li>
+        Sur macOS ou Linux, verifiez aussi que le binaire est executable avant de conclure
+        a un probleme de detection reseau.
+      </li>
+    </ul>
+
     <h3>Vous voulez repartir de zero</h3>
     <p>
       Si vous voulez remettre toutes les mesures a leurs parametres par defaut, utilisez
@@ -506,4 +661,9 @@
       Application.
     </p>
   </section>
+
+  <div id="imagePopup" class="popup">
+    <span class="close-btn">&times;</span>
+    <img id="fullImage" src="" loading="lazy" alt="Apercu en taille complete" />
+  </div>
 </main>
