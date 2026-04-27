@@ -87,7 +87,7 @@
   --green-dark: var(--success-700);
   --green-light: var(--success-50);
   --lime-green: #7cb342;
-  --connection-active-color: var(--success-800);
+  --connection-active-color: #00ff00;
   --yellow-light: var(--warning-50);
 
   /* Background Colors - Light Mode Defaults */
@@ -1664,11 +1664,11 @@ button i,
 
 body.dark-mode {
   /* Surface colors (containers, cards, sections) */
-  --surface-bg: var(--gray-950);
-  --surface-bg-alt: var(--gray-900);
-  --surface-bg-elevated: var(--gray-800);
-  --surface-border: var(--gray-800);
-  --surface-border-hover: var(--gray-500);
+  --surface-bg: #161b22;
+  --surface-bg-alt: #1c2333;
+  --surface-bg-elevated: #21262d;
+  --surface-border: #4e6a84;
+  --surface-border-hover: #5c7a92;
 
   /* Text on surfaces */
   --surface-text: var(--gray-50);
@@ -1677,26 +1677,25 @@ body.dark-mode {
   /* Legacy aliases used by the historical light-mode rules */
   --bg-primary: var(--surface-bg);
   --bg-secondary: var(--surface-bg-alt);
-  --bg-tertiary: var(--surface-bg-alt);
+  --bg-tertiary: #0d1117;
   --text-primary: var(--surface-text);
   --text-secondary: var(--surface-text-muted);
   --border-color: var(--surface-border);
   --border-hover: var(--surface-border-hover);
   --blue: var(--accent);
-  --connection-active-color: var(--success-400);
 
-  /* Interactive elements — use --primary-300 for better WCAG AA contrast on dark bg */
-  --interactive-bg: var(--primary-300);
-  --interactive-bg-hover: var(--primary-200);
-  --interactive-text: var(--gray-950);
+  /* Interactive elements — saturated sky-500 at rest, sky-300 flash on hover */
+  --interactive-bg: #0ea5e9;
+  --interactive-bg-hover: #38bdf8;
+  --interactive-text: #0f172a;
   --interactive-disabled-bg: var(--surface-bg-elevated);
   --interactive-disabled-text: var(--surface-text-muted);
 
   /* Button variants */
-  --button-neutral-bg: var(--surface-bg-elevated);
-  --button-neutral-bg-hover: var(--gray-600);
+  --button-neutral-bg: #507090;
+  --button-neutral-bg-hover: #4e6a84;
   --button-neutral-text: var(--surface-text);
-  --button-danger-bg: var(--error-700);
+  --button-danger-bg: var(--error-500);
   --button-danger-bg-hover: var(--error-600);
   --button-danger-text: var(--gray-50);
   --donate-button-border: rgba(255, 255, 255, 0.1);
@@ -1738,13 +1737,13 @@ body.dark-mode {
   --message-warning-bg: var(--status-warning-bg);
 
   /* Log entry colors */
-  --log-info-border: var(--primary-700);
+  --log-info-border: var(--primary-200);
   --log-info-bg: var(--dark-info-bg);
-  --log-success-border: var(--success-800);
+  --log-success-border: var(--success-400);
   --log-success-bg: var(--dark-success-bg);
   --log-warn-border: var(--warning-900);
   --log-warn-bg: var(--dark-warning-bg);
-  --log-error-border: var(--error-500);
+  --log-error-border: var(--error-400);
   --log-error-bg: var(--dark-error-bg);
   --log-debug-border: var(--gray-600);
   --log-debug-bg: var(--dark-debug-bg);
