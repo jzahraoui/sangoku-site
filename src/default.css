@@ -53,6 +53,7 @@
   --warning-700: #ffa000;
   --warning-800: #ff8f00;
   --warning-900: #ff6f00;
+  --warning-text: #6f3d00;
   --orange: var(--warning-600);
 
   /* Neutral Grays (Standard Scale) */
@@ -142,13 +143,13 @@
   /* Status text */
   --status-success-text: var(--success-700);
   --status-error-text: var(--error-500);
-  --status-warning-text: var(--warning-800);
+  --status-warning-text: var(--warning-text);
   --status-info-text: var(--primary-700);
 
   /* State text and message surfaces */
   --state-success-text: var(--success-800);
   --state-error-text: var(--error-700);
-  --state-warning-text: var(--warning-900);
+  --state-warning-text: var(--warning-text);
   --message-success-bg: var(--success-50);
   --message-error-bg: var(--error-50);
   --message-warning-bg: var(--warning-50);
@@ -156,9 +157,10 @@
   /* Log entry colors */
   --log-info-border: var(--primary-600);
   --log-info-bg: var(--primary-50);
-  --log-success-border: var(--success-500);
+  --log-success-border: var(--success-800);
   --log-success-bg: var(--success-50);
   --log-warn-border: var(--warning-600);
+  --log-warn-level-text: var(--gray-950);
   --log-warn-bg: var(--warning-50);
   --log-error-border: var(--error-500);
   --log-error-bg: var(--error-200);
@@ -1499,6 +1501,7 @@ button i,
 }
 .log-entry.warn .log-level {
   background-color: var(--log-warn-border);
+  color: var(--log-warn-level-text);
 }
 .log-entry.error .log-level {
   background-color: var(--log-error-border);
@@ -1689,8 +1692,8 @@ body.dark-mode {
   --button-neutral-bg: var(--surface-bg-elevated);
   --button-neutral-bg-hover: var(--gray-600);
   --button-neutral-text: var(--surface-text);
-  --button-danger-bg: var(--status-error-text);
-  --button-danger-bg-hover: var(--error-100);
+  --button-danger-bg: var(--error-700);
+  --button-danger-bg-hover: var(--error-600);
   --button-danger-text: var(--gray-50);
   --donate-button-border: rgba(255, 255, 255, 0.1);
   --message-border-color: var(--surface-border);
