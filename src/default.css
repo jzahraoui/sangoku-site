@@ -87,6 +87,7 @@
   --green-dark: var(--success-700);
   --green-light: var(--success-50);
   --lime-green: #7cb342;
+  --connection-active-color: var(--success-800);
   --yellow-light: var(--warning-50);
 
   /* Background Colors - Light Mode Defaults */
@@ -746,6 +747,7 @@ textarea {
 
 .donate-button {
   --donate-button-bg: var(--bg-primary);
+  --donate-button-text: var(--white);
   display: inline-flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -758,7 +760,7 @@ textarea {
   border: 1px solid var(--donate-button-border);
   position: relative;
   background-color: var(--donate-button-bg);
-  color: var(--white);
+  color: var(--donate-button-text);
 }
 
 .donate-button i {
@@ -776,6 +778,7 @@ textarea {
 .donate-button.kofi {
   --donate-button-bg: var(--kofi-blue);
   --donate-button-bg-hover: var(--kofi-blue-hover);
+  --donate-button-text: var(--gray-950);
 }
 .donate-button.patreon {
   --donate-button-bg: var(--patreon-red);
@@ -841,10 +844,10 @@ textarea {
 }
 
 .polling-indicator.active {
-  color: #00ff00;
+  color: var(--connection-active-color);
   text-shadow:
-    0 0 8px #00ff00,
-    0 0 15px #00ff00;
+    0 0 8px var(--connection-active-color),
+    0 0 15px var(--connection-active-color);
   animation: glow-pulse 1.5s ease-in-out infinite;
   will-change: text-shadow;
 }
@@ -853,14 +856,14 @@ textarea {
   0%,
   100% {
     text-shadow:
-      0 0 8px #00ff00,
-      0 0 15px #00ff00;
+      0 0 8px var(--connection-active-color),
+      0 0 15px var(--connection-active-color);
   }
   50% {
     text-shadow:
-      0 0 12px #00ff00,
-      0 0 25px #00ff00,
-      0 0 35px #00ff00;
+      0 0 12px var(--connection-active-color),
+      0 0 25px var(--connection-active-color),
+      0 0 35px var(--connection-active-color);
   }
 }
 
@@ -1680,6 +1683,7 @@ body.dark-mode {
   --border-color: var(--surface-border);
   --border-hover: var(--surface-border-hover);
   --blue: var(--accent);
+  --connection-active-color: var(--success-400);
 
   /* Interactive elements — use --primary-300 for better WCAG AA contrast on dark bg */
   --interactive-bg: var(--primary-300);
@@ -1702,15 +1706,22 @@ body.dark-mode {
   --number-input-spin-bg: var(--surface-bg-elevated);
   --number-input-spin-filter: invert(1);
 
+  /* Dark status and log surfaces */
+  --dark-success-bg: rgba(102, 187, 106, 0.15);
+  --dark-error-bg: rgba(239, 83, 80, 0.25);
+  --dark-warning-bg: rgba(255, 167, 38, 0.15);
+  --dark-info-bg: rgba(100, 181, 246, 0.15);
+  --dark-debug-bg: rgba(150, 150, 150, 0.15);
+
   /* Accent/Links */
   --accent: var(--primary-200);
   --accent-hover: var(--primary-100);
 
   /* Status backgrounds (semi-transparent for dark mode) */
-  --status-success-bg: rgba(102, 187, 106, 0.15);
-  --status-error-bg: rgba(239, 83, 80, 0.25);
-  --status-warning-bg: rgba(255, 167, 38, 0.15);
-  --status-info-bg: rgba(100, 181, 246, 0.15);
+  --status-success-bg: var(--dark-success-bg);
+  --status-error-bg: var(--dark-error-bg);
+  --status-warning-bg: var(--dark-warning-bg);
+  --status-info-bg: var(--dark-info-bg);
 
   /* Status text */
   --status-success-text: var(--success-400);
@@ -1728,15 +1739,15 @@ body.dark-mode {
 
   /* Log entry colors */
   --log-info-border: var(--primary-700);
-  --log-info-bg: rgba(100, 181, 246, 0.15);
+  --log-info-bg: var(--dark-info-bg);
   --log-success-border: var(--success-800);
-  --log-success-bg: rgba(102, 187, 106, 0.15);
+  --log-success-bg: var(--dark-success-bg);
   --log-warn-border: var(--warning-900);
-  --log-warn-bg: rgba(255, 167, 38, 0.15);
+  --log-warn-bg: var(--dark-warning-bg);
   --log-error-border: var(--error-500);
-  --log-error-bg: rgba(239, 83, 80, 0.25);
+  --log-error-bg: var(--dark-error-bg);
   --log-debug-border: var(--gray-600);
-  --log-debug-bg: rgba(150, 150, 150, 0.15);
+  --log-debug-bg: var(--dark-debug-bg);
 
   /* Core overrides using semantic variables */
   background-color: var(--bg-tertiary);
@@ -1854,7 +1865,7 @@ button.danger:hover,
 
   .polling-indicator.active {
     animation: none;
-    text-shadow: 0 0 10px #00ff00;
+    text-shadow: 0 0 10px var(--connection-active-color);
   }
 
   .fa-spinner {
