@@ -1,6 +1,12 @@
 import Complex from './complex.js';
 
 class Polar {
+  static DEGREES_TO_RADIANS = Math.PI / 180;
+
+  static RADIANS_TO_DEGREES = 180 / Math.PI;
+
+  static TWO_PI = 2 * Math.PI;
+
   constructor(magnitude, phase) {
     this._magnitude = magnitude;
     this._phase = Polar.normalizePhase(phase);
@@ -89,7 +95,7 @@ class Polar {
 
   // Audio-specific operations
   delay(delaySeconds, frequency) {
-    const delayPhase = 2 * Math.PI * frequency * delaySeconds;
+    const delayPhase = Polar.TWO_PI * frequency * delaySeconds;
     return this.addPhase(delayPhase);
   }
 
@@ -111,20 +117,19 @@ class Polar {
     if (!Number.isFinite(phaseRadians)) {
       return 0;
     }
-    const twoPi = 2 * Math.PI;
     // Use true modulo to always get a value in [-π, π]
-    let normalized = (phaseRadians + Math.PI) % twoPi;
-    if (normalized < 0) normalized += twoPi;
+    let normalized = (phaseRadians + Math.PI) % Polar.TWO_PI;
+    if (normalized < 0) normalized += Polar.TWO_PI;
     return normalized - Math.PI;
   }
 
   // Static utility methods
   static degreesToRadians(degrees) {
-    return (degrees * Math.PI) / 180;
+    return degrees * Polar.DEGREES_TO_RADIANS;
   }
 
   static radiansToDegrees(radians) {
-    return (radians * 180) / Math.PI;
+    return radians * Polar.RADIANS_TO_DEGREES;
   }
 
   static DbToLinearGain(magnitudeDb) {
