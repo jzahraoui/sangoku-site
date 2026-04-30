@@ -36,10 +36,10 @@ async function stopPreviewServer(preview) {
   }
 
   try {
-    if (process.platform !== 'win32') {
-      process.kill(-preview.child.pid, 'SIGTERM');
-    } else {
+    if (process.platform === 'win32') {
       preview.child.kill('SIGTERM');
+    } else {
+      process.kill(-preview.child.pid, 'SIGTERM');
     }
   } catch {
     // Ignore cleanup races.
@@ -49,10 +49,10 @@ async function stopPreviewServer(preview) {
 
   if (preview.child.exitCode === null) {
     try {
-      if (process.platform !== 'win32') {
-        process.kill(-preview.child.pid, 'SIGKILL');
-      } else {
+      if (process.platform === 'win32') {
         preview.child.kill('SIGKILL');
+      } else {
+        process.kill(-preview.child.pid, 'SIGKILL');
       }
     } catch {
       // Ignore cleanup races.
