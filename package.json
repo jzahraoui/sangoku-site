@@ -10,7 +10,8 @@
     "preview": "vite preview --host",
     "test:smoke:knockout": "node test/knockout-trusted-types.smoke.test.js",
     "test:smoke:browser": "node test/app-startup.browser.smoke.test.js",
-    "test:smoke": "npm run build && npm run test:smoke:knockout && npm run test:smoke:browser",
+    "test:smoke:slider": "node test/frequency-range-slider.browser.smoke.test.js",
+    "test:smoke": "npm run build && npm run test:smoke:knockout && npm run test:smoke:browser && npm run test:smoke:slider",
     "versionCommit": "script/release-vite.sh",
     "publish": "script/publish-vite.sh",
     "clean": "rm -rf dist && rm -rf node_modules"
@@ -33,7 +34,6 @@
   },
   "homepage": "https://github.com/jzahraoui/sangoku-site#application",
   "dependencies": {
-    "@stanko/dual-range-input": "^1.0.1",
     "decimal.js": "^10.6.0",
     "file-saver": "^2.0.5",
     "js-yaml": "^4.1.1",

@@ -486,7 +486,7 @@ button:disabled {
   max-width: 100%;
 }
 
-input:not([type='checkbox']):not([type='radio']):not([type='file']),
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']),
 select,
 textarea {
   background-color: var(--bg-primary);
@@ -1649,6 +1649,175 @@ button i,
   display: inline-block;
   width: 29px;
   height: 21px;
+}
+
+/* Frequency Range Slider */
+.dual-range-input {
+  --dual-range-height: 1.75rem;
+  --dual-range-thumb-size: 1.25rem;
+  --dual-range-thumb-color: var(--surface-bg-elevated);
+  --dual-range-thumb-hover-color: var(--surface-bg-alt);
+  --dual-range-thumb-active-color: var(--surface-bg);
+  --dual-range-thumb-border-color: var(--accent);
+  --dual-range-thumb-border-hover-color: var(--accent-hover);
+  --dual-range-thumb-border-active-color: var(--focus-ring-color);
+  --dual-range-thumb-shadow: var(--box-shadow);
+  --dual-range-focus-shadow: var(--focus-ring-shadow);
+  --dual-range-track-height: 0.375rem;
+  /* Negative offset that vertically centers the WebKit thumb on the track.
+     Firefox auto-centers ::-moz-range-thumb so no margin-top is applied there. */
+  --dual-range-thumb-offset: calc(
+    (var(--dual-range-track-height) - var(--dual-range-thumb-size)) / 2
+  );
+  --dual-range-track-color: var(--border-color);
+  --dual-range-track-filled-color: var(--accent);
+  /* Positions of the filled track segment, set from JS as percentages.
+     Names are component-prefixed to avoid collisions with parent custom props. */
+  --dual-range-lower-percent: 0%;
+  --dual-range-upper-percent: 100%;
+  height: var(--dual-range-height);
+  max-width: 100%;
+  position: relative;
+  /* `pan-y` keeps vertical page scrolling working when the touch starts on the
+     slider; only horizontal gestures are captured by the range inputs. */
+  touch-action: pan-y;
+  width: 100%;
+  z-index: 0;
+}
+
+.dual-range-input,
+.dual-range-input *,
+.dual-range-input::before {
+  box-sizing: border-box;
+}
+
+.dual-range-input::before {
+  background: linear-gradient(
+    to right,
+    var(--dual-range-track-color) 0,
+    var(--dual-range-track-color) var(--dual-range-lower-percent),
+    var(--dual-range-track-filled-color) var(--dual-range-lower-percent),
+    var(--dual-range-track-filled-color) var(--dual-range-upper-percent),
+    var(--dual-range-track-color) var(--dual-range-upper-percent),
+    var(--dual-range-track-color) 100%
+  );
+  border-radius: var(--dual-range-track-height);
+  content: '';
+  height: var(--dual-range-track-height);
+  inset-inline: 0;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.dual-range-input input[type='range'] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  inset: 0;
+  margin: 0;
+  /* Suppress the global :focus-visible outline that would wrap the whole track;
+     focus is conveyed via the thumb (border + box-shadow). The forced-colors
+     media query below restores a real outline for high-contrast users. */
+  outline: none;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+/* Explicit attribute selectors instead of :first-child / :last-child so that
+   adding any sibling node (label, comment, datalist) does not break stacking. */
+.dual-range-input input[type='range'][data-bound='lower'] {
+  z-index: 2;
+}
+
+.dual-range-input input[type='range'][data-bound='upper'] {
+  z-index: 3;
+}
+
+/* The actively dragged input is brought to the top by JS via this class so the
+   lower thumb stays grabbable even when both thumbs overlap. */
+.dual-range-input input[type='range'].is-dragging {
+  z-index: 5;
+}
+
+.dual-range-input input[type='range']:focus {
+  z-index: 4;
+}
+
+.dual-range-input input[type='range']::-moz-range-track {
+  background: transparent;
+  border: 0;
+  height: var(--dual-range-track-height);
+}
+
+.dual-range-input input[type='range']::-moz-range-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--dual-range-thumb-color);
+  border: 2px solid var(--dual-range-thumb-border-color);
+  border-radius: 50%;
+  box-shadow: var(--dual-range-thumb-shadow);
+  height: var(--dual-range-thumb-size);
+  pointer-events: none;
+  width: var(--dual-range-thumb-size);
+}
+
+.dual-range-input input[type='range'].is-hovered::-moz-range-thumb {
+  background-color: var(--dual-range-thumb-hover-color);
+  border-color: var(--dual-range-thumb-border-hover-color);
+}
+
+.dual-range-input input[type='range'].is-dragging::-moz-range-thumb,
+.dual-range-input input[type='range']:focus-visible::-moz-range-thumb {
+  background-color: var(--dual-range-thumb-active-color);
+  border-color: var(--dual-range-thumb-border-active-color);
+  box-shadow: var(--dual-range-focus-shadow);
+}
+
+.dual-range-input input[type='range']::-webkit-slider-runnable-track {
+  background: transparent;
+  border: 0;
+  height: var(--dual-range-track-height);
+}
+
+.dual-range-input input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--dual-range-thumb-color);
+  border: 2px solid var(--dual-range-thumb-border-color);
+  border-radius: 50%;
+  box-shadow: var(--dual-range-thumb-shadow);
+  height: var(--dual-range-thumb-size);
+  /* WebKit-only: thumb is anchored to the track top, so we shift it up by half
+     the size difference. Firefox does not need this (auto-centered). */
+  margin-top: var(--dual-range-thumb-offset);
+  pointer-events: none;
+  width: var(--dual-range-thumb-size);
+}
+
+.dual-range-input input[type='range'].is-hovered::-webkit-slider-thumb {
+  background-color: var(--dual-range-thumb-hover-color);
+  border-color: var(--dual-range-thumb-border-hover-color);
+}
+
+.dual-range-input input[type='range'].is-dragging::-webkit-slider-thumb,
+.dual-range-input input[type='range']:focus-visible::-webkit-slider-thumb {
+  background-color: var(--dual-range-thumb-active-color);
+  border-color: var(--dual-range-thumb-border-active-color);
+  box-shadow: var(--dual-range-focus-shadow);
+}
+
+/* Forced colors (Windows High Contrast): native outline is the only reliable
+   focus indicator since custom borders/box-shadow are stripped. */
+@media (forced-colors: active) {
+  .dual-range-input input[type='range']:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
 }
 
 .frequency-values {
