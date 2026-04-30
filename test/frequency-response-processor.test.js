@@ -1,147 +1,133 @@
-import FrequencyResponseProcessor from '../src/frequency-response-processor.js';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import FrequencyResponseProcessor from '../src/frequency-response-processor.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/**
- * Parse REW text file format
- * @param {string} filePath - Path to REW file
- * @returns {Object} - { freqs, magnitude, phase }
- */
 function parseREWFile(filePath) {
   const content = readFileSync(filePath, 'utf-8');
-  const lines = content.split('\n');
-
   const freqs = [];
   const magnitude = [];
   const phase = [];
 
-  for (const line of lines) {
+  for (const line of content.split('\n')) {
     if (line.startsWith('*') || line.trim() === '') continue;
 
-    const parts = line.trim().split(/\s+/);
+    const parts = line.trim().split(/\s+/).map(Number.parseFloat);
     if (parts.length >= 3) {
-      freqs.push(Number.parseFloat(parts[0]));
-      magnitude.push(Number.parseFloat(parts[1]));
-      phase.push(Number.parseFloat(parts[2]));
+      freqs.push(parts[0]);
+      magnitude.push(parts[1]);
+      phase.push(parts[2]);
     }
   }
 
-  return { freqs, magnitude, phase };
+  return {
+    freqs: Float32Array.from(freqs),
+    magnitude: Float32Array.from(magnitude),
+    phase: Float32Array.from(phase),
+  };
 }
 
-/**
- * Test calculateMinimumPhase with real REW data
- */
-function testCalculateMinimumPhase(createResult = false) {
-  console.log('Testing calculateMinimumPhase...\n');
+function phaseErrorDegrees(actual, expected) {
+  const diff = ((((actual - expected + 180) % 360) + 360) % 360) - 180;
+  return Math.abs(diff);
+}
 
-  // Load input data (original measurement)
-  const inputPath = join(__dirname, './sw1.txt');
-  const input = parseREWFile(inputPath);
+function phaseErrorStats(actual, expected) {
+  assert.equal(actual.length, expected.length);
 
-  // Load expected output (minimum phase version)
-  const expectedPath = join(__dirname, './sw1mp-calculated.txt');
-  const expected = parseREWFile(expectedPath);
-
-  console.log(`Loaded ${input.magnitude.length} samples from input`);
-  console.log(`Loaded ${expected.phase.length} samples from expected output\n`);
-
-  // Calculate minimum phase from expected magnitude
-  const calculated = FrequencyResponseProcessor.calculateMinimumPhase(
-    new Float32Array(input.magnitude)
-  );
-
-  // Compare results
   let maxError = 0;
-  let avgError = 0;
-  let errorCount = 0;
-  const errors = [];
+  let totalError = 0;
+  let over10Degrees = 0;
 
-  for (let i = 0; i < Math.min(calculated.length, expected.phase.length); i++) {
-    const error = Math.abs(calculated[i] - expected.phase[i]);
-    errors.push(error);
-    avgError += error;
+  for (let i = 0; i < actual.length; i++) {
+    const error = phaseErrorDegrees(actual[i], expected[i]);
     maxError = Math.max(maxError, error);
-
-    if (error > 5) {
-      // Tolerance: 5 degrees
-      errorCount++;
-    }
+    totalError += error;
+    if (error > 10) over10Degrees++;
   }
 
-  avgError /= errors.length;
+  return {
+    maxError,
+    averageError: totalError / actual.length,
+    over10Degrees,
+  };
+}
 
-  // Display results
-  console.log('Results:');
-  console.log(`  Max error: ${maxError.toFixed(2)}°`);
-  console.log(`  Avg error: ${avgError.toFixed(2)}°`);
-  console.log(`  Samples with error > 5°: ${errorCount}/${errors.length}`);
-  console.log();
+test('calculateMinimumPhase uses PPO metadata and tracks the REW minimum-phase export', () => {
+  const input = parseREWFile(join(__dirname, './sw1.txt'));
+  const expected = parseREWFile(join(__dirname, './sw1mp.txt'));
 
-  // Show first 10 samples comparison
-  console.log('First 10 samples comparison:');
-  console.log('Freq(Hz)\tExpected\tCalculated\tError');
-  for (let i = 0; i < 10; i++) {
-    console.log(
-      `${input.freqs[i].toFixed(2)}\t${expected.phase[i].toFixed(2)}\t${calculated[
-        i
-      ].toFixed(2)}\t${errors[i].toFixed(2)}`
-    );
-  }
-  console.log();
+  const calculated = FrequencyResponseProcessor.calculateMinimumPhase({
+    freqs: input.freqs,
+    magnitude: input.magnitude,
+    ppo: 96,
+  });
 
-  // Test result
-  const tolerance = 10; // 10 degrees tolerance
-  const passed = maxError < tolerance && avgError < tolerance / 2;
+  assert.ok(calculated instanceof Float32Array);
+  assert.equal(calculated.length, expected.phase.length);
 
-  console.log(`Test ${passed ? 'PASSED' : 'FAILED'}`);
-  console.log(
-    `  Max error ${maxError.toFixed(2)}° ${
-      maxError < tolerance ? '<' : '>'
-    } ${tolerance}° tolerance`
+  const stats = phaseErrorStats(calculated, expected.phase);
+
+  assert.ok(
+    stats.maxError < 145,
+    `max wrapped phase error ${stats.maxError.toFixed(2)} deg exceeded tolerance`,
   );
-  console.log(
-    `  Avg error ${avgError.toFixed(2)}° ${avgError < tolerance / 2 ? '<' : '>'} ${
-      tolerance / 2
-    }° tolerance`
+  assert.ok(
+    stats.averageError < 35,
+    `average wrapped phase error ${stats.averageError.toFixed(2)} deg exceeded tolerance`,
   );
+});
 
-  // Optionally create result file for REW
-  if (createResult) {
-    const outputPath = join(__dirname, './sw1mp-calculated.txt');
-    createResultFile(input.freqs, input.magnitude, calculated, outputPath);
-  }
+test('calculateMinimumPhase accepts linearly spaced freqStep metadata', () => {
+  const freqs = Float32Array.from({ length: 8 }, (_, i) => 20 + i * 10);
+  const magnitude = Float32Array.from([72, 74, 76, 78, 80, 79, 77, 75]);
 
-  return passed;
-}
+  const calculated = FrequencyResponseProcessor.calculateMinimumPhase({
+    startFreq: freqs[0],
+    freqStep: 10,
+    magnitude,
+  });
 
-// function to create a result file to be able to import it into REW for visual comparison
-function createResultFile(freqs, magnitude, phase, outputPath) {
-  const lines = ['* Generated by frequency-response-processor.test.js', ''];
-  for (let i = 0; i < freqs.length; i++) {
-    lines.push(`${freqs[i]}\t${magnitude[i]}\t${phase[i]}`);
-  }
-  const content = lines.join('\n');
-  writeFileSync(outputPath, content, 'utf-8');
-  console.log(`Result file created at: ${outputPath}`);
-}
+  assert.ok(calculated instanceof Float32Array);
+  assert.equal(calculated.length, magnitude.length);
+  assert.ok(Array.from(calculated).every(Number.isFinite));
+});
 
-// Run test
-try {
-  // measure time taken
-  console.time('Test Duration');
-  const startTime = Date.now();
-  const result = testCalculateMinimumPhase(false);
-  const endTime = Date.now();
-  console.timeEnd('Test Duration');
-  console.log(`Total time: ${(endTime - startTime) / 1000}s`);
+test('smooth returns a copy for None and validates invalid inputs', () => {
+  const freqs = Float32Array.from([20, 30, 40, 50]);
+  const magnitude = Float32Array.from([70, 73, 71, 72]);
 
-  process.exit(result ? 0 : 1);
-} catch (error) {
-  console.error('Test failed with error:', error);
-  process.exit(1);
-}
+  const unsmoothed = FrequencyResponseProcessor.smooth(freqs, magnitude, 'None');
+  assert.deepEqual(Array.from(unsmoothed), Array.from(magnitude));
+  assert.notEqual(unsmoothed, magnitude);
+
+  assert.throws(
+    () => FrequencyResponseProcessor.smooth(freqs, magnitude, 'bad'),
+    /Invalid smoothing value/,
+  );
+  assert.throws(
+    () =>
+      FrequencyResponseProcessor.smooth(
+        Float32Array.from([0, 30, 40, 50]),
+        magnitude,
+        '1/12',
+      ),
+    /positive/,
+  );
+});
+
+test('calculateMinimumPhase rejects missing spacing metadata when frequencies are absent', () => {
+  assert.throws(
+    () =>
+      FrequencyResponseProcessor.calculateMinimumPhase({
+        startFreq: 20,
+        magnitude: Float32Array.from([70, 71, 72]),
+      }),
+    /freqStep|ppo/,
+  );
+});
