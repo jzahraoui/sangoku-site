@@ -1,4 +1,4 @@
-import Polar from './Polar.js';
+import Polar from '../Polar.js';
 
 /**
  * Scorer — Frequency response quality metrics
@@ -198,13 +198,20 @@ class Scorer {
   }
 
   _calculateReferenceLevel(magnitude, len) {
-    let levelSum = 0;
+    // Average in the linear power domain so the reference tracks acoustic
+    // energy rather than the log of the dB values. Averaging in dB underweights
+    // peaks and biases the dip/peak penalties.
+    let powerSum = 0;
     let levelWeightSum = 0;
     for (let i = 0; i < len; i++) {
-      levelSum += magnitude[i] * this.frequencyWeights[i];
-      levelWeightSum += this.frequencyWeights[i];
+      const weight = this.frequencyWeights[i];
+      const linear = Polar.DbToLinearGain(magnitude[i]);
+      powerSum += linear * linear * weight;
+      levelWeightSum += weight;
     }
-    return { referenceLevel: levelSum / levelWeightSum, levelWeightSum };
+    const meanPower = levelWeightSum > 0 ? powerSum / levelWeightSum : 0;
+    const referenceLevel = 10 * Math.log10(Math.max(meanPower, Number.EPSILON));
+    return { referenceLevel, levelWeightSum };
   }
 
   _calculateDipPeakPenalties(magnitude, referenceLevel, levelWeightSum, len) {
@@ -272,16 +279,34 @@ class Scorer {
   }
 
   _calculateSmoothnessPenalty(freqs, magnitude, levelWeightSum, len) {
+    // Obs F: 12 dB/oct stays the threshold (in-band region: any slope above
+    // this is a real resonance edge, not a natural rolloff). Above the
+    // threshold we use a quadratic ramp calibrated so that the contribution at
+    // a typical resonance slope (~24 dB/oct) matches the legacy linear penalty,
+    // while sharper spikes get weighted more decisively. A per-bin cap then
+    // prevents any single outlier from saturating the smoothness term and
+    // overshadowing broader smoothness issues.
+    const SLOPE_THRESHOLD_DB_PER_OCT = 12;
+    const SLOPE_REFERENCE_DB_PER_OCT = 24;
+    const REFERENCE_CONTRIBUTION = 0.6; // == legacy (24 - 12) * 0.05
+    const PER_BIN_PENALTY_CAP = 2.5;
+    const slopeNorm =
+      SLOPE_REFERENCE_DB_PER_OCT - SLOPE_THRESHOLD_DB_PER_OCT;
     let smoothnessPenalty = 0;
 
     for (let i = 1; i < len; i++) {
       const octaveSpan = Math.log2(freqs[i] / freqs[i - 1]);
-      if (octaveSpan > 0) {
-        const slope = Math.abs(magnitude[i] - magnitude[i - 1]) / octaveSpan;
-        if (slope > 12) {
-          smoothnessPenalty += (slope - 12) * 0.05 * this.frequencyWeights[i];
-        }
-      }
+      if (octaveSpan <= 0) continue;
+
+      const slope = Math.abs(magnitude[i] - magnitude[i - 1]) / octaveSpan;
+      if (slope <= SLOPE_THRESHOLD_DB_PER_OCT) continue;
+
+      const overshoot = (slope - SLOPE_THRESHOLD_DB_PER_OCT) / slopeNorm;
+      const binPenalty = Math.min(
+        overshoot * overshoot * REFERENCE_CONTRIBUTION,
+        PER_BIN_PENALTY_CAP,
+      );
+      smoothnessPenalty += binPenalty * this.frequencyWeights[i];
     }
 
     return smoothnessPenalty / levelWeightSum;

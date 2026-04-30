@@ -1,59 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import lm from './mocks/logs.js';
 
-// Mock Polar — provide minimal implementation needed by constructor path
-vi.mock('./Polar.js', () => {
-  class MockPolar {
-    constructor(magnitude, phase) {
-      this._magnitude = magnitude;
-      this._phase = phase;
-    }
-    static fromDb(dbValue, phaseDegrees) {
-      const magnitude = Math.pow(10, dbValue / 20);
-      const phaseRadians = (phaseDegrees * Math.PI) / 180;
-      return new MockPolar(magnitude, phaseRadians);
-    }
-    static DbToLinearGain(db) {
-      return Math.pow(10, db / 20);
-    }
-    static normalizePhase(p) {
-      return p;
-    }
-    static degreesToRadians(d) {
-      return (d * Math.PI) / 180;
-    }
-    static radiansToDegrees(r) {
-      return (r * 180) / Math.PI;
-    }
-    get magnitudeDb() {
-      return 20 * Math.log10(Math.max(this._magnitude, Number.EPSILON));
-    }
-    get phaseDegrees() {
-      return (this._phase * 180) / Math.PI;
-    }
-    toComplex() {
-      return {
-        re: this._magnitude * Math.cos(this._phase),
-        im: this._magnitude * Math.sin(this._phase),
-        add(other) {
-          return { re: this.re + other.re, im: this.im + other.im };
-        },
-      };
-    }
-    add(other) {
-      const c = this.toComplex();
-      const o = other.toComplex();
-      const sum = { re: c.re + o.re, im: c.im + o.im };
-      const mag = Math.hypot(sum.re, sum.im);
-      const phase = Math.atan2(sum.im, sum.re);
-      return new MockPolar(mag, phase);
-    }
-  }
-  return { default: MockPolar };
-});
-
-vi.mock('./frequency-response-processor.js', () => ({
+vi.mock('../src/frequency-response-processor.js', () => ({
   default: {
-    calculateMinimumPhase: magnitude => new Float32Array(magnitude.length).fill(0),
+    calculateMinimumPhase: response => {
+      const magnitude = response?.magnitude ?? response;
+      return new Float32Array(magnitude.length).fill(0);
+    },
   },
 }));
 
@@ -72,15 +25,6 @@ function makeMeasurement(freqs, { name = 'Sub', measurement = 'uuid-1' } = {}) {
     ppo: 48,
   };
 }
-
-// Minimal logger stub
-const lm = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn(),
-  success: vi.fn(),
-  error: vi.fn(),
-};
 
 /**
  * Directly exercise the binary search logic that lives inside prepareMeasurements()
@@ -466,5 +410,461 @@ describe('prepareMeasurements – binary search for startIdx / endIdx', () => {
     for (const sub of opt.preparedSubs) {
       expect(sub.param).toEqual(MultiSubOptimizer.EMPTY_CONFIG);
     }
+  });
+});
+
+describe('MultiSubOptimizer guards and parameter handling', () => {
+  const config = {
+    ...MultiSubOptimizer.DEFAULT_CONFIG,
+    frequency: { min: 20, max: 200 },
+    gain: { min: -6, max: 6, step: 1 },
+    delay: { min: -0.005, max: 0.005, step: 0.001 },
+    allPass: { enabled: false },
+  };
+
+  function makeOptimizer(freqs = [20, 50, 100, 200]) {
+    return new MultiSubOptimizer(
+      [
+        makeMeasurement(freqs, { measurement: 'a', name: 'Sub A' }),
+        makeMeasurement(freqs, { measurement: 'b', name: 'Sub B' }),
+      ],
+      config,
+      lm,
+    );
+  }
+
+  it('merges nested defaults when config is partial', () => {
+    const opt = new MultiSubOptimizer(
+      [
+        makeMeasurement([20, 50, 100, 200], { measurement: 'a' }),
+        makeMeasurement([20, 50, 100, 200], { measurement: 'b' }),
+      ],
+      { allPass: { enabled: false } },
+      lm,
+    );
+
+    expect(opt.config.frequency).toEqual(MultiSubOptimizer.DEFAULT_CONFIG.frequency);
+    expect(opt.config.delay).toEqual(MultiSubOptimizer.DEFAULT_CONFIG.delay);
+    expect(opt.config.allPass.frequency).toEqual(
+      MultiSubOptimizer.DEFAULT_CONFIG.allPass.frequency,
+    );
+    expect(opt.config.allPass.q).toEqual(MultiSubOptimizer.DEFAULT_CONFIG.allPass.q);
+    expect(opt.config.optimization).toEqual(
+      MultiSubOptimizer.DEFAULT_CONFIG.optimization,
+    );
+  });
+
+  it('rejects invalid optimization objectives', () => {
+    expect(
+      () =>
+        new MultiSubOptimizer(
+          [
+            makeMeasurement([20, 50, 100, 200], { measurement: 'a' }),
+            makeMeasurement([20, 50, 100, 200], { measurement: 'b' }),
+          ],
+          { ...config, optimization: { objective: 'loudest' } },
+          lm,
+        ),
+    ).toThrow(/Invalid optimization objective/);
+  });
+
+  it('uses an efficiency-heavy blend for max-theoretical objective scoring', () => {
+    const opt = new MultiSubOptimizer(
+      [
+        makeMeasurement([20, 50, 100, 200], { measurement: 'a' }),
+        makeMeasurement([20, 50, 100, 200], { measurement: 'b' }),
+      ],
+      {
+        ...config,
+        optimization: { objective: 'max-theoretical', theoreticalWeight: 0.75 },
+      },
+      lm,
+    );
+    vi.spyOn(opt, 'calculateQualityScore').mockReturnValue(40);
+    vi.spyOn(opt, 'calculateEfficiencyRatio').mockReturnValue(80);
+
+    expect(opt.calculateOptimizationScore({}, {})).toBeCloseTo(70, 5);
+  });
+
+  it('updates optimized sub parameters when global refinement finds an improvement', () => {
+    const opt = new MultiSubOptimizer(
+      [
+        makeMeasurement([20, 50, 100, 200], { measurement: 'a', name: 'Sub A' }),
+        makeMeasurement([20, 50, 100, 200], { measurement: 'b', name: 'Sub B' }),
+      ],
+      {
+        ...config,
+        optimization: {
+          globalRefinement: { enabled: true, passes: 1, maxIterations: 3 },
+        },
+      },
+      lm,
+    );
+    const improvedParam = {
+      delay: 0.001,
+      gain: 0,
+      polarity: -1,
+      allPass: { frequency: 0, q: 0, enabled: false },
+    };
+    opt.optimizedSubs = [opt.preparedSubs[1]];
+    opt.preparedSubs[1].param = MultiSubOptimizer.EMPTY_CONFIG;
+    vi.spyOn(opt, 'localSearch').mockReturnValue({ score: 999, param: improvedParam });
+
+    const refined = opt.refineOptimizedSubsGlobally(opt.preparedSubs, {
+      optimizedSubs: opt.optimizedSubs,
+      bestSum: opt.calculateCombinedResponse(opt.preparedSubs),
+      comparativeAnalysis: [],
+    });
+
+    expect(opt.optimizedSubs[0].param).toEqual(improvedParam);
+    expect(refined.globalRefinement).toEqual({ enabled: true, improvements: 1 });
+  });
+
+  it('returns a post-optimization report with global metrics', () => {
+    const opt = new MultiSubOptimizer(
+      [
+        makeMeasurement([20, 50, 100, 200], { measurement: 'a', name: 'Sub A' }),
+        makeMeasurement([20, 50, 100, 200], { measurement: 'b', name: 'Sub B' }),
+      ],
+      {
+        ...config,
+        gain: { min: 0, max: 0, step: 1 },
+        delay: { min: 0, max: 0, step: 0.001 },
+      },
+      lm,
+    );
+
+    const result = opt.optimizeSubwoofers();
+    const report = result.optimizationReport;
+
+    expect(report).toMatchObject({
+      objective: 'balanced',
+      subwooferCount: 2,
+      globalRefinement: { enabled: false, improvements: 0 },
+      allPass: { enabled: false, usedCount: 0, evaluatedCount: 1 },
+      audioSelection: { decision: 'recommended' },
+      search: { classicSubCount: 1, geneticSubCount: 0, completedRuns: 0, savedRuns: 0 },
+    });
+    expect(Number.isFinite(report.baseline.qualityScore)).toBe(true);
+    expect(Number.isFinite(report.final.qualityScore)).toBe(true);
+    expect(Number.isFinite(report.final.efficiencyRatio)).toBe(true);
+    expect(report.final.theoreticalGap).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(report.improvement.theoreticalGapReduction)).toBe(true);
+    expect(Number.isFinite(report.audioSelection.score)).toBe(true);
+    expect(report.audioSelection.guardrails).toEqual([]);
+    expect(report.implementationCost).toMatchObject({
+      maxAbsDelayMs: 0,
+      totalAbsDelayMs: 0,
+      maxAbsGainDb: 0,
+      totalAbsGainDb: 0,
+      polarityFlipCount: 0,
+      allPassCount: 0,
+    });
+    expect(report.implementationCost.perSub).toHaveLength(2);
+    expect(report.search.perSub).toHaveLength(1);
+    expect(report.search.perSub[0].method).toBe('classic');
+  });
+
+  it('prefers recommended audio candidates over review and rejected reports', () => {
+    const rejectedHighScore = {
+      optimizationReport: {
+        audioSelection: { decision: 'rejected', score: 100 },
+        final: { qualityScore: 95, efficiencyRatio: 98, peakToPeakDb: 4 },
+        implementationCost: { allPassCount: 0, totalAbsDelayMs: 1 },
+      },
+    };
+    const reviewCandidate = {
+      optimizationReport: {
+        audioSelection: { decision: 'review', score: 74 },
+        final: { qualityScore: 77, efficiencyRatio: 90, peakToPeakDb: 7 },
+        implementationCost: { allPassCount: 1, totalAbsDelayMs: 4 },
+      },
+    };
+    const recommendedCandidate = {
+      optimizationReport: {
+        audioSelection: { decision: 'recommended', score: 72 },
+        final: { qualityScore: 82, efficiencyRatio: 88, peakToPeakDb: 6 },
+        implementationCost: { allPassCount: 0, totalAbsDelayMs: 2 },
+      },
+    };
+
+    const selected = MultiSubOptimizer.selectBestAudioCandidate([
+      rejectedHighScore,
+      recommendedCandidate,
+      reviewCandidate,
+    ]);
+
+    expect(selected.index).toBe(1);
+    expect(selected.candidate).toBe(recommendedCandidate);
+  });
+
+  it('merges multi-start defaults and accepts boolean shorthand', () => {
+    const opt = new MultiSubOptimizer(
+      [
+        makeMeasurement([20, 50, 100, 200], { measurement: 'a' }),
+        makeMeasurement([20, 50, 100, 200], { measurement: 'b' }),
+      ],
+      { optimization: { multiStart: true } },
+      lm,
+    );
+
+    expect(opt.config.optimization.multiStart).toEqual({
+      ...MultiSubOptimizer.DEFAULT_CONFIG.optimization.multiStart,
+      enabled: true,
+    });
+  });
+
+  it('stops genetic multi-start when an extra run does not improve enough', () => {
+    const opt = makeOptimizer();
+    const runResult = {
+      bestWithAllPass: { score: -Infinity },
+      bestWithoutAllPass: {
+        score: 10,
+        param: MultiSubOptimizer.EMPTY_CONFIG,
+        hasAllPass: false,
+      },
+    };
+
+    vi.spyOn(opt, 'findTopCoarseParams').mockReturnValue([
+      MultiSubOptimizer.EMPTY_CONFIG,
+      { delay: 0.001, gain: 0, polarity: 1, allPass: { enabled: false } },
+    ]);
+    const runSpy = vi.spyOn(opt, '_runSingleGeneticRun').mockReturnValue(runResult);
+
+    const result = opt.runGeneticOptimization(
+      opt.preparedSubs[1],
+      opt.preparedSubs[0],
+      {},
+      [MultiSubOptimizer.EMPTY_CONFIG],
+      {
+        runs: 3,
+        useLocalSearch: false,
+        populationSize: 5,
+        eliteCount: 1,
+        tournamentSize: 1,
+        generations: 1,
+        maxNoImprovementGenerations: 1,
+        mutationRate: 0,
+        mutationAmount: 0,
+        withAllPassProbability: 0,
+        coarseSeedCount: 2,
+        minRunImprovement: 0.5,
+      },
+    );
+
+    expect(runSpy).toHaveBeenCalledTimes(2);
+    expect(result.stats).toMatchObject({
+      runsRequested: 3,
+      runsCompleted: 2,
+      savedRuns: 1,
+      coarseSeedCount: 2,
+      minRunImprovement: 0.5,
+    });
+  });
+
+  it('keeps diverse coarse seeds instead of only adjacent top scores', () => {
+    const opt = new MultiSubOptimizer(
+      [
+        makeMeasurement([20, 50, 100, 200], { measurement: 'a', name: 'Sub A' }),
+        makeMeasurement([20, 50, 100, 200], { measurement: 'b', name: 'Sub B' }),
+      ],
+      {
+        ...config,
+        allPass: {
+          enabled: true,
+          frequency: { min: 20, max: 120, step: 10 },
+          q: { min: 0.1, max: 0.5, step: 0.1 },
+        },
+      },
+      lm,
+    );
+    const params = [
+      { delay: 0, gain: 0, polarity: 1, allPass: { enabled: false } },
+      { delay: 0.0001, gain: 0, polarity: 1, allPass: { enabled: false } },
+      { delay: 0.0002, gain: 0, polarity: 1, allPass: { enabled: false } },
+      {
+        delay: -0.003,
+        gain: 0,
+        polarity: -1,
+        allPass: { frequency: 80, q: 0.2, enabled: true },
+      },
+    ];
+
+    vi.spyOn(opt, 'evaluateParameters').mockImplementation(sub => ({
+      score: sub.param.allPass.enabled ? 80 : 100 - sub.param.delay * 1000,
+      param: sub.param,
+      hasAllPass: sub.param.allPass.enabled,
+    }));
+
+    const seeds = opt.findTopCoarseParams(
+      opt.preparedSubs[1],
+      opt.preparedSubs[0],
+      {},
+      params,
+      3,
+    );
+
+    expect(seeds).toHaveLength(3);
+    expect(seeds.some(param => param.allPass.enabled)).toBe(true);
+    expect(seeds.some(param => !param.allPass.enabled)).toBe(true);
+    expect(seeds[0]).toMatchObject({ delay: 0, allPass: { enabled: false } });
+  });
+
+  it('rejects unsorted frequency arrays before binary-search filtering', () => {
+    const freqs = [20, 100, 50, 200];
+
+    expect(
+      () =>
+        new MultiSubOptimizer(
+          [
+            makeMeasurement(freqs, { measurement: 'a' }),
+            makeMeasurement(freqs, { measurement: 'b' }),
+          ],
+          config,
+          lm,
+        ),
+    ).toThrow(/strictly increasing/);
+  });
+
+  it('calculates combined responses without freqStep or ppo metadata', () => {
+    const subA = makeMeasurement([20, 50, 100, 200], { measurement: 'a' });
+    const subB = makeMeasurement([20, 50, 100, 200], { measurement: 'b' });
+    delete subA.freqStep;
+    delete subA.ppo;
+    delete subB.freqStep;
+    delete subB.ppo;
+
+    const opt = new MultiSubOptimizer([subA, subB], config, lm);
+    const combined = opt.calculateCombinedResponse(opt.preparedSubs);
+
+    expect(combined.magnitude).toHaveLength(4);
+    expect(combined.freqStep).toBeUndefined();
+    expect(combined.ppo).toBeUndefined();
+  });
+
+  it('rejects direct combined responses with mismatched frequencies', () => {
+    const opt = makeOptimizer();
+    const subA = makeMeasurement([20, 50, 100, 200], { measurement: 'x' });
+    const subB = makeMeasurement([20, 50, 110, 200], { measurement: 'y' });
+
+    expect(() => opt.calculateCombinedResponse([subA, subB])).toThrow(
+      /different frequency point/,
+    );
+  });
+
+  it('uses EMPTY_CONFIG defaults when response parameters are missing', () => {
+    const opt = makeOptimizer();
+    const sub = { ...opt.preparedSubs[0], param: undefined };
+    const response = opt.calculateResponseWithParams(sub);
+
+    for (let i = 0; i < sub.freqs.length; i++) {
+      expect(response.magnitude[i]).toBeCloseTo(sub.magnitude[i], 5);
+      expect(response.phase[i]).toBeCloseTo(sub.phase[i], 5);
+      expect(Number.isFinite(response.magnitude[i])).toBe(true);
+      expect(Number.isFinite(response.phase[i])).toBe(true);
+    }
+  });
+
+  it('applies gain as a dB offset when calculating a parameterized response', () => {
+    const opt = makeOptimizer();
+    const sub = {
+      ...opt.preparedSubs[0],
+      param: {
+        delay: 0,
+        gain: 6,
+        polarity: 1,
+        allPass: { frequency: 0, q: 0, enabled: false },
+      },
+    };
+
+    const response = opt.calculateResponseWithParams(sub);
+
+    for (let i = 0; i < sub.freqs.length; i++) {
+      expect(response.magnitude[i]).toBeCloseTo(sub.magnitude[i] + 6, 5);
+    }
+  });
+
+  it('does not reuse cached evaluations across different response contexts', () => {
+    const opt = makeOptimizer();
+    const subToOptimize = opt.preparedSubs[1];
+    const previousValidSum = opt.preparedSubs[0];
+    const theoreticalMax = opt.calculateCombinedResponse(
+      [subToOptimize, previousValidSum],
+      false,
+      true,
+    );
+
+    subToOptimize.param = MultiSubOptimizer.EMPTY_CONFIG;
+    opt.evaluateParametersCached(subToOptimize, previousValidSum, theoreticalMax);
+
+    const shiftedPreviousSum = {
+      ...previousValidSum,
+      magnitude: Float32Array.from(previousValidSum.magnitude, value => value + 3),
+    };
+
+    opt.evaluateParametersCached(subToOptimize, shiftedPreviousSum, theoreticalMax);
+
+    expect(opt._cacheMisses).toBe(2);
+  });
+
+  it('does not reuse cached evaluations when only middle response samples differ', () => {
+    const opt = makeOptimizer([20, 50, 100, 150, 200]);
+    const subToOptimize = opt.preparedSubs[1];
+    const previousValidSum = opt.preparedSubs[0];
+    const theoreticalMax = opt.calculateCombinedResponse(
+      [subToOptimize, previousValidSum],
+      false,
+      true,
+    );
+
+    subToOptimize.param = MultiSubOptimizer.EMPTY_CONFIG;
+    opt.evaluateParametersCached(subToOptimize, previousValidSum, theoreticalMax);
+
+    const middleShiftedPreviousSum = {
+      ...previousValidSum,
+      magnitude: Float32Array.from(previousValidSum.magnitude, (value, index) =>
+        index === 2 ? value + 3 : value,
+      ),
+    };
+
+    opt.evaluateParametersCached(subToOptimize, middleShiftedPreviousSum, theoreticalMax);
+
+    expect(opt._cacheMisses).toBe(2);
+  });
+
+  it('reuses cached evaluations when only response score metadata changes', () => {
+    const opt = makeOptimizer();
+    const subToOptimize = opt.preparedSubs[1];
+    const previousValidSum = opt.preparedSubs[0];
+    const theoreticalMax = opt.calculateCombinedResponse(
+      [subToOptimize, previousValidSum],
+      false,
+      true,
+    );
+
+    subToOptimize.param = MultiSubOptimizer.EMPTY_CONFIG;
+    opt.evaluateParametersCached(
+      subToOptimize,
+      { ...previousValidSum, score: 1 },
+      theoreticalMax,
+    );
+    opt.evaluateParametersCached(
+      subToOptimize,
+      { ...previousValidSum, score: 999 },
+      theoreticalMax,
+    );
+
+    expect(opt._cacheMisses).toBe(1);
+    expect(opt._cacheHits).toBe(1);
+  });
+
+  it('keeps the non-all-pass solution when a negative all-pass score is worse', () => {
+    const opt = makeOptimizer();
+    const bestWithAllPass = { score: -10.1, hasAllPass: true };
+    const bestWithoutAllPass = { score: -10, hasAllPass: false };
+
+    expect(opt.chooseBestSolution(bestWithAllPass, bestWithoutAllPass)).toBe(
+      bestWithoutAllPass,
+    );
   });
 });
