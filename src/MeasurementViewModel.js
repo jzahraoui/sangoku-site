@@ -1607,6 +1607,20 @@ class MeasurementViewModel {
           frequency: { min: 10, max: 500, step: 10 },
           q: { min: 0.1, max: 0.5, step: 0.1 },
         },
+        optimization: {
+          objective: 'balanced',
+          globalRefinement: {
+            enabled: true,
+            passes: 2,
+            maxIterations: 20,
+          },
+          multiStart: {
+            enabled: false,
+            runs: 1,
+            coarseSeedCount: 8,
+            minRunImprovement: 0.25,
+          },
+        },
       };
     };
 
