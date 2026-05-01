@@ -1,7 +1,7 @@
 import MeasurementViewModel from './MeasurementViewModel.js';
 import ko from 'knockout';
 import JSZip from 'jszip';
-import DualRangeInput from '@stanko/dual-range-input';
+import FrequencyRangeSlider from './frequency-range-slider.js';
 import LanguageManager from './language-manager.js';
 import lm from './logs.js';
 
@@ -97,10 +97,12 @@ class RewController {
 
       globalThis.viewModel.restore();
 
-      // Dual Range Input Setup
-      const $min = document.querySelector('#min');
-      const $max = document.querySelector('#max');
-      globalThis.DualRangeInput = new DualRangeInput($min, $max, 2);
+      globalThis.frequencyRangeSlider = new FrequencyRangeSlider({
+        minInput: document.querySelector('#min'),
+        maxInput: document.querySelector('#max'),
+        lowerFrequencyBound: globalThis.viewModel.lowerFrequencyBound,
+        upperFrequencyBound: globalThis.viewModel.upperFrequencyBound,
+      });
 
       globalThis.addEventListener('beforeunload', () =>
         globalThis.viewModel.saveMeasurements(),
@@ -319,9 +321,9 @@ class RewController {
           e.preventDefault();
 
           const buttonId = this.id;
-          let folderPath = '';
-          let zipFilename = '';
-          let fileExtension = '';
+          let folderPath;
+          let zipFilename;
+          let fileExtension;
 
           // Set parameters based on which button was clicked
           switch (buttonId) {
