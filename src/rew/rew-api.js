@@ -16,8 +16,15 @@ export default class RewApi {
   );
   static SPEED_DELAY_INHIBIT_MS = 20;
   static SPEED_DELAY_NORMAL_MS = 500;
-  static VERSION_REGEX = /(\d+)\.(\d+)\sBeta\s(\d+)/;
+  static VERSION_REGEX = /^\s*(?:REW\s+)?v?(\d{1,3})\.(\d{1,3})\s+beta\s+(\d{1,4})\b/i;
   static MIN_REQUIRED_VERSION = 54071;
+  static ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']);
+  static BODY_REQUIRED_METHODS = new Set(['POST', 'PUT', 'PATCH']);
+  static WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+  static IMPORT_DATA_ENDPOINTS = new Set([
+    '/import/frequency-response-data',
+    '/import/impulse-response-data',
+  ]);
 
   constructor(
     baseURL = 'http://localhost:4735',
@@ -27,6 +34,8 @@ export default class RewApi {
     this.setBaseURL(baseURL);
     this.blocking = blocking;
     this.inhibitGraphUpdates = inhibitGraphUpdates;
+    this.importBlockingBypassCount = 0;
+    this.importBlockingRestorePending = false;
 
     this.rewEq = new REWEQ(this);
     this.rewMeasurements = new REWMeasurements(this);
@@ -35,19 +44,94 @@ export default class RewApi {
   }
 
   setBaseURL(baseURL) {
-    if (!baseURL) {
-      throw new Error('Base URL is required');
-    }
     if (typeof baseURL !== 'string') {
       throw new TypeError('Base URL must be a string');
     }
-    // Validate URL to prevent SSRF attacks
-    const parsedBase = new URL(baseURL);
+
+    const trimmedBaseURL = baseURL.trim();
+    if (!trimmedBaseURL) {
+      throw new Error('Base URL is required');
+    }
+
+    let parsedBase;
+    try {
+      parsedBase = new URL(trimmedBaseURL);
+    } catch (error) {
+      throw new Error(`Invalid base URL: ${baseURL}`, { cause: error });
+    }
+
     if (parsedBase.protocol !== 'http:' && parsedBase.protocol !== 'https:') {
       throw new Error('Base URL must use HTTP or HTTPS protocol');
     }
+    if (parsedBase.username || parsedBase.password) {
+      throw new Error('Base URL must not include credentials');
+    }
 
-    this.baseURL = baseURL;
+    parsedBase.hash = '';
+    parsedBase.search = '';
+
+    this.baseURL = RewApi.trimTrailingSlashes(parsedBase.href);
+  }
+
+  static trimTrailingSlashes(value) {
+    let endIndex = value.length;
+    while (endIndex > 0 && value[endIndex - 1] === '/') {
+      endIndex -= 1;
+    }
+    return value.slice(0, endIndex);
+  }
+
+  getRequestUrl(endpoint) {
+    // getEndpointPath validates the endpoint shape (relative, leading slash, string).
+    // We discard its return value because we want to preserve any query string in the
+    // final URL while still rejecting absolute URLs and protocol-relative paths.
+    RewApi.getEndpointPath(endpoint);
+    return `${this.baseURL}${endpoint}`;
+  }
+
+  static normalizeMethod(method) {
+    if (typeof method !== 'string') {
+      throw new TypeError('Method must be a string');
+    }
+
+    const methodUpper = method.toUpperCase();
+    if (!RewApi.ALLOWED_METHODS.has(methodUpper)) {
+      throw new Error(`Invalid HTTP method: ${method}`);
+    }
+    return methodUpper;
+  }
+
+  static hasRequestBody(body) {
+    return body !== null && body !== undefined;
+  }
+
+  static getEndpointPath(endpoint) {
+    if (!endpoint) {
+      throw new Error('Missing endpoint');
+    }
+    if (typeof endpoint !== 'string') {
+      throw new TypeError('Endpoint must be a string');
+    }
+    if (!endpoint.startsWith('/') || endpoint.startsWith('//')) {
+      throw new Error('Endpoint must be a relative API path starting with /');
+    }
+
+    return endpoint.split('?', 1)[0];
+  }
+
+  static mergeParsedMessage(data) {
+    if (!data || typeof data !== 'object') return;
+    if (typeof data.message !== 'string') return;
+
+    const parsed = RewApi.safeParseJSON(data.message);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      Object.assign(data, parsed);
+    }
+  }
+
+  static extractErrorMessage(data) {
+    if (!data || typeof data !== 'object') return null;
+    return data.results?.[0]?.Error || null;
   }
 
   async getBlocking() {
@@ -55,8 +139,9 @@ export default class RewApi {
   }
 
   async setBlocking(enable = true) {
+    const response = await this.request('/application/blocking', 'POST', enable);
     this.blocking = enable;
-    return this.request('/application/blocking', 'POST', enable);
+    return response;
   }
 
   async getInhibitGraphUpdates() {
@@ -64,8 +149,13 @@ export default class RewApi {
   }
 
   async setInhibitGraphUpdates(enable = true) {
+    const response = await this.request(
+      '/application/inhibit-graph-updates',
+      'POST',
+      enable,
+    );
     this.inhibitGraphUpdates = enable;
-    return this.request('/application/inhibit-graph-updates', 'POST', enable);
+    return response;
   }
 
   getSpeedDelay() {
@@ -94,25 +184,34 @@ export default class RewApi {
   }
 
   /**
-   * Initialisation: Active le mode blocking et vérifie que l'audio est prêt
-   * Règle: Attendre quelques secondes après le démarrage de REW avant toute opération
+   * Reconcile REW server state with the configured client state:
+   *  - aligns `inhibit-graph-updates` and `blocking` with constructor flags,
+   *  - sets the default equalizer model,
+   *  - clears any in-progress command.
+   *
+   * Note: REW should be fully started (audio ready) before calling this; the API itself
+   * does not expose a readiness probe.
    */
   async initializeAPI() {
-    // actual settings
     const inhibitGraph = await this.getInhibitGraphUpdates();
-    const blocking = await this.getBlocking();
-    // set to desired settings
-    if (inhibitGraph !== this.inhibitGraphUpdates)
+    if (inhibitGraph !== this.inhibitGraphUpdates) {
       await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
-    if (blocking !== this.blocking) await this.setBlocking(this.blocking);
-    await this.rewEq.setDefaultEqualiser();
+    }
 
+    const blocking = await this.getBlocking();
+    if (blocking !== this.blocking) {
+      await this.setBlocking(this.blocking);
+    }
+
+    await this.rewEq.setDefaultEqualiser();
     await this.clearCommands();
   }
 
   async checkVersion() {
     const response = await this.request('/version');
-    if (!response?.message) throw new Error('Invalid version response format');
+    if (typeof response?.message !== 'string') {
+      throw new TypeError('Invalid version response format');
+    }
     const versionString = response.message;
     const versionMatch = RewApi.VERSION_REGEX.exec(versionString);
     if (!versionMatch) throw new Error(`Invalid version format: ${versionString}`);
@@ -132,46 +231,30 @@ export default class RewApi {
   }
 
   async request(endpoint, method = 'GET', body = null) {
-    if (!endpoint) {
-      throw new Error('Missing endpoint');
-    }
-    if (typeof method !== 'string') {
-      throw new TypeError('Method must be a string');
-    }
-    if (!['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
-      throw new Error(`Invalid HTTP method: ${method}`);
-    }
-    if (['POST', 'PUT'].includes(method.toUpperCase()) && body === null) {
-      throw new Error('Request body is required for non-GET requests');
+    const methodUpper = RewApi.normalizeMethod(method);
+    const hasBody = RewApi.hasRequestBody(body);
+
+    if (RewApi.BODY_REQUIRED_METHODS.has(methodUpper) && !hasBody) {
+      throw new Error(`Request body is required for ${methodUpper} requests`);
     }
 
-    const completeUrl = `${this.baseURL}${endpoint}`;
+    const completeUrl = this.getRequestUrl(endpoint);
 
-    // Create an abort controller for the timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), RewApi.TIMEOUT_MS);
 
     const options = {
-      method,
+      method: methodUpper,
       headers: { Accept: 'application/json' },
       signal: controller.signal,
     };
-    if (body !== null) {
+    if (hasBody) {
       options.body = JSON.stringify(body);
       options.headers['Content-Type'] = 'application/json';
     }
 
-    const parseMessage = obj => {
-      if (obj.message && typeof obj.message === 'string') {
-        const parsed = RewApi.safeParseJSON(obj.message);
-        if (parsed) Object.assign(obj, parsed);
-      }
-    };
-
     try {
       const response = await fetch(completeUrl, options);
-      // Clear the timeout since the request completed
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const error = await response
@@ -179,36 +262,33 @@ export default class RewApi {
           .catch(() => ({ message: response.statusText }));
 
         // if data contains a message, parse it as JSON if possible
-        parseMessage(error);
+        RewApi.mergeParsedMessage(error);
         const errorMessage =
-          error?.results?.[0]?.Error ||
-          error.message ||
+          RewApi.extractErrorMessage(error) ||
+          (typeof error === 'string' ? error : error.message) ||
           `HTTP error! for URL: ${completeUrl}`;
         throw new Error(`[${response.status}] ${errorMessage}`);
       }
 
-      const data = await response.json();
+      const data = response.status === 204 ? {} : await response.json();
 
       // Validate data structure
       if (data == null) throw new Error('Invalid response data');
 
       // Prevent overloading the REW API only for write operations
-      if (['POST', 'PUT', 'DELETE'].includes(options.method)) {
+      if (RewApi.WRITE_METHODS.has(methodUpper)) {
         await new Promise(resolve => setTimeout(resolve, this.getSpeedDelay()));
       }
 
       // if data contains a message, parse it as JSON if possible
-      parseMessage(data);
+      RewApi.mergeParsedMessage(data);
 
       // if data contains an error message, throw it
-      const errorMessage = data.results?.[0]?.Error;
+      const errorMessage = RewApi.extractErrorMessage(data);
       if (errorMessage) throw new Error(errorMessage);
 
       return data;
     } catch (error) {
-      // Clear the timeout if there was an error
-      clearTimeout(timeoutId);
-
       if (error.name === 'AbortError') {
         const abortError = new Error(
           `Request ${endpoint} timeout after ${RewApi.TIMEOUT_MS / 1000} s`,
@@ -220,6 +300,15 @@ export default class RewApi {
       throw new Error(`Request failed for ${endpoint}: ${error.message}`, {
         cause: error,
       });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async restoreImportBlockingIfNeeded() {
+    if (this.importBlockingBypassCount === 0 && this.importBlockingRestorePending) {
+      this.importBlockingRestorePending = false;
+      await this.setBlocking(true);
     }
   }
 
@@ -229,14 +318,38 @@ export default class RewApi {
     body = null,
     retries = 2,
     expectedProcess = null,
+    skipImportBlockingBypass = false,
   ) {
-    try {
-      const data = await this.request(endpoint, method, body);
-      if (expectedProcess) {
-        this.validateExpectedProcess(expectedProcess, data);
-      }
+    const methodUpper = RewApi.normalizeMethod(method);
 
-      if (method === 'GET') {
+    if (!skipImportBlockingBypass && this.shouldPollImportData(endpoint, methodUpper)) {
+      const shouldToggleBlockingOff = this.importBlockingBypassCount === 0;
+      this.importBlockingBypassCount += 1;
+
+      try {
+        if (shouldToggleBlockingOff) {
+          this.importBlockingRestorePending = true;
+          await this.setBlocking(false);
+        }
+        return await this.fetchWithRetry(
+          endpoint,
+          methodUpper,
+          body,
+          retries,
+          expectedProcess,
+          true,
+        );
+      } finally {
+        this.importBlockingBypassCount -= 1;
+        await this.restoreImportBlockingIfNeeded();
+      }
+    }
+
+    try {
+      const data = await this.request(endpoint, methodUpper, body);
+      expectedProcess && this.validateExpectedProcess(expectedProcess, data);
+
+      if (methodUpper === 'GET') {
         return data;
       }
 
@@ -273,12 +386,32 @@ export default class RewApi {
       }
       if (retries > 0) {
         await new Promise(resolve => setTimeout(resolve, RewApi.WAIT_BETWEEN_RETRIES_MS));
-        return this.fetchWithRetry(endpoint, method, body, retries - 1, expectedProcess);
+        return this.fetchWithRetry(
+          endpoint,
+          methodUpper,
+          body,
+          retries - 1,
+          expectedProcess,
+          skipImportBlockingBypass,
+        );
       }
       throw new Error(`Max retries reached for ${endpoint}: ${error.message}`, {
         cause: error,
       });
     }
+  }
+
+  shouldPollImportData(endpoint, method = 'GET') {
+    const methodUpper = RewApi.normalizeMethod(method);
+    if (methodUpper === 'GET') {
+      return false;
+    }
+
+    const endpointPath = RewApi.getEndpointPath(endpoint);
+    return (
+      RewApi.IMPORT_DATA_ENDPOINTS.has(endpointPath) &&
+      (this.blocking || this.importBlockingBypassCount > 0)
+    );
   }
 
   extractProcessID(data) {
@@ -289,13 +422,13 @@ export default class RewApi {
     const idRegex = /ID \d+/;
 
     const extractMatch = str => {
-      if (!str) return null;
-      if (typeof str !== 'string') return null;
+      if (typeof str !== 'string' || !str) return null;
 
       const match = idRegex.exec(str);
       if (!match) return null;
-      const idIndex = str.indexOf(match[0]);
-      return str.substring(0, idIndex + match[0].length);
+      // Return the prefix up to and including the matched "ID <n>" so it can be used
+      // as a unique process identifier when matching against later REW responses.
+      return str.substring(0, match.index + match[0].length);
     };
 
     if (typeof data === 'string') {
@@ -319,7 +452,6 @@ export default class RewApi {
     if (!expectedProcess) return;
     if (!data) throw new Error('API response is empty');
 
-    const isDataString = typeof data === 'string';
     const isExpectedString = typeof expectedProcess === 'string';
 
     const generateErrorMessage = (expected, received) => {
@@ -333,33 +465,41 @@ export default class RewApi {
       return str.toLowerCase().includes(search.toLowerCase());
     };
 
-    if (isDataString) {
-      const expected = isExpectedString ? expectedProcess : expectedProcess.message;
-      if (expected && !caseInsensitiveIncludes(data, expected)) {
-        throw new Error(generateErrorMessage(expected, data));
+    const stringify = value => {
+      if (typeof value === 'string') return value;
+      if (value === undefined) return '';
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    };
+
+    const getReceivedField = fieldName => {
+      if (typeof data === 'string') return data;
+      if (!data || typeof data !== 'object') return stringify(data);
+      return stringify(data[fieldName]);
+    };
+
+    if (isExpectedString) {
+      const received =
+        typeof data === 'string'
+          ? data
+          : [data?.processName, data?.message, stringify(data)].filter(Boolean).join(' ');
+      if (!caseInsensitiveIncludes(received, expectedProcess)) {
+        throw new Error(generateErrorMessage(expectedProcess, received));
       }
       return;
     }
 
-    if (isExpectedString) {
-      throw new Error(generateErrorMessage(expectedProcess, JSON.stringify(data)));
-    }
+    for (const fieldName of ['message', 'processName']) {
+      const expected = expectedProcess[fieldName];
+      if (!expected) continue;
 
-    if (
-      expectedProcess.message &&
-      data.message &&
-      !caseInsensitiveIncludes(data.message, expectedProcess.message)
-    ) {
-      throw new Error(generateErrorMessage(expectedProcess.message, data.message));
-    }
-
-    if (
-      expectedProcess.processName &&
-      !caseInsensitiveIncludes(data.processName, expectedProcess.processName)
-    ) {
-      throw new Error(
-        generateErrorMessage(expectedProcess.processName, data.processName),
-      );
+      const received = getReceivedField(fieldName);
+      if (!caseInsensitiveIncludes(received, expected)) {
+        throw new Error(generateErrorMessage(expected, received));
+      }
     }
   }
 
@@ -412,12 +552,20 @@ export default class RewApi {
     }
     try {
       const binaryString = atob(base64String);
-      const bytes = Uint8Array.from(binaryString, char => char.codePointAt(0));
+      // atob returns a binary (Latin-1) string; charCodeAt is the correct API for
+      // single-byte values in [0, 255].
+      const bytes = Uint8Array.from(binaryString, char => char.codePointAt(0) ?? 0);
+      if (bytes.byteLength % Float32Array.BYTES_PER_ELEMENT !== 0) {
+        throw new Error('Float32 payload byte length must be a multiple of 4');
+      }
       const view = new DataView(bytes.buffer);
       const sampleCount = view.byteLength / Float32Array.BYTES_PER_ELEMENT;
       const floats = new Float32Array(sampleCount);
-      for (let i = 0; i < sampleCount; i++) {
-        floats[i] = view.getFloat32(i * Float32Array.BYTES_PER_ELEMENT, isLittleEndian);
+      for (let index = 0; index < sampleCount; index++) {
+        floats[index] = view.getFloat32(
+          index * Float32Array.BYTES_PER_ELEMENT,
+          isLittleEndian,
+        );
       }
       return floats;
     } catch (error) {
@@ -432,23 +580,21 @@ export default class RewApi {
     try {
       const buffer = new ArrayBuffer(floatArray.length * Float32Array.BYTES_PER_ELEMENT);
       const view = new DataView(buffer);
-      for (let i = 0; i < floatArray.length; i++) {
+      for (let index = 0; index < floatArray.length; index++) {
         view.setFloat32(
-          i * Float32Array.BYTES_PER_ELEMENT,
-          floatArray[i],
+          index * Float32Array.BYTES_PER_ELEMENT,
+          floatArray[index],
           isLittleEndian,
         );
       }
       const bytes = new Uint8Array(buffer);
       const CHUNK_SIZE = 0x8000;
-      let binaryString = '';
-      for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-        const end = Math.min(i + CHUNK_SIZE, bytes.length);
-        for (let j = i; j < end; j++) {
-          binaryString += String.fromCodePoint(bytes[j]);
-        }
+      const chunks = [];
+      for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) {
+        const end = Math.min(offset + CHUNK_SIZE, bytes.length);
+        chunks.push(String.fromCodePoint(...bytes.subarray(offset, end)));
       }
-      return btoa(binaryString);
+      return btoa(chunks.join(''));
     } catch (error) {
       throw new Error(`Error encoding data to base64: ${error.message}`, {
         cause: error,
