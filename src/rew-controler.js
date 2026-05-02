@@ -103,6 +103,12 @@ class RewController {
         lowerFrequencyBound: globalThis.viewModel.lowerFrequencyBound,
         upperFrequencyBound: globalThis.viewModel.upperFrequencyBound,
       });
+      globalThis.frequencyRangeSliderSub = new FrequencyRangeSlider({
+        minInput: document.querySelector('#minSub'),
+        maxInput: document.querySelector('#maxSub'),
+        lowerFrequencyBound: globalThis.viewModel.lowerFrequencyBoundSub,
+        upperFrequencyBound: globalThis.viewModel.upperFrequencyBoundSub,
+      });
 
       globalThis.addEventListener('beforeunload', () =>
         globalThis.viewModel.saveMeasurements(),

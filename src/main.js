@@ -55,6 +55,8 @@ if (themeToggle) {
 
 const columnToggleBtn = document.getElementById('columnToggleBtn');
 const columnDropdown = document.getElementById('columnDropdown');
+const rewSettingsButton = document.getElementById('rewSettingsButton');
+const rewSettingsDialog = document.getElementById('rewSettingsDialog');
 
 function setColumnDropdownExpanded(isExpanded) {
   if (!columnToggleBtn || !columnDropdown) {
@@ -66,7 +68,6 @@ function setColumnDropdownExpanded(isExpanded) {
   columnDropdown.hidden = !isExpanded;
 }
 
-// Column visibility toggle
 if (columnToggleBtn && columnDropdown) {
   columnToggleBtn.addEventListener('click', () => {
     const isExpanded = columnToggleBtn.getAttribute('aria-expanded') === 'true';
@@ -88,12 +89,56 @@ if (columnToggleBtn && columnDropdown) {
   });
 }
 
-// Close dropdown when clicking outside
 globalThis.addEventListener('click', e => {
   if (!e.target.closest('.column-toggle-dropdown')) {
     setColumnDropdownExpanded(false);
   }
 });
+
+if (rewSettingsButton && rewSettingsDialog) {
+  const syncRewSettingsState = () => {
+    rewSettingsButton.setAttribute('aria-expanded', String(rewSettingsDialog.open));
+  };
+
+  const closeRewSettingsDialog = () => {
+    if (typeof rewSettingsDialog.close === 'function') {
+      rewSettingsDialog.close();
+      return;
+    }
+
+    rewSettingsDialog.removeAttribute('open');
+    syncRewSettingsState();
+    rewSettingsButton.focus();
+  };
+
+  rewSettingsButton.addEventListener('click', () => {
+    if (rewSettingsDialog.open) {
+      closeRewSettingsDialog();
+      return;
+    }
+
+    if (typeof rewSettingsDialog.showModal === 'function') {
+      rewSettingsDialog.showModal();
+    } else {
+      rewSettingsDialog.setAttribute('open', '');
+    }
+
+    syncRewSettingsState();
+  });
+
+  rewSettingsDialog.addEventListener('click', event => {
+    if (event.target === rewSettingsDialog) {
+      closeRewSettingsDialog();
+    }
+  });
+
+  rewSettingsDialog.addEventListener('close', () => {
+    syncRewSettingsState();
+    rewSettingsButton.focus();
+  });
+
+  syncRewSettingsState();
+}
 
 async function downloadConfig(config, channel) {
   try {

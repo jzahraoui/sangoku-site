@@ -82,7 +82,10 @@ class MeasurementViewModel {
     this.status = ko.observable('');
     this.selectedItem = ko.observable(null);
     this.upperFrequencyBound = ko.observable(16000);
-    this.lowerFrequencyBound = ko.observable(15);
+    this.lowerFrequencyBound = ko.observable(20);
+
+    this.upperFrequencyBoundSub = ko.observable(500);
+    this.lowerFrequencyBoundSub = ko.observable(10);
 
     // Computed
     this.hasStatus = ko.computed(() => !this.error() && this.status() !== '');
@@ -2074,12 +2077,12 @@ class MeasurementViewModel {
     await subMeasurement.detectFallOff(-3);
 
     const customStartFrequency = Math.max(
-      this.lowerFrequencyBound(),
+      this.lowerFrequencyBoundSub(),
       subMeasurement.dectedFallOffLow,
     );
     // do not use min because dectedFallOffHigh can be -1 if not detected
     const customEndFrequency = Math.min(
-      this.upperFrequencyBound(),
+      this.upperFrequencyBoundSub(),
       subMeasurement.dectedFallOffHigh,
     );
 
@@ -3053,6 +3056,10 @@ class MeasurementViewModel {
     data.overallBoostValue && this.overallBoostValue(+data.overallBoostValue);
     data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
     data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
+    data.upperFrequencyBoundSub &&
+      this.upperFrequencyBoundSub(data.upperFrequencyBoundSub);
+    data.lowerFrequencyBoundSub &&
+      this.lowerFrequencyBoundSub(data.lowerFrequencyBoundSub);
     data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
     data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
     data.inhibitGraphUpdates !== undefined &&
@@ -3089,6 +3096,8 @@ class MeasurementViewModel {
       overallBoostValue: this.overallBoostValue(),
       upperFrequencyBound: this.upperFrequencyBound(),
       lowerFrequencyBound: this.lowerFrequencyBound(),
+      upperFrequencyBoundSub: this.upperFrequencyBoundSub(),
+      lowerFrequencyBoundSub: this.lowerFrequencyBoundSub(),
       apiBaseUrl: this.apiBaseUrl(),
       ocaFileFormat: this.ocaFileFormat(),
       avrIpAddress: this.avrIpAddress(),

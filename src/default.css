@@ -357,6 +357,11 @@ button:disabled {
   opacity: 0.8;
 }
 
+.button.small-button {
+  padding: var(--spacing-xs) var(--spacing-xl);
+  font-size: var(--font-size-lg);
+}
+
 /* Image Gallery */
 .thumbnail {
   cursor: pointer;
@@ -414,6 +419,25 @@ button:disabled {
   background-color: var(--surface-bg);
   color: var(--surface-text);
   box-shadow: var(--box-shadow);
+}
+
+.rch-settings-content {
+  max-width: 420px;
+}
+
+.rch-settings-content h3 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-lg);
+  padding-right: 36px;
+}
+
+.rch-settings-content label {
+  margin-bottom: var(--spacing-sm);
+}
+
+.rch-settings-content input {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Scrollbar styles */
@@ -667,6 +691,16 @@ textarea {
   display: block;
   margin-bottom: var(--spacing-sm);
   font-weight: 500;
+}
+
+.main-commands-toolbar {
+  display: flex;
+  margin-bottom: var(--spacing-md);
+}
+
+.rch-settings-trigger {
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Code Styles */

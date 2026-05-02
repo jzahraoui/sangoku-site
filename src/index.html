@@ -561,9 +561,27 @@
 
           <div class="control-group">
             <h2 data-i18n="main_commands">Main commands</h2>
-            <div>
-              <label
-                ><span data-i18n="rew_api_address">REW API Address:</span>
+
+            <div class="main-commands-toolbar"></div>
+
+            <dialog
+              id="rewSettingsDialog"
+              class="popup rch-settings-dialog"
+              aria-labelledby="rewSettingsDialogTitle"
+            >
+              <form method="dialog" class="popup-content rch-settings-content">
+                <button
+                  type="submit"
+                  class="close-btn"
+                  aria-label="Close RCH settings dialog"
+                  data-bind="attr: { 'aria-label': translations().close_rch_settings_dialog }"
+                >
+                  &times;
+                </button>
+                <h3 id="rewSettingsDialogTitle" data-i18n="rch_settings">RCH settings</h3>
+                <label for="rew-api-base-url" data-i18n="rew_api_address">
+                  REW API Address:
+                </label>
                 <input
                   type="text"
                   id="rew-api-base-url"
@@ -571,8 +589,16 @@
                   data-i18n="rew_api_placeholder"
                   data-bind="value: apiBaseUrl"
                 />
-              </label>
-            </div>
+                <div>
+                  <label class="checkbox-container">
+                    <input type="checkbox" data-bind="checked: inhibitGraphUpdates" />
+                    <span data-i18n="inhibit_graph_updates">Inhibit Graph Updates</span>
+                    <span class="checkmark"></span>
+                  </label>
+                </div>
+              </form>
+            </dialog>
+
             <button
               class="button"
               data-bind="
@@ -592,18 +618,19 @@
               >
             </button>
             <button
-              class="button"
-              data-bind="
-              click: renameMeasurement,
-              disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing },
-              attr: { 'data-tooltip': translations().rename_measurements_tooltip }"
+              type="button"
+              id="rewSettingsButton"
+              class="button rch-settings-trigger"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+              aria-controls="rewSettingsDialog"
+              data-bind="attr: {
+                  'data-tooltip': translations().rch_settings_tooltip,
+                  'aria-label': translations().open_rch_settings_dialog
+                }"
             >
-              <i
-                data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-pen'"
-                aria-hidden="true"
-              ></i>
-              <span data-i18n="rename">Rename</span>
+              <i class="fas fa-gear" aria-hidden="true"></i>
+              <span data-i18n="rch_settings">RCH settings</span>
             </button>
             <button
               class="button"
@@ -660,21 +687,8 @@
                   ⟳
                 </button>
               </p>
-              <div>
-                <label class="checkbox-container">
-                  <input type="checkbox" data-bind="checked: inhibitGraphUpdates" />
-                  <span data-i18n="inhibit_graph_updates">Inhibit Graph Updates</span>
-                  <span class="checkmark"></span>
-                </label>
-              </div>
             </div>
             <!-- /ko -->
-          </div>
-
-          <!-- Speakers Controls -->
-          <div class="control-group">
-            <h2 data-i18n="speakers_tools">Speaker Tools</h2>
-
             <div>
               <h3 data-i18n="smoothing_windowing">Smoothing/Windowing:</h3>
               <select
@@ -702,6 +716,11 @@
                 "
               ></select>
             </div>
+          </div>
+
+          <!-- Speakers Controls -->
+          <div class="control-group">
+            <h2 data-i18n="speakers_tools">Speaker Tools</h2>
 
             <h3 data-i18n="filter_settings">Filter settings:</h3>
             <div style="display: flex; flex-direction: column">
@@ -753,7 +772,6 @@
                   required
                 />
               </div>
-              <!-- double range slider to select lowerFrequencyBound and upperFrequencyBound -->
               <div>
                 <label
                   style="width: 150px; text-align: left"
@@ -998,6 +1016,41 @@
                   required
                 />
               </div>
+              <div>
+                <label
+                  style="width: 150px; text-align: left"
+                  for="min"
+                  data-i18n="frequency_range"
+                  >Frequency Range:</label
+                >
+                <div>
+                  <div class="dual-range-input">
+                    <input
+                      type="range"
+                      min="1"
+                      max="4.301"
+                      step="0.0001"
+                      id="minSub"
+                      data-bound="lower"
+                      aria-label="Lower frequency bound"
+                    />
+                    <input
+                      type="range"
+                      min="1"
+                      max="4.301"
+                      step="0.0001"
+                      id="maxSub"
+                      data-bound="upper"
+                      aria-label="Upper frequency bound"
+                    />
+                  </div>
+
+                  <div class="frequency-values">
+                    <span data-bind="text: lowerFrequencyBoundSub() + ' Hz'"></span>
+                    <span data-bind="text: upperFrequencyBoundSub() + ' Hz'"></span>
+                  </div>
+                </div>
+              </div>
               <div data-bind="visible: uniqueSubsMeasurements().length > 1">
                 <label class="checkbox-container">
                   <input
@@ -1140,20 +1193,6 @@
                   aria-hidden="true"
                 ></i>
                 <span data-i18n="find_sub_alignment">Find Sub Alignment</span>
-              </button>
-              <button
-                class="button action-button"
-                data-bind="
-              click: buttonAutoAdjustInversion,
-              disable: isProcessing(),
-              css: { disabled: isProcessing, loading: isProcessing },
-              attr: { 'data-tooltip': translations().auto_adjust_inversion_tooltip }"
-              >
-                <i
-                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-sync-alt'"
-                  aria-hidden="true"
-                ></i>
-                <span data-i18n="auto_adjust_inversion">Auto Adjust Inversion</span>
               </button>
             </div>
           </div>
@@ -1441,7 +1480,24 @@
                     </div>
                   </th>
                   <th data-i18n="channel_name" class="column-header">Channel Name</th>
-                  <th data-i18n="measurement" class="column-header">Measurement</th>
+                  <th class="column-header">
+                    <span data-i18n="measurement">Measurement</span>
+                    <div>
+                      <button
+                        class="button"
+                        data-bind="
+                        click: renameMeasurement,
+                        disable: isProcessing(),
+                        css: { disabled: isProcessing, loading: isProcessing },
+                        attr: { 'data-tooltip': translations().rename_measurements_tooltip }"
+                      >
+                        <i
+                          data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-pen'"
+                          aria-hidden="true"
+                        ></i>
+                      </button>
+                    </div>
+                  </th>
                   <th class="distance-column">
                     <div class="distance-info">
                       <div>
@@ -1497,9 +1553,23 @@
                   <th
                     class="column-header"
                     data-bind="visible: visibleColumns().shiftDelay"
-                    data-i18n="required_shift_ms"
                   >
-                    Required shift (ms)
+                    <span data-i18n="required_shift_ms"> Required shift (ms) </span>
+                    <div>
+                      <button
+                        class="button action-button"
+                        data-bind="
+                        click: buttonAutoAdjustInversion,
+                        disable: isProcessing(),
+                        css: { disabled: isProcessing, loading: isProcessing },
+                        attr: { 'data-tooltip': translations().auto_adjust_inversion_tooltip }"
+                      >
+                        <i
+                          data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-sync-alt'"
+                          aria-hidden="true"
+                        ></i>
+                      </button>
+                    </div>
                   </th>
                   <th data-i18n="trim_db" class="column-header">Trim (dB)</th>
                   <th class="crossover-column">
