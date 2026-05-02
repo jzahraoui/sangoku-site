@@ -198,7 +198,7 @@ class REWMeasurements {
 
     return {
       ...data,
-      delayArray: RewApi.decodeBase64ToFloat32(data.magnitude),
+      magnitude: RewApi.decodeBase64ToFloat32(data.magnitude),
     };
   }
 
@@ -233,7 +233,7 @@ class REWMeasurements {
 
     return {
       ...data,
-      dataArray: RewApi.decodeBase64ToFloat32(data.data),
+      data: RewApi.decodeBase64ToFloat32(data.data),
     };
   }
 
@@ -253,7 +253,69 @@ class REWMeasurements {
 
     return {
       ...data,
-      dataArray: RewApi.decodeBase64ToFloat32(data.data),
+      data: RewApi.decodeBase64ToFloat32(data.data),
+    };
+  }
+
+  /**
+   * Gets the predicted frequency response for
+   * the equalised measurement at index id or with UUID id,
+   * index starts from 1
+   * GET /measurements/{id}/eq/frequency-response
+   * @param {string} id - UUID ou index
+   * @param {object} options - { unit: 'SPL'|'dBFS'|..., smoothing: '1/12'|..., ppo: 96 }
+   */
+  async getPredictedFrequencyResponse(id, options = {}) {
+    const params = new URLSearchParams();
+    if (options.unit) params.append('unit', options.unit);
+    if (options.smoothing) params.append('smoothing', options.smoothing);
+    if (options.ppo) params.append('ppo', options.ppo);
+
+    const query = params.toString();
+    const data = await this.request(
+      `/measurements/${id}/eq/frequency-response${query ? '?' + query : ''}`
+    );
+
+    const magnitudeArray = RewApi.decodeBase64ToFloat32(data.magnitude);
+
+    const freqs = this.generateFrequencyArray(
+      magnitudeArray.length,
+      data.startFreq,
+      data.freqStep,
+      data.ppo
+    );
+
+    // Décode les données Base64 en tableaux float32
+    return {
+      ...data,
+      freqs,
+      endFreq: freqs.at(-1) ?? 0,
+      magnitude: magnitudeArray,
+      phase: data.phase ? RewApi.decodeBase64ToFloat32(data.phase) : null,
+    };
+  }
+
+  /**
+   * Gets the predicted group delay for
+   * the equalised measurement at index id or with UUID id,
+   * index starts from 1
+   * GET /measurements/{id}/eq/group-delay
+   * @param {string} id - UUID ou index
+   * @param {object} options - { smoothing: '1/12'|..., ppo: 96 }
+   */
+  async getPredictedGroupDelay(id, options = {}) {
+    const params = new URLSearchParams();
+    if (options.smoothing) params.append('smoothing', options.smoothing);
+    if (options.ppo) params.append('ppo', options.ppo);
+
+    const query = params.toString();
+    const data = await this.request(
+      `/measurements/${id}/eq/group-delay${query ? '?' + query : ''}`
+    );
+
+    return {
+      ...data,
+      magnitude: RewApi.decodeBase64ToFloat32(data.magnitude),
     };
   }
 
@@ -277,7 +339,7 @@ class REWMeasurements {
 
     return {
       ...data,
-      dataArray: RewApi.decodeBase64ToFloat32(data.data),
+      data: RewApi.decodeBase64ToFloat32(data.data),
     };
   }
 

@@ -319,7 +319,7 @@ class REWAlignmentTool {
 
     return {
       ...data,
-      dataArray: RewApi.decodeBase64ToFloat32(data.data),
+      data: RewApi.decodeBase64ToFloat32(data.data),
     };
   }
 
@@ -336,7 +336,7 @@ class REWAlignmentTool {
 
     return {
       ...data,
-      dataArray: RewApi.decodeBase64ToFloat32(data.data),
+      data: RewApi.decodeBase64ToFloat32(data.data),
     };
   }
 
