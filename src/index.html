@@ -1665,27 +1665,28 @@
                       </div>
                     </div>
                     <div class="filter-controls">
-                      <select
-                        class="combo-box filter-select"
-                        aria-label="Filter measurements"
-                        data-bind="
-                      attr: { 'aria-label': translations().filter_measurements_label },
-                      options: selectedMeasurements,
-                      optionsText: 'text',
-                      optionsValue: 'value',
-                      value: selectedMeasurementsFilter"
-                      ></select>
+                      <label class="checkbox-container measurements-filter-toggle">
+                        <input
+                          type="checkbox"
+                          data-bind="checked: selectedMeasurementsFilter"
+                        />
+                        <span data-i18n="display_all">Display only Selected</span>
+                        <span class="checkmark"></span>
+                      </label>
+                    </div>
+                    <div>
+                      <span data-i18n="selected_position">Selected Position:</span>
                       <select
                         id="filterSelectproduceAlignedButton"
-                        class="combo-box position-select"
+                        class="combo-box"
                         aria-label="Select position"
                         data-bind="
-                    attr: { 'aria-label': translations().select_position_label },
-                    options: measurementsPositionList,
-                    optionsText: 'text',
-                    optionsValue: 'value',
-                    enable: measurementsPositionList().length > 0,
-                    value: currentSelectedPosition"
+                          attr: { 'aria-label': translations().select_position_label },
+                          options: measurementsPositionList,
+                          optionsText: 'text',
+                          optionsValue: 'value',
+                          enable: measurementsPositionList().length > 0,
+                          value: currentSelectedPosition"
                       ></select>
                     </div>
                   </th>
