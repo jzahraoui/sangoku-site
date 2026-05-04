@@ -39,6 +39,24 @@ class MeasurementViewModel {
     this.confirmDialogMessage = this.confirmManager.confirmDialogMessage;
 
     this.inhibitGraphUpdates = ko.observable(true);
+    this.autoEqConfig = {
+      numFilters: ko.observable(20),
+      maxCutDb: ko.observable(15),
+      flatnessTarget: ko.observable(0.3),
+      numOptimizationPasses: ko.observable(20),
+      gainSignLockThreshold: ko.observable(0.5),
+      notchExclusionThreshold: ko.observable(6),
+      minFilterGain: ko.observable(0.4),
+      enableBeatRewOptimization: ko.observable(true),
+      enableCandidatePlacement: ko.observable(true),
+      enableReduceRepair: ko.observable(true),
+      enableCriticalBandRefinement: ko.observable(true),
+      enableRefinement: ko.observable(false),
+      refinementIterations: ko.observable(100),
+      varyQAbove200Hz: ko.observable(false),
+      allowNarrowFiltersBelow200Hz: ko.observable(true),
+      allowBoosts: ko.observable(true),
+    };
     this.isPolling = ko.observable(false);
     this.pollerId = null;
     // Add translation support
@@ -1174,6 +1192,25 @@ class MeasurementViewModel {
       }
     };
 
+    this.buttongeneratesRchFilters = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+
+        for (const item of this.uniqueSpeakersMeasurements()) {
+          // display progression in the status
+          lm.info(`Generating filter for channel ${item.channelName()}`);
+          await item.createPhaseMatchFilter();
+        }
+
+        this.handleSuccess(`Filters generated successfully`);
+      } catch (error) {
+        this.handleError(`Filter generation failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
     this.buttonInvertAll = async () => {
       if (this.isProcessing()) return;
       try {
@@ -2227,6 +2264,29 @@ class MeasurementViewModel {
     return targetCurveResponse.magnitude[freqIndex];
   }
 
+  /**
+   * Synchronises the target level across all measurements from a reference measurement.
+   *
+   * 1. Resolves the reference measurement (falls back to the first speaker measurement
+   *    if none is provided or if the argument is not a MeasurementItem).
+   * 2. Reads the target level from that measurement (or from the REW default if no
+   *    measurement is available).
+   * 3. Checks the active target curve in REW.
+   * 4. If neither the target curve nor the target level changed, only ensures the
+   *    target curve measurement exists in REW and returns early.
+   * 5. Otherwise, updates `mainTargetLevel`, sets the same target level on every valid
+   *    measurement (which also resets their filters), updates the REW default target
+   *    level, removes stale LFE-predicted measurements, and regenerates the target
+   *    curve measurement.
+   *
+   * The method acquires the "processing" lock if it is not already held, and always
+   * releases it in the `finally` block.
+   *
+   * @param {MeasurementItem} [measurement] - Optional reference measurement. When
+   *   omitted or invalid, the first unique speaker measurement is used as fallback.
+   * @returns {Promise<number|undefined>} The new target level in dB, or `undefined`
+   *   when no update was needed.
+   */
   setTargetLevelFromMeasurement = async measurement => {
     if (!measurement || !(measurement instanceof MeasurementItem)) {
       // use first measurement as default
@@ -3065,6 +3125,11 @@ class MeasurementViewModel {
     data.inhibitGraphUpdates !== undefined &&
       this.inhibitGraphUpdates(data.inhibitGraphUpdates);
     data.mainTargetLevel && this.mainTargetLevel(data.mainTargetLevel);
+    if (data.autoEqConfig) {
+      for (const [key, val] of Object.entries(data.autoEqConfig)) {
+        this.autoEqConfig[key]?.(val);
+      }
+    }
     data.SubsFrequencyBands && (this.SubsFrequencyBands = data.SubsFrequencyBands);
   }
 
@@ -3109,6 +3174,7 @@ class MeasurementViewModel {
         ]),
       ),
       mainTargetLevel: this.mainTargetLevel(),
+      autoEqConfig: ko.toJS(this.autoEqConfig),
       SubsFrequencyBands: this.SubsFrequencyBands,
     };
     // Convert observables to plain objects
@@ -3182,6 +3248,25 @@ class MeasurementViewModel {
     } else {
       this.startBackgroundPolling();
     }
+  }
+
+  resetAutoEqConfig() {
+    this.autoEqConfig.numFilters(20);
+    this.autoEqConfig.maxCutDb(25);
+    this.autoEqConfig.flatnessTarget(0.3);
+    this.autoEqConfig.numOptimizationPasses(20);
+    this.autoEqConfig.gainSignLockThreshold(0.5);
+    this.autoEqConfig.notchExclusionThreshold(6);
+    this.autoEqConfig.minFilterGain(0.4);
+    this.autoEqConfig.enableBeatRewOptimization(false);
+    this.autoEqConfig.enableCandidatePlacement(true);
+    this.autoEqConfig.enableReduceRepair(true);
+    this.autoEqConfig.enableCriticalBandRefinement(true);
+    this.autoEqConfig.enableRefinement(false);
+    this.autoEqConfig.refinementIterations(100);
+    this.autoEqConfig.varyQAbove200Hz(false);
+    this.autoEqConfig.allowNarrowFiltersBelow200Hz(true);
+    this.autoEqConfig.allowBoosts(true);
   }
 }
 

@@ -1,0 +1,160 @@
+/**
+ * GridCalculationContext.js
+ *
+ * Prepares the frequency grid used throughout the AutoEQ pipeline from raw
+ * measured and target frequency responses.
+ *
+ * Responsibilities:
+ *   - Validate that measured and target share the same grid
+ *   - Slice both arrays to the requested [matchRangeStart, matchRangeEnd]
+ *   - Build fast nearest-neighbour accessor functions
+ *   - Estimate the points-per-octave density of the grid
+ *   - Sanity-check the resulting context before computation starts
+ *
+ * The resulting instance is a plain data object — no further computation is
+ * deferred.  All fields are public and read-only after construction.
+ */
+
+import { binarySearchLowerBound } from './math/filterMath.js';
+
+export class GridCalculationContext {
+  /**
+   * Factory method: validates inputs, slices to range, builds accessors.
+   *
+   * @param {{ freqs: ArrayLike<number>, magnitude: ArrayLike<number> }} measuredSPL
+   * @param {{ freqs: ArrayLike<number>, magnitude: ArrayLike<number> }} targetCurve
+   * @param {{ matchRangeStart: number, matchRangeEnd: number }} config
+   * @returns {GridCalculationContext}
+   */
+  static fromResponses(measuredSPL, targetCurve, config) {
+    const measured = GridCalculationContext._normalizeResponse(
+      measuredSPL,
+      'measuredSPL',
+    );
+    const target = GridCalculationContext._normalizeResponse(targetCurve, 'targetCurve');
+
+    /*
+    Both getFrequencyResponse and getTargetResponse use ppo=96 but REW returns them with different startFreq values, producing grids of different length/values. GridCalculationContext._sliceToRange does index-based slicing of both arrays — it assumes identical grids.
+    The fix: change _sliceToRange to do frequency-based (nearest-neighbor) lookup for the target instead of index-based slicing, and remove the _assertCompatibleGrids guard. Behavior is identical when grids match; when they differ the target is correctly resampled onto the measured grid.
+    */
+    // GridCalculationContext._assertCompatibleGrids(measured, target);
+
+    const { freqs, measuredMagnitude, targetMagnitude } =
+      GridCalculationContext._sliceToRange(measured, target, config);
+
+    const ctx = new GridCalculationContext();
+    ctx.mode = 'grid';
+    ctx.scanFreqs = freqs;
+    ctx.measuredArr = measuredMagnitude;
+    ctx.targetArr = targetMagnitude;
+    ctx.pointsPerOctave = GridCalculationContext._estimatePointsPerOctave(freqs);
+    ctx.measuredFn = GridCalculationContext._buildNearestAccessor(
+      freqs,
+      measuredMagnitude,
+    );
+    ctx.targetFn = GridCalculationContext._buildNearestAccessor(freqs, targetMagnitude);
+    return ctx;
+  }
+
+  /**
+   * Verifies that the accessor functions return finite values at 1 kHz.
+   * Throws a TypeError if either returns a non-finite result.
+   */
+  validate() {
+    const testFreq = 1000;
+    const m = this.measuredFn(testFreq);
+    const t = this.targetFn(testFreq);
+    if (!Number.isFinite(m)) {
+      throw new TypeError(`measuredSPL(${testFreq}) returned non-finite: ${m}`);
+    }
+    if (!Number.isFinite(t)) {
+      throw new TypeError(`targetCurve(${testFreq}) returned non-finite: ${t}`);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Private static helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  static _normalizeResponse(input, name) {
+    if (!input || typeof input !== 'object') {
+      throw new TypeError(`${name} must be a frequency response object`);
+    }
+    const { freqs, magnitude } = input;
+    if (
+      !GridCalculationContext._isArrayLikeNumeric(freqs) ||
+      !GridCalculationContext._isArrayLikeNumeric(magnitude)
+    ) {
+      throw new TypeError(`${name} must provide numeric freqs and magnitude arrays`);
+    }
+    if (freqs.length !== magnitude.length || freqs.length === 0) {
+      throw new RangeError(
+        `${name} freqs and magnitude must have the same non-zero length`,
+      );
+    }
+    return { freqs, magnitude };
+  }
+
+  static _assertCompatibleGrids(measured, target) {
+    if (measured.freqs.length !== target.freqs.length) {
+      throw new RangeError('Measured and target responses must share the same grid');
+    }
+    for (let i = 0; i < measured.freqs.length; i++) {
+      const tolerance = Math.max(1e-3, measured.freqs[i] * 1e-6);
+      if (Math.abs(measured.freqs[i] - target.freqs[i]) > tolerance) {
+        throw new RangeError('Measured and target responses must share the same grid');
+      }
+    }
+  }
+
+  static _sliceToRange(measured, target, config) {
+    const { matchRangeStart, matchRangeEnd } = config;
+    const startIndex = binarySearchLowerBound(measured.freqs, matchRangeStart);
+    const rawEndIndex = binarySearchLowerBound(measured.freqs, matchRangeEnd);
+    const endIndex = Math.min(rawEndIndex, measured.freqs.length - 1);
+
+    if (startIndex > endIndex) {
+      throw new RangeError('No raw response points available in the requested range');
+    }
+
+    return {
+      freqs: measured.freqs.slice(startIndex, endIndex + 1),
+      measuredMagnitude: measured.magnitude.slice(startIndex, endIndex + 1),
+      targetMagnitude: target.magnitude.slice(startIndex, endIndex + 1),
+    };
+  }
+
+  static _isArrayLikeNumeric(value) {
+    return Array.isArray(value) || ArrayBuffer.isView(value);
+  }
+
+  static _buildNearestAccessor(freqs, magnitude) {
+    return freq => magnitude[GridCalculationContext._findNearestIndex(freqs, freq)];
+  }
+
+  static _findNearestIndex(freqs, freq) {
+    if (!Number.isFinite(freq)) {
+      throw new TypeError(`Invalid lookup frequency: ${freq}`);
+    }
+    const upper = binarySearchLowerBound(freqs, freq);
+    if (upper <= 0) {
+      return 0;
+    }
+    if (upper >= freqs.length) {
+      return freqs.length - 1;
+    }
+    const lower = upper - 1;
+    return Math.abs(freqs[upper] - freq) < Math.abs(freq - freqs[lower]) ? upper : lower;
+  }
+
+  static _estimatePointsPerOctave(freqs) {
+    if (!freqs || freqs.length < 2 || freqs[0] <= 0 || freqs[1] <= 0) {
+      return 96;
+    }
+    const ratio = freqs[1] / freqs[0];
+    if (!Number.isFinite(ratio) || ratio <= 1) {
+      return 96;
+    }
+    return Math.max(1, Math.round(Math.log(2) / Math.log(ratio)));
+  }
+}

@@ -596,6 +596,222 @@
                     <span class="checkmark"></span>
                   </label>
                 </div>
+
+                <details class="autoeq-settings">
+                  <summary data-i18n="autoeq_settings">AutoEQ Settings</summary>
+
+                  <div class="autoeq-grid">
+                    <label for="autoeq-num-filters" data-i18n="autoeq_num_filters"
+                      >Filters</label
+                    >
+                    <input
+                      id="autoeq-num-filters"
+                      type="range"
+                      min="1"
+                      max="30"
+                      step="1"
+                      data-bind="value: autoEqConfig.numFilters, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.numFilters()"
+                    ></span>
+
+                    <label for="autoeq-max-cut-db" data-i18n="autoeq_max_cut_db"
+                      >Max cut (dB)</label
+                    >
+                    <input
+                      id="autoeq-max-cut-db"
+                      type="range"
+                      min="0"
+                      max="30"
+                      step="0.5"
+                      data-bind="value: autoEqConfig.maxCutDb, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.maxCutDb()"
+                    ></span>
+
+                    <label for="autoeq-flatness-target" data-i18n="autoeq_flatness_target"
+                      >Flatness target</label
+                    >
+                    <input
+                      id="autoeq-flatness-target"
+                      type="range"
+                      min="0.1"
+                      max="6"
+                      step="0.05"
+                      data-bind="value: autoEqConfig.flatnessTarget, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.flatnessTarget()"
+                    ></span>
+
+                    <label
+                      for="autoeq-optimization-passes"
+                      data-i18n="autoeq_optimization_passes"
+                      >Optimization passes</label
+                    >
+                    <input
+                      id="autoeq-optimization-passes"
+                      type="range"
+                      min="1"
+                      max="20"
+                      step="1"
+                      data-bind="value: autoEqConfig.numOptimizationPasses, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.numOptimizationPasses()"
+                    ></span>
+
+                    <label for="autoeq-gain-sign-lock" data-i18n="autoeq_gain_sign_lock"
+                      >Gain sign lock</label
+                    >
+                    <input
+                      id="autoeq-gain-sign-lock"
+                      type="range"
+                      min="0.1"
+                      max="2"
+                      step="0.05"
+                      data-bind="value: autoEqConfig.gainSignLockThreshold, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.gainSignLockThreshold()"
+                    ></span>
+
+                    <label for="autoeq-notch-exclusion" data-i18n="autoeq_notch_exclusion"
+                      >Notch exclusion</label
+                    >
+                    <input
+                      id="autoeq-notch-exclusion"
+                      type="range"
+                      min="2"
+                      max="15"
+                      step="0.5"
+                      data-bind="value: autoEqConfig.notchExclusionThreshold, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.notchExclusionThreshold()"
+                    ></span>
+
+                    <label for="autoeq-min-filter-gain" data-i18n="autoeq_min_filter_gain"
+                      >Min filter gain</label
+                    >
+                    <input
+                      id="autoeq-min-filter-gain"
+                      type="range"
+                      min="0.1"
+                      max="2"
+                      step="0.05"
+                      data-bind="value: autoEqConfig.minFilterGain, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.minFilterGain()"
+                    ></span>
+
+                    <label
+                      for="autoeq-refinement-iterations"
+                      data-i18n="autoeq_refinement_iterations"
+                      >Refinement iterations</label
+                    >
+                    <input
+                      id="autoeq-refinement-iterations"
+                      type="range"
+                      min="10"
+                      max="500"
+                      step="10"
+                      data-bind="value: autoEqConfig.refinementIterations, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.refinementIterations()"
+                    ></span>
+                  </div>
+
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.enableBeatRewOptimization"
+                    />
+                    <span data-i18n="autoeq_beat_rew">Beat-REW optimization</span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.enableCandidatePlacement"
+                    />
+                    <span data-i18n="autoeq_candidate_placement"
+                      >Candidate placement</span
+                    >
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.enableReduceRepair"
+                    />
+                    <span data-i18n="autoeq_reduce_repair">Reduce &amp; repair</span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.enableCriticalBandRefinement"
+                    />
+                    <span data-i18n="autoeq_critical_band">Critical band refinement</span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.enableRefinement"
+                    />
+                    <span data-i18n="autoeq_refinement">Refinement</span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.varyQAbove200Hz"
+                    />
+                    <span data-i18n="autoeq_vary_q">Vary Q above 200 Hz</span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.allowNarrowFiltersBelow200Hz"
+                    />
+                    <span data-i18n="autoeq_narrow_filters"
+                      >Narrow filters below 200 Hz</span
+                    >
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.allowBoosts"
+                    />
+                    <span data-i18n="autoeq_allow_boosts">Allow boosts</span>
+                    <span class="checkmark"></span>
+                  </label>
+
+                  <button
+                    type="button"
+                    class="button"
+                    data-bind="click: resetAutoEqConfig, attr: { 'data-tooltip': translations().autoeq_reset_tooltip }"
+                  >
+                    <i class="fas fa-undo" aria-hidden="true"></i>
+                    <span data-i18n="autoeq_reset_defaults">Reset defaults</span>
+                  </button>
+                </details>
               </form>
             </dialog>
 
@@ -1398,14 +1614,8 @@
             <table class="measurements-table">
               <thead>
                 <tr class="table-header">
-                  <th class="filter-header">
-                    <div
-                      style="
-                        margin-bottom: 10px;
-                        display: flex;
-                        justify-content: flex-end;
-                      "
-                    >
+                  <th class="filter-header table-header-cell">
+                    <div class="table-header-toolbar table-header-toolbar-end">
                       <div class="column-toggle-dropdown">
                         <button
                           id="columnToggleBtn"
@@ -1479,10 +1689,12 @@
                       ></select>
                     </div>
                   </th>
-                  <th data-i18n="channel_name" class="column-header">Channel Name</th>
-                  <th class="column-header">
-                    <span data-i18n="measurement">Measurement</span>
-                    <div>
+                  <th data-i18n="channel_name">Channel Name</th>
+                  <th class="table-header-cell">
+                    <span class="table-header-label" data-i18n="measurement"
+                      >Measurement</span
+                    >
+                    <div class="table-header-toolbar">
                       <button
                         class="button"
                         data-bind="
@@ -1498,10 +1710,12 @@
                       </button>
                     </div>
                   </th>
-                  <th class="distance-column">
-                    <div class="distance-info">
-                      <div>
-                        <span data-i18n="distance">Distance</span>
+                  <th class="distance-column table-header-cell">
+                    <div class="table-header-stack distance-info">
+                      <div class="table-header-control">
+                        <span class="table-header-label" data-i18n="distance"
+                          >Distance</span
+                        >
                         <select
                           id="distanceUnitSelect"
                           class="combo-box"
@@ -1529,33 +1743,29 @@
                       ></div>
                     </div>
                   </th>
-                  <th
-                    class="column-header"
-                    data-bind="visible: visibleColumns().delay"
-                    data-i18n="delays_ms"
-                  >
+                  <th data-bind="visible: visibleColumns().delay" data-i18n="delays_ms">
                     Delays (ms)
                   </th>
                   <th
-                    class="column-header"
                     data-bind="visible: visibleColumns().peak"
                     data-i18n="peaks_time_ms"
                   >
                     Peaks time (ms)
                   </th>
                   <th
-                    class="column-header"
                     data-bind="visible: visibleColumns().distance"
                     data-i18n="absolute_distance_m"
                   >
                     Absolute distance (m)
                   </th>
                   <th
-                    class="column-header"
+                    class="table-header-cell"
                     data-bind="visible: visibleColumns().shiftDelay"
                   >
-                    <span data-i18n="required_shift_ms"> Required shift (ms) </span>
-                    <div>
+                    <span class="table-header-label" data-i18n="required_shift_ms">
+                      Required shift (ms)
+                    </span>
+                    <div class="table-header-toolbar">
                       <button
                         class="button action-button"
                         data-bind="
@@ -1571,7 +1781,7 @@
                       </button>
                     </div>
                   </th>
-                  <th data-i18n="trim_db" class="column-header">Trim (dB)</th>
+                  <th data-i18n="trim_db">Trim (dB)</th>
                   <th class="crossover-column">
                     <select
                       id="globalCrossoverSelect"
@@ -1586,41 +1796,65 @@
                     value: gobalCrossover"
                     ></select>
                   </th>
-                  <th class="column-header">
-                    <button
-                      class="preview-btn"
-                      data-bind="
-                    click: buttonInvertAll,
-                    disable: isProcessing(),
-                    css: { disabled: isProcessing }"
-                    >
-                      <i id="invert-icon" class="fa fa-arrow-up" aria-hidden="true"></i>
-                      <span class="sr-only" data-i18n="invert_all">Invert all</span>
-                    </button>
+                  <th class="table-header-cell">
+                    <span class="table-header-label">Invert</span>
+                    <div class="table-header-toolbar">
+                      <button
+                        class="button"
+                        data-bind="
+                          click: buttonInvertAll,
+                          disable: isProcessing(),
+                          css: { disabled: isProcessing, loading: isProcessing  },
+                          attr: { 'data-tooltip': translations().toggle_phase_inversion_tooltip }"
+                      >
+                        <i id="invert-icon" class="fa fa-arrow-up" aria-hidden="true"></i>
+                      </button>
+                    </div>
                   </th>
-                  <th class="column-header">
-                    <button
-                      class="preview-btn"
-                      data-bind="
-                    click: buttongeneratesFilters,
-                    disable: isProcessing(),
-                    css: { disabled: isProcessing }"
-                    >
-                      <i class="fa fa-sliders" aria-hidden="true"></i>
-                      <span class="sr-only" data-i18n="all_filters">All Filters</span>
-                    </button>
+                  <th class="table-header-cell">
+                    <span class="table-header-label">REW Filter</span>
+                    <div class="table-header-toolbar">
+                      <button
+                        class="button"
+                        data-bind="
+                          click: buttongeneratesFilters,
+                          disable: isProcessing(),
+                          css: { disabled: isProcessing, loading: isProcessing  },
+                          attr: { 'data-tooltip': translations().create_speaker_filter_tooltip }"
+                      >
+                        <i class="fa fa-sliders" aria-hidden="true"></i>
+                      </button>
+                    </div>
                   </th>
-                  <th class="column-header">
-                    <button
-                      class="preview-btn"
-                      data-bind="
-                    click: buttongenratesPreview,
-                    disable: isProcessing(),
-                    css: { disabled: isProcessing }"
-                    >
-                      <i class="fa fa-eye" aria-hidden="true"></i>
-                      <span class="sr-only" data-i18n="all_previews">All previews</span>
-                    </button>
+                  <th class="table-header-cell">
+                    <span class="table-header-label">RCH Filter</span>
+                    <div class="table-header-toolbar">
+                      <button
+                        class="button"
+                        data-bind="
+                          click: buttongeneratesRchFilters,
+                          disable: isProcessing(),
+                          css: { disabled: isProcessing, loading: isProcessing  },
+                          attr: { 'data-tooltip': translations().create_rch_speaker_filter_tooltip }"
+                      >
+                        <i class="fa fa-sliders" aria-hidden="true"></i>
+                      </button>
+                    </div>
+                  </th>
+                  <th class="table-header-cell">
+                    <span class="table-header-label">Preview</span>
+                    <div class="table-header-toolbar">
+                      <button
+                        class="button"
+                        data-bind="
+                          click: buttongenratesPreview,
+                          disable: isProcessing(),
+                          css: { disabled: isProcessing, loading: isProcessing  },
+                          attr: { 'data-tooltip': translations().create_preview_tooltip }"
+                      >
+                        <i class="fa fa-eye" aria-hidden="true"></i>
+                      </button>
+                    </div>
                   </th>
                 </tr>
               </thead>
@@ -1692,7 +1926,7 @@
                     style="text-align: right"
                     data-bind="text: splOffsetDeltadB().toFixed(1), css: { error: splIsAboveLimit() }"
                   ></td>
-                  <td>
+                  <td style="text-align: center">
                     <select
                       class="combo-box"
                       aria-label="Channel crossover frequency"
@@ -1733,6 +1967,22 @@
                       css: { disabled: $parent.isProcessing },
                       visible: !isSub() && isValid,
                       attr: { 'data-tooltip': $parent.translations().create_speaker_filter_tooltip }"
+                    >
+                      <i class="fa fa-sliders" aria-hidden="true"></i>
+                    </button>
+                  </td>
+                  <td
+                    style="text-align: center"
+                    data-bind="css: { success: associatedFilterItem() }"
+                  >
+                    <button
+                      class="button"
+                      data-bind="
+                      click: buttonCreateRchFilter,
+                      disable: $parent.isProcessing(),
+                      css: { disabled: $parent.isProcessing },
+                      visible: !isSub() && isValid,
+                      attr: { 'data-tooltip': $parent.translations().create_rch_speaker_filter_tooltip }"
                     >
                       <i class="fa fa-sliders" aria-hidden="true"></i>
                     </button>
