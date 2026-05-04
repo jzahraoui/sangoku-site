@@ -916,7 +916,7 @@
                 optionsText: 'text',
                 optionsValue: 'value',
                 value: selectedSmoothingMethod,
-                event: { change: $root.saveMeasurements },
+                event: { change: $root.onSmoothingChanged },
                 "
               ></select>
               <select
@@ -928,7 +928,7 @@
                 optionsText: 'text',
                 optionsValue: 'value',
                 value: selectedIrWindows,
-                event: { change: $root.saveMeasurements },
+                event: { change: $root.onIrWindowsChanged },
                 "
               ></select>
             </div>

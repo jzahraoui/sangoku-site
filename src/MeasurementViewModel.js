@@ -2029,6 +2029,91 @@ class MeasurementViewModel {
     };
   }
 
+  applyToSelectedMeasurements = async ({
+    successLabel,
+    errorLabel,
+    filter = () => true,
+    apply,
+    includePredictedLfeMeasurement = false,
+  }) => {
+    // Save is intentional before guards: persists state even when polling is inactive
+    this.saveMeasurements();
+
+    if (!this.isPolling()) {
+      return;
+    }
+
+    if (this.isProcessing()) {
+      lm.warn(`Unable to apply ${successLabel.toLowerCase()} while processing`);
+      return;
+    }
+
+    const base = this.uniqueMeasurements().filter(filter);
+
+    const predicted = includePredictedLfeMeasurement
+      ? this.predictedLfeMeasurement()
+      : null;
+    const addPredicted =
+      predicted && filter(predicted) && !base.some(m => m.uuid === predicted.uuid);
+
+    const selectedMeasurements = addPredicted ? [...base, predicted] : base;
+
+    if (selectedMeasurements.length === 0) {
+      return;
+    }
+
+    try {
+      await this.setProcessing(true);
+
+      for (const measurement of selectedMeasurements) {
+        await apply(measurement);
+      }
+
+      this.handleSuccess(
+        `${successLabel} applied to ${selectedMeasurements.length} selected measurement${
+          selectedMeasurements.length > 1 ? 's' : ''
+        }`,
+      );
+    } catch (error) {
+      this.handleError(`${errorLabel} failed: ${error.message}`, error);
+    } finally {
+      await this.setProcessing(false);
+    }
+  };
+
+  onIrWindowsChanged = async (_, event) => {
+    const newValue = event?.target?.value;
+    if (newValue && newValue !== this.selectedIrWindows()) {
+      this.selectedIrWindows(newValue);
+    }
+
+    await this.applyToSelectedMeasurements({
+      successLabel: 'IR windows',
+      errorLabel: 'IR window update',
+      filter: item => !item.isFilter && item.haveImpulseResponse,
+      apply: measurement => measurement.setIrWindows(this.selectedIrWindowsConfig()),
+      includePredictedLfeMeasurement: true,
+    });
+  };
+
+  onSmoothingChanged = async (_, event) => {
+    const newValue = event?.target?.value;
+    if (newValue && newValue !== this.selectedSmoothingMethod()) {
+      this.selectedSmoothingMethod(newValue);
+    }
+
+    await this.applyToSelectedMeasurements({
+      successLabel: 'Smoothing',
+      errorLabel: 'Smoothing update',
+      filter: item => !item.isFilter,
+      apply: measurement =>
+        this.selectedSmoothingMethod() === 'None'
+          ? measurement.resetSmoothing()
+          : measurement.setSmoothing(this.selectedSmoothingMethod()),
+      includePredictedLfeMeasurement: true,
+    });
+  };
+
   // Méthodes de confirmation pour les actions sensibles
 
   confirmResetApplication = () => {
