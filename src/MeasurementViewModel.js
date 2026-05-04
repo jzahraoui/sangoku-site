@@ -19,6 +19,23 @@ import { Room3DViewer } from './room-3d-viewer.js';
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
 
 const store = new PersistentStore('myAppData');
+const DEFAULT_IR_WINDOW_CHOICE = 'Optimized MTW';
+const FALLBACK_IR_WINDOW_CHOICE = 'None';
+const IR_WINDOW_PRESETS = {
+  None: {
+    leftWindowType: 'Rectangular',
+    rightWindowType: 'Rectangular',
+    addFDW: false,
+    addMTW: false,
+  },
+  'Optimized MTW': {
+    leftWindowType: 'Rectangular',
+    rightWindowType: 'Rectangular',
+    addFDW: false,
+    addMTW: true,
+    mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.15],
+  },
+};
 
 class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
@@ -172,38 +189,14 @@ class MeasurementViewModel {
 
     this.selectedSmoothingMethod = ko.observable('None');
 
-    this.irWindowsChoices = [
-      {
-        value: 'None',
-        text: 'None',
-        config: {
-          leftWindowType: 'Rectangular',
-          rightWindowType: 'Rectangular',
-          addFDW: false,
-          addMTW: false,
-        },
-      },
-      {
-        value: 'Optimized MTW',
-        text: 'Optimized MTW',
-        config: {
-          leftWindowType: 'Rectangular',
-          rightWindowType: 'Rectangular',
-          addFDW: false,
-          addMTW: true,
-          mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.15],
-        },
-      },
-    ];
+    this.irWindowsChoices = Object.keys(IR_WINDOW_PRESETS).map(value => ({
+      value,
+      text: value,
+    }));
 
-    this.selectedIrWindows = ko.observable('Optimized MTW');
+    this.selectedIrWindows = ko.observable(DEFAULT_IR_WINDOW_CHOICE);
 
-    // get seletced IR window config
-    this.selectedIrWindowsConfig = ko.computed(() => {
-      const selected = this.selectedIrWindows();
-      const found = this.irWindowsChoices.find(choice => choice.value === selected);
-      return found ? found.config : null;
-    });
+    this.selectedIrWindowsConfig = ko.pureComputed(() => this.getIrWindowConfig());
 
     // Subscribe to changes in global crossover
     this.gobalCrossover.subscribe(newValue => {
@@ -2024,6 +2017,16 @@ class MeasurementViewModel {
 
       return this.maxDistanceInMetersError() - this.maxSubDistanceInMeters() + shift;
     });
+  }
+
+  getIrWindowConfig(presetName = this.selectedIrWindows()) {
+    const preset =
+      IR_WINDOW_PRESETS[presetName] ?? IR_WINDOW_PRESETS[FALLBACK_IR_WINDOW_CHOICE];
+
+    return {
+      ...preset,
+      ...(preset.mtwTimesms ? { mtwTimesms: [...preset.mtwTimesms] } : {}),
+    };
   }
 
   // Méthodes de confirmation pour les actions sensibles

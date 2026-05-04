@@ -1305,7 +1305,7 @@ class MeasurementItem {
 
     await preview.setZeroAtIrPeak();
     await preview.resetSmoothing();
-    await preview.setIrWindows(this.parentViewModel.irWindowsChoices[1].config);
+    await preview.setIrWindows(this.parentViewModel.getIrWindowConfig('Optimized MTW'));
 
     const excessPhase = await preview.createExcessPhaseCopy();
     toBeDeleted.push(excessPhase);
