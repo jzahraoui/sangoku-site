@@ -268,6 +268,18 @@ class MeasurementViewModel {
     this.overallBoostValue = ko.observable(3);
     this.overallBoostValueMin = 0;
     this.overallBoostValueMax = 6;
+    this.areSpeakerBoostControlsDisabled = ko.pureComputed(
+      () => !this.autoEqConfig.allowBoosts(),
+    );
+
+    this.autoEqConfig.allowBoosts.subscribe(allowBoosts => {
+      if (!allowBoosts) {
+        this.individualMaxBoostValue(0);
+        this.overallBoostValue(0);
+      }
+
+      this.saveMeasurements();
+    });
 
     this.measurementsByGroup = ko.computed(() => {
       if (!this.jsonAvrData()?.detectedChannels) return {};

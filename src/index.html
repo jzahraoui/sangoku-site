@@ -952,6 +952,7 @@
                   type="number"
                   data-bind="
                       value: individualMaxBoostValue,
+                      disable: areSpeakerBoostControlsDisabled,
                       valueUpdate: 'afterkeydown',
                       attr: {
                           min: individualMaxBoostValueMin,
@@ -976,6 +977,7 @@
                   type="number"
                   data-bind="
                       value: overallBoostValue,
+                      disable: areSpeakerBoostControlsDisabled,
                       valueUpdate: 'afterkeydown',
                       attr: {
                           min: overallBoostValueMin,
