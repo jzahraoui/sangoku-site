@@ -88,12 +88,13 @@ class MeasurementItem {
     this.crossover = ko.computed(() =>
       this.parentViewModel.measurementsByGroup()[this.groupName()]?.crossover(),
     );
-    this.speakerType = ko.computed(() =>
-      this.parentViewModel.measurementsByGroup()[this.groupName()]?.speakerType(),
-    );
     this.isSub = ko.computed(() => this.channelDetails()?.group === 'Subwoofer');
+    this.speakerType = ko.pureComputed(() => {
+      if (this.isSub()) return 'E';
+      return this.crossover() === 0 ? 'L' : 'S';
+    });
 
-    this.leftWindowWidthMilliseconds = ko.computed(() => (this.isSub() ? 70 : 30));;
+    this.leftWindowWidthMilliseconds = ko.computed(() => (this.isSub() ? 70 : 30));
     this.rightWindowWidthMilliseconds = 1000;
 
     this.position = ko.computed(() => {

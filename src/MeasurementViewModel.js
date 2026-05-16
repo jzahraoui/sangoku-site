@@ -123,9 +123,9 @@ class MeasurementViewModel {
     this.lowerFrequencyBoundSub = ko.observable(10);
 
     // Computed
-    this.hasStatus = ko.computed(() => !this.error() && this.status() !== '');
-    this.hasError = ko.computed(() => this.error() !== '');
-    this.hasItems = ko.computed(() => this.measurements().length > 0);
+    this.hasStatus = ko.pureComputed(() => !this.error() && this.status() !== '');
+    this.hasError = ko.pureComputed(() => this.error() !== '');
+    this.hasItems = ko.pureComputed(() => this.measurements().length > 0);
 
     this.handleError = (message, error) => {
       lm.error(message);
@@ -235,12 +235,12 @@ class MeasurementViewModel {
     };
 
     // Array of frequency options with fallback values
-    this.alingFrequencies = ko.computed(() => {
+    this.alingFrequencies = ko.pureComputed(() => {
       const indexes = this.jsonAvrData()?.avr?.frequencyIndexes;
       return indexes || AvrCaracteristics.DEFAULT_FREQUENCIES;
     });
 
-    this.LfeFrequencies = ko.computed(() => {
+    this.LfeFrequencies = ko.pureComputed(() => {
       const freqs = this.jsonAvrData()?.avr?.lfeFrequencies;
       return freqs || AvrCaracteristics.DEFAULT_LFE_FREQUENCIES;
     });
@@ -281,34 +281,20 @@ class MeasurementViewModel {
       this.saveMeasurements();
     });
 
-    this.measurementsByGroup = ko.computed(() => {
-      if (!this.jsonAvrData()?.detectedChannels) return {};
-
-      const groupMap = {};
-      for (const item of this.jsonAvrData().detectedChannels) {
-        const group = CHANNEL_TYPES.getGroupByChannelIndex(item.enChannelType);
-        if (group === null) {
-          throw new Error(
-            `Unknown channel type: ${item.commandId} (id:${item.enChannelType})`,
-          );
+    this._crossoverMap = {};
+    this.measurementsByGroup = ko.pureComputed(() =>
+      this.measurements().reduce((map, item) => {
+        const g = item.groupName();
+        if (!map[g]) {
+          if (!this._crossoverMap[g])
+            this._crossoverMap[g] = ko.observable(
+              item.isSub() ? 0 : MeasurementItem.DEFAULT_CROSSOVER_VALUE,
+            );
+          map[g] = { crossover: this._crossoverMap[g] };
         }
-        if (!groupMap[group]) {
-          const isSub = group === 'Subwoofer';
-          const crossover = ko.observable(
-            isSub ? 0 : MeasurementItem.DEFAULT_CROSSOVER_VALUE,
-          );
-          groupMap[group] = {
-            crossover,
-            isSub,
-            speakerType: ko.computed(() => {
-              if (isSub) return 'E';
-              return crossover() === 0 ? 'L' : 'S';
-            }),
-          };
-        }
-      }
-      return groupMap;
-    });
+        return map;
+      }, {}),
+    );
 
     this.validateFile = file => {
       const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
@@ -1836,19 +1822,19 @@ class MeasurementViewModel {
     };
 
     // Computed for filtered measurements
-    this.subsMeasurements = ko.computed(() =>
+    this.subsMeasurements = ko.pureComputed(() =>
       this.measurements().filter(item => item.isSub()),
     );
 
-    this.subsLikeMeasurements = ko.computed(() =>
+    this.subsLikeMeasurements = ko.pureComputed(() =>
       this.measurements().filter(item => item.isSub() || item.isSubOperationResult),
     );
 
-    this.validMeasurements = ko.computed(() =>
+    this.validMeasurements = ko.pureComputed(() =>
       this.measurements().filter(item => item.isValid),
     );
 
-    this.groupedMeasurements = ko.computed(() => {
+    this.groupedMeasurements = ko.pureComputed(() => {
       const groups = {};
       for (const item of this.measurements()) {
         if (item.isUnknownChannel) continue;
@@ -1865,7 +1851,7 @@ class MeasurementViewModel {
       return groups;
     });
     // creates a map from groupedMeasurements with items grouped by the same position attribute
-    this.byPositionsGroupedSubsMeasurements = ko.computed(() => {
+    this.byPositionsGroupedSubsMeasurements = ko.pureComputed(() => {
       const groups = {};
       for (const item of this.subsMeasurements()) {
         const key = item.position();
@@ -1879,20 +1865,14 @@ class MeasurementViewModel {
 
     this.measurementsPositionList = ko.computed(() => {
       try {
-        const allMeasurementPositions = this.measurements()
-          .map(item => item.position())
-          .filter(Boolean);
-
-        const uniquePositions = [...new Set(allMeasurementPositions)];
-
-        const positionsSet = uniquePositions
-          .map(pos => {
-            const item = this.measurements().find(m => m.position() === pos);
-            return { value: pos, text: item.displayPositionText() };
-          })
-          .sort((a, b) => a.text.localeCompare(b.text));
-
-        return positionsSet;
+        const seen = new Map();
+        for (const item of this.measurements()) {
+          const pos = item.position();
+          if (pos && !seen.has(pos)) {
+            seen.set(pos, { value: pos, text: item.displayPositionText() });
+          }
+        }
+        return [...seen.values()].sort((a, b) => a.text.localeCompare(b.text));
       } catch (error) {
         this.handleError('Error computing measurements position list:', error);
         return [];
@@ -1900,27 +1880,19 @@ class MeasurementViewModel {
     });
 
     // Filtered measurements
-    this.uniqueMeasurements = ko.computed(() => {
-      const measurements = this.measurements();
-      // Early return for empty collection
-      if (!measurements || measurements.length === 0) {
-        return [];
-      }
-      return measurements.filter(item => item.isSelected());
-    }, this);
+    this.uniqueMeasurements = ko.pureComputed(
+      () => this.measurements().filter(item => item.isSelected()),
+      this,
+    );
 
     // Filtered measurements
-    this.notUniqueMeasurements = ko.computed(() => {
-      const measurements = this.measurements();
-      // Early return for empty collection
-      if (!measurements || measurements.length === 0) {
-        return [];
-      }
-      return measurements.filter(item => !item.isSelected());
-    }, this);
+    this.notUniqueMeasurements = ko.pureComputed(
+      () => this.measurements().filter(item => !item.isSelected()),
+      this,
+    );
 
     // Filtered measurements
-    this.uniqueMeasurementsView = ko.computed(() => {
+    this.uniqueMeasurementsView = ko.pureComputed(() => {
       if (this.selectedMeasurementsFilter()) {
         return this.uniqueMeasurements();
       }
@@ -1967,7 +1939,7 @@ class MeasurementViewModel {
       return distanceLeft > 0 ? MeasurementItem.cleanFloat32Value(distanceLeft, 2) : 0;
     });
 
-    this.shiftInMeters = ko.computed(() => {
+    this.shiftInMeters = ko.pureComputed(() => {
       const distances = this.uniqueMeasurements().map(item =>
         item._computeInMeters(item.absoluteIRPeakSeconds()),
       );
@@ -1977,30 +1949,30 @@ class MeasurementViewModel {
       return 0;
     });
 
-    this.uniqueSubsMeasurements = ko.computed(() => {
+    this.uniqueSubsMeasurements = ko.pureComputed(() => {
       return this.uniqueMeasurements().filter(item => item.isSub());
     });
 
-    this.predictedLfeMeasurementTitle = ko.computed(() => {
+    this.predictedLfeMeasurementTitle = ko.pureComputed(() => {
       const position = this.currentSelectedPosition();
       if (position === undefined || position === null) return undefined;
 
       return `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
     });
 
-    this.allPredictedLfeMeasurement = ko.computed(() => {
+    this.allPredictedLfeMeasurement = ko.pureComputed(() => {
       return this.measurements().filter(response =>
         response?.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED),
       );
     });
 
-    this.predictedLfeMeasurement = ko.computed(() => {
+    this.predictedLfeMeasurement = ko.pureComputed(() => {
       return this.allPredictedLfeMeasurement().find(
         response => response?.title() === this.predictedLfeMeasurementTitle(),
       );
     });
 
-    this.uniqueSpeakersMeasurements = ko.computed(() => {
+    this.uniqueSpeakersMeasurements = ko.pureComputed(() => {
       return this.uniqueMeasurements().filter(item => !item.isSub());
     });
 
