@@ -91,11 +91,9 @@ class MeasurementItem {
     this.speakerType = ko.computed(() =>
       this.parentViewModel.measurementsByGroup()[this.groupName()]?.speakerType(),
     );
-    this.isSub = ko.computed(
-      () => this.parentViewModel.measurementsByGroup()[this.groupName()]?.isSub,
-    );
+    this.isSub = ko.computed(() => this.channelDetails()?.group === 'Subwoofer');
 
-    this.leftWindowWidthMilliseconds = this.isSub() ? 70 : 30;
+    this.leftWindowWidthMilliseconds = ko.computed(() => (this.isSub() ? 70 : 30));;
     this.rightWindowWidthMilliseconds = 1000;
 
     this.position = ko.computed(() => {
@@ -393,7 +391,7 @@ class MeasurementItem {
     return this.setIrWindows({
       leftWindowType: 'Rectangular',
       rightWindowType: 'Rectangular',
-      leftWindowWidthms: this.leftWindowWidthMilliseconds,
+      leftWindowWidthms: this.leftWindowWidthMilliseconds(),
       rightWindowWidthms: this.rightWindowWidthMilliseconds,
       refTimems: this.timeOfIRPeakSeconds() * 1000,
       addFDW: false,
