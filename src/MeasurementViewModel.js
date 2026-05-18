@@ -12,7 +12,6 @@ import ko from 'knockout';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import ampAssignType from './amp-type.js';
-import { CHANNEL_TYPES } from './audyssey.js';
 import lm from './logs.js';
 import { Room3DViewer } from './room-3d-viewer.js';
 
@@ -290,7 +289,7 @@ class MeasurementViewModel {
             this._crossoverMap[g] = ko.observable(
               item.isSub() ? 0 : MeasurementItem.DEFAULT_CROSSOVER_VALUE,
             );
-          map[g] = { crossover: this._crossoverMap[g] };
+          map[g] = { crossover: this._crossoverMap[g], isSub: item.isSub() };
         }
         return map;
       }, {}),
@@ -3155,9 +3154,9 @@ class MeasurementViewModel {
     const data = store.load();
     if (!data) return;
 
+    this.restoreMeasurementGroups(data);
     this.restoreAvrAndMeasurements(data);
     this.restoreSettings(data);
-    this.restoreMeasurementGroups(data);
   }
 
   restoreAvrAndMeasurements(data) {
@@ -3207,8 +3206,8 @@ class MeasurementViewModel {
 
   restoreMeasurementGroups(data) {
     if (!data.measurementsByGroup) return;
-    for (const [key, saved] of Object.entries(data.measurementsByGroup)) {
-      this.measurementsByGroup()[key]?.crossover(saved.crossover);
+    for (const [key, value] of Object.entries(data.measurementsByGroup)) {
+      this._crossoverMap[key] = ko.observable(value.crossover);
     }
   }
 
@@ -3240,9 +3239,9 @@ class MeasurementViewModel {
       avrIpAddress: this.avrIpAddress(),
       inhibitGraphUpdates: this.inhibitGraphUpdates(),
       measurementsByGroup: Object.fromEntries(
-        Object.entries(this.measurementsByGroup()).map(([key, group]) => [
+        Object.entries(this._crossoverMap).map(([key, obs]) => [
           key,
-          { crossover: group.crossover() },
+          { crossover: obs() },
         ]),
       ),
       mainTargetLevel: this.mainTargetLevel(),
