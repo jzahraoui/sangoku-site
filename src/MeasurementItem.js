@@ -423,6 +423,19 @@ class MeasurementItem {
     await this.rewMeasurements.resetRoomCurveSettings(this.uuid);
   }
 
+  async setRoomCurveSettings(settings) {
+    if (!settings || typeof settings !== 'object') {
+      throw new Error('Invalid room curve settings');
+    }
+
+    if (!settings.addRoomCurve) {
+      return this.resetRoomCurveSettings();
+    }
+
+    lm.debug(`${this.displayMeasurementTitle()}: Setting room curve settings`);
+    return this.rewMeasurements.setRoomCurveSettings(this.uuid, settings);
+  }
+
   async getEqualiser() {
     return this.rewMeasurements.getEqualiser(this.uuid);
   }
@@ -1253,7 +1266,7 @@ class MeasurementItem {
       );
     }
     await this.defaultSmoothing();
-    await this.resetRoomCurveSettings();
+    await this.setRoomCurveSettings(this.parentViewModel.getRoomCurveConfig());
     await this.setIrWindows(this.parentViewModel.selectedIrWindowsConfig());
   }
 

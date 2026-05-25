@@ -933,12 +933,13 @@
               </p>
             </div>
             <!-- /ko -->
-            <div>
-              <h3 data-i18n="smoothing_windowing">Smoothing/Windowing:</h3>
-              <select
-                class="combo-box"
-                aria-label="Smoothing method"
-                data-bind="
+            <div style="display: flex; gap: 20px; flex-wrap: wrap">
+              <div>
+                <h3 data-i18n="smoothing_windowing">Smoothing/Windowing:</h3>
+                <select
+                  class="combo-box"
+                  aria-label="Smoothing method"
+                  data-bind="
                 attr: { 'aria-label': translations().smoothing_method_label },
                 options: smoothingChoices,
                 optionsText: 'text',
@@ -946,11 +947,11 @@
                 value: selectedSmoothingMethod,
                 event: { change: $root.onSmoothingChanged },
                 "
-              ></select>
-              <select
-                class="combo-box"
-                aria-label="IR window"
-                data-bind="
+                ></select>
+                <select
+                  class="combo-box"
+                  aria-label="IR window"
+                  data-bind="
                 attr: { 'aria-label': translations().ir_window_label },
                 options: irWindowsChoices,
                 optionsText: 'text',
@@ -958,7 +959,23 @@
                 value: selectedIrWindows,
                 event: { change: $root.onIrWindowsChanged },
                 "
-              ></select>
+                ></select>
+              </div>
+              <div>
+                <h3 data-i18n="room_curve">Room Curve:</h3>
+                <select
+                  class="combo-box"
+                  aria-label="Room Curve"
+                  data-bind="
+                attr: { 'aria-label': translations().room_curve_label },
+                options: roomCurveChoices,
+                optionsText: 'text',
+                optionsValue: 'value',
+                value: selectedRoomCurve,
+                event: { change: $root.onRoomCurveChanged },
+                "
+                ></select>
+              </div>
             </div>
           </div>
 

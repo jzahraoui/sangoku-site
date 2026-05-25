@@ -14,6 +14,7 @@ import JSZip from 'jszip';
 import ampAssignType from './amp-type.js';
 import lm from './logs.js';
 import { Room3DViewer } from './room-3d-viewer.js';
+import RoomCurvesSettings from './room-curve-settings.js';
 
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
 
@@ -204,6 +205,9 @@ class MeasurementViewModel {
     this.selectedIrWindows = ko.observable(DEFAULT_IR_WINDOW_CHOICE);
 
     this.selectedIrWindowsConfig = ko.pureComputed(() => this.getIrWindowConfig());
+
+    this.roomCurveChoices = RoomCurvesSettings.getChoices();
+    this.selectedRoomCurve = ko.observable(RoomCurvesSettings.DEFAULT_CHOICE);
 
     // Subscribe to changes in global crossover
     this.gobalCrossover.subscribe(newValue => {
@@ -1382,6 +1386,7 @@ class MeasurementViewModel {
         textData += `----------------\n`;
         textData += `Smoothing Method:         ${this.selectedSmoothingMethod()}\n`;
         textData += `Windowing:                ${this.selectedIrWindows()}\n`;
+        textData += `Room Curve:               ${this.selectedRoomCurve()}\n`;
         textData += `Individual Max Boost:     ${this.individualMaxBoostValue()} dB\n`;
         textData += `Overall Max Boost:        ${this.overallBoostValue()} dB\n`;
         textData += `Equalization Mode:        ${this.selectedEqualizationMode().toUpperCase()}\n\n`;
@@ -2022,6 +2027,10 @@ class MeasurementViewModel {
     };
   }
 
+  getRoomCurveConfig(presetName = this.selectedRoomCurve()) {
+    return RoomCurvesSettings.getCurveConfig(presetName);
+  }
+
   updateObservableFromEvent = (observable, event) => {
     const newValue = event?.target?.value;
     if (newValue && newValue !== observable()) {
@@ -2104,6 +2113,20 @@ class MeasurementViewModel {
     });
   };
 
+  onRoomCurveChanged = async (_, event) => {
+    this.updateObservableFromEvent(this.selectedRoomCurve, event);
+    const selectedRoomCurve = this.selectedRoomCurve();
+
+    await this.applyToSelectedMeasurements({
+      successLabel: 'Room curve',
+      errorLabel: 'Room curve update',
+      filter: item => !item.isFilter,
+      apply: measurement =>
+        measurement.setRoomCurveSettings(this.getRoomCurveConfig(selectedRoomCurve)),
+      includePredictedLfeMeasurement: true,
+    });
+  };
+
   // Méthodes de confirmation pour les actions sensibles
 
   confirmResetApplication = () => {
@@ -2151,6 +2174,7 @@ class MeasurementViewModel {
     this.selectedAverageMethod('');
     this.selectedMeasurementsFilter(true);
     this.selectedEqualizationMode('rew');
+    this.selectedRoomCurve(RoomCurvesSettings.DEFAULT_CHOICE);
     this.SubsFrequencyBands = null;
   }
 
@@ -3215,6 +3239,7 @@ class MeasurementViewModel {
     data.inhibitGraphUpdates !== undefined &&
       this.inhibitGraphUpdates(data.inhibitGraphUpdates);
     this.restoreEqualizationMode(data);
+    this.restoreRoomCurveChoice(data);
     data.mainTargetLevel && this.mainTargetLevel(data.mainTargetLevel);
     if (data.autoEqConfig) {
       for (const [key, val] of Object.entries(data.autoEqConfig)) {
@@ -3229,6 +3254,12 @@ class MeasurementViewModel {
       data.selectedEqualizationMode || data.selectedSpeakerFilterMode;
     if (selectedEqualizationMode) {
       this.selectedEqualizationMode(selectedEqualizationMode);
+    }
+  }
+
+  restoreRoomCurveChoice(data) {
+    if (RoomCurvesSettings.hasChoice(data.selectedRoomCurve)) {
+      this.selectedRoomCurve(data.selectedRoomCurve);
     }
   }
 
@@ -3267,6 +3298,7 @@ class MeasurementViewModel {
       avrIpAddress: this.avrIpAddress(),
       inhibitGraphUpdates: this.inhibitGraphUpdates(),
       selectedEqualizationMode: this.selectedEqualizationMode(),
+      selectedRoomCurve: this.selectedRoomCurve(),
       measurementsByGroup: Object.fromEntries(
         Object.entries(this._crossoverMap).map(([key, obs]) => [
           key,
