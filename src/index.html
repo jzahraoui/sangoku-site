@@ -597,6 +597,34 @@
                   </label>
                 </div>
 
+                <fieldset class="equalization-mode-selector">
+                  <legend data-i18n="equalization_mode">Equalization mode</legend>
+                  <div class="equalization-mode-options">
+                    <label>
+                      <input
+                        type="radio"
+                        name="equalizationMode"
+                        value="rew"
+                        data-bind="
+                          checked: selectedEqualizationMode,
+                          event: { change: function() { $root.saveMeasurements(); } }"
+                      />
+                      <span>REW</span>
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="equalizationMode"
+                        value="rch"
+                        data-bind="
+                          checked: selectedEqualizationMode,
+                          event: { change: function() { $root.saveMeasurements(); } }"
+                      />
+                      <span>RCH</span>
+                    </label>
+                  </div>
+                </fieldset>
+
                 <details class="autoeq-settings">
                   <summary data-i18n="autoeq_settings">AutoEQ Settings</summary>
 
@@ -1815,30 +1843,17 @@
                     </div>
                   </th>
                   <th class="table-header-cell">
-                    <span class="table-header-label">REW Filter</span>
+                    <span class="table-header-label" data-i18n="speaker_filter_column"
+                      >Filter</span
+                    >
                     <div class="table-header-toolbar">
                       <button
                         class="button"
                         data-bind="
-                          click: buttongeneratesFilters,
+                          click: buttongeneratesSelectedFilters,
                           disable: isProcessing(),
                           css: { disabled: isProcessing, loading: isProcessing  },
-                          attr: { 'data-tooltip': translations().create_speaker_filter_tooltip }"
-                      >
-                        <i class="fa fa-sliders" aria-hidden="true"></i>
-                      </button>
-                    </div>
-                  </th>
-                  <th class="table-header-cell">
-                    <span class="table-header-label">RCH Filter</span>
-                    <div class="table-header-toolbar">
-                      <button
-                        class="button"
-                        data-bind="
-                          click: buttongeneratesRchFilters,
-                          disable: isProcessing(),
-                          css: { disabled: isProcessing, loading: isProcessing  },
-                          attr: { 'data-tooltip': translations().create_rch_speaker_filter_tooltip }"
+                          attr: { 'data-tooltip': selectedEqualizationTooltip() }"
                       >
                         <i class="fa fa-sliders" aria-hidden="true"></i>
                       </button>
@@ -1965,27 +1980,11 @@
                     <button
                       class="button"
                       data-bind="
-                      click: buttonCreateFilter,
+                      click: buttonCreateSelectedFilter,
                       disable: $parent.isProcessing(),
                       css: { disabled: $parent.isProcessing },
                       visible: !isSub() && isValid,
-                      attr: { 'data-tooltip': $parent.translations().create_speaker_filter_tooltip }"
-                    >
-                      <i class="fa fa-sliders" aria-hidden="true"></i>
-                    </button>
-                  </td>
-                  <td
-                    style="text-align: center"
-                    data-bind="css: { success: associatedFilterItem() }"
-                  >
-                    <button
-                      class="button"
-                      data-bind="
-                      click: buttonCreateRchFilter,
-                      disable: $parent.isProcessing(),
-                      css: { disabled: $parent.isProcessing },
-                      visible: !isSub() && isValid,
-                      attr: { 'data-tooltip': $parent.translations().create_rch_speaker_filter_tooltip }"
+                      attr: { 'data-tooltip': $parent.selectedEqualizationTooltip() }"
                     >
                       <i class="fa fa-sliders" aria-hidden="true"></i>
                     </button>

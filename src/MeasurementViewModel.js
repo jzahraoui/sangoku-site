@@ -155,6 +155,14 @@ class MeasurementViewModel {
 
     // Filter observables
     this.selectedMeasurementsFilter = ko.observable(true);
+    this.selectedEqualizationMode = ko.observable('rew');
+
+    this.selectedEqualizationTooltip = ko.pureComputed(() => {
+      if (this.selectedEqualizationMode() === 'rch') {
+        return this.translations().create_rch_speaker_filter_tooltip;
+      }
+      return this.translations().create_speaker_filter_tooltip;
+    });
 
     // Available filter options
     this.selectedMeasurements = [
@@ -1163,18 +1171,28 @@ class MeasurementViewModel {
       this.handleSuccess(`Preview generated successfully`);
     };
 
-    this.buttongeneratesFilters = async () => {
+    this.createSpeakerFilterForSelectedMode = item => {
+      if (this.selectedEqualizationMode() === 'rch') {
+        return item.createPhaseMatchFilter();
+      }
+      return item.createStandardFilter();
+    };
+
+    this.buttongeneratesSelectedFilters = async () => {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
+        const filterModeLabel = this.selectedEqualizationMode() === 'rch' ? 'RCH' : 'REW';
 
         for (const item of this.uniqueSpeakersMeasurements()) {
           // display progression in the status
-          lm.info(`Generating filter for channel ${item.channelName()}`);
-          await item.createStandardFilter();
+          lm.info(
+            `Generating ${filterModeLabel} filter for channel ${item.channelName()}`,
+          );
+          await this.createSpeakerFilterForSelectedMode(item);
         }
 
-        this.handleSuccess(`Filters generated successfully`);
+        this.handleSuccess(`${filterModeLabel} filters generated successfully`);
       } catch (error) {
         this.handleError(`Filter generation failed: ${error.message}`, error);
       } finally {
@@ -1182,23 +1200,14 @@ class MeasurementViewModel {
       }
     };
 
+    this.buttongeneratesFilters = async () => {
+      this.selectedEqualizationMode('rew');
+      await this.buttongeneratesSelectedFilters();
+    };
+
     this.buttongeneratesRchFilters = async () => {
-      if (this.isProcessing()) return;
-      try {
-        await this.setProcessing(true);
-
-        for (const item of this.uniqueSpeakersMeasurements()) {
-          // display progression in the status
-          lm.info(`Generating filter for channel ${item.channelName()}`);
-          await item.createPhaseMatchFilter();
-        }
-
-        this.handleSuccess(`Filters generated successfully`);
-      } catch (error) {
-        this.handleError(`Filter generation failed: ${error.message}`, error);
-      } finally {
-        await this.setProcessing(false);
-      }
+      this.selectedEqualizationMode('rch');
+      await this.buttongeneratesSelectedFilters();
     };
 
     this.buttonInvertAll = async () => {
@@ -1374,7 +1383,8 @@ class MeasurementViewModel {
         textData += `Smoothing Method:         ${this.selectedSmoothingMethod()}\n`;
         textData += `Windowing:                ${this.selectedIrWindows()}\n`;
         textData += `Individual Max Boost:     ${this.individualMaxBoostValue()} dB\n`;
-        textData += `Overall Max Boost:        ${this.overallBoostValue()} dB\n\n`;
+        textData += `Overall Max Boost:        ${this.overallBoostValue()} dB\n`;
+        textData += `Equalization Mode:        ${this.selectedEqualizationMode().toUpperCase()}\n\n`;
 
         // Subwoofer settings section
         textData += `SUBWOOFER SETTINGS\n`;
@@ -2012,6 +2022,13 @@ class MeasurementViewModel {
     };
   }
 
+  updateObservableFromEvent = (observable, event) => {
+    const newValue = event?.target?.value;
+    if (newValue && newValue !== observable()) {
+      observable(newValue);
+    }
+  };
+
   applyToSelectedMeasurements = async ({
     successLabel,
     errorLabel,
@@ -2019,31 +2036,27 @@ class MeasurementViewModel {
     apply,
     includePredictedLfeMeasurement = false,
   }) => {
-    // Save is intentional before guards: persists state even when polling is inactive
     this.saveMeasurements();
 
-    if (!this.isPolling()) {
-      return;
-    }
+    if (!this.isPolling()) return;
 
     if (this.isProcessing()) {
       lm.warn(`Unable to apply ${successLabel.toLowerCase()} while processing`);
       return;
     }
 
-    const base = this.uniqueMeasurements().filter(filter);
+    const selectedMeasurements = this.validMeasurements().filter(filter);
+    const predicted = includePredictedLfeMeasurement && this.predictedLfeMeasurement();
 
-    const predicted = includePredictedLfeMeasurement
-      ? this.predictedLfeMeasurement()
-      : null;
-    const addPredicted =
-      predicted && filter(predicted) && !base.some(m => m.uuid === predicted.uuid);
-
-    const selectedMeasurements = addPredicted ? [...base, predicted] : base;
-
-    if (selectedMeasurements.length === 0) {
-      return;
+    if (
+      predicted &&
+      filter(predicted) &&
+      !selectedMeasurements.some(({ uuid }) => uuid === predicted.uuid)
+    ) {
+      selectedMeasurements.push(predicted);
     }
+
+    if (!selectedMeasurements.length) return;
 
     try {
       await this.setProcessing(true);
@@ -2065,10 +2078,7 @@ class MeasurementViewModel {
   };
 
   onIrWindowsChanged = async (_, event) => {
-    const newValue = event?.target?.value;
-    if (newValue && newValue !== this.selectedIrWindows()) {
-      this.selectedIrWindows(newValue);
-    }
+    this.updateObservableFromEvent(this.selectedIrWindows, event);
 
     await this.applyToSelectedMeasurements({
       successLabel: 'IR windows',
@@ -2080,10 +2090,7 @@ class MeasurementViewModel {
   };
 
   onSmoothingChanged = async (_, event) => {
-    const newValue = event?.target?.value;
-    if (newValue && newValue !== this.selectedSmoothingMethod()) {
-      this.selectedSmoothingMethod(newValue);
-    }
+    this.updateObservableFromEvent(this.selectedSmoothingMethod, event);
 
     await this.applyToSelectedMeasurements({
       successLabel: 'Smoothing',
@@ -2143,6 +2150,7 @@ class MeasurementViewModel {
     this.selectedLfeFrequency(250);
     this.selectedAverageMethod('');
     this.selectedMeasurementsFilter(true);
+    this.selectedEqualizationMode('rew');
     this.SubsFrequencyBands = null;
   }
 
@@ -2195,22 +2203,33 @@ class MeasurementViewModel {
     );
 
     lm.info(
-      `Creating EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`,
+      `Creating ${this.selectedEqualizationMode().toUpperCase()} EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`,
     );
 
-    await this.rewEq.setMatchTargetSettings({
-      startFrequency: customStartFrequency,
-      endFrequency: customEndFrequency,
-      individualMaxBoostdB: this.maxBoostIndividualValue(),
-      overallMaxBoostdB: this.maxBoostOverallValue(),
-      flatnessTargetdB: 1,
-      allowNarrowFiltersBelow200Hz: false,
-      varyQAbove200Hz: false,
-      allowLowShelf: false,
-      allowHighShelf: false,
-    });
+    if (this.selectedEqualizationMode() === 'rch') {
+      await subMeasurement._runPhaseMatchFilter(
+        customStartFrequency,
+        customEndFrequency,
+        {
+          individualMaxBoostDb: this.maxBoostIndividualValue(),
+          overallMaxBoostDb: this.maxBoostOverallValue(),
+        },
+      );
+    } else {
+      await this.rewEq.setMatchTargetSettings({
+        startFrequency: customStartFrequency,
+        endFrequency: customEndFrequency,
+        individualMaxBoostdB: this.maxBoostIndividualValue(),
+        overallMaxBoostdB: this.maxBoostOverallValue(),
+        flatnessTargetdB: 1,
+        allowNarrowFiltersBelow200Hz: false,
+        varyQAbove200Hz: false,
+        allowLowShelf: false,
+        allowHighShelf: false,
+      });
 
-    await this.rewMeasurements.matchTarget(subMeasurement.uuid);
+      await this.rewMeasurements.matchTarget(subMeasurement.uuid);
+    }
 
     await subMeasurement.checkFilterGain();
 
@@ -3195,6 +3214,7 @@ class MeasurementViewModel {
     data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
     data.inhibitGraphUpdates !== undefined &&
       this.inhibitGraphUpdates(data.inhibitGraphUpdates);
+    this.restoreEqualizationMode(data);
     data.mainTargetLevel && this.mainTargetLevel(data.mainTargetLevel);
     if (data.autoEqConfig) {
       for (const [key, val] of Object.entries(data.autoEqConfig)) {
@@ -3202,6 +3222,14 @@ class MeasurementViewModel {
       }
     }
     data.SubsFrequencyBands && (this.SubsFrequencyBands = data.SubsFrequencyBands);
+  }
+
+  restoreEqualizationMode(data) {
+    const selectedEqualizationMode =
+      data.selectedEqualizationMode || data.selectedSpeakerFilterMode;
+    if (selectedEqualizationMode) {
+      this.selectedEqualizationMode(selectedEqualizationMode);
+    }
   }
 
   restoreMeasurementGroups(data) {
@@ -3238,6 +3266,7 @@ class MeasurementViewModel {
       ocaFileFormat: this.ocaFileFormat(),
       avrIpAddress: this.avrIpAddress(),
       inhibitGraphUpdates: this.inhibitGraphUpdates(),
+      selectedEqualizationMode: this.selectedEqualizationMode(),
       measurementsByGroup: Object.fromEntries(
         Object.entries(this._crossoverMap).map(([key, obs]) => [
           key,

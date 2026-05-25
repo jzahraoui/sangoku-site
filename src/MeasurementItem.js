@@ -251,6 +251,19 @@ class MeasurementItem {
       }
     };
 
+    this.buttonCreateSelectedFilter = async () => {
+      if (parentViewModel.isProcessing()) return;
+      try {
+        await parentViewModel.setProcessing(true);
+
+        await parentViewModel.createSpeakerFilterForSelectedMode(this);
+      } catch (error) {
+        parentViewModel.handleError(`Filter creation failed: ${error.message}`, error);
+      } finally {
+        await parentViewModel.setProcessing(false);
+      }
+    };
+
     this.previewMeasurement = async () => {
       if (parentViewModel.isProcessing()) return;
       try {
@@ -607,15 +620,22 @@ class MeasurementItem {
     }
   }
 
-  createPhaseMatchCalculator(sampleRate, freqStart, freqEnd) {
+  createPhaseMatchCalculator(sampleRate, freqStart, freqEnd, options = {}) {
     const cfg = this.parentViewModel.autoEqConfig;
+    const individualMaxBoostDb = +(
+      options.individualMaxBoostDb ?? this.parentViewModel.individualMaxBoostValue()
+    );
+    const overallMaxBoostDb = +(
+      options.overallMaxBoostDb ?? this.parentViewModel.overallBoostValue()
+    );
+
     return new AutoEQCalculator({
       sampleRate,
       numFilters: +cfg.numFilters(),
       matchRangeStart: freqStart,
       matchRangeEnd: freqEnd,
-      individualMaxBoostDb: this.parentViewModel.individualMaxBoostValue(),
-      overallMaxBoostDb: this.parentViewModel.overallBoostValue(),
+      individualMaxBoostDb,
+      overallMaxBoostDb,
       maxCutDb: +cfg.maxCutDb(),
       flatnessTarget: +cfg.flatnessTarget(),
       enableRefinement: cfg.enableRefinement(),
@@ -1401,7 +1421,7 @@ class MeasurementItem {
     }
   }
 
-  async _runPhaseMatchFilter(customStartFrequency, customEndFrequency) {
+  async _runPhaseMatchFilter(customStartFrequency, customEndFrequency, options = {}) {
     lm.debug(
       `[createPhaseMatchFilter] falloff: low=${this.dectedFallOffLow} high=${this.dectedFallOffHigh} → range=${customStartFrequency}-${customEndFrequency} Hz`,
     );
@@ -1422,6 +1442,7 @@ class MeasurementItem {
       sampleRate,
       customStartFrequency,
       customEndFrequency,
+      options,
     );
 
     await calculator.calculate(sourceFreqResponse, targetFreqResponse);
