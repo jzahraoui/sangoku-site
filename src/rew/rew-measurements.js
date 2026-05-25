@@ -36,11 +36,21 @@ class REWMeasurements {
       throw new Error('Either freqStep or ppo is required');
     }
 
-    const generator = freqStep
-      ? (_, i) => startFreq + i * freqStep
-      : (_, i) => startFreq * Math.pow(2, i / ppo);
+    const freqs = new Float32Array(dataLength);
+    if (freqStep) {
+      for (let index = 0; index < dataLength; index++) {
+        freqs[index] = startFreq + index * freqStep;
+      }
+      return freqs;
+    }
 
-    return Float32Array.from({ length: dataLength }, generator);
+    const multiplier = Math.pow(2, 1 / ppo);
+    let frequency = startFreq;
+    for (let index = 0; index < dataLength; index++) {
+      freqs[index] = frequency;
+      frequency *= multiplier;
+    }
+    return freqs;
   }
 
   async request(endpoint, method, body) {
