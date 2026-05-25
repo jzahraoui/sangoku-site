@@ -1,11 +1,11 @@
 import { defineConfig } from 'vitest/config';
 
-// Dedicated Vitest config so tests live at the repo root (./test/**),
-// independent of vite.config.js which scopes its `root` to ./src for the app build.
+// Dedicated Vitest config for the fast unit suite. Other test runners live in
+// sibling test directories and are invoked through package scripts.
 export default defineConfig({
   test: {
     root: '.',
-    include: ['test/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    include: ['test/unit/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     environment: 'node',
   },
 });

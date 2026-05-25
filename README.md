@@ -204,7 +204,7 @@ The multi-sub optimizer is intentionally split by responsibility so contributors
 - `src/multi-sub-optimizer.js` remains the compatibility entry point used by the UI and tests; the implementation lives in `src/optimizer/multi-sub-optimizer.js`, with public instance wrappers in `src/optimizer/facade-methods.js`. Keep public method names stable unless the callers are migrated in the same change.
 - Put DSP and response math in `src/optimizer/response.js`, scoring in `src/optimizer/evaluation.js`, parameter grids in `src/optimizer/params.js`, reports in `src/optimizer/report.js`, and search strategies in the dedicated `src/optimizer/*-search.js` modules.
 - Prefer small, named helpers with focused tests over adding more logic directly to the facade.
-- For optimizer changes, run `npm exec -- vitest run --root . test/multi-sub-optimizer-general.test.js test/genetic-algorithm.test.js` and `node test/multi-sub-optimizer.all.test.js` before opening a pull request.
+- For optimizer changes, run `npm run test:multi-sub-optimizer-general`, `npm run test:genetic-algorithm`, and `npm run test:multi-sub-optimizer-all` before opening a pull request.
 
 ## Useful Links
 
