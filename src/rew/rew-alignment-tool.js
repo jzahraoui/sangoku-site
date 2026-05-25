@@ -17,6 +17,16 @@ class REWAlignmentTool {
     return this.client.fetchWithRetry(endpoint, method, body, retries);
   }
 
+  static normalizeFrequencyParameters(frequencyOrParameters) {
+    if (frequencyOrParameters === null || frequencyOrParameters === undefined) {
+      return null;
+    }
+    if (typeof frequencyOrParameters === 'object') {
+      return frequencyOrParameters;
+    }
+    return { frequency: frequencyOrParameters };
+  }
+
   /**
    *
    * GET /alignment-tool/commands
@@ -92,8 +102,13 @@ class REWAlignmentTool {
   /**
    * Align IRs
    */
-  async alignIRs(parameters, retries = 0) {
-    return this.executeCommand('Align IRs', { frequency: parameters }, retries);
+  async alignIRs(frequencyOrParameters, retries = 0) {
+    return this.executeCommand(
+      'Align IRs',
+      REWAlignmentTool.normalizeFrequencyParameters(frequencyOrParameters),
+      null,
+      retries,
+    );
   }
 
   /**
@@ -177,14 +192,6 @@ class REWAlignmentTool {
 
   async setGainB(gain) {
     return this.request('/alignment-tool/gain-b', 'POST', gain);
-  }
-
-  async getDelayA() {
-    return this.request('/alignment-tool/delay-a');
-  }
-
-  async setDelayA(delay) {
-    return this.request('/alignment-tool/delay-a', 'POST', delay);
   }
 
   async getDelayB() {
@@ -296,7 +303,7 @@ class REWAlignmentTool {
 
     const query = params.toString();
     const data = await this.request(
-      `/alignment-tool/aligned-frequency-response${query ? '?' + query : ''}`
+      `/alignment-tool/aligned-frequency-response${query ? '?' + query : ''}`,
     );
 
     return {
@@ -314,7 +321,7 @@ class REWAlignmentTool {
 
     const query = params.toString();
     const data = await this.request(
-      `/alignment-tool/filtered-impulse-response-a${query ? '?' + query : ''}`
+      `/alignment-tool/filtered-impulse-response-a${query ? '?' + query : ''}`,
     );
 
     return {
@@ -331,7 +338,7 @@ class REWAlignmentTool {
 
     const query = params.toString();
     const data = await this.request(
-      `/alignment-tool/filtered-impulse-response-b${query ? '?' + query : ''}`
+      `/alignment-tool/filtered-impulse-response-b${query ? '?' + query : ''}`,
     );
 
     return {
@@ -344,11 +351,18 @@ class REWAlignmentTool {
     return this.request('/alignment-tool/result');
   }
 
-  async alignPaseBatch(indexA, indexB, mode, frequency) {
+  async alignPhaseBatch(indexA, indexB, mode, frequency) {
     await this.setIndexA(indexA);
     await this.setIndexB(indexB);
     await this.setMode(mode);
-    return this.executeCommand('Align phase', frequency);
+    return this.executeCommand(
+      'Align phase',
+      REWAlignmentTool.normalizeFrequencyParameters(frequency),
+    );
+  }
+
+  async alignPaseBatch(indexA, indexB, mode, frequency) {
+    return this.alignPhaseBatch(indexA, indexB, mode, frequency);
   }
 
   async alignIRsBatch(uuidA, uuidB, frequency) {

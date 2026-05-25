@@ -620,6 +620,11 @@ describe('RewApi', () => {
       expect(api.getResultUrl('/measurements/cross-corr-align')).toBe(
         '/measurements/process-result',
       );
+      expect(
+        api.getResultUrl('/measurements/cross-corr-align', {
+          resultUrl: '/measurements/custom-result',
+        }),
+      ).toBe('/measurements/custom-result');
     });
 
     it('returns the bare process ID for /import endpoints and a full match object otherwise', () => {
@@ -639,8 +644,229 @@ describe('RewApi', () => {
 
     it('rejects invalid arguments', () => {
       expect(() => api.getResultUrl('')).toThrow();
+      expect(() =>
+        api.getResultUrl('/measurements', { resultUrl: 'http://example.test/result' }),
+      ).toThrow(/relative API path/);
       expect(() => api.getProcessExpectedResponse('/measurements', '')).toThrow(
         /Process ID is required/,
+      );
+    });
+  });
+
+  describe('Swagger wrapper methods', () => {
+    let api;
+    let fetchSpy;
+
+    beforeEach(() => {
+      api = new RewApi(baseUrl);
+      fetchSpy = vi.spyOn(api, 'fetchWithRetry').mockResolvedValue({ message: 'OK' });
+    });
+
+    it('sends application commands and subscriber payloads using Swagger shapes', async () => {
+      const requestSpy = vi.spyOn(api, 'request').mockResolvedValue({ message: 'OK' });
+
+      await api.getCommands();
+      await api.executeCommand('Clear command in progress');
+      await api.getLogging();
+      await api.subscribeWarnings('http://callback.test/warnings', { scope: 'all' });
+
+      expect(requestSpy).toHaveBeenNthCalledWith(1, '/application/commands');
+      expect(requestSpy).toHaveBeenNthCalledWith(2, '/application/command', 'POST', {
+        command: 'Clear command in progress',
+        parameters: [],
+      });
+      expect(requestSpy).toHaveBeenNthCalledWith(3, '/application/logging');
+      expect(requestSpy).toHaveBeenNthCalledWith(
+        4,
+        '/application/warnings/subscribe',
+        'POST',
+        {
+          url: 'http://callback.test/warnings',
+          parameters: { scope: 'all' },
+        },
+      );
+    });
+
+    it('normalizes alignment command frequency parameters and retry arguments', async () => {
+      await api.rewAlignmentTool.alignIRs(80, 4);
+      expect(fetchSpy).toHaveBeenLastCalledWith(
+        '/alignment-tool/command',
+        'POST',
+        { command: 'Align IRs', frequency: 80 },
+        4,
+      );
+
+      await api.rewAlignmentTool.alignPhaseBatch(1, 2, 'Impulse', 90);
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        2,
+        '/alignment-tool/index-a',
+        'POST',
+        1,
+        2,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        3,
+        '/alignment-tool/index-b',
+        'POST',
+        2,
+        2,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        4,
+        '/alignment-tool/mode',
+        'POST',
+        'Impulse',
+        2,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        5,
+        '/alignment-tool/command',
+        'POST',
+        { command: 'Align phase', frequency: 90 },
+        0,
+      );
+      expect('getDelayA' in api.rewAlignmentTool).toBe(false);
+    });
+
+    it('exposes missing EQ choice endpoints and partial default updates', async () => {
+      await api.rewEq.getTargetShapes();
+      await api.rewEq.getCrossoverTypes();
+      await api.rewEq.getSlopes();
+      await api.rewEq.putDefaultTargetSettings({ shape: 'None' });
+      await api.rewEq.putDefaultRoomCurveSettings({ addRoomCurve: false });
+
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        1,
+        '/eq/target-shapes',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        2,
+        '/eq/crossover-types',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(3, '/eq/slopes', undefined, undefined);
+      expect(fetchSpy).toHaveBeenNthCalledWith(4, '/eq/default-target-settings', 'PUT', {
+        shape: 'None',
+      });
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        5,
+        '/eq/default-room-curve-settings',
+        'PUT',
+        { addRoomCurve: false },
+      );
+    });
+
+    it('supports import save options, file import options, and immutable data encoding', async () => {
+      await api.rewImport.getRTAFileSaveOptions();
+      await api.rewImport.importImpulseResponse('/measurements/ir.wav', {
+        channels: 'Left',
+        applyCal: true,
+      });
+
+      const magnitude = new Float32Array([1, 2]);
+      const phase = new Float32Array([0, 1]);
+      const payload = {
+        identifier: 'FR',
+        startFreq: 20,
+        ppo: 96,
+        magnitude,
+        phase,
+      };
+      await api.rewImport.importFrequencyResponseData(payload);
+
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        1,
+        '/import/rta-file/save-options',
+        undefined,
+        undefined,
+        0,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        2,
+        '/import/impulse-response',
+        'POST',
+        { path: '/measurements/ir.wav', channels: 'Left', applyCal: true },
+        0,
+      );
+      expect(fetchSpy.mock.calls[2][0]).toBe('/import/frequency-response-data');
+      expect(fetchSpy.mock.calls[2][1]).toBe('POST');
+      expect(fetchSpy.mock.calls[2][2]).toMatchObject({
+        identifier: 'FR',
+        startFreq: 20,
+        ppo: 96,
+      });
+      expect(typeof fetchSpy.mock.calls[2][2].magnitude).toBe('string');
+      expect(typeof fetchSpy.mock.calls[2][2].phase).toBe('string');
+      expect(payload.magnitude).toBe(magnitude);
+      expect(payload.phase).toBe(phase);
+    });
+
+    it('exposes missing measurements endpoints and process helpers', async () => {
+      await api.rewMeasurements.getSelectedIndex();
+      await api.rewMeasurements.selectByIndex(3);
+      await api.rewMeasurements.getProcessResult();
+      await api.rewMeasurements.getSpectrogramWindowChoices();
+      await api.rewMeasurements.getSpectrogramAmplitudeChoices();
+      await api.rewMeasurements.getRT60Settings('abc');
+      await api.rewMeasurements.postIRWindows('abc', { leftWindowType: 'Hann' });
+      await api.rewMeasurements.setRoomCurveSettings('abc', { lowFreqRiseStartHz: 200 });
+      await api.rewMeasurements.magnPlusPhaseAverage(['a', 'b']);
+
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        1,
+        '/measurements/selected',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(2, '/measurements/selected', 'POST', 3);
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        3,
+        '/measurements/process-result',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        4,
+        '/measurements/spectrogram-window-choices',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        5,
+        '/measurements/spectrogram-amplitude-choices',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        6,
+        '/measurements/abc/rt60-settings',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        7,
+        '/measurements/abc/ir-windows',
+        'POST',
+        { leftWindowType: 'Hann' },
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        8,
+        '/measurements/abc/room-curve-settings',
+        'PUT',
+        { lowFreqRiseStartHz: 200 },
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        9,
+        '/measurements/process-measurements',
+        'POST',
+        {
+          processName: 'Magn plus phase average',
+          measurementUUIDs: ['a', 'b'],
+          parameters: {},
+        },
       );
     });
   });

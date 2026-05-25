@@ -74,12 +74,20 @@ class REWMeasurements {
     return this.request('/measurements/selected-uuid');
   }
 
+  async getSelectedIndex() {
+    return this.request('/measurements/selected');
+  }
+
   /**
    * Sélectionne un measurement par UUID
    * Règle: Utiliser UUID pour éviter les problèmes avec les groupes
    */
   async selectByUUID(uuid) {
     return this.request('/measurements/selected-uuid', 'POST', uuid);
+  }
+
+  async selectByIndex(index) {
+    return this.request('/measurements/selected', 'POST', index);
   }
 
   /**
@@ -125,7 +133,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/frequency-response${query ? '?' + query : ''}`
+      `/measurements/${id}/frequency-response${query ? '?' + query : ''}`,
     );
 
     const magnitudeArray = RewApi.decodeBase64ToFloat32(data.magnitude);
@@ -134,7 +142,7 @@ class REWMeasurements {
       magnitudeArray.length,
       data.startFreq,
       data.freqStep,
-      data.ppo
+      data.ppo,
     );
 
     // Décode les données Base64 en tableaux float32
@@ -163,7 +171,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/target-response${query ? '?' + query : ''}`
+      `/measurements/${id}/target-response${query ? '?' + query : ''}`,
     );
 
     const magnitudeArray = RewApi.decodeBase64ToFloat32(data.magnitude);
@@ -172,7 +180,7 @@ class REWMeasurements {
       magnitudeArray.length,
       data.startFreq,
       data.freqStep,
-      data.ppo
+      data.ppo,
     );
 
     return {
@@ -193,7 +201,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/group-delay${query ? '?' + query : ''}`
+      `/measurements/${id}/group-delay${query ? '?' + query : ''}`,
     );
 
     return {
@@ -228,7 +236,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/impulse-response${query ? '?' + query : ''}`
+      `/measurements/${id}/impulse-response${query ? '?' + query : ''}`,
     );
 
     return {
@@ -248,7 +256,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/filters-impulse-response${query ? '?' + query : ''}`
+      `/measurements/${id}/filters-impulse-response${query ? '?' + query : ''}`,
     );
 
     return {
@@ -273,7 +281,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/eq/frequency-response${query ? '?' + query : ''}`
+      `/measurements/${id}/eq/frequency-response${query ? '?' + query : ''}`,
     );
 
     const magnitudeArray = RewApi.decodeBase64ToFloat32(data.magnitude);
@@ -282,7 +290,7 @@ class REWMeasurements {
       magnitudeArray.length,
       data.startFreq,
       data.freqStep,
-      data.ppo
+      data.ppo,
     );
 
     // Décode les données Base64 en tableaux float32
@@ -310,7 +318,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/eq/group-delay${query ? '?' + query : ''}`
+      `/measurements/${id}/eq/group-delay${query ? '?' + query : ''}`,
     );
 
     return {
@@ -334,7 +342,7 @@ class REWMeasurements {
 
     const query = params.toString();
     const data = await this.request(
-      `/measurements/${id}/eq/impulse-response${query ? '?' + query : ''}`
+      `/measurements/${id}/eq/impulse-response${query ? '?' + query : ''}`,
     );
 
     return {
@@ -373,6 +381,10 @@ class REWMeasurements {
   async setIRWindows(id, windows) {
     return this.request(`/measurements/${id}/ir-windows`, 'PUT', windows);
   }
+
+  async postIRWindows(id, windows) {
+    return this.request(`/measurements/${id}/ir-windows`, 'POST', windows);
+  }
   /**
    * room-curve-settings
    */
@@ -396,11 +408,14 @@ class REWMeasurements {
     if (!settings || typeof settings !== 'object') {
       throw new Error('Invalid room curve settings');
     }
-
-    if (typeof settings.addRoomCurve !== 'boolean') {
-      throw new TypeError('Invalid addRoomCurve value');
-    }
     return this.request(`/measurements/${id}/room-curve-settings`, 'PUT', settings);
+  }
+
+  async postRoomCurveSettings(id, settings) {
+    if (!settings || typeof settings !== 'object') {
+      throw new Error('Invalid room curve settings');
+    }
+    return this.request(`/measurements/${id}/room-curve-settings`, 'POST', settings);
   }
 
   /**
@@ -750,6 +765,10 @@ class REWMeasurements {
     return this.request(`/measurements/${id}/rt60?octaveFrac=${octaveFrac}`);
   }
 
+  async getRT60Settings(id) {
+    return this.request(`/measurements/${id}/rt60-settings`);
+  }
+
   /**
    * Get the list of EQ commands
    * GET /measurements/eq/commands
@@ -844,6 +863,10 @@ class REWMeasurements {
     return this.request('/measurements/process-commands');
   }
 
+  async getProcessResult() {
+    return this.request('/measurements/process-result');
+  }
+
   /**
    * Traite plusieurs measurements
    * Règle: Utiliser UUID dans measurementUUIDs plutôt que measurementIndices
@@ -852,7 +875,7 @@ class REWMeasurements {
     processName,
     measurementUUIDs,
     parameters = {},
-    resultUrl = null
+    resultUrl = null,
   ) {
     if (!Array.isArray(measurementUUIDs) || measurementUUIDs.length === 0) {
       throw new Error('measurementUUIDs must be a non-empty array');
@@ -946,6 +969,10 @@ class REWMeasurements {
     return this.processMeasurements('dB plus phase average', measurementUUIDs);
   }
 
+  async magnPlusPhaseAverage(measurementUUIDs) {
+    return this.processMeasurements('Magn plus phase average', measurementUUIDs);
+  }
+
   /**
    * Somme vectorielle
    */
@@ -996,7 +1023,7 @@ class REWMeasurements {
     measurementBUUID,
     maxGain = null,
     lowerLimit = null,
-    upperLimit = null
+    upperLimit = null,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], 'A / B', {
       maxGain,
@@ -1016,7 +1043,7 @@ class REWMeasurements {
     upperLimit = null,
     targetLevel = null,
     autoTarget = false,
-    excludeNotches = true
+    excludeNotches = true,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], '1 / A', {
       maxGain,
@@ -1039,7 +1066,7 @@ class REWMeasurements {
     upperLimit = null,
     targetLevel = null,
     autoTarget = false,
-    excludeNotches = true
+    excludeNotches = true,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], '1 / B', {
       maxGain,
@@ -1062,7 +1089,7 @@ class REWMeasurements {
     upperLimit = null,
     targetLevel = null,
     autoTarget = false,
-    excludeNotches = true
+    excludeNotches = true,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], '1 / |A|', {
       maxGain,
@@ -1085,7 +1112,7 @@ class REWMeasurements {
     upperLimit = null,
     targetLevel = null,
     autoTarget = false,
-    excludeNotches = true
+    excludeNotches = true,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], '1 / |B|', {
       maxGain,
@@ -1112,7 +1139,7 @@ class REWMeasurements {
     measurementBUUID,
     maxGain = null,
     lowerLimit = null,
-    upperLimit = null
+    upperLimit = null,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], '|A| / |B|', {
       maxGain,
@@ -1135,7 +1162,7 @@ class REWMeasurements {
     measurementAUUID,
     measurementBUUID,
     frequencyHz = 200,
-    blend = false
+    blend = false,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], 'Merge B to A', {
       frequencyHz: String(frequencyHz),
@@ -1150,7 +1177,7 @@ class REWMeasurements {
     measurementAUUID,
     measurementBUUID,
     lowerLimit = null,
-    upperLimit = null
+    upperLimit = null,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], 'Invert A phase', {
       lowerLimit,
@@ -1165,7 +1192,7 @@ class REWMeasurements {
     measurementAUUID,
     measurementBUUID,
     lowerLimit = null,
-    upperLimit = null
+    upperLimit = null,
   ) {
     return this.arithmetic([measurementAUUID, measurementBUUID], 'Invert B phase', {
       lowerLimit,
@@ -1178,6 +1205,10 @@ class REWMeasurements {
    */
   async executeGlobalCommand(command, parameters = []) {
     return this.request('/measurements/command', 'POST', { command, parameters });
+  }
+
+  async getCommands() {
+    return this.request('/measurements/commands');
   }
 
   /**
@@ -1236,6 +1267,14 @@ class REWMeasurements {
     return this.request('/measurements/distortion-ppo-choices');
   }
 
+  async getSpectrogramWindowChoices() {
+    return this.request('/measurements/spectrogram-window-choices');
+  }
+
+  async getSpectrogramAmplitudeChoices() {
+    return this.request('/measurements/spectrogram-amplitude-choices');
+  }
+
   /**
    *
    * example response:
@@ -1268,15 +1307,23 @@ class REWMeasurements {
   /**
    * Souscrit aux changements de measurements
    */
-  async subscribe(url) {
-    return this.request('/measurements/subscribe', 'POST', { url });
+  async subscribe(url, parameters = null) {
+    return this.request(
+      '/measurements/subscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
   }
 
   /**
    * Se désinscrit des changements
    */
-  async unsubscribe(url) {
-    return this.request('/measurements/unsubscribe', 'POST', { url });
+  async unsubscribe(url, parameters = null) {
+    return this.request(
+      '/measurements/unsubscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
   }
 
   /**

@@ -165,22 +165,86 @@ export default class RewApi {
   }
 
   // Application
+  async getCommands() {
+    return this.request('/application/commands');
+  }
+
+  async executeCommand(command, parameters = []) {
+    if (typeof command !== 'string') {
+      throw new TypeError('command must be a string');
+    }
+    if (!Array.isArray(parameters)) {
+      throw new TypeError('parameters must be an array');
+    }
+    return this.request('/application/command', 'POST', { command, parameters });
+  }
+
   async getLastError() {
     return this.request('/application/last-error');
   }
 
+  async getErrors() {
+    return this.request('/application/errors');
+  }
+
+  async subscribeErrors(url, parameters = null) {
+    return this.request(
+      '/application/errors/subscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
+  }
+
+  async unsubscribeErrors(url, parameters = null) {
+    return this.request(
+      '/application/errors/unsubscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
+  }
+
+  async getErrorSubscribers() {
+    return this.request('/application/errors/subscribers');
+  }
+
+  async getLastWarning() {
+    return this.request('/application/last-warning');
+  }
+
+  async getWarnings() {
+    return this.request('/application/warnings');
+  }
+
+  async subscribeWarnings(url, parameters = null) {
+    return this.request(
+      '/application/warnings/subscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
+  }
+
+  async unsubscribeWarnings(url, parameters = null) {
+    return this.request(
+      '/application/warnings/unsubscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
+  }
+
+  async getWarningSubscribers() {
+    return this.request('/application/warnings/subscribers');
+  }
+
   async clearCommands() {
-    return this.request('/application/command', 'POST', {
-      command: 'Clear command in progress',
-    });
+    return this.executeCommand('Clear command in progress');
+  }
+
+  async getLogging() {
+    return this.request('/application/logging');
   }
 
   async setLogging(enable = true) {
     return this.request('/application/logging', 'POST', enable);
-  }
-
-  async getErrors() {
-    return this.request('/application/errors');
   }
 
   /**
@@ -363,7 +427,7 @@ export default class RewApi {
         endpoint,
         processID,
       );
-      const resultUrl = this.getResultUrl(endpoint);
+      const resultUrl = this.getResultUrl(endpoint, body);
 
       // Handle 200: Check if polling is needed for measurements
       if (this.blocking) {
@@ -517,9 +581,14 @@ export default class RewApi {
   }
 
   // Helper methods
-  getResultUrl(url) {
+  getResultUrl(url, body = null) {
     if (!url || typeof url !== 'string') {
       throw new Error('URL parameter is required and must be a string');
+    }
+
+    if (body?.resultUrl) {
+      RewApi.getEndpointPath(body.resultUrl);
+      return body.resultUrl;
     }
 
     if (url.startsWith('/alignment-tool/')) {
@@ -544,6 +613,21 @@ export default class RewApi {
     } catch {
       return null;
     }
+  }
+
+  static createSubscriber(url, parameters = null) {
+    if (typeof url !== 'string' || !url) {
+      throw new TypeError('Subscriber URL must be a non-empty string');
+    }
+
+    const subscriber = { url };
+    if (parameters !== null && parameters !== undefined) {
+      if (typeof parameters !== 'object' || Array.isArray(parameters)) {
+        throw new TypeError('Subscriber parameters must be an object');
+      }
+      subscriber.parameters = parameters;
+    }
+    return subscriber;
   }
 
   static decodeBase64ToFloat32(base64String, isLittleEndian = false) {

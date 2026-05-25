@@ -45,6 +45,18 @@ class REWEQ {
     return this.request('/eq/manufacturers');
   }
 
+  async getTargetShapes() {
+    return this.request('/eq/target-shapes');
+  }
+
+  async getCrossoverTypes() {
+    return this.request('/eq/crossover-types');
+  }
+
+  async getSlopes() {
+    return this.request('/eq/slopes');
+  }
+
   async getDefaultEqualiser() {
     return this.request('/eq/default-equaliser');
   }
@@ -65,6 +77,10 @@ class REWEQ {
     return this.request('/eq/default-target-settings', 'POST', settings);
   }
 
+  async putDefaultTargetSettings(settings) {
+    return this.request('/eq/default-target-settings', 'PUT', settings);
+  }
+
   async getDefaultTargetLevel() {
     return this.request('/eq/default-target-level');
   }
@@ -79,6 +95,10 @@ class REWEQ {
 
   async setDefaultRoomCurveSettings(settings) {
     return this.request('/eq/default-room-curve-settings', 'POST', settings);
+  }
+
+  async putDefaultRoomCurveSettings(settings) {
+    return this.request('/eq/default-room-curve-settings', 'PUT', settings);
   }
 
   async getHouseCurve() {
@@ -119,12 +139,20 @@ class REWEQ {
     return this.request('/eq/match-target-settings', 'POST', settings);
   }
 
-  async subscribe(url) {
-    return this.request('/eq/subscribe', 'POST', { url });
+  async subscribe(url, parameters = null) {
+    return this.request(
+      '/eq/subscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
   }
 
-  async unsubscribe(url) {
-    return this.request('/eq/unsubscribe', 'POST', { url });
+  async unsubscribe(url, parameters = null) {
+    return this.request(
+      '/eq/unsubscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
   }
 
   async getSubscribers() {

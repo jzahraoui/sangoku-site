@@ -18,12 +18,34 @@ class REWImport {
     return this.client.fetchWithRetry(endpoint, method, body, retries);
   }
 
-  async subscribe(url) {
-    return this.request('/import/subscribe', 'POST', { url });
+  static buildFilePathPayload(filePath, options = {}) {
+    if (typeof options === 'string') {
+      return { path: filePath, channels: options };
+    }
+    if (typeof options !== 'object' || options === null || Array.isArray(options)) {
+      throw new TypeError('options must be an object');
+    }
+    return { path: filePath, ...options };
   }
 
-  async unsubscribe(url) {
-    return this.request('/import/unsubscribe', 'POST', { url });
+  static hasValue(value) {
+    return value !== null && value !== undefined;
+  }
+
+  async subscribe(url, parameters = null) {
+    return this.request(
+      '/import/subscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
+  }
+
+  async unsubscribe(url, parameters = null) {
+    return this.request(
+      '/import/unsubscribe',
+      'POST',
+      RewApi.createSubscriber(url, parameters),
+    );
   }
 
   async getSubscribers() {
@@ -32,8 +54,12 @@ class REWImport {
 
   // ==================== FREQUENCY RESPONSE ====================
 
-  async importFrequencyResponse(filePath) {
-    return this.request('/import/frequency-response', 'POST', { path: filePath });
+  async importFrequencyResponse(filePath, options = {}) {
+    return this.request(
+      '/import/frequency-response',
+      'POST',
+      REWImport.buildFilePathPayload(filePath, options),
+    );
   }
 
   async getLastFrequencyResponseImport() {
@@ -45,8 +71,14 @@ class REWImport {
     if (!data || typeof data !== 'object') {
       throw new Error('Data must be an object');
     }
-    if (!data.magnitude || !data.phase) {
+    if (!REWImport.hasValue(data.magnitude) || !REWImport.hasValue(data.phase)) {
       throw new Error('Data must contain magnitude and phase');
+    }
+    if (!REWImport.hasValue(data.startFreq)) {
+      throw new Error('Data must contain startFreq');
+    }
+    if (!REWImport.hasValue(data.freqStep) && !REWImport.hasValue(data.ppo)) {
+      throw new Error('Data must contain freqStep or ppo');
     }
     // magnitude and phase should be Float32Array or base64 strings
     if (!(data.magnitude instanceof Float32Array) && typeof data.magnitude !== 'string') {
@@ -55,13 +87,14 @@ class REWImport {
     if (!(data.phase instanceof Float32Array) && typeof data.phase !== 'string') {
       throw new TypeError('Phase must be a Float32Array or base64 string');
     }
-    if (data.magnitude instanceof Float32Array) {
-      data.magnitude = RewApi.encodeFloat32ToBase64(data.magnitude);
+    const payload = { ...data };
+    if (payload.magnitude instanceof Float32Array) {
+      payload.magnitude = RewApi.encodeFloat32ToBase64(payload.magnitude);
     }
-    if (data.phase instanceof Float32Array) {
-      data.phase = RewApi.encodeFloat32ToBase64(data.phase);
+    if (payload.phase instanceof Float32Array) {
+      payload.phase = RewApi.encodeFloat32ToBase64(payload.phase);
     }
-    return this.request('/import/frequency-response-data', 'POST', data);
+    return this.request('/import/frequency-response-data', 'POST', payload);
   }
 
   async getLastFrequencyResponseDataImport() {
@@ -70,8 +103,16 @@ class REWImport {
 
   // ==================== IMPULSE RESPONSE ====================
 
-  async importImpulseResponse(filePath, channels = 'All') {
-    return this.request('/import/impulse-response', 'POST', { path: filePath, channels });
+  async importImpulseResponse(filePath, channels = 'All', options = {}) {
+    const bodyOptions =
+      typeof channels === 'object' && channels !== null
+        ? channels
+        : { ...options, channels };
+    return this.request(
+      '/import/impulse-response',
+      'POST',
+      REWImport.buildFilePathPayload(filePath, bodyOptions),
+    );
   }
 
   async getLastImpulseResponseImport() {
@@ -82,17 +123,21 @@ class REWImport {
     if (!data || typeof data !== 'object') {
       throw new Error('Data must be an object');
     }
-    if (!data.data) {
+    if (!REWImport.hasValue(data.data)) {
       throw new Error('Data must contain data property');
+    }
+    if (!REWImport.hasValue(data.sampleRate)) {
+      throw new Error('Data must contain sampleRate');
     }
     // data.data should be Float32Array or base64 strings
     if (!(data.data instanceof Float32Array) && typeof data.data !== 'string') {
       throw new TypeError('Magnitude must be a Float32Array or base64 string');
     }
-    if (data.data instanceof Float32Array) {
-      data.data = RewApi.encodeFloat32ToBase64(data.data);
+    const payload = { ...data };
+    if (payload.data instanceof Float32Array) {
+      payload.data = RewApi.encodeFloat32ToBase64(payload.data);
     }
-    return this.request('/import/impulse-response-data', 'POST', data);
+    return this.request('/import/impulse-response-data', 'POST', payload);
   }
 
   async getLastImpulseResponseDataImport() {
@@ -113,6 +158,10 @@ class REWImport {
     return this.request('/import/rta-file/progress');
   }
 
+  async getRTAFileSaveOptions() {
+    return this.request('/import/rta-file/save-options');
+  }
+
   async getLastRTAFileImport() {
     return this.request('/import/rta-file');
   }
@@ -127,10 +176,14 @@ class REWImport {
     return this.request('/import/sweep-recordings/stimulus');
   }
 
-  async importSweepResponse(filePath, channels = 'All') {
+  async importSweepResponse(filePath, channels = 'All', options = {}) {
+    const bodyOptions =
+      typeof channels === 'object' && channels !== null
+        ? channels
+        : { ...options, channels };
     return this.request('/import/sweep-recordings/response', 'POST', {
       path: filePath,
-      channels,
+      ...bodyOptions,
     });
   }
 
