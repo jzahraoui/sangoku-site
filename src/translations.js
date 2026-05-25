@@ -211,7 +211,7 @@ const translations = {
     autoeq_reset_tooltip: 'Reset AutoEQ parameters to defaults',
   },
   fr: {
-    title: 'Assistant de correction acoustique',
+    title: 'Room Correction Helper',
     import_avr: "Importez votre fichier AVR généré par l'exécutable odd",
     drop_avr: 'Déposez le fichier .avr ou .mqx/.ady ici ou cliquez pour sélectionner',
     avr_config: 'Détails de la configuration AVR',
