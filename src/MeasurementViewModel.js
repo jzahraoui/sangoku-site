@@ -233,6 +233,9 @@ class MeasurementViewModel {
           this.room3DViewer = new Room3DViewer('room-canvas');
           this.room3DViewer.init(data.detectedChannels);
         }, 100);
+      } else if (this.room3DViewer) {
+        this.room3DViewer.destroy();
+        this.room3DViewer = null;
       }
     });
 
