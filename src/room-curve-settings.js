@@ -57,6 +57,17 @@ const PRESETS = Object.freeze({
       highFreqFallSlopedBPerOctave: 0.9,
     }),
   }),
+  drRotuleV3: Object.freeze({
+    text: 'Dr. Rotule V3',
+    settings: Object.freeze({
+      addRoomCurve: true,
+      lowFreqRiseStartHz: 110,
+      lowFreqRiseEndHz: 30,
+      lowFreqRiseSlopedBPerOctave: 4.3,
+      highFreqFallStartHz: 350,
+      highFreqFallSlopedBPerOctave: 0.3,
+    }),
+  }),
 });
 
 const cloneSettings = settings => ({ ...settings });
