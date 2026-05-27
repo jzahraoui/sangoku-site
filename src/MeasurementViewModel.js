@@ -2052,8 +2052,6 @@ class MeasurementViewModel {
     apply,
     includePredictedLfeMeasurement = false,
   }) => {
-    this.saveMeasurements();
-
     if (!this.isPolling()) return;
 
     if (this.isProcessing()) {
