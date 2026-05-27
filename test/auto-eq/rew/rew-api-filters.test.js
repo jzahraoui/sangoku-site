@@ -223,9 +223,7 @@ const apiService = new RewApi(await resolveRewApiBaseUrl(), false, true);
 await apiService.initializeAPI();
 await apiService.rewMeasurements.deleteAll();
 
-await apiService.rewEq.request('/eq/command', 'POST', {
-  command: 'Generate target measurement',
-});
+await apiService.rewEq.generateTargetMeasurement();
 
 const basePath = './test/auto-eq/samples-96ppo';
 const measurementFiles = ['Cavg.txt'];

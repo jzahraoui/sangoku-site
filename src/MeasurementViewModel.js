@@ -1916,7 +1916,11 @@ class MeasurementViewModel {
     this.mainTargetLevel = ko.observable(MeasurementItem.DEFAULT_TARGET_LEVEL);
 
     this.tcName = ko.pureComputed(() => {
-      return `${this.targetCurve()} ${this.mainTargetLevel()}dB`;
+      const targetCurve = this.targetCurve() === 'None' ? '' : this.targetCurve();
+      const roomCurve =
+        this.selectedRoomCurve() === 'none' ? '' : this.selectedRoomCurve();
+      const curveName = [targetCurve, roomCurve].filter(Boolean).join(' - ') || 'flat';
+      return `${curveName} ${this.mainTargetLevel()}dB`;
     });
 
     this.firstMeasurement = ko.pureComputed(() => {
@@ -2125,6 +2129,10 @@ class MeasurementViewModel {
         measurement.setRoomCurveSettings(this.getRoomCurveConfig(selectedRoomCurve)),
       includePredictedLfeMeasurement: true,
     });
+
+    // also update default room curve for future measurements
+    this.rewEq.setDefaultRoomCurveSettings(this.getRoomCurveConfig(selectedRoomCurve));
+
   };
 
   // Méthodes de confirmation pour les actions sensibles
@@ -2179,32 +2187,36 @@ class MeasurementViewModel {
   }
 
   async updateTargetCurve(referenceMeasurement) {
-    const previousTargetcurveTitle = 'Target';
-    const title = `${previousTargetcurveTitle} ${this.tcName()}`;
+    const prefix = 'Target';
+    const title = `${prefix} ${this.tcName()}`;
 
     if (this.measurements().some(item => item.title() === title)) {
       lm.debug(`Current target curve ${title} is valid, skipping creation.`);
       return false;
     }
 
-    lm.debug(`Current target curve needs to be uodated to ${title}.`);
-    if (!referenceMeasurement) {
-      lm.warn('No reference measurement provided for target curve generation.');
-      return false;
+    lm.debug(`Current target curve needs to be updated to ${title}.`);
+
+    await this.removeMeasurements(
+      this.measurements().filter(item => item.title().startsWith(prefix)),
+    );
+
+    let targetMeasurement, comments;
+    if (referenceMeasurement) {
+      const apiResponse = await this.rewMeasurements.generateTargetMeasurement(
+        referenceMeasurement.uuid,
+      );
+      targetMeasurement = await this.analyseApiResponse(apiResponse);
+      comments = `from ${referenceMeasurement.title()}`;
+    } else {
+      // api response of generateTargetMeasurement is bugged: uuid returned is not the created measurement's uuid
+      const lastMeasurementIndex = this.measurements().length;
+      await this.rewEq.generateTargetMeasurement();
+      const item = await this.rewMeasurements.get(lastMeasurementIndex + 1, 0);
+      targetMeasurement = await this.addMeasurement(item);
+      comments = 'no reference measurement';
     }
-
-    // delete previous targets curve
-    const previousTargetcurves = this.measurements().filter(item =>
-      item.title().startsWith(previousTargetcurveTitle),
-    );
-
-    await this.removeMeasurements(previousTargetcurves);
-
-    const apiResponse = await this.rewMeasurements.generateTargetMeasurement(
-      referenceMeasurement.uuid,
-    );
-    const targetMeasurement = await this.analyseApiResponse(apiResponse);
-    await targetMeasurement.setTitle(title, `from ${referenceMeasurement.title()}`);
+    await targetMeasurement.setTitle(title, comments);
 
     lm.info(`Created target curve: ${title}`);
     return true;
@@ -2423,12 +2435,12 @@ class MeasurementViewModel {
         lm.warn('No target curve set in REW, please set a target curve first');
       }
 
+      const previousTcName = this.tcName();
       this.targetCurve(currentTc);
 
-      const newTcName = `${this.targetCurve()} ${newValue}dB`;
-
       // check if target curve or target level changed, if not, skip
-      if (newTcName === this.tcName()) {
+      // this.tcName() after setting targetCurve has the new curve name + old level
+      if (this.tcName() === previousTcName && newValue === this.mainTargetLevel()) {
         // sometimes target not exist, this creates it
         await this.updateTargetCurve(measurement);
         return;
@@ -3094,10 +3106,14 @@ class MeasurementViewModel {
     if (typeof commandResult !== 'object') {
       throw new TypeError('Command result must be an object');
     }
+    // test if object is empty
+    if (Object.keys(commandResult).length === 0) {
+      throw new Error('Command result is empty');
+    }
 
     // new measurement created
     const operationResultUuid = Object.values(
-      commandResult.results || commandResult.message.results || {},
+      commandResult.results || commandResult.message.results,
     )[0]?.UUID;
     if (!operationResultUuid) {
       throw new Error('No measurement UUID found in command result');

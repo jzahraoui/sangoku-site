@@ -732,6 +732,8 @@ describe('RewApi', () => {
       await api.rewEq.getTargetShapes();
       await api.rewEq.getCrossoverTypes();
       await api.rewEq.getSlopes();
+      await api.rewEq.getCommands();
+      await api.rewEq.executeCommand('Generate target measurement');
       await api.rewEq.putDefaultTargetSettings({ shape: 'None' });
       await api.rewEq.putDefaultRoomCurveSettings({ addRoomCurve: false });
 
@@ -748,15 +750,47 @@ describe('RewApi', () => {
         undefined,
       );
       expect(fetchSpy).toHaveBeenNthCalledWith(3, '/eq/slopes', undefined, undefined);
-      expect(fetchSpy).toHaveBeenNthCalledWith(4, '/eq/default-target-settings', 'PUT', {
+      expect(fetchSpy).toHaveBeenNthCalledWith(
+        4,
+        '/eq/commands',
+        undefined,
+        undefined,
+      );
+      expect(fetchSpy).toHaveBeenNthCalledWith(5, '/eq/command', 'POST', {
+        command: 'Generate target measurement',
+        parameters: [],
+      });
+      expect(fetchSpy).toHaveBeenNthCalledWith(6, '/eq/default-target-settings', 'PUT', {
         shape: 'None',
       });
       expect(fetchSpy).toHaveBeenNthCalledWith(
-        5,
+        7,
         '/eq/default-room-curve-settings',
         'PUT',
         { addRoomCurve: false },
       );
+    });
+
+    it('validates EQ command wrapper arguments', async () => {
+      await expect(api.rewEq.executeCommand(null)).rejects.toThrow(TypeError);
+      await expect(api.rewEq.executeCommand('Generate target measurement', {})).rejects.toThrow(
+        TypeError,
+      );
+    });
+
+    it('exposes direct EQ command wrappers', async () => {
+      await api.rewEq.generateTargetMeasurement();
+
+      const expectedCommands = [
+        ['Generate target measurement', []],
+      ];
+
+      expectedCommands.forEach(([command, parameters], index) => {
+        expect(fetchSpy).toHaveBeenNthCalledWith(index + 1, '/eq/command', 'POST', {
+          command,
+          parameters,
+        });
+      });
     });
 
     it('supports import save options, file import options, and immutable data encoding', async () => {

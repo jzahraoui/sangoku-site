@@ -121,6 +121,24 @@ class REWEQ {
     return this.request('/eq/house-curve-log-interpolation', 'POST', enabled);
   }
 
+  async getCommands() {
+    return this.request('/eq/commands');
+  }
+
+  async executeCommand(command, parameters = []) {
+    if (typeof command !== 'string') {
+      throw new TypeError('command must be a string');
+    }
+    if (!Array.isArray(parameters)) {
+      throw new TypeError('parameters must be an array');
+    }
+    return this.request('/eq/command', 'POST', { command, parameters });
+  }
+
+  async generateTargetMeasurement() {
+    return this.executeCommand('Generate target measurement');
+  }
+
   async getMatchTargetSettings() {
     return this.request('/eq/match-target-settings');
   }
