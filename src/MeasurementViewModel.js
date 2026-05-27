@@ -359,9 +359,13 @@ class MeasurementViewModel {
     this.processImpulseResponse = async (processedResponse, adyTools) => {
       const identifier = processedResponse.name;
       const response = processedResponse.data;
-      const max = Math.max(...response.map(x => Math.abs(x)));
-      const lastMeasurementIndex = this.measurements().length;
-
+      let max = 0;
+      for (const element of response) {
+        const absValue = Math.abs(element);
+        if (absValue > max) {
+          max = absValue;
+        }
+      }
       const options = {
         identifier,
         startTime: 0,
@@ -370,10 +374,10 @@ class MeasurementViewModel {
         applyCal: false,
         data: response,
       };
-      await this.rewImport.importImpulseResponseData(options);
-
-      const item = await this.rewMeasurements.get(lastMeasurementIndex + 1, 0);
-      const measurementItem = await this.addMeasurement(item);
+      const measurementItem = await this.addMeasurementFromRewOperation(
+        () => this.rewImport.importImpulseResponseData(options),
+        { expectedTitle: identifier, operationLabel: `import ${identifier}` },
+      );
       measurementItem.IRPeakValue = max;
       if (max >= 1) {
         lm.warn(
@@ -2133,7 +2137,6 @@ class MeasurementViewModel {
 
     // also update default room curve for future measurements
     this.rewEq.setDefaultRoomCurveSettings(this.getRoomCurveConfig(selectedRoomCurve));
-
   };
 
   // Méthodes de confirmation pour les actions sensibles
@@ -2211,10 +2214,10 @@ class MeasurementViewModel {
       comments = `from ${referenceMeasurement.title()}`;
     } else {
       // api response of generateTargetMeasurement is bugged: uuid returned is not the created measurement's uuid
-      const lastMeasurementIndex = this.measurements().length;
-      await this.rewEq.generateTargetMeasurement();
-      const item = await this.rewMeasurements.get(lastMeasurementIndex + 1, 0);
-      targetMeasurement = await this.addMeasurement(item);
+      targetMeasurement = await this.addMeasurementFromRewOperation(
+        () => this.rewEq.generateTargetMeasurement(),
+        { operationLabel: 'target measurement generation' },
+      );
       comments = 'no reference measurement';
     }
     await targetMeasurement.setTitle(title, comments);
@@ -2799,11 +2802,10 @@ class MeasurementViewModel {
       phase: optimizedSubsSum.phase,
       ppo: optimizedSubsSum.ppo,
     };
-    await this.rewImport.importFrequencyResponseData(options);
-
-    const lastMeasurementIndex = this.measurements().length;
-    const item = await this.rewMeasurements.get(lastMeasurementIndex + 1, 0);
-    const maximisedSum = await this.addMeasurement(item);
+    const maximisedSum = await this.addMeasurementFromRewOperation(
+      () => this.rewImport.importFrequencyResponseData(options),
+      { expectedTitle: options.identifier, operationLabel: maximisedSumTitle },
+    );
 
     if (!maximisedSum) {
       throw new Error('Error creating maximised sum');
@@ -2892,34 +2894,140 @@ class MeasurementViewModel {
   }
 
   mergeMeasurements(data) {
+    const apiItems = Object.values(data).filter(item => item?.uuid);
     const currentMeasurements = this.measurements();
-    const newKeys = new Set(Object.values(data).map(m => m.uuid));
+    const currentByUuid = new Map(currentMeasurements.map(item => [item.uuid, item]));
+    const apiUuids = new Set(apiItems.map(item => item.uuid));
+    const currentUuids = new Set(currentMeasurements.map(item => item.uuid));
+    const previousOrder = currentMeasurements.map(item => item.uuid).join('|');
+    let hasOrphanedFilterChanges = false;
 
-    // Update existing or create new measurements
-    const mergedMeasurements = Object.entries(data).map(([key, item]) => {
-      const existing = currentMeasurements.find(m => m.uuid === item.uuid);
-      if (existing) return this.updateObservableObject(existing, item);
-
-      lm.debug(`Create new measurement: ${key}: ${item.title}`);
-      return new MeasurementItem(item, this);
-    });
-
-    this.measurements(mergedMeasurements);
-
-    // Log deleted measurements
-    for (const m of currentMeasurements) {
-      if (!newKeys.has(m.uuid)) {
-        lm.debug(`removed: ${m.uuid}`);
-      }
-    }
-
-    // Clear orphaned associated filters
-    for (const item of mergedMeasurements) {
-      if (item.associatedFilter && !newKeys.has(item.associatedFilter)) {
+    for (const item of currentMeasurements) {
+      if (item.associatedFilter && !apiUuids.has(item.associatedFilter)) {
         item.associatedFilter = null;
+        hasOrphanedFilterChanges = true;
         lm.debug(`Removing filter: ${item.displayMeasurementTitle()}`);
       }
     }
+
+    const deletedMeasurements = currentMeasurements.filter(
+      item => !apiUuids.has(item.uuid),
+    );
+    const addedMeasurements = [];
+    const mergedMeasurements = apiItems.map(apiItem => {
+      const existingMeasurement = currentByUuid.get(apiItem.uuid);
+      if (existingMeasurement) {
+        existingMeasurement.updateFromApi(apiItem);
+        return existingMeasurement;
+      }
+
+      const newMeasurement = new MeasurementItem(apiItem, this);
+      addedMeasurements.push(newMeasurement);
+      return newMeasurement;
+    });
+    const nextOrder = mergedMeasurements.map(item => item.uuid).join('|');
+    const hasOrderChanges = previousOrder !== nextOrder;
+
+    if (hasOrderChanges || hasOrphanedFilterChanges) {
+      this.measurements(mergedMeasurements);
+    }
+
+    for (const item of deletedMeasurements) {
+      item.dispose?.();
+    }
+
+    if (deletedMeasurements.length) {
+      lm.debug(
+        `Removed measurements: ${deletedMeasurements.map(item => item.title()).join(', ')}`,
+      );
+    }
+    if (addedMeasurements.length) {
+      lm.debug(
+        `Added new measurements: ${addedMeasurements.map(item => item.title()).join(', ')}`,
+      );
+    }
+    if (currentUuids.size && hasOrderChanges) {
+      lm.debug('Measurements order synced with REW');
+    }
+  }
+
+  async addMeasurementFromRewOperation(
+    operation,
+    {
+      expectedTitle = null,
+      operationLabel = 'measurement creation',
+      timeoutMs = 5000,
+      pollIntervalMs = 100,
+    } = {},
+  ) {
+    if (typeof operation !== 'function') {
+      throw new TypeError('operation must be a function');
+    }
+
+    const beforeData = await this.rewMeasurements.list();
+    const beforeUuids = new Set(
+      Object.values(beforeData)
+        .filter(item => item?.uuid)
+        .map(item => item.uuid),
+    );
+
+    await operation();
+
+    const startedAt = Date.now();
+    let latestData = beforeData;
+
+    while (Date.now() - startedAt <= timeoutMs) {
+      latestData = await this.rewMeasurements.list();
+      const newApiItems = Object.values(latestData).filter(
+        item => item?.uuid && !beforeUuids.has(item.uuid),
+      );
+
+      if (newApiItems.length) {
+        const createdItem = this.selectCreatedMeasurement(newApiItems, expectedTitle);
+        this.mergeMeasurements(latestData);
+        const measurement = this.findMeasurementByUuid(createdItem.uuid);
+
+        if (!measurement) {
+          throw new Error(`Created measurement not found after ${operationLabel}`);
+        }
+
+        return measurement;
+      }
+
+      await this.waitForRewMeasurement(pollIntervalMs);
+    }
+
+    this.mergeMeasurements(latestData);
+    throw new Error(`Unable to find created measurement after ${operationLabel}`);
+  }
+
+  selectCreatedMeasurement(apiItems, expectedTitle) {
+    if (!apiItems.length) {
+      return null;
+    }
+
+    const normalizedExpectedTitle = expectedTitle?.trim();
+    if (normalizedExpectedTitle) {
+      const exactMatch = apiItems.find(item => item.title === normalizedExpectedTitle);
+      if (exactMatch) {
+        return exactMatch;
+      }
+
+      const prefixMatch = apiItems.find(
+        item =>
+          item.title?.startsWith(normalizedExpectedTitle) ||
+          normalizedExpectedTitle.startsWith(item.title),
+      );
+      if (prefixMatch) {
+        return prefixMatch;
+      }
+    }
+
+    return apiItems.at(-1);
+  }
+
+  waitForRewMeasurement(delayMs) {
+    return new Promise(resolve => setTimeout(resolve, delayMs));
   }
 
   // Helper function to handle observable properties

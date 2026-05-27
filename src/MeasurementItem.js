@@ -313,22 +313,61 @@ class MeasurementItem {
       throw new Error(`Failed to refresh ${this.displayMeasurementTitle()}`);
     }
 
-    this.title(item.title);
-    this.notes = item.notes;
-    this.date = item.date;
-    this.startFreq = item.startFreq;
-    this.endFreq = item.endFreq;
-    this.inverted(item.inverted);
-    this.rewVersion = item.rewVersion;
-    this.sampleRate = Number.isFinite(item.sampleRate)
-      ? item.sampleRate
-      : this.sampleRate;
-    this.splOffsetdB(item.splOffsetdB);
-    this.alignSPLOffsetdB(item.alignSPLOffsetdB);
-    this.cumulativeIRShiftSeconds(item.cumulativeIRShiftSeconds);
-    this.clockAdjustmentPPM = item.clockAdjustmentPPM;
-    this.timeOfIRStartSeconds = item.timeOfIRStartSeconds;
-    this.timeOfIRPeakSeconds(item.timeOfIRPeakSeconds);
+    this.updateFromApi(item);
+  }
+
+  updateFromApi(item) {
+    if (!item) {
+      return this;
+    }
+
+    const updateObservable = (observable, value) => {
+      if (value !== undefined && observable() !== value) {
+        observable(value);
+      }
+    };
+    const updateProperty = (property, value) => {
+      if (value !== undefined && this[property] !== value) {
+        this[property] = value;
+      }
+    };
+    const observableUpdates = [
+      ['title', this.title],
+      ['inverted', this.inverted],
+      ['splOffsetdB', this.splOffsetdB],
+      ['alignSPLOffsetdB', this.alignSPLOffsetdB],
+      ['timeOfIRPeakSeconds', this.timeOfIRPeakSeconds],
+    ];
+    const propertyUpdates = [
+      ['notes', 'notes'],
+      ['date', 'date'],
+      ['startFreq', 'startFreq'],
+      ['endFreq', 'endFreq'],
+      ['rewVersion', 'rewVersion'],
+      ['clockAdjustmentPPM', 'clockAdjustmentPPM'],
+      ['timeOfIRStartSeconds', 'timeOfIRStartSeconds'],
+    ];
+
+    for (const [key, observable] of observableUpdates) {
+      if (Object.hasOwn(item, key)) updateObservable(observable, item[key]);
+    }
+
+    for (const [key, property] of propertyUpdates) {
+      if (Object.hasOwn(item, key)) updateProperty(property, item[key]);
+    }
+
+    if (Object.hasOwn(item, 'sampleRate') && Number.isFinite(item.sampleRate)) {
+      updateProperty('sampleRate', item.sampleRate);
+    }
+    if (Object.hasOwn(item, 'cumulativeIRShiftSeconds')) {
+      updateObservable(this.cumulativeIRShiftSeconds, item.cumulativeIRShiftSeconds);
+      this.haveImpulseResponse = true;
+    }
+    if (Object.hasOwn(item, 'isFilter')) {
+      updateProperty('isFilter', item.isFilter || false);
+    }
+
+    return this;
   }
 
   // Compute methods
