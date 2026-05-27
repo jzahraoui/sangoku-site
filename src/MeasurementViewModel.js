@@ -128,11 +128,15 @@ class MeasurementViewModel {
     this.hasItems = ko.pureComputed(() => this.measurements().length > 0);
 
     this.handleError = (message, error) => {
+      if (!message) message = 'An unknown error occurred';
       lm.error(message);
       this.error(message);
       this.status('');
-      if (error) throw error;
-      if (message) throw new Error(message);
+      if (error) {
+        throw error;
+      } else {
+        throw new Error(message);
+      }
     };
 
     this.handleSuccess = message => {
@@ -692,7 +696,7 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       try {
         this.error('');
-        this.toggleBackgroundPolling();
+        await this.toggleBackgroundPolling();
       } catch (error) {
         this.handleError(`Pulling failed: ${error.message}`, error);
       }
@@ -2864,25 +2868,14 @@ class MeasurementViewModel {
   }
 
   async loadData() {
+    if (!this.isPolling()) {
+      lm.warn('Please connect to REW to load measurements');
+      return;
+    }
+
     try {
       this.isLoading(true);
-      if (!this.isPolling()) {
-        // do not throw error, just log warning to allow offline ady loading
-        lm.warn('Please connect to REW to load measurements');
-        return;
-      }
-
       const data = await this.rewMeasurements.list();
-
-      const measurementsCount = Object.keys(data).length;
-      if (measurementsCount > 0 && !this.jsonAvrData()?.avr) {
-        // clear measurements to avoid inconsistency
-        this.measurements([]);
-        throw new Error(
-          `${measurementsCount} Measurements detected in REW but no AVR information. please remove all measurements or load AVR information`,
-        );
-      }
-
       this.mergeMeasurements(data);
     } catch (error) {
       throw new Error(`Failed to load data: ${error.message}`, {
@@ -3053,15 +3046,15 @@ class MeasurementViewModel {
 
   // add measurement
   async addMeasurementApi(itemUuid) {
-    if (!itemUuid) {
-      throw new Error('Add Measurement: Invalid measurement item');
-    }
-    const existingItem = this.findMeasurementByUuid(itemUuid);
-    if (existingItem) {
-      lm.warn(`measurement ${itemUuid} already exists, not added`);
-      return existingItem;
-    }
     try {
+      if (!itemUuid) {
+        throw new Error('Add Measurement: Invalid measurement item');
+      }
+      const existingItem = this.findMeasurementByUuid(itemUuid);
+      if (existingItem) {
+        lm.warn(`measurement ${itemUuid} already exists, not added`);
+        return existingItem;
+      }
       const item = await this.rewMeasurements.get(itemUuid);
       // Transform data using the MeasurementItem class
       const measurementItem = new MeasurementItem(item, this);
@@ -3461,11 +3454,16 @@ class MeasurementViewModel {
 
       // Set up regular polling
       this.pollerId = setInterval(async () => {
-        if (this.isPolling()) {
+        try {
+          if (!this.isPolling()) return;
           if (this.isProcessing()) return;
           if (this.isLoading()) return;
           if (this.hasError()) return;
+
           await this.loadData();
+        } catch (error) {
+          this.stopBackgroundPolling();
+          this.handleError(`Polling failed: ${error.message}`, error);
         }
       }, this.pollingInterval);
     } catch (error) {
@@ -3495,13 +3493,14 @@ class MeasurementViewModel {
     this.rewMeasurements = null;
     this.rewImport = null;
     this.rewAlignmentTool = null;
+    this.isLoading(false);
   }
 
-  toggleBackgroundPolling() {
+  async toggleBackgroundPolling() {
     if (this.isPolling()) {
       this.stopBackgroundPolling();
     } else {
-      this.startBackgroundPolling();
+      await this.startBackgroundPolling();
     }
   }
 

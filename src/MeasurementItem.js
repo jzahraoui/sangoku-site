@@ -22,13 +22,8 @@ class MeasurementItem {
       throw new Error('Invalid parameters for MeasurementItem creation');
     }
 
-    // required for calculations using speed of sound
-    if (!parentViewModel.jsonAvrData()?.avr) {
-      throw new Error('No AVR data loaded');
-    }
-
-    this.speedOfSound = parentViewModel.jsonAvrData().avr.speedOfSound;
-    this.detectedChannels = parentViewModel.jsonAvrData().detectedChannels;
+    this.speedOfSound = parentViewModel.jsonAvrData()?.avr?.speedOfSound || 343; // default to 343 m/s if not available
+    this.detectedChannels = parentViewModel.jsonAvrData()?.detectedChannels || [];
 
     this.dectedFallOffLow = -1;
     this.dectedFallOffHigh = +Infinity;
@@ -60,6 +55,13 @@ class MeasurementItem {
     this.parentAttr = item.parentAttr || null;
     this.shiftDelay = ko.observable(item.shiftDelay || Infinity);
 
+    // required for calculations using speed of sound
+    if (!parentViewModel.jsonAvrData()?.avr && this.haveImpulseResponse) {
+      throw new Error(
+        'No AVR data loaded. please remove all measurements or load AVR information',
+      );
+    }
+
     // store value on object creation and make it immuable
     // TODO if not retreived from saved data the newly created reference can be false
     this.initialSplOffsetdB =
@@ -78,6 +80,7 @@ class MeasurementItem {
     );
 
     this.channelDetails = ko.computed(() => {
+      if (!this.haveImpulseResponse) return null;
       const foundChannel = this.detectedChannels.find(
         channel => channel.commandId === this.channelName(),
       );
@@ -132,10 +135,11 @@ class MeasurementItem {
             `${MeasurementItem.DEFAULT_LFE_PREDICTED}${this.position()}`,
         );
     });
-    this.absoluteIRPeakSeconds = ko.computed(() => {
-      if (!this.haveImpulseResponse) return 0;
-      return this.timeOfIRPeakSeconds() + this.cumulativeIRShiftSeconds();
-    });
+    this.absoluteIRPeakSeconds = ko.pureComputed(() =>
+      this.haveImpulseResponse
+        ? this.timeOfIRPeakSeconds() + this.cumulativeIRShiftSeconds()
+        : 0,
+    );
     this.displayMeasurementTitle = ko.computed(
       () => `${this.measurementIndex()}: ${this.title()}`,
     );
@@ -182,13 +186,12 @@ class MeasurementItem {
     );
 
     // Create a computed observable for the channel detection check
-    this.isChannelDetected = ko.computed(() => {
+    this.isChannelDetected = ko.pureComputed(() => {
       const details = this.channelDetails();
+      if (!details) return false;
       return (
         this.isSelected() &&
-        this.detectedChannels &&
-        details &&
-        this.detectedChannels.some(m => m.enChannelType === details.channelIndex)
+        this.detectedChannels?.some(m => m.enChannelType === details.channelIndex)
       );
     });
     this.exceedsDistance = ko.computed(() => {
