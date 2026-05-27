@@ -2465,8 +2465,6 @@ class MeasurementViewModel {
 
       //delete previous LFE predicted measurements
       await this.removeMeasurements(this.allPredictedLfeMeasurement());
-      // update tcName when main target level changes
-      this.tcName.notifySubscribers();
       // if main target level change, we need to update target curve measurement
       const updated = await this.updateTargetCurve(this.firstMeasurement());
       if (!updated) {
