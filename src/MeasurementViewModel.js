@@ -133,9 +133,9 @@ class MeasurementViewModel {
       this.error(message);
       this.status('');
       if (error) {
-        throw error;
+        console.error(error.stack ?? error);
       } else {
-        throw new Error(message);
+        console.error(message);
       }
     };
 
@@ -611,17 +611,30 @@ class MeasurementViewModel {
         this.processingTimeout = setTimeout(() => {
           if (this.isProcessing()) {
             lm.warn('Processing is taking more than 60 seconds, unlocking controls');
-            this.isProcessing(false);
+            this.setProcessing(false).catch(error => {
+              this.handleError(`Failed to unlock controls: ${error.message}`, error);
+            });
           }
         }, 60000);
       }
       // inhibit Graph Updates only during processing
-      if (this.isPolling() && this.inhibitGraphUpdates()) {
-        await this.apiService.setInhibitGraphUpdates(newValue);
+      if (this.isPolling() && this.inhibitGraphUpdates() && this.apiService) {
+        try {
+          await this.apiService.setInhibitGraphUpdates(newValue);
+        } catch (error) {
+          if (newValue) {
+            throw error;
+          }
+          lm.warn(`Unable to restore graph updates: ${error.message}`);
+        }
       }
       // Save to persistent when processing ends
       if (!newValue) {
-        this.saveMeasurements();
+        try {
+          this.saveMeasurements();
+        } catch (error) {
+          lm.warn(`Unable to save measurements: ${error.message}`);
+        }
       }
     };
 
@@ -766,7 +779,11 @@ class MeasurementViewModel {
       this.error('');
       this.status('');
 
-      if (this.isPolling()) await this.apiService.clearCommands();
+      try {
+        if (this.isPolling() && this.apiService) await this.apiService.clearCommands();
+      } catch (error) {
+        this.handleError(`Clear error failed: ${error.message}`, error);
+      }
     };
 
     this.buttonResetApplication = async () => {
@@ -1180,7 +1197,8 @@ class MeasurementViewModel {
       for (const item of this.uniqueSpeakersMeasurements()) {
         // display progression in the status
         lm.info(`Generating preview for ${item.displayMeasurementTitle()}`);
-        await item.previewMeasurement();
+        const previewCreated = await item.previewMeasurement();
+        if (previewCreated === false) return;
       }
 
       this.handleSuccess(`Preview generated successfully`);
@@ -2139,8 +2157,16 @@ class MeasurementViewModel {
       includePredictedLfeMeasurement: true,
     });
 
-    // also update default room curve for future measurements
-    this.rewEq.setDefaultRoomCurveSettings(this.getRoomCurveConfig(selectedRoomCurve));
+    if (this.rewEq) {
+      try {
+        // also update default room curve for future measurements
+        await this.rewEq.setDefaultRoomCurveSettings(
+          this.getRoomCurveConfig(selectedRoomCurve),
+        );
+      } catch (error) {
+        this.handleError(`Room curve update failed: ${error.message}`, error);
+      }
+    }
   };
 
   // Méthodes de confirmation pour les actions sensibles
@@ -3175,8 +3201,8 @@ class MeasurementViewModel {
       }
 
       const shiftDelayMs = Number(AlignResultsDetails['Delay B ms']);
-      if (shiftDelayMs === undefined) {
-        throw new Error(
+      if (!Number.isFinite(shiftDelayMs)) {
+        throw new TypeError(
           'alignment-tool: Invalid AlignResults object or missing Delay B ms',
         );
       }
@@ -3212,9 +3238,8 @@ class MeasurementViewModel {
     }
 
     // new measurement created
-    const operationResultUuid = Object.values(
-      commandResult.results || commandResult.message.results,
-    )[0]?.UUID;
+    const operationResults = commandResult.results || commandResult.message?.results;
+    const operationResultUuid = Object.values(operationResults || {})[0]?.UUID;
     if (!operationResultUuid) {
       throw new Error('No measurement UUID found in command result');
     }

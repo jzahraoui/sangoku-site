@@ -234,8 +234,10 @@ class MeasurementItem {
         await parentViewModel.setProcessing(true);
 
         await this.createStandardFilter();
+        return true;
       } catch (error) {
         parentViewModel.handleError(`Filter creation failed: ${error.message}`, error);
+        return false;
       } finally {
         await parentViewModel.setProcessing(false);
       }
@@ -247,8 +249,10 @@ class MeasurementItem {
         await parentViewModel.setProcessing(true);
 
         await this.createPhaseMatchFilter();
+        return true;
       } catch (error) {
         parentViewModel.handleError(`Filter creation failed: ${error.message}`, error);
+        return false;
       } finally {
         await parentViewModel.setProcessing(false);
       }
@@ -260,8 +264,10 @@ class MeasurementItem {
         await parentViewModel.setProcessing(true);
 
         await parentViewModel.createSpeakerFilterForSelectedMode(this);
+        return true;
       } catch (error) {
         parentViewModel.handleError(`Filter creation failed: ${error.message}`, error);
+        return false;
       } finally {
         await parentViewModel.setProcessing(false);
       }
@@ -278,8 +284,10 @@ class MeasurementItem {
         }
         // if filters was manually tunned, copy them to other positions
         await this.copyFiltersToOther();
+        return true;
       } catch (error) {
         parentViewModel.handleError(`Preview creation failed: ${error.message}`, error);
+        return false;
       } finally {
         await parentViewModel.setProcessing(false);
       }
@@ -386,21 +394,25 @@ class MeasurementItem {
 
   // funtion is accessible from the UI
   async toggleInversion() {
+    const allreadyProcessing = this.parentViewModel.isProcessing();
     try {
-      const allreadyProcessing = this.parentViewModel.isProcessing();
       if (!allreadyProcessing) await this.parentViewModel.setProcessing(true);
       await this.rewMeasurements.invert(this.uuid);
-      if (!allreadyProcessing) await this.parentViewModel.setProcessing(false);
 
       // Important to do refresh after allreadyProcessing check
       await this.refresh();
+      return true;
     } catch (error) {
-      this.parentViewModel.handleError(
-        `Failed to toggle inversion for ${this.displayMeasurementTitle()}: ${
-          error.message
-        }`,
-        error,
-      );
+      const message = `Failed to toggle inversion for ${this.displayMeasurementTitle()}: ${
+        error.message
+      }`;
+      if (allreadyProcessing) {
+        throw new Error(message, { cause: error });
+      }
+      this.parentViewModel.handleError(message, error);
+      return false;
+    } finally {
+      if (!allreadyProcessing) await this.parentViewModel.setProcessing(false);
     }
   }
 
