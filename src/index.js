@@ -1,4 +1,5 @@
 export { AutoEQCalculator } from './autoeq/AutoEQCalculator.js';
+export { FrequencyResponseAnalyzer } from './analysis/index.js';
 export { BiquadFilter, FilterSet } from './dsp/index.js';
 export {
   FilterParameterOptimizer,

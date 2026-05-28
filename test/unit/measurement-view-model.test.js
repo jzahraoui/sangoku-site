@@ -198,3 +198,43 @@ describe('MeasurementViewModel.addMeasurementFromRewOperation', () => {
     ]);
   });
 });
+
+describe('MeasurementViewModel.analyseApiResponse', () => {
+  it('reports a missing UUID without crashing on a partial response', async () => {
+    const viewModel = createViewModel();
+
+    await expect(viewModel.analyseApiResponse({ message: {} })).rejects.toThrow(
+      'No measurement UUID found in command result',
+    );
+  });
+
+  it('adds the measurement from top-level command results', async () => {
+    const viewModel = createViewModel();
+    const measurement = { uuid: 'created' };
+    viewModel.addMeasurementApi = vi.fn().mockResolvedValue(measurement);
+
+    await expect(
+      viewModel.analyseApiResponse({ results: { 1: { UUID: 'created' } } }),
+    ).resolves.toBe(measurement);
+    expect(viewModel.addMeasurementApi).toHaveBeenCalledWith('created');
+  });
+});
+
+describe('MeasurementViewModel.findAligment', () => {
+  it('rejects non-finite alignment delays', async () => {
+    const viewModel = createViewModel();
+    viewModel.rewAlignmentTool = {
+      setRemoveTimeDelay: vi.fn().mockResolvedValue(undefined),
+      resetAll: vi.fn().mockResolvedValue(undefined),
+      setMaxNegativeDelay: vi.fn().mockResolvedValue(undefined),
+      setMaxPositiveDelay: vi.fn().mockResolvedValue(undefined),
+      alignIRsBatch: vi.fn().mockResolvedValue({
+        results: [{ 'Delay B ms': 'not-a-number', 'Invert B': 'false' }],
+      }),
+    };
+
+    await expect(
+      viewModel.findAligment({ uuid: 'a' }, { uuid: 'b' }, 80),
+    ).rejects.toThrow('Invalid AlignResults object or missing Delay B ms');
+  });
+});

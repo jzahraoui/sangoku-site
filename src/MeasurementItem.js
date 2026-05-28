@@ -4,6 +4,7 @@ import ko from 'knockout';
 import BusinessTools from './BusinessTools.js';
 import lm from './logs.js';
 import { AutoEQCalculator } from './autoeq/AutoEQCalculator.js';
+import { FrequencyResponseAnalyzer } from './analysis/index.js';
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
@@ -24,9 +25,6 @@ class MeasurementItem {
 
     this.speedOfSound = parentViewModel.jsonAvrData()?.avr?.speedOfSound || 343; // default to 343 m/s if not available
     this.detectedChannels = parentViewModel.jsonAvrData()?.detectedChannels || [];
-
-    this.dectedFallOffLow = -1;
-    this.dectedFallOffHigh = +Infinity;
 
     this.parentViewModel = parentViewModel;
     // Original data
@@ -63,9 +61,10 @@ class MeasurementItem {
     }
 
     // store value on object creation and make it immuable
-    // TODO if not retreived from saved data the newly created reference can be false
-    this.initialSplOffsetdB =
-      item.initialSplOffsetdB || item.splOffsetdB - item.alignSPLOffsetdB;
+    this.initialSplOffsetdB = MeasurementItem.cleanFloat32Value(
+      item.initialSplOffsetdB ?? item.splOffsetdB - item.alignSPLOffsetdB,
+      2,
+    );
 
     // Observable properties
     this.numberOfpositions = ko.observable(0);
@@ -397,10 +396,10 @@ class MeasurementItem {
     const allreadyProcessing = this.parentViewModel.isProcessing();
     try {
       if (!allreadyProcessing) await this.parentViewModel.setProcessing(true);
+      const newInverted = !this.inverted();
       await this.rewMeasurements.invert(this.uuid);
+      this.inverted(newInverted);
 
-      // Important to do refresh after allreadyProcessing check
-      await this.refresh();
       return true;
     } catch (error) {
       const message = `Failed to toggle inversion for ${this.displayMeasurementTitle()}: ${
@@ -788,70 +787,17 @@ class MeasurementItem {
   }
 
   /**
-   * Use the target curve frequency response to detect the frequency cutoff points.
-   * Strore them in this.dectedFallOffLow and this.dectedFallOffHigh
+   * Use the current target curve frequency response to detect the frequency cutoff points.
    */
   async detectFallOff(threshold = -3, ppo = 12) {
-    // Reset detection values
-    this.dectedFallOffLow = -1;
-    this.dectedFallOffHigh = +Infinity;
-
-    // Get measurement and target curve data
-    const measurementData = await this.getFrequencyResponse('SPL', '1/12', ppo);
-
-    if (!measurementData.freqs?.length || !measurementData.magnitude?.length) {
-      throw new Error(`Invalid frequency response data for ${this.title()}`);
-    }
-
+    const measurementData = await this.getFrequencyResponse('SPL', '1/6', ppo);
     const targetCurveData = await this.getTargetResponse('SPL', ppo);
 
-    // Find low and high frequency cutoffs
-    this.dectedFallOffLow = MeasurementItem.findCutoff(
-      true,
+    return FrequencyResponseAnalyzer.detectTargetRelativeFallOff(
       targetCurveData,
       measurementData,
-      threshold,
+      { thresholdDb: threshold },
     );
-    this.dectedFallOffHigh = MeasurementItem.findCutoff(
-      false,
-      targetCurveData,
-      measurementData,
-      threshold,
-    );
-  }
-
-  // Find cutoff points by comparing measurement to target curve
-  static findCutoff(isLowFreq, targetCurveData, measurementData, threshold = -3) {
-    if (!targetCurveData?.freqs?.length || !measurementData?.freqs?.length) {
-      return isLowFreq ? -1 : +Infinity;
-    }
-
-    const freqLimit = isLowFreq ? 500 : 50;
-    const indices = [...new Array(targetCurveData.freqs.length).keys()];
-
-    if (!isLowFreq) indices.reverse();
-
-    for (const i of indices) {
-      const freq = targetCurveData.freqs[i];
-      if ((isLowFreq && freq > freqLimit) || (!isLowFreq && freq < freqLimit)) continue;
-
-      const measurementIdx = measurementData.freqs.reduce((bestIdx, measureFreq, idx) => {
-        const diff = Math.abs(measureFreq - freq);
-        return diff < Math.abs(measurementData.freqs[bestIdx] - freq) ? idx : bestIdx;
-      }, 0);
-
-      if (measurementIdx === -1) continue;
-
-      const measurementDataAtFreq = measurementData.magnitude[measurementIdx];
-      const targetCurveDataAtFreq = targetCurveData.magnitude[i];
-      const magnitudeDiff = Math.round(measurementDataAtFreq - targetCurveDataAtFreq);
-
-      if (magnitudeDiff >= threshold) {
-        return Math.round(freq);
-      }
-    }
-
-    return isLowFreq ? -1 : +Infinity;
   }
 
   async getTargetResponse(unit = 'SPL', ppo = 96) {
@@ -872,14 +818,24 @@ class MeasurementItem {
   }
 
   async setTitle(newTitle, notescontent) {
-    if (newTitle === this.title()) {
+    const titleChanged = newTitle !== undefined && newTitle !== this.title();
+    const notesChanged = notescontent !== undefined && notescontent !== this.notes;
+
+    if (!titleChanged && !notesChanged) {
       return false;
     }
     await this.rewMeasurements.update(this.uuid, {
       title: newTitle,
       notes: notescontent,
     });
-    await this.refresh();
+
+    if (titleChanged) {
+      this.title(newTitle);
+    }
+
+    if (notescontent !== undefined) {
+      this.notes = notescontent;
+    }
 
     return true;
   }
@@ -902,8 +858,12 @@ class MeasurementItem {
     if (amountToAdd === 0) {
       return false;
     }
+    const newCumulativeShift = MeasurementItem.cleanFloat32Value(
+      this.cumulativeIRShiftSeconds() + amountToAdd,
+      10,
+    );
     await this.rewMeasurements.offsetTZero(this.uuid, amountToAdd);
-    await this.refresh();
+    this.cumulativeIRShiftSeconds(newCumulativeShift);
     lm.debug(`Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()}`);
     return true;
   }
@@ -944,7 +904,21 @@ class MeasurementItem {
     }
   }
 
-  // TODO: sometime a bug that move to 75dB when frequencyHz is out of range
+  async getBandwidth() {
+    if (this.cachedBandwidth) {
+      return this.cachedBandwidth;
+    }
+
+    const frequencyResponse = await this.getFrequencyResponse('SPL', '1/6');
+    const bandwidth = FrequencyResponseAnalyzer.detectBandwidth(frequencyResponse, {
+      rangeHz: [10, 20000],
+      thresholdDb: -6,
+    });
+
+    this.cachedBandwidth = bandwidth;
+    return bandwidth;
+  }
+
   async setSPLOffsetDB(newValue) {
     // check if the value is a number
     if (Number.isNaN(newValue)) {
@@ -960,10 +934,12 @@ class MeasurementItem {
     lm.debug(
       `Setting SPL offset to ${newValue} dB for ${this.displayMeasurementTitle()}`,
     );
+
+    const bandwidth = await this.getBandwidth();
     // refence level is 75 dB just for the align command
     const referenceLevel = MeasurementItem.DEFAULT_TARGET_LEVEL;
     // frequency must be in the mid range
-    const frequencyHz = 100;
+    const frequencyHz = bandwidth.centerFrequencyHz;
     const spanOctaves = 0;
     // first align the SPL to get the reference level
     const alignResult = await this.rewMeasurements.alignSPL(
@@ -997,7 +973,14 @@ class MeasurementItem {
         `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`,
       );
     }
-    return this.refresh();
+    this.alignSPLOffsetdB(finalAlignSPLOffsetdB);
+    this.splOffsetdB(
+      MeasurementItem.cleanFloat32Value(
+        this.initialSplOffsetdB + finalAlignSPLOffsetdB,
+        2,
+      ),
+    );
+    return true;
   }
 
   async addSPLOffsetDB(amountToAdd) {
@@ -1439,15 +1422,15 @@ class MeasurementItem {
     // must have only lower band filter to be able to use the high pass filter
     await this.resetFilters();
     await this.resetTargetSettings();
-    await this.detectFallOff(-6);
+    const fallOff = await this.detectFallOff(-6);
 
     const customStartFrequency = Math.max(
       this.parentViewModel.lowerFrequencyBound(),
-      this.dectedFallOffLow,
+      fallOff.lowHz,
     );
     const customEndFrequency = Math.min(
       this.parentViewModel.upperFrequencyBound(),
-      this.dectedFallOffHigh,
+      fallOff.highHz,
     );
 
     try {
@@ -1490,7 +1473,7 @@ class MeasurementItem {
 
   async _runPhaseMatchFilter(customStartFrequency, customEndFrequency, options = {}) {
     lm.debug(
-      `[createPhaseMatchFilter] falloff: low=${this.dectedFallOffLow} high=${this.dectedFallOffHigh} → range=${customStartFrequency}-${customEndFrequency} Hz`,
+      `[createPhaseMatchFilter] range=${customStartFrequency}-${customEndFrequency} Hz`,
     );
 
     this.validatePhaseMatchRange(customStartFrequency, customEndFrequency);

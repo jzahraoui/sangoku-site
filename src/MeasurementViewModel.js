@@ -2260,17 +2260,10 @@ class MeasurementViewModel {
     await subMeasurement.setTargetLevel(this.mainTargetLevel());
     await subMeasurement.applyWorkingSettings();
     await subMeasurement.resetTargetSettings();
-    await subMeasurement.detectFallOff(-3);
+    const fallOff = await subMeasurement.detectFallOff(-3);
 
-    const customStartFrequency = Math.max(
-      this.lowerFrequencyBoundSub(),
-      subMeasurement.dectedFallOffLow,
-    );
-    // do not use min because dectedFallOffHigh can be -1 if not detected
-    const customEndFrequency = Math.min(
-      this.upperFrequencyBoundSub(),
-      subMeasurement.dectedFallOffHigh,
-    );
+    const customStartFrequency = Math.max(this.lowerFrequencyBoundSub(), fallOff.lowHz);
+    const customEndFrequency = Math.min(this.upperFrequencyBoundSub(), fallOff.highHz);
 
     lm.info(
       `Creating ${this.selectedEqualizationMode().toUpperCase()} EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`,
@@ -2375,11 +2368,17 @@ class MeasurementViewModel {
         detect.octaves,
       );
 
-      await measurement.refresh();
-
       const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
         alignResult,
         measurement.uuid,
+      );
+
+      measurement.alignSPLOffsetdB(alignOffset);
+      measurement.splOffsetdB(
+        MeasurementItem.cleanFloat32Value(
+          measurement.initialSplOffsetdB + alignOffset,
+          2,
+        ),
       );
 
       logMessage += ` => ${alignOffset}dB`;
