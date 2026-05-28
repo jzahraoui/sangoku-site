@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ko from 'knockout';
 
 vi.mock('../../src/logs.js', () => ({
@@ -24,6 +24,18 @@ vi.mock('../../src/MeasurementItem.js', () => {
   };
 
   class MockMeasurementItem {
+    static cleanFloat32Value(value, precision = 7) {
+      const multiplier = 10 ** precision;
+      return Math.round(Number(value) * multiplier) / multiplier;
+    }
+
+    static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
+      const result = Object.values(responseData.results).find(
+        item => item.UUID === targetUUID,
+      );
+      return Number(result.alignSPLOffsetdB);
+    }
+
     constructor(item) {
       this.uuid = item.uuid;
       this.title = createObservable(item.title);
@@ -74,6 +86,7 @@ const { default: MeasurementViewModel } = await import(
   '../../src/MeasurementViewModel.js'
 );
 const { default: MeasurementItem } = await import('../../src/MeasurementItem.js');
+const { FrequencyResponseAnalyzer } = await import('../../src/analysis/index.js');
 
 function createViewModel(initialMeasurements = []) {
   const viewModel = Object.create(MeasurementViewModel.prototype);
@@ -87,6 +100,25 @@ function createMeasurement(item) {
 
 function apiData(...items) {
   return Object.fromEntries(items.map((item, itemIndex) => [String(itemIndex + 1), item]));
+}
+
+function createSubMeasurement(uuid) {
+  return {
+    uuid,
+    initialSplOffsetdB: 10,
+    removeWorkingSettings: vi.fn().mockResolvedValue(undefined),
+    resetTargetSettings: vi.fn().mockResolvedValue(undefined),
+    getFrequencyResponse: vi.fn().mockResolvedValue({
+      freqs: [10, 20, 40, 80, 160, 500],
+      magnitude: [65, 72, 80, 80, 72, 60],
+    }),
+    displayMeasurementTitle: () => uuid,
+    position: () => 1,
+    applyWorkingSettings: vi.fn().mockResolvedValue(undefined),
+    alignSPLOffsetdB: vi.fn(),
+    splOffsetdB: vi.fn(),
+    copySplOffsetDeltadBToOther: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
 describe('MeasurementViewModel.mergeMeasurements', () => {
@@ -236,5 +268,176 @@ describe('MeasurementViewModel.findAligment', () => {
     await expect(
       viewModel.findAligment({ uuid: 'a' }, { uuid: 'b' }, 80),
     ).rejects.toThrow('Invalid AlignResults object or missing Delay B ms');
+  });
+});
+
+describe('MeasurementViewModel.adjustSubwooferSPLLevels', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('aligns each sub on its detected bandwidth and returns the aggregate system bandwidth', async () => {
+    const viewModel = createViewModel();
+    const firstSub = createSubMeasurement('sub-a');
+    const secondSub = createSubMeasurement('sub-b');
+    const expectedTargetLevel = 80 - 20 * Math.log10(2);
+
+    viewModel.allPredictedLfeMeasurement = () => [];
+    viewModel.removeMeasurements = vi.fn().mockResolvedValue(true);
+    viewModel.getTargetLevelAtFreq = vi.fn().mockResolvedValue(80);
+    viewModel.rewMeasurements = {
+      alignSPL: vi.fn(([uuid]) =>
+        Promise.resolve({
+          results: {
+            [uuid]: {
+              UUID: uuid,
+              alignSPLOffsetdB: uuid === 'sub-a' ? 1.25 : 2.5,
+            },
+          },
+        }),
+      ),
+    };
+    vi.spyOn(FrequencyResponseAnalyzer, 'detectBandwidth')
+      .mockReturnValueOnce({
+        status: 'ok',
+        lowCutoffHz: 20.4,
+        highCutoffHz: 180.9,
+        centerFrequencyHz: 61,
+        bandwidthOctaves: 3,
+      })
+      .mockReturnValueOnce({
+        status: 'ok',
+        lowCutoffHz: 35.2,
+        highCutoffHz: 120.7,
+        centerFrequencyHz: 65,
+        bandwidthOctaves: 2,
+      });
+
+    await expect(
+      viewModel.adjustSubwooferSPLLevels([firstSub, secondSub]),
+    ).resolves.toEqual({
+      lowFrequency: 21,
+      highFrequency: 180,
+      targetLevelAtFreq: 80,
+    });
+
+    expect(firstSub.getFrequencyResponse).toHaveBeenCalledWith('SPL', 'None', 12);
+    expect(secondSub.getFrequencyResponse).toHaveBeenCalledWith('SPL', 'None', 12);
+    expect(FrequencyResponseAnalyzer.detectBandwidth).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ measurement: 'sub-a' }),
+      {
+        rangeHz: [10, 500],
+        passbandHz: [30, 80],
+        thresholdDb: -9,
+        smoothing: '1/3',
+      },
+    );
+    expect(viewModel.rewMeasurements.alignSPL).toHaveBeenNthCalledWith(
+      1,
+      ['sub-a'],
+      expectedTargetLevel,
+      61,
+      3,
+    );
+    expect(viewModel.rewMeasurements.alignSPL).toHaveBeenNthCalledWith(
+      2,
+      ['sub-b'],
+      expectedTargetLevel,
+      65,
+      2,
+    );
+    expect(firstSub.alignSPLOffsetdB).toHaveBeenCalledWith(1.25);
+    expect(firstSub.splOffsetdB).toHaveBeenCalledWith(11.25);
+    expect(secondSub.alignSPLOffsetdB).toHaveBeenCalledWith(2.5);
+    expect(secondSub.splOffsetdB).toHaveBeenCalledWith(12.5);
+  });
+
+  it('keeps the aggregate range when detected bands do not overlap', async () => {
+    const viewModel = createViewModel();
+    const firstSub = createSubMeasurement('sub-a');
+    const secondSub = createSubMeasurement('sub-b');
+    const expectedTargetLevel = 80 - 20 * Math.log10(2);
+
+    viewModel.allPredictedLfeMeasurement = () => [];
+    viewModel.removeMeasurements = vi.fn().mockResolvedValue(true);
+    viewModel.getTargetLevelAtFreq = vi.fn().mockResolvedValue(80);
+    viewModel.rewMeasurements = {
+      alignSPL: vi.fn(([uuid]) =>
+        Promise.resolve({
+          results: {
+            [uuid]: {
+              UUID: uuid,
+              alignSPLOffsetdB: uuid === 'sub-a' ? 1.25 : 2.5,
+            },
+          },
+        }),
+      ),
+    };
+    vi.spyOn(FrequencyResponseAnalyzer, 'detectBandwidth')
+      .mockReturnValueOnce({
+        status: 'ok',
+        lowCutoffHz: 20.1,
+        highCutoffHz: 80.9,
+        centerFrequencyHz: 40,
+        bandwidthOctaves: 2,
+      })
+      .mockReturnValueOnce({
+        status: 'ok',
+        lowCutoffHz: 100.1,
+        highCutoffHz: 150.9,
+        centerFrequencyHz: 123,
+        bandwidthOctaves: 1,
+      });
+
+    await expect(
+      viewModel.adjustSubwooferSPLLevels([firstSub, secondSub]),
+    ).resolves.toEqual({
+      lowFrequency: 21,
+      highFrequency: 150,
+      targetLevelAtFreq: 80,
+    });
+
+    expect(viewModel.removeMeasurements).toHaveBeenCalledTimes(1);
+    expect(viewModel.rewMeasurements.alignSPL).toHaveBeenNthCalledWith(
+      1,
+      ['sub-a'],
+      expectedTargetLevel,
+      40,
+      2,
+    );
+    expect(viewModel.rewMeasurements.alignSPL).toHaveBeenNthCalledWith(
+      2,
+      ['sub-b'],
+      expectedTargetLevel,
+      123,
+      1,
+    );
+    expect(firstSub.alignSPLOffsetdB).toHaveBeenCalledWith(1.25);
+    expect(secondSub.alignSPLOffsetdB).toHaveBeenCalledWith(2.5);
+    expect(firstSub.applyWorkingSettings).toHaveBeenCalledTimes(1);
+    expect(secondSub.applyWorkingSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects indeterminate sub bandwidth instead of assuming the full range', async () => {
+    const viewModel = createViewModel();
+    const sub = createSubMeasurement('sub-a');
+
+    viewModel.allPredictedLfeMeasurement = () => [];
+    viewModel.removeMeasurements = vi.fn().mockResolvedValue(true);
+    viewModel.getTargetLevelAtFreq = vi.fn().mockResolvedValue(80);
+    viewModel.rewMeasurements = { alignSPL: vi.fn() };
+    vi.spyOn(FrequencyResponseAnalyzer, 'detectBandwidth').mockReturnValueOnce({
+      status: 'indeterminate',
+      reason: 'no response region is above the threshold',
+    });
+
+    await expect(viewModel.adjustSubwooferSPLLevels([sub])).rejects.toThrow(
+      'Unable to detect subwoofer bandwidth for sub-a: no response region is above the threshold',
+    );
+
+    expect(viewModel.rewMeasurements.alignSPL).not.toHaveBeenCalled();
+    expect(viewModel.removeMeasurements).not.toHaveBeenCalled();
+    expect(sub.applyWorkingSettings).toHaveBeenCalledTimes(1);
   });
 });

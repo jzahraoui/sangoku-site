@@ -15,12 +15,20 @@ import ampAssignType from './amp-type.js';
 import lm from './logs.js';
 import { Room3DViewer } from './room-3d-viewer.js';
 import RoomCurvesSettings from './room-curve-settings.js';
+import { FrequencyResponseAnalyzer } from './analysis/index.js';
 
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
 
 const store = new PersistentStore('myAppData');
 const DEFAULT_IR_WINDOW_CHOICE = 'Optimized MTW';
 const FALLBACK_IR_WINDOW_CHOICE = 'None';
+const SUBWOOFER_SPL_ALIGNMENT_OPTIONS = {
+  analysisRangeHz: [10, 500],
+  passbandHz: [30, 80],
+  thresholdDb: -9,
+  smoothing: '1/3',
+  pointsPerOctave: 12,
+};
 const IR_WINDOW_PRESETS = {
   None: {
     leftWindowType: 'Rectangular',
@@ -2311,68 +2319,47 @@ class MeasurementViewModel {
   }
 
   async adjustSubwooferSPLLevels(subsMeasurements, targetLevelFreq = 40) {
-    if (subsMeasurements.length === 0) {
+    if (!subsMeasurements?.length) {
       return;
     }
 
-    //delete previous LFE predicted measurements
-    await this.removeMeasurements(this.allPredictedLfeMeasurement());
-
-    const minFrequency = 10;
-    const maxFrequency = 10000;
-
-    // Find the level of target curve at 40Hz
     const targetLevelAtFreq = await this.getTargetLevelAtFreq(
       subsMeasurements[0],
       targetLevelFreq,
     );
+    if (!Number.isFinite(targetLevelAtFreq)) {
+      throw new TypeError(`Invalid target level at ${targetLevelFreq}Hz`);
+    }
 
-    // adjut target level according to the number of subs
-    // Using 20 for voltage addition (coherent/in-phase summation)
-    const numbersOfSubs = subsMeasurements.length;
-    const overhead = 20 * Math.log10(numbersOfSubs);
-    const targetLevel = targetLevelAtFreq - overhead;
+    const targetLevel = targetLevelAtFreq - 20 * Math.log10(subsMeasurements.length);
 
-    let lowFrequency = Infinity;
-    let highFrequency = 0;
-
+    const subwooferAnalyses = [];
     for (const measurement of subsMeasurements) {
-      await measurement.removeWorkingSettings();
-      await measurement.resetTargetSettings();
+      subwooferAnalyses.push(await this.analyzeSubwooferSPLAlignment(measurement));
+    }
 
-      // TODO switch to 1/1 smoothing when tests done
-      const frequencyResponse = await measurement.getFrequencyResponse('SPL', '1/3', 6);
-      frequencyResponse.measurement = measurement.uuid;
-      frequencyResponse.name = measurement.displayMeasurementTitle();
-      frequencyResponse.position = measurement.position();
-      await measurement.applyWorkingSettings();
+    const lowFrequency = Math.min(...subwooferAnalyses.map(({ lowCutoff }) => lowCutoff));
+    const highFrequency = Math.max(
+      ...subwooferAnalyses.map(({ highCutoff }) => highCutoff),
+    );
 
-      const detect = this.detectSubwooferCutoff(
-        frequencyResponse.freqs,
-        frequencyResponse.magnitude,
-        -9,
-      );
+    await this.removeMeasurements(this.allPredictedLfeMeasurement());
 
-      lowFrequency = Math.min(lowFrequency, Math.round(detect.lowCutoff));
-      highFrequency = Math.max(highFrequency, Math.round(detect.highCutoff));
-
-      let logMessage = `\nAdjust ${measurement.displayMeasurementTitle()} SPL levels to ${targetLevel.toFixed(
-        1,
-      )}dB`;
-      logMessage += `(center: ${detect.centerFrequency}Hz, ${detect.octaves} octaves, ${detect.lowCutoff}Hz - ${detect.highCutoff}Hz)`;
+    for (const analysis of subwooferAnalyses) {
+      const { measurement, title, lowCutoff, highCutoff, centerFrequency, octaves } =
+        analysis;
 
       const alignResult = await this.rewMeasurements.alignSPL(
         [measurement.uuid],
         targetLevel,
-        detect.centerFrequency,
-        detect.octaves,
+        centerFrequency,
+        octaves,
       );
 
       const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
         alignResult,
         measurement.uuid,
       );
-
       measurement.alignSPLOffsetdB(alignOffset);
       measurement.splOffsetdB(
         MeasurementItem.cleanFloat32Value(
@@ -2380,17 +2367,84 @@ class MeasurementViewModel {
           2,
         ),
       );
-
-      logMessage += ` => ${alignOffset}dB`;
-      lm.info(`${logMessage}`);
-
+      lm.info(
+        `\nAdjust ${title} SPL levels to ${targetLevel.toFixed(1)}dB` +
+          `(center: ${centerFrequency}Hz, ${octaves} octaves, ${lowCutoff}Hz - ${highCutoff}Hz)` +
+          ` => ${alignOffset}dB`,
+      );
       await measurement.copySplOffsetDeltadBToOther();
     }
 
-    lowFrequency = Math.max(lowFrequency, minFrequency);
-    highFrequency = Math.min(highFrequency, maxFrequency);
+    return {
+      lowFrequency,
+      highFrequency,
+      targetLevelAtFreq,
+    };
+  }
 
-    return { lowFrequency, highFrequency, targetLevelAtFreq };
+  async analyzeSubwooferSPLAlignment(
+    measurement,
+    options = SUBWOOFER_SPL_ALIGNMENT_OPTIONS,
+  ) {
+    const { analysisRangeHz, passbandHz, thresholdDb, smoothing, pointsPerOctave } =
+      options;
+    const title = measurement.displayMeasurementTitle();
+
+    await measurement.removeWorkingSettings();
+    try {
+      await measurement.resetTargetSettings();
+      const frequencyResponse = {
+        ...(await measurement.getFrequencyResponse('SPL', 'None', pointsPerOctave)),
+        measurement: measurement.uuid,
+        name: title,
+        position: measurement.position(),
+      };
+      const bandwidth = FrequencyResponseAnalyzer.detectBandwidth(frequencyResponse, {
+        rangeHz: analysisRangeHz,
+        passbandHz,
+        thresholdDb,
+        smoothing,
+      });
+
+      if (bandwidth.status !== 'ok') {
+        throw new Error(
+          `Unable to detect subwoofer bandwidth for ${title}: ${bandwidth.reason ?? 'indeterminate response'}`,
+        );
+      }
+
+      if (bandwidth.warnings?.length) {
+        lm.debug(
+          `Bandwidth detection warnings for ${title}: ${bandwidth.warnings.join('; ')}`,
+        );
+      }
+
+      const lowCutoff = Math.ceil(Math.max(analysisRangeHz[0], bandwidth.lowCutoffHz));
+      const highCutoff = Math.floor(Math.min(analysisRangeHz[1], bandwidth.highCutoffHz));
+      const centerFrequency = Math.round(bandwidth.centerFrequencyHz);
+      const octaves = MeasurementItem.cleanFloat32Value(bandwidth.bandwidthOctaves, 2);
+
+      if (
+        [lowCutoff, highCutoff, centerFrequency, octaves].some(
+          value => !Number.isFinite(value),
+        ) ||
+        lowCutoff >= highCutoff ||
+        octaves <= 0
+      ) {
+        throw new Error(`Invalid subwoofer bandwidth for ${title}`);
+      }
+
+      return {
+        measurement,
+        title,
+        lowCutoff,
+        highCutoff,
+        centerFrequency,
+        octaves,
+        bandwidth,
+      };
+    } finally {
+      await measurement.applyWorkingSettings();
+    }
   }
 
   async getTargetLevelAtFreq(measurement, targetFreq = 40) {
@@ -2521,270 +2575,6 @@ class MeasurementViewModel {
       }
     }
     return maxPeak;
-  }
-
-  /**
-   * Detect subwoofer frequency cutoff points by finding where the response falls off
-   * Uses the "passband" level as reference (not the peak) and searches from extremities inward
-   * @param {number[]} fullFrequencies - Array of frequency points
-   * @param {number[]} fullMagnitude - Array of magnitude values in dB
-   * @param {number} thresholdDb - Cutoff threshold in dB (default -6dB)
-   * @param {number} low - Lower frequency bound (default 10Hz)
-   * @param {number} high - Upper frequency bound (default 500Hz)
-   * @returns {Object} Object containing low and high cutoff frequencies and reference level
-   */
-  detectSubwooferCutoff(
-    fullFrequencies,
-    fullMagnitude,
-    thresholdDb = -6,
-    low = 10,
-    high = 500,
-  ) {
-    const len = fullFrequencies?.length;
-
-    // Input validation (fast fail)
-    if (!len || fullMagnitude?.length !== len) {
-      throw new Error('Invalid input arrays');
-    }
-
-    if (thresholdDb >= 0) {
-      throw new Error('Threshold must be negative');
-    }
-
-    // Binary search for start index (first frequency >= low) - O(log n)
-    let startIdx = this.binarySearchLowerBound(fullFrequencies, low);
-    // Binary search for end index (last frequency <= high) - O(log n)
-    let endIdx = this.binarySearchUpperBound(fullFrequencies, high);
-
-    if (startIdx > endIdx || startIdx >= len) {
-      throw new Error(`No data points in frequency range ${low}-${high}Hz`);
-    }
-
-    // Passband zone (30-80 Hz typical for subwoofers)
-    const passbandLow = 30;
-    const passbandHigh = 80;
-
-    // Calculate reference level using optimized median (O(n) average vs O(n log n))
-    const referenceLevel = this.calculatePassbandLevelFast(
-      fullFrequencies,
-      fullMagnitude,
-      startIdx,
-      endIdx,
-      passbandLow,
-      passbandHigh,
-    );
-
-    const thresholdLevel = referenceLevel + thresholdDb;
-
-    // Single pass: find cutoffs AND peak simultaneously - O(n)
-    let lowCutoffIndex = -1;
-    let highCutoffIndex = -1;
-    let peakMagnitude = -Infinity;
-    let peakIndex = startIdx;
-
-    for (let i = startIdx; i <= endIdx; i++) {
-      const mag = fullMagnitude[i];
-
-      // Track peak
-      if (mag > peakMagnitude) {
-        peakMagnitude = mag;
-        peakIndex = i;
-      }
-
-      // Track first crossing (low cutoff)
-      if (lowCutoffIndex === -1 && mag >= thresholdLevel) {
-        lowCutoffIndex = i;
-      }
-
-      // Track last crossing (high cutoff) - update whenever above threshold
-      if (mag >= thresholdLevel) {
-        highCutoffIndex = i;
-      }
-    }
-
-    // Handle edge case: no data above threshold
-    if (lowCutoffIndex === -1 || highCutoffIndex === -1) {
-      return {
-        lowCutoff: low,
-        highCutoff: high,
-        centerFrequency: Math.round(Math.sqrt(low * high)),
-        octaves: Math.round(Math.log2(high / low)),
-        referenceLevel,
-        peakMagnitude,
-        peakFrequency: Math.round(fullFrequencies[peakIndex]),
-      };
-    }
-
-    // Interpolate for precise cutoff frequencies
-    let lowCutoff =
-      lowCutoffIndex > startIdx
-        ? this.interpolateFrequency(
-            fullFrequencies[lowCutoffIndex - 1],
-            fullFrequencies[lowCutoffIndex],
-            fullMagnitude[lowCutoffIndex - 1],
-            fullMagnitude[lowCutoffIndex],
-            thresholdLevel,
-          )
-        : fullFrequencies[lowCutoffIndex];
-
-    let highCutoff =
-      highCutoffIndex < endIdx
-        ? this.interpolateFrequency(
-            fullFrequencies[highCutoffIndex],
-            fullFrequencies[highCutoffIndex + 1],
-            fullMagnitude[highCutoffIndex],
-            fullMagnitude[highCutoffIndex + 1],
-            thresholdLevel,
-          )
-        : fullFrequencies[highCutoffIndex];
-
-    // Clamp and round
-    lowCutoff = Math.max(low, Math.round(lowCutoff));
-    highCutoff = Math.min(high, Math.floor(highCutoff));
-
-    // Geometric center frequency
-    const centerFrequency = Math.round(Math.sqrt(lowCutoff * highCutoff));
-
-    // Bandwidth in octaves
-    const octaves = Math.max(1, Math.round(Math.log2(highCutoff / lowCutoff)));
-
-    return {
-      lowCutoff,
-      highCutoff,
-      centerFrequency,
-      octaves,
-      referenceLevel,
-      peakMagnitude,
-      peakFrequency: Math.round(fullFrequencies[peakIndex]),
-    };
-  }
-
-  /**
-   * Binary search: find first index where arr[i] >= value
-   * @param {number[]} arr - Sorted array
-   * @param {number} value - Value to search for
-   * @returns {number} Index of first element >= value
-   */
-  binarySearchLowerBound(arr, value) {
-    let lo = 0;
-    let hi = arr.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1; // Unsigned right shift for fast floor division
-      if (arr[mid] < value) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-    return lo;
-  }
-
-  /**
-   * Binary search: find last index where arr[i] <= value
-   * @param {number[]} arr - Sorted array
-   * @param {number} value - Value to search for
-   * @returns {number} Index of last element <= value
-   */
-  binarySearchUpperBound(arr, value) {
-    let lo = 0;
-    let hi = arr.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (arr[mid] <= value) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-    return lo - 1;
-  }
-
-  /**
-   * Logarithmic interpolation for frequency (correct for audio)
-   * Finds the frequency where magnitude crosses targetMag between two points
-   * @param {number} freq1 - First frequency point
-   * @param {number} freq2 - Second frequency point
-   * @param {number} mag1 - Magnitude at freq1 (dB)
-   * @param {number} mag2 - Magnitude at freq2 (dB)
-   * @param {number} targetMag - Target magnitude to find (dB)
-   * @returns {number} Interpolated frequency
-   */
-  interpolateFrequency(freq1, freq2, mag1, mag2, targetMag) {
-    // Handle edge case: no magnitude difference (flat response)
-    if (Math.abs(mag2 - mag1) < 1e-10) {
-      // Return geometric mean when magnitudes are equal
-      return Math.sqrt(freq1 * freq2);
-    }
-
-    // Linear interpolation ratio based on magnitude
-    const ratio = (targetMag - mag1) / (mag2 - mag1);
-
-    // Clamp ratio to [0, 1] for safety
-    const clampedRatio = Math.max(0, Math.min(1, ratio));
-
-    // Logarithmic interpolation in frequency (correct for audio)
-    // log(f) = log(f1) + ratio * (log(f2) - log(f1))
-    // f = f1 * (f2/f1)^ratio
-    return freq1 * Math.pow(freq2 / freq1, clampedRatio);
-  }
-
-  /**
-   * Calculate the reference level from the subwoofer passband using median
-   * For small arrays (~50 elements), native sort is optimal due to V8's Timsort
-   * @param {Float32Array} frequencies - Frequency array
-   * @param {Float32Array} magnitude - Magnitude array in dB
-   * @param {number} startIdx - Start boundary index
-   * @param {number} endIdx - End boundary index
-   * @param {number} passbandLow - Lower passband frequency (Hz)
-   * @param {number} passbandHigh - Upper passband frequency (Hz)
-   * @returns {number} Reference level in dB
-   */
-  calculatePassbandLevelFast(
-    frequencies,
-    magnitude,
-    startIdx,
-    endIdx,
-    passbandLow,
-    passbandHigh,
-  ) {
-    // Use binary search to find passband indices (frequencies are sorted)
-    const pbStartIdx = Math.max(
-      startIdx,
-      this.binarySearchLowerBound(frequencies, passbandLow),
-    );
-    const pbEndIdx = Math.min(
-      endIdx,
-      this.binarySearchUpperBound(frequencies, passbandHigh),
-    );
-
-    let useStart = pbStartIdx;
-    let useEnd = pbEndIdx;
-
-    // Fallback if no data in passband
-    if (pbEndIdx < pbStartIdx) {
-      useStart = startIdx;
-      useEnd = endIdx;
-    }
-
-    // Extract values and sort - optimal for ~50 elements with V8's Timsort
-    const count = useEnd - useStart + 1;
-    const values = new Array(count);
-    for (let i = 0; i < count; i++) {
-      values[i] = magnitude[useStart + i];
-    }
-    values.sort((a, b) => a - b);
-
-    // Return median
-    const mid = count >>> 1;
-    return count & 1 ? values[mid] : (values[mid - 1] + values[mid]) * 0.5;
-  }
-
-  /**
-   * Round number to specified decimal places
-   */
-  roundToPrecision(number, precision = 1) {
-    const factor = Math.pow(10, precision);
-    return Math.round(number * factor) / factor;
   }
 
   async createsSumFromFR(measurementList) {
