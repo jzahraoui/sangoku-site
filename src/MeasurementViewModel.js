@@ -48,7 +48,7 @@ const IR_WINDOW_PRESETS = {
 class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
   static MAXIMISED_SUM_TITLE = 'LFE Max Sum';
-  static MAX_FILE_SIZE_BYTES = 104857600; // 100 MB
+  static MAX_FILE_SIZE_BYTES = 209715200; // 200 MB
   static VALID_FILE_EXTENSIONS = ['.avr', '.ady', '.mqx'];
 
   blocking = true;
