@@ -263,7 +263,7 @@ export class BiquadFilter {
       return true;
     }
     if (this.filterType === FILTER_TYPES.PEAKING) {
-      return this.gain === 0;
+      return Math.abs(this.gain) < 0.01;
     }
     return false;
   }
