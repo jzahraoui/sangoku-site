@@ -29,6 +29,10 @@ const SUBWOOFER_SPL_ALIGNMENT_OPTIONS = {
   smoothing: '1/3',
   pointsPerOctave: 12,
 };
+const ALIGN_OFFSET_TOLERANCE = 0.005; // 2-decimal precision tolerance
+
+// Quantize an SPL offset to the nearest 0.3 dB step (single source of truth).
+const quantize3dB = v => (Math.round((v * 10) / 3) * 3) / 10;
 const IR_WINDOW_PRESETS = {
   None: {
     leftWindowType: 'Rectangular',
@@ -809,7 +813,7 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('Average calculation started...');
 
-        // Get valid measurements to average
+        // Snapshot once — pureComputed would otherwise re-evaluate
         const filteredMeasurements = this.validMeasurements().filter(
           item => !item.isAverage && item.IRPeakValue <= 1,
         );
@@ -819,67 +823,72 @@ class MeasurementViewModel {
           throw new Error('Need at least 2 valid positions to calculate average');
         }
 
-        // Single pass to collect offsets and count occurrences
-        let firstAlignOffset = null;
+        // Prime Knockout computeds once per item, then work on plain numbers.
+        // This avoids N re-evaluations of displayMeasurementTitle / alignSPLOffsetdB / etc.
+        // inside the hot loop.
+        const snapshots = filteredMeasurements.map(item => ({
+          title: item.displayMeasurementTitle(),
+          alignOffset: item.alignSPLOffsetdB(),
+          quantizedSpl: quantize3dB(item.splOffsetdB()),
+          inverted: !!item.inverted(),
+        }));
+
+        // Single pass: collect what we need WITHOUT allocating strings unless an
+        // error is actually raised.
+        const referenceAlignOffset = snapshots[0].alignOffset;
+        const referenceQuantized = snapshots[0].quantizedSpl;
         const inconsistentAlignOffsets = [];
         const inconsistentInvertedMeasurements = [];
-        const offsetCount = {};
-        const offsetDetails = [];
+        const inconsistentQuantizedTitles = [];
+        const quantizedCounts = new Map();
 
-        for (const item of filteredMeasurements) {
-          const title = item.displayMeasurementTitle();
-          const alignOffset = item.alignSPLOffsetdB().toFixed(2);
-          const offset = ((Math.round((item.splOffsetdB() * 10) / 3) * 3) / 10).toFixed(
-            1,
-          );
-
-          // Check align offset consistency
-          if (firstAlignOffset === null) {
-            firstAlignOffset = alignOffset;
-          } else if (alignOffset !== firstAlignOffset && alignOffset !== '0.00') {
-            inconsistentAlignOffsets.push(`${title}: ${alignOffset}dB`);
+        for (const s of snapshots) {
+          if (
+            Math.abs(s.alignOffset - referenceAlignOffset) > ALIGN_OFFSET_TOLERANCE &&
+            Math.abs(s.alignOffset) > ALIGN_OFFSET_TOLERANCE
+          ) {
+            inconsistentAlignOffsets.push(s.title);
+          }
+          if (s.inverted) {
+            inconsistentInvertedMeasurements.push(s.title);
           }
 
-          // Count offset occurrences and store details
-          offsetCount[offset] = (offsetCount[offset] || 0) + 1;
-          offsetDetails.push({ title, offset });
-
-          // check if measurements have not been inverted
-
-          if (item.inverted()) {
-            inconsistentInvertedMeasurements.push(title);
+          quantizedCounts.set(s.quantizedSpl, (quantizedCounts.get(s.quantizedSpl) ?? 0) + 1);
+          if (s.quantizedSpl !== referenceQuantized) {
+            inconsistentQuantizedTitles.push(s.title);
           }
         }
 
         if (inconsistentAlignOffsets.length > 0) {
           throw new Error(
-            `Some measurements have inconsistent SPL alignment offsets: ${inconsistentAlignOffsets.join(
-              ', ',
-            )}`,
+            `Some measurements have inconsistent SPL alignment offsets: ${
+              inconsistentAlignOffsets.join(', ')
+            }`,
           );
         }
 
         if (inconsistentInvertedMeasurements.length > 0) {
           throw new Error(
-            `Some measurements appear to be inverted: ${inconsistentInvertedMeasurements.join(
-              ', ',
-            )}`,
+            `Some measurements appear to be inverted: ${
+              inconsistentInvertedMeasurements.join(', ')
+            }`,
           );
         }
 
-        // Check SPL offset consistency
-        const offsetKeys = Object.keys(offsetCount);
-        if (offsetKeys.length > 1) {
-          const mostCommonOffset = offsetKeys.reduce(
-            (a, b) => (offsetCount[a] > offsetCount[b] ? a : b),
-            offsetKeys[0],
-          );
-          const inconsistentOffsets = offsetDetails
-            .filter(x => x.offset !== mostCommonOffset)
-            .map(x => `${x.title}: ${x.offset}dB`)
-            .join(', ');
+        if (quantizedCounts.size > 1) {
+          // Pick the most common quantized SPL offset.
+          let mostCommonOffset = referenceQuantized;
+          let bestCount = -1;
+          for (const [value, count] of quantizedCounts) {
+            if (count > bestCount) {
+              bestCount = count;
+              mostCommonOffset = value;
+            }
+          }
           throw new Error(
-            `Some measurements have inconsistent SPL offsets: ${inconsistentOffsets} expected ${mostCommonOffset}dB`,
+            `Some measurements have inconsistent SPL offsets: ${
+              inconsistentQuantizedTitles.join(', ')
+            } expected ${mostCommonOffset.toFixed(1)}dB`,
           );
         }
 
@@ -2714,7 +2723,6 @@ class MeasurementViewModel {
     const mergedMeasurements = apiItems.map(apiItem => {
       const existingMeasurement = currentByUuid.get(apiItem.uuid);
       if (existingMeasurement) {
-        existingMeasurement.updateFromApi(apiItem);
         return existingMeasurement;
       }
 
@@ -2724,9 +2732,22 @@ class MeasurementViewModel {
     });
     const nextOrder = mergedMeasurements.map(item => item.uuid).join('|');
     const hasOrderChanges = previousOrder !== nextOrder;
+    const hasDeletedMeasurements = deletedMeasurements.length > 0;
 
-    if (hasOrderChanges || hasOrphanedFilterChanges) {
+    // Commit the new measurement list BEFORE pushing API deltas into existing
+    // items. Otherwise, observables like `cumulativeIRShiftSeconds` may fire
+    // their subscriptions synchronously and reach into a `otherPositionMeasurements`
+    // computed that still includes a measurement we are about to drop, producing
+    // REW API calls against UUIDs that no longer exist (404).
+    if (hasOrderChanges || hasOrphanedFilterChanges || hasDeletedMeasurements) {
       this.measurements(mergedMeasurements);
+    }
+
+    for (const apiItem of apiItems) {
+      const existingMeasurement = currentByUuid.get(apiItem.uuid);
+      if (existingMeasurement) {
+        existingMeasurement.updateFromApi(apiItem);
+      }
     }
 
     for (const item of deletedMeasurements) {
