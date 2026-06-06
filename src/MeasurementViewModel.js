@@ -614,17 +614,6 @@ class MeasurementViewModel {
 
       this.isProcessing(newValue);
 
-      // setup a timeout to avoid blocking forever
-      if (newValue) {
-        this.processingTimeout = setTimeout(() => {
-          if (this.isProcessing()) {
-            lm.warn('Processing is taking more than 60 seconds, unlocking controls');
-            this.setProcessing(false).catch(error => {
-              this.handleError(`Failed to unlock controls: ${error.message}`, error);
-            });
-          }
-        }, 60000);
-      }
       // inhibit Graph Updates only during processing
       if (this.isPolling() && this.inhibitGraphUpdates() && this.apiService) {
         try {
