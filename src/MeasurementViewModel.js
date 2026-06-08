@@ -853,7 +853,10 @@ class MeasurementViewModel {
             inconsistentInvertedMeasurements.push(s.title);
           }
 
-          quantizedCounts.set(s.quantizedSpl, (quantizedCounts.get(s.quantizedSpl) ?? 0) + 1);
+          quantizedCounts.set(
+            s.quantizedSpl,
+            (quantizedCounts.get(s.quantizedSpl) ?? 0) + 1,
+          );
           if (s.quantizedSpl !== referenceQuantized) {
             inconsistentQuantizedTitles.push(s.title);
           }
@@ -861,17 +864,17 @@ class MeasurementViewModel {
 
         if (inconsistentAlignOffsets.length > 0) {
           throw new Error(
-            `Some measurements have inconsistent SPL alignment offsets: ${
-              inconsistentAlignOffsets.join(', ')
-            }`,
+            `Some measurements have inconsistent SPL alignment offsets: ${inconsistentAlignOffsets.join(
+              ', ',
+            )}`,
           );
         }
 
         if (inconsistentInvertedMeasurements.length > 0) {
           throw new Error(
-            `Some measurements appear to be inverted: ${
-              inconsistentInvertedMeasurements.join(', ')
-            }`,
+            `Some measurements appear to be inverted: ${inconsistentInvertedMeasurements.join(
+              ', ',
+            )}`,
           );
         }
 
@@ -886,9 +889,9 @@ class MeasurementViewModel {
             }
           }
           throw new Error(
-            `Some measurements have inconsistent SPL offsets: ${
-              inconsistentQuantizedTitles.join(', ')
-            } expected ${mostCommonOffset.toFixed(1)}dB`,
+            `Some measurements have inconsistent SPL offsets: ${inconsistentQuantizedTitles.join(
+              ', ',
+            )} expected ${mostCommonOffset.toFixed(1)}dB`,
           );
         }
 
