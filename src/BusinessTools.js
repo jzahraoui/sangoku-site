@@ -30,7 +30,7 @@ class BusinessTools {
       await this.revertLfeFilterProccessList(
         this.viewModel.subsMeasurements(),
         freq,
-        replaceOriginal
+        replaceOriginal,
       );
     } catch (error) {
       throw new Error(`Error: ${error.message}`, { cause: error });
@@ -73,7 +73,7 @@ class BusinessTools {
           lowPassFilter,
           null,
           null,
-          freq * 2
+          freq * 2,
         );
 
         // Handle original measurement
@@ -137,7 +137,7 @@ class BusinessTools {
         type: 'None',
         enabled: true,
         isAuto: false,
-      }
+      },
     );
 
     // Apply filters and generate filter measurement
@@ -152,7 +152,6 @@ class BusinessTools {
 
   // Process grouped responses and create UUID arrays
   async processGroupedResponses(groupedResponse, avgMethod, deleteOriginal) {
-    // Input validation
     if (!groupedResponse || typeof groupedResponse !== 'object') {
       throw new Error('Invalid groupedResponse input');
     }
@@ -160,72 +159,66 @@ class BusinessTools {
       throw new Error('Parameter must contains at least 2 elements');
     }
 
-    // Process each code group sequentially
-    for (const code of Object.keys(groupedResponse)) {
-      if (!groupedResponse[code]?.items || code === MeasurementItem.UNKNOWN_GROUP_NAME) {
-        continue;
-      }
-
-      // exclude previous results and create array of UUIDs for the current code group
-      const usableItems = groupedResponse[code].items.filter(
-        item => !item.isAverage && !item.isPredicted && item.IRPeakValue <= 1
+    const toBeDeletedUuids = [];
+    for (const [code, group] of Object.entries(groupedResponse)) {
+      if (!group?.items || code === MeasurementItem.UNKNOWN_GROUP_NAME) continue;
+      toBeDeletedUuids.push(
+        ...(await this._processCodeGroup(code, group, avgMethod, deleteOriginal)),
       );
+    }
 
-      // delete the other items
-      const codeItems = groupedResponse[code].items;
-      const itemsToDelete = codeItems.filter(item => !usableItems.includes(item));
-      await this.viewModel.removeMeasurements(itemsToDelete);
-
-      // Process the collected indices
-      if (usableItems.length < 2) {
-        throw new Error(`Need at least 2 measurements to make an average: ${code}`);
-      }
-
-      // Get UUIDs of usable items
-      const uuids = usableItems.map(item => item.uuid);
-
-      // Cross correlation alignment
-      lm.debug(`${code}: ${uuids.length} measures cross corr align...`);
-      await this.rewMeasurements.crossCorrAlign(uuids);
-
-      // average processing
-      lm.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
-      const apiResponse = await this.rewMeasurements.processMeasurements(
-        avgMethod,
-        uuids
-      );
-      const vectorAverage = await this.viewModel.analyseApiResponse(apiResponse);
-
-      // Update title
-      if (!vectorAverage) {
-        throw new Error(`${code}: can not rename the average...`);
-      }
-
-      await vectorAverage.setTitle(code + BusinessTools.AVERAGE_SUFFIX);
-
-      await this._deleteOriginalMeasurements(uuids, deleteOriginal);
+    for (const uuid of toBeDeletedUuids) {
+      await this.viewModel.removeMeasurementUuid(uuid);
     }
 
     return true;
   }
 
-  async _deleteOriginalMeasurements(uuids, deleteOriginal) {
-    if (!deleteOriginal || uuids.length < 2) {
-      return;
+  async _processCodeGroup(code, group, avgMethod, deleteOriginal) {
+    // exclude previous results, predictions and out-of-range peaks
+    const usableItems = group.items.filter(
+      item => !item.isAverage && !item.isPredicted && item.IRPeakValue <= 1,
+    );
+    // delete the other items
+    const itemsToDelete = group.items.filter(item => !usableItems.includes(item));
+    await this.viewModel.removeMeasurements(itemsToDelete);
+
+    if (usableItems.length < 2) {
+      throw new Error(`Need at least 2 measurements to make an average: ${code}`);
     }
 
-    if (deleteOriginal === 'none') {
-      return;
+    const uuids = usableItems.map(item => item.uuid);
+
+    lm.debug(`${code}: ${uuids.length} measures cross corr align...`);
+    await this.rewMeasurements.crossCorrAlign(uuids);
+
+    lm.debug(`${code}: ${uuids.length} measures ${avgMethod}...`);
+    const vectorAverage = await this.viewModel.analyseApiResponse(
+      await this.rewMeasurements.processMeasurements(avgMethod, uuids),
+    );
+
+    if (!vectorAverage) {
+      throw new Error(`${code}: can not rename the average...`);
     }
+    await vectorAverage.setTitle(code + BusinessTools.AVERAGE_SUFFIX);
 
-    if (deleteOriginal !== 'all' && deleteOriginal !== 'all_but_1') {
-      throw new Error(`Invalid deleteOriginal parameter: ${deleteOriginal}`);
-    }
+    return this._getMeasurementsToDelete(uuids, deleteOriginal);
+  }
 
-    const startIndex = deleteOriginal === 'all_but_1' ? 1 : 0;
+  _getMeasurementsToDelete(uuids, deleteOriginal) {
+    if (uuids.length < 2) return [];
 
-    for (let i = startIndex; i < uuids.length; i++) {
-      await this.viewModel.removeMeasurementUuid(uuids[i]);
+    switch (deleteOriginal) {
+      case 'all':
+        return uuids;
+      case 'all_but_1':
+        return uuids.slice(1);
+      case 'none':
+        return [];
+      case undefined:
+        return [];
+      default:
+        throw new Error(`Invalid deleteOriginal parameter: ${deleteOriginal}`);
     }
   }
 
@@ -294,7 +287,7 @@ class BusinessTools {
       try {
         // Find item in allResponses that has title beginning with channel
         const foundItem = Object.values(subResponses).find(item =>
-          item?.title()?.toLowerCase().startsWith(channel.toLowerCase())
+          item?.title()?.toLowerCase().startsWith(channel.toLowerCase()),
         );
 
         if (!foundItem) {
@@ -372,8 +365,8 @@ class BusinessTools {
       if (overheadOffset < 0) {
         lm.warn(
           `Adjusting alignment by ${-overheadOffset.toFixed(
-            2
-          )}m to stay within max distance limit.`
+            2,
+          )}m to stay within max distance limit.`,
         );
         finalDistance += PredictedLfe._computeInSeconds(overheadOffset);
       }
@@ -389,7 +382,7 @@ class BusinessTools {
         `${
           BusinessTools.RESULT_PREFIX
         }${predictedSpeakerFiltered.title()} X@${cuttOffFrequency}Hz_P${predictedSpeakerFiltered.position()}`,
-        0
+        0,
       );
 
       if (isBInverted) {
@@ -406,7 +399,7 @@ class BusinessTools {
         `Subwoofer deplaced by: ${shiftDistance}m (alignment:${(
           (delay + shiftDelay) *
           1000
-        ).toFixed(2)}ms)`
+        ).toFixed(2)}ms)`,
       );
     } finally {
       await this.viewModel.removeMeasurements(mustBeDeleted);
@@ -504,13 +497,13 @@ class BusinessTools {
         await this.applyCutOffFilter(
           relatedLfeMeasurement,
           predictedChannel,
-          item.crossover()
+          item.crossover(),
         );
 
       await this.viewModel.removeMeasurement(predictedChannel);
 
       finalPredcition = await PredictedLfeFiltered.arithmeticSum(
-        predictedSpeakerFiltered
+        predictedSpeakerFiltered,
       );
       // cleanup of predicted measurements
       await this.viewModel.removeMeasurements([
