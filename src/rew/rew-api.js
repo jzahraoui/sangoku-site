@@ -16,7 +16,7 @@ import { subscriberStatics } from './rew-subscriber.js';
 import { transportMethods, transportStatics } from './rew-transport.js';
 
 class RewApi {
-  static TIMEOUT_MS = 15000;
+  static TIMEOUT_MS = 30000;
   static WAIT_BETWEEN_RETRIES_MS = 100;
   static MAX_POLLING_RETRY = Math.floor(
     RewApi.TIMEOUT_MS / RewApi.WAIT_BETWEEN_RETRIES_MS,
