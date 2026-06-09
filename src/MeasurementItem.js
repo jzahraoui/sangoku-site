@@ -1510,28 +1510,33 @@ class MeasurementItem {
 
   async _runStandardFilter(customStartFrequency, customEndFrequency) {
     const customInterPassFrequency = 120;
+    const interPassEndFrequency = customInterPassFrequency * 2;
+    const interPassStartFrequency = customInterPassFrequency / 2;
 
-    // must be set seaparatly to be taken into account
-    await this.rewEq.setMatchTargetSettings({
-      endFrequency: customEndFrequency,
-    });
-    await this.rewEq.setMatchTargetSettings({
-      startFrequency: customStartFrequency,
-      endFrequency: customInterPassFrequency * 2,
-      individualMaxBoostdB: 0,
-      overallMaxBoostdB: 0,
-      flatnessTargetdB: 1,
-      allowNarrowFiltersBelow200Hz: false,
-      varyQAbove200Hz: false,
-      allowLowShelf: false,
-      allowHighShelf: false,
-    });
+    // if range is too narrow, the optimization can fail
+    const firstPassRange = interPassEndFrequency - customStartFrequency;
 
-    await this.rewMeasurements.matchTarget(this.uuid);
+    if (firstPassRange > 40) {
+      // must be set seaparatly to be taken into account
+      await this.rewEq.setMatchTargetSettings({
+        endFrequency: interPassEndFrequency,
+      });
+      await this.rewEq.setMatchTargetSettings({
+        startFrequency: customStartFrequency,
+        individualMaxBoostdB: 0,
+        overallMaxBoostdB: 0,
+        flatnessTargetdB: 1,
+        allowNarrowFiltersBelow200Hz: false,
+        varyQAbove200Hz: false,
+        allowLowShelf: false,
+        allowHighShelf: false,
+      });
 
-    // set filters auto to off to prevent overwriting by the second pass
-    await this.setAllFiltersAuto(false);
+      await this.rewMeasurements.matchTarget(this.uuid);
 
+      // set filters auto to off to prevent overwriting by the second pass
+      await this.setAllFiltersAuto(false);
+    }
     const filters = await this.getFilters();
     const availableSlots = this.countFiltersSlotsAvailable(filters);
     if (availableSlots < 2) {
@@ -1541,7 +1546,7 @@ class MeasurementItem {
     }
 
     await this.rewEq.setMatchTargetSettings({
-      startFrequency: customInterPassFrequency / 2,
+      startFrequency: interPassStartFrequency,
       endFrequency: customEndFrequency,
       individualMaxBoostdB: this.parentViewModel.individualMaxBoostValue(),
       overallMaxBoostdB: this.parentViewModel.overallBoostValue(),
