@@ -31,6 +31,7 @@ import {
   splForAvr,
   splIsAboveLimit,
 } from './measurement/measurement-info.js';
+import MeasurementRecord from './measurement/measurement-record.js';
 import {
   createMeasurementOperations,
   getAlignSPLOffsetdBByUUID,
@@ -61,31 +62,41 @@ class MeasurementItem {
     this.detectedChannels = parentViewModel.jsonAvrData()?.detectedChannels || [];
 
     this.parentViewModel = parentViewModel;
-    // Original data
-    this.title = ko.observable(item.title);
-    this.notes = item.notes;
-    this.date = item.date;
-    this.uuid = item.uuid;
-    this.startFreq = item.startFreq;
-    this.endFreq = item.endFreq;
-    this.inverted = ko.observable(item.inverted);
-    this.rewVersion = item.rewVersion;
-    this.sampleRate = Number.isFinite(item.sampleRate) ? item.sampleRate : null;
-    this.splOffsetdB = ko.observable(item.splOffsetdB);
-    this.alignSPLOffsetdB = ko.observable(item.alignSPLOffsetdB);
-    this.cumulativeIRShiftSeconds = ko.observable(item.cumulativeIRShiftSeconds);
-    this.clockAdjustmentPPM = item.clockAdjustmentPPM;
-    this.timeOfIRStartSeconds = item.timeOfIRStartSeconds;
-    this.timeOfIRPeakSeconds = ko.observable(item.timeOfIRPeakSeconds);
-    this.haveImpulseResponse = Object.hasOwn(item, 'cumulativeIRShiftSeconds');
-    this.isFilter = item.isFilter || false;
-    this.associatedFilter = item.associatedFilter;
+
+    // ADR 002 — the flat REW/application state lives on the record; this
+    // adapter exposes it through accessors and mirror observables.
+    this.record = new MeasurementRecord(item, {
+      onInvalidNumber: raw => lm.warn(`Invalid numeric value: ${raw}`),
+    });
+
+    for (const field of MeasurementRecord.PLAIN_FIELDS) {
+      Object.defineProperty(this, field, {
+        get: () => this.record[field],
+        set: value => {
+          this.record[field] = value;
+        },
+        enumerable: true,
+        configurable: true,
+      });
+    }
+
+    this.title = ko.observable(this.record.title);
+    this.inverted = ko.observable(this.record.inverted);
+    this.splOffsetdB = ko.observable(this.record.splOffsetdB);
+    this.alignSPLOffsetdB = ko.observable(this.record.alignSPLOffsetdB);
+    this.cumulativeIRShiftSeconds = ko.observable(this.record.cumulativeIRShiftSeconds);
+    this.timeOfIRPeakSeconds = ko.observable(this.record.timeOfIRPeakSeconds);
+    this.shiftDelay = ko.observable(this.record.shiftDelay);
+
+    // Direct observable writes (UI bindings, subscriptions) flow back to the
+    // record so it stays the single source of truth during the transition.
+    this._recordMirrorSubscriptions = MeasurementRecord.OBSERVABLE_FIELDS.map(field =>
+      this[field].subscribe(value => {
+        this.record[field] = value;
+      }),
+    );
+
     this.measurementType = MeasurementItem.measurementType.SPEAKERS;
-    this.IRPeakValue = item.IRPeakValue || 0;
-    this.revertLfeFrequency = item.revertLfeFrequency || 0;
-    this.isSubOperationResult = item.isSubOperationResult || false;
-    this.parentAttr = item.parentAttr || null;
-    this.shiftDelay = ko.observable(item.shiftDelay || Infinity);
 
     // required for calculations using speed of sound
     if (!parentViewModel.jsonAvrData()?.avr && this.haveImpulseResponse) {
@@ -93,12 +104,6 @@ class MeasurementItem {
         'No AVR data loaded. please remove all measurements or load AVR information',
       );
     }
-
-    // store value on object creation and make it immuable
-    this.initialSplOffsetdB = MeasurementItem.cleanFloat32Value(
-      item.initialSplOffsetdB ?? item.splOffsetdB - item.alignSPLOffsetdB,
-      2,
-    );
 
     // Observable properties
     this.numberOfpositions = ko.observable(0);
@@ -332,52 +337,13 @@ class MeasurementItem {
       return this;
     }
 
-    const updateObservable = (observable, value) => {
-      if (value !== undefined && observable() !== value) {
-        observable(value);
+    // The record owns the whitelist semantics; mirror the changed fields onto
+    // the KO observables (plain fields are accessors over the record already).
+    const changed = this.record.update(item);
+    for (const field of MeasurementRecord.OBSERVABLE_FIELDS) {
+      if (Object.hasOwn(changed, field) && typeof this[field] === 'function') {
+        this[field](changed[field]);
       }
-    };
-    const updateProperty = (property, value) => {
-      if (value !== undefined && this[property] !== value) {
-        this[property] = value;
-      }
-    };
-    const observableUpdates = [
-      ['title', this.title],
-      ['inverted', this.inverted],
-      ['splOffsetdB', this.splOffsetdB],
-      ['alignSPLOffsetdB', this.alignSPLOffsetdB],
-      ['timeOfIRPeakSeconds', this.timeOfIRPeakSeconds],
-      // not an API field: written by the alignment service (lot V4)
-      ['shiftDelay', this.shiftDelay],
-    ];
-    const propertyUpdates = [
-      ['notes', 'notes'],
-      ['date', 'date'],
-      ['startFreq', 'startFreq'],
-      ['endFreq', 'endFreq'],
-      ['rewVersion', 'rewVersion'],
-      ['clockAdjustmentPPM', 'clockAdjustmentPPM'],
-      ['timeOfIRStartSeconds', 'timeOfIRStartSeconds'],
-    ];
-
-    for (const [key, observable] of observableUpdates) {
-      if (Object.hasOwn(item, key)) updateObservable(observable, item[key]);
-    }
-
-    for (const [key, property] of propertyUpdates) {
-      if (Object.hasOwn(item, key)) updateProperty(property, item[key]);
-    }
-
-    if (Object.hasOwn(item, 'sampleRate') && Number.isFinite(item.sampleRate)) {
-      updateProperty('sampleRate', item.sampleRate);
-    }
-    if (Object.hasOwn(item, 'cumulativeIRShiftSeconds')) {
-      updateObservable(this.cumulativeIRShiftSeconds, item.cumulativeIRShiftSeconds);
-      this.haveImpulseResponse = true;
-    }
-    if (Object.hasOwn(item, 'isFilter')) {
-      updateProperty('isFilter', item.isFilter || false);
     }
 
     return this;
@@ -1057,6 +1023,7 @@ class MeasurementItem {
     // Disposer les subscriptions
     this.inverted?.subscription?.dispose();
     this.cumulativeIRShiftSeconds?.subscription?.dispose();
+    this._recordMirrorSubscriptions?.forEach(subscription => subscription.dispose());
   }
 }
 

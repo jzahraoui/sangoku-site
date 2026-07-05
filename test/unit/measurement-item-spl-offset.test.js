@@ -12,6 +12,9 @@ vi.mock('../../src/logs.js', () => ({
 }));
 
 const { default: MeasurementItem } = await import('../../src/MeasurementItem.js');
+const { default: MeasurementRecord } = await import(
+  '../../src/measurement/measurement-record.js'
+);
 
 function alignResponse(uuid, alignSPLOffsetdB) {
   return {
@@ -31,6 +34,13 @@ function createSPLOffsetMeasurement({ initialSplOffsetdB = 10, splOffsetdB = 10 
   };
   const measurement = Object.create(MeasurementItem.prototype);
 
+  // update() routes through the ADR 002 record; the fixture carries one.
+  measurement.record = new MeasurementRecord({
+    uuid,
+    initialSplOffsetdB,
+    splOffsetdB,
+    alignSPLOffsetdB: splOffsetdB - initialSplOffsetdB,
+  });
   measurement.uuid = uuid;
   measurement.initialSplOffsetdB = initialSplOffsetdB;
   measurement.splOffsetdB = ko.observable(splOffsetdB);

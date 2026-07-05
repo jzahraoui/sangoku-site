@@ -12,6 +12,9 @@ vi.mock('../../src/logs.js', () => ({
 }));
 
 const { default: MeasurementItem } = await import('../../src/MeasurementItem.js');
+const { default: MeasurementRecord } = await import(
+  '../../src/measurement/measurement-record.js'
+);
 
 function createIROffsetMeasurement(initialShift = 0.0123456789) {
   const rewMeasurements = {
@@ -19,6 +22,11 @@ function createIROffsetMeasurement(initialShift = 0.0123456789) {
   };
   const measurement = Object.create(MeasurementItem.prototype);
 
+  // update() routes through the ADR 002 record; the fixture carries one.
+  measurement.record = new MeasurementRecord({
+    uuid: 'measurement-1',
+    cumulativeIRShiftSeconds: initialShift,
+  });
   measurement.uuid = 'measurement-1';
   measurement.haveImpulseResponse = true;
   measurement.title = () => 'Front Left';
