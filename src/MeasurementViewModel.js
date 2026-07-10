@@ -2,37 +2,47 @@ import RewApi from './rew/rew-api.js';
 import MeasurementItem from './MeasurementItem.js';
 import PersistentStore from './PersistentStore.js';
 import BusinessTools from './BusinessTools.js';
-import OCAFileGenerator from './oca-file.js';
 import translations from './translations.js';
 import AdyTools from './ady-tools.js';
-import MqxTools from './mqx-tools.js';
 import MultiSubOptimizer from './multi-sub-optimizer.js';
 import AvrCaracteristics from './avr-caracteristics.js';
 import ko from 'knockout';
 import { saveAs } from 'file-saver';
-import JSZip from 'jszip';
-import ampAssignType from './amp-type.js';
 import lm from './logs.js';
 import { Room3DViewer } from './room-3d-viewer.js';
 import RoomCurvesSettings from './room-curve-settings.js';
-import { FrequencyResponseAnalyzer } from './analysis/index.js';
+import {
+  findPredictedLfeForPosition,
+  filterPredictedLfe,
+  groupByChannel,
+  groupByPosition,
+  positionChoices,
+} from './measurement/measurement-selection.js';
+import { createRewSession } from './services/rew-session.js';
+import {
+  MAX_FILE_SIZE_BYTES,
+  VALID_FILE_EXTENSIONS,
+  createImportSession,
+} from './services/import-session.js';
+import { createExportsService } from './services/exports.js';
+import {
+  createAlignmentService,
+  getTargetLevelAtFreq,
+  setSameDelayToAll,
+} from './services/alignment.js';
+import { createTargetCurveService } from './services/target-curve.js';
+import { createAverages } from './services/averaging.js';
 
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
 
 const store = new PersistentStore('myAppData');
+// Import/export orchestration lives in src/services/ (lot V3).
+const importSession = createImportSession({ log: lm });
+const exportsService = createExportsService({ log: lm });
 const DEFAULT_IR_WINDOW_CHOICE = 'Optimized MTW';
 const FALLBACK_IR_WINDOW_CHOICE = 'None';
-const SUBWOOFER_SPL_ALIGNMENT_OPTIONS = {
-  analysisRangeHz: [10, 500],
-  passbandHz: [30, 80],
-  thresholdDb: -9,
-  smoothing: '1/3',
-  pointsPerOctave: 12,
-};
-const ALIGN_OFFSET_TOLERANCE = 0.005; // 2-decimal precision tolerance
-
-// Quantize an SPL offset to the nearest 0.3 dB step (single source of truth).
-const quantize3dB = v => (Math.round((v * 10) / 3) * 3) / 10;
+// ALIGN_OFFSET_TOLERANCE et quantize3dB vivent désormais dans
+// src/measurement/measurement-selection.js (lot V1).
 const IR_WINDOW_PRESETS = {
   None: {
     leftWindowType: 'Rectangular',
@@ -52,8 +62,8 @@ const IR_WINDOW_PRESETS = {
 class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
   static MAXIMISED_SUM_TITLE = 'LFE Max Sum';
-  static MAX_FILE_SIZE_BYTES = 209715200; // 200 MB
-  static VALID_FILE_EXTENSIONS = ['.avr', '.ady', '.mqx'];
+  static MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_BYTES;
+  static VALID_FILE_EXTENSIONS = VALID_FILE_EXTENSIONS;
 
   blocking = true;
   pollingInterval = 1000; // 1 seconds
@@ -87,7 +97,6 @@ class MeasurementViewModel {
       allowBoosts: ko.observable(true),
     };
     this.isPolling = ko.observable(false);
-    this.pollerId = null;
     // Add translation support
     this.translations = ko.observable(
       translations[localStorage.getItem('userLanguage') || 'en'],
@@ -326,89 +335,22 @@ class MeasurementViewModel {
       }, {}),
     );
 
-    this.validateFile = file => {
-      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-      if (!MeasurementViewModel.VALID_FILE_EXTENSIONS.includes(ext)) {
-        throw new Error('Please select a .avr, .ady, or .mqx file');
-      }
-      if (file.size > MeasurementViewModel.MAX_FILE_SIZE_BYTES) {
-        throw new Error(
-          `File size exceeds ${
-            MeasurementViewModel.MAX_FILE_SIZE_BYTES / 1024 / 1024
-          } MB limit`,
-        );
-      }
-    };
+    // File import — validation/parsing/REW import in services/import-session.js
+    // (lot V3); only the DOM parts (File reading, download buttons) stay here.
+    this.validateFile = file => importSession.validateFile(file);
 
-    this.processMqxFile = async data => {
-      if (!this.jsonAvrData()) {
-        throw new Error('Please load AVR data first');
-      }
-      const mqxTools = new MqxTools(data, this.jsonAvrData());
-      mqxTools.parse();
-      return mqxTools.jsonAvrData;
-    };
+    this.processMqxFile = async data =>
+      importSession.processMqxFile(data, this.jsonAvrData());
 
-    // TODO check if this is needed
-    this.normalizeChannelMapping = data => {
-      const StandardChannelMapping = {
-        59: 54,
-        60: 55,
-        62: 56,
-        63: 57,
-        58: 54,
-        61: 55,
-        64: 56,
-        47: 54,
-        49: 55,
-      };
+    this.normalizeChannelMapping = data => importSession.normalizeChannelMapping(data);
 
-      // TODO: ampassign can be directionnal must be converted to standard
-      // convert directionnal bass to standard
-      data.detectedChannels = data.detectedChannels.map(channel => ({
-        ...channel,
-        enChannelType:
-          StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
-      }));
-    };
-
-    this.processImpulseResponse = async (processedResponse, adyTools) => {
-      const identifier = processedResponse.name;
-      const response = processedResponse.data;
-      let max = 0;
-      for (const element of response) {
-        const absValue = Math.abs(element);
-        if (absValue > max) {
-          max = absValue;
-        }
-      }
-      const options = {
-        identifier,
-        startTime: 0,
+    this.processImpulseResponse = async (processedResponse, adyTools) =>
+      importSession.importImpulseResponse(this.rewSession, processedResponse, {
         sampleRate: adyTools.samplingRate,
         splOffset: this.jsonAvrData().avr?.splOffset ?? 80,
-        applyCal: false,
-        data: response,
-      };
-      const measurementItem = await this.addMeasurementFromRewOperation(
-        () => this.rewImport.importImpulseResponseData(options),
-        { expectedTitle: identifier, operationLabel: `import ${identifier}` },
-      );
-      measurementItem.IRPeakValue = max;
-      if (max >= 1) {
-        lm.warn(
-          `${identifier} IR is above 1(${max.toFixed(
-            2,
-          )}), it will not be used for processing`,
-        );
-      }
-    };
+      });
 
     this.processAdyMeasurements = async (data, filename, adyTools, zipContent) => {
-      if (filename.endsWith('.ady')) {
-        adyTools.isDirectionalWhenMultiSubs();
-      }
-
       // Create download buttons
       const results = document.getElementById('resultsAvr');
       const button = document.createElement('button');
@@ -416,23 +358,10 @@ class MeasurementViewModel {
       button.onclick = () => saveAs(zipContent, `${data.title}.zip`);
       results.appendChild(button);
 
-      // if not connected, do not import measurements in REW
-      if (!this.isPolling()) {
-        lm.warn('Not connected to REW, skipping measurements import');
-        return;
-      }
-
-      try {
-        // set processing state to speed up REW operations
-        await this.setProcessing(true);
-        // sort impulses by name to have all related positions together
-        adyTools.impulses.sort((a, b) => a.name.localeCompare(b.name));
-        for (const processedResponse of adyTools.impulses) {
-          await this.processImpulseResponse(processedResponse, adyTools);
-        }
-      } finally {
-        await this.setProcessing(false);
-      }
+      await importSession.importAdyImpulses(this.rewSession, adyTools, {
+        filename,
+        splOffset: this.jsonAvrData().avr?.splOffset ?? 80,
+      });
     };
 
     this.onFileLoaded = async (data, filename) => {
@@ -499,7 +428,7 @@ class MeasurementViewModel {
       }
     };
 
-    // Handle file reading
+    // Handle file reading — DOM File access stays here, parsing is service-side
     this.readFile = async file => {
       if (this.isProcessing()) return;
 
@@ -510,14 +439,8 @@ class MeasurementViewModel {
 
         this.validateFile(file);
 
-        let fileContent = await file.text();
-
-        // if mqx file contain garbage after closing json, truncate after the closing brake corresponding to the fisrt open bracket
-        if (file.name.endsWith('.mqx')) {
-          fileContent = this.cleanJSON(fileContent);
-        }
-
-        const data = JSON.parse(fileContent);
+        const fileContent = await file.text();
+        const data = importSession.parseSessionFile(fileContent, file.name);
         this.loadedFileName(file.name);
         // Handle successful load
         await this.onFileLoaded(data, file.name);
@@ -526,47 +449,10 @@ class MeasurementViewModel {
       }
     };
 
-    this.cleanJSON = fileContent => {
-      // Early return if the input is empty or not a string
-      if (!fileContent || typeof fileContent !== 'string') {
-        throw new Error('Invalid input: fileContent must be a non-empty string');
-      }
+    this.cleanJSON = fileContent => importSession.cleanJSON(fileContent);
 
-      const firstOpen = fileContent.indexOf('{');
-      if (firstOpen === -1) {
-        throw new Error('Invalid file format: no JSON object found');
-      }
-
-      const closingIndex = this.findClosingBrace(fileContent, firstOpen);
-      if (closingIndex === -1) {
-        throw new Error('Invalid JSON structure: unmatched braces');
-      }
-
-      return fileContent.slice(firstOpen, closingIndex + 1);
-    };
-
-    this.findClosingBrace = (content, startIndex) => {
-      let openCount = 0;
-      let inString = false;
-      let escapeNext = false;
-
-      for (let i = startIndex; i < content.length; i++) {
-        const char = content[i];
-
-        if (char === '"' && !escapeNext) {
-          inString = !inString;
-        } else if (char === '\\' && !escapeNext) {
-          escapeNext = true;
-          continue;
-        } else if (!inString) {
-          if (char === '{') openCount++;
-          else if (char === '}' && --openCount === 0) return i;
-        }
-        escapeNext = false;
-      }
-
-      return -1;
-    };
+    this.findClosingBrace = (content, startIndex) =>
+      importSession.findClosingBrace(content, startIndex);
 
     // Drop handlers
     this.handleDrop = (_, e) => {
@@ -605,39 +491,8 @@ class MeasurementViewModel {
 
     this.isProcessing = ko.observable(false);
 
-    this.setProcessing = async newValue => {
-      if (newValue && !this.isPolling()) {
-        throw new Error('Please connect to REW before processing');
-      }
-
-      // Clear existing timeout
-      if (this.processingTimeout) {
-        clearTimeout(this.processingTimeout);
-        this.processingTimeout = null;
-      }
-
-      this.isProcessing(newValue);
-
-      // inhibit Graph Updates only during processing
-      if (this.isPolling() && this.inhibitGraphUpdates() && this.apiService) {
-        try {
-          await this.apiService.setInhibitGraphUpdates(newValue);
-        } catch (error) {
-          if (newValue) {
-            throw error;
-          }
-          lm.warn(`Unable to restore graph updates: ${error.message}`);
-        }
-      }
-      // Save to persistent when processing ends
-      if (!newValue) {
-        try {
-          this.saveMeasurements();
-        } catch (error) {
-          lm.warn(`Unable to save measurements: ${error.message}`);
-        }
-      }
-    };
+    // Application-wide processing lock — logic in services/rew-session.js (lot V2).
+    this.setProcessing = async newValue => this.rewSession.setProcessing(newValue);
 
     this.currentSelectedPosition = ko.observable();
 
@@ -645,25 +500,16 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
-        lm.info('Importing MSO config...');
-
-        for (const [position, subResponses] of Object.entries(
+        await exportsService.importMsoConfig(
+          REWconfigs,
           this.byPositionsGroupedSubsMeasurements(),
-        )) {
-          if (!subResponses?.length) continue;
-
-          const subResponsesTitles = subResponses.map(response =>
-            response.displayMeasurementTitle(),
-          );
-          lm.info(
-            `Importing to position: ${position}\n${subResponsesTitles.join('\r\n')}`,
-          );
-
-          await this.businessTools.importFilterInREW(REWconfigs, subResponses);
-          this.handleSuccess(`REW import successful for position: ${position}`);
-        }
-
-        lm.info(`Importing finished`);
+          (configs, subResponses) =>
+            this.businessTools.importFilterInREW(configs, subResponses),
+          {
+            onPositionImported: position =>
+              this.handleSuccess(`REW import successful for position: ${position}`),
+          },
+        );
       } catch (error) {
         this.handleError(`REW import failed: ${error.message}`, error);
       } finally {
@@ -674,32 +520,11 @@ class MeasurementViewModel {
     this.buttonDownloadAvr = async () => {
       if (this.isProcessing()) return;
       try {
-        if (!this.jsonAvrData()) throw new Error('please load file before');
-
-        const ipAddress = this.avrIpAddress().trim();
-        if (!ipAddress) throw new Error('please enter AVR IP address');
-        if (!RewApi.isValidIpAddress(ipAddress)) {
-          throw new Error('please enter a valid AVR IP address');
-        }
-
-        const avrData = this.jsonAvrData();
-        const newAvrData = {
-          targetModelName: avrData.targetModelName,
-          ipAddress,
-          enMultEQType: avrData.enMultEQType,
-          subwooferNum: avrData.subwooferNum,
-          ampAssign: ampAssignType.getByIndex(avrData.enAmpAssignType),
-          ampAssignInfo: avrData.ampAssignInfo,
-          detectedChannels: avrData.detectedChannels.map(channel => ({
-            commandId: channel.commandId,
-          })),
-        };
-
-        // download new file receiver_config.avr with newAvrData content
-        const blob = new Blob([JSON.stringify(newAvrData, null, 2)], {
-          type: 'application/json',
-        });
-        saveAs(blob, 'receiver_config.avr');
+        const { filename, blob } = exportsService.buildAvrExport(
+          this.jsonAvrData(),
+          this.avrIpAddress(),
+        );
+        saveAs(blob, filename);
         this.handleSuccess('Download successful');
       } catch (error) {
         this.handleError(`.avr file failed: ${error.message}`, error);
@@ -721,26 +546,7 @@ class MeasurementViewModel {
       try {
         await this.setProcessing(true);
         lm.info('Renaming started');
-        for (const item of this.measurements()) {
-          if (item.position() === 0) {
-            continue;
-          }
-          // do not rename averaged measurements
-          if (item.isAverage) {
-            continue;
-          }
-
-          if (item.isUnknownChannel) {
-            continue;
-          }
-
-          const newName = `${item.channelName()}_P${item
-            .position()
-            .toString()
-            .padStart(2, '0')}`;
-
-          item.setTitle(newName);
-        }
+        await this.rewSession.renameMeasurements();
         this.handleSuccess('Renaming succeful');
       } catch (error) {
         this.handleError(`Rename failed: ${error.message}`, error);
@@ -813,94 +619,15 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('Average calculation started...');
 
-        // Snapshot once — pureComputed would otherwise re-evaluate
-        const filteredMeasurements = this.validMeasurements().filter(
-          item => !item.isAverage && item.IRPeakValue <= 1,
-        );
+        await createAverages({
+          validMeasurements: this.validMeasurements(),
+          groupedMeasurements: this.groupedMeasurements(),
+          averageMethod: this.selectedAverageMethod(),
+          deleteOriginal: this.DeleteOriginalForAverage(),
+          processGroupedResponses: (grouped, method, deleteOriginal) =>
+            this.businessTools.processGroupedResponses(grouped, method, deleteOriginal),
+        });
 
-        // Check if we have enough measurements
-        if (filteredMeasurements.length < 2) {
-          throw new Error('Need at least 2 valid positions to calculate average');
-        }
-
-        // Prime Knockout computeds once per item, then work on plain numbers.
-        // This avoids N re-evaluations of displayMeasurementTitle / alignSPLOffsetdB / etc.
-        // inside the hot loop.
-        const snapshots = filteredMeasurements.map(item => ({
-          title: item.displayMeasurementTitle(),
-          alignOffset: item.alignSPLOffsetdB(),
-          quantizedSpl: quantize3dB(item.splOffsetdB()),
-          inverted: !!item.inverted(),
-        }));
-
-        // Single pass: collect what we need WITHOUT allocating strings unless an
-        // error is actually raised.
-        const referenceAlignOffset = snapshots[0].alignOffset;
-        const referenceQuantized = snapshots[0].quantizedSpl;
-        const inconsistentAlignOffsets = [];
-        const inconsistentInvertedMeasurements = [];
-        const inconsistentQuantizedTitles = [];
-        const quantizedCounts = new Map();
-
-        for (const s of snapshots) {
-          if (
-            Math.abs(s.alignOffset - referenceAlignOffset) > ALIGN_OFFSET_TOLERANCE &&
-            Math.abs(s.alignOffset) > ALIGN_OFFSET_TOLERANCE
-          ) {
-            inconsistentAlignOffsets.push(s.title);
-          }
-          if (s.inverted) {
-            inconsistentInvertedMeasurements.push(s.title);
-          }
-
-          quantizedCounts.set(
-            s.quantizedSpl,
-            (quantizedCounts.get(s.quantizedSpl) ?? 0) + 1,
-          );
-          if (s.quantizedSpl !== referenceQuantized) {
-            inconsistentQuantizedTitles.push(s.title);
-          }
-        }
-
-        if (inconsistentAlignOffsets.length > 0) {
-          throw new Error(
-            `Some measurements have inconsistent SPL alignment offsets: ${inconsistentAlignOffsets.join(
-              ', ',
-            )}`,
-          );
-        }
-
-        if (inconsistentInvertedMeasurements.length > 0) {
-          throw new Error(
-            `Some measurements appear to be inverted: ${inconsistentInvertedMeasurements.join(
-              ', ',
-            )}`,
-          );
-        }
-
-        if (quantizedCounts.size > 1) {
-          // Pick the most common quantized SPL offset.
-          let mostCommonOffset = referenceQuantized;
-          let bestCount = -1;
-          for (const [value, count] of quantizedCounts) {
-            if (count > bestCount) {
-              bestCount = count;
-              mostCommonOffset = value;
-            }
-          }
-          throw new Error(
-            `Some measurements have inconsistent SPL offsets: ${inconsistentQuantizedTitles.join(
-              ', ',
-            )} expected ${mostCommonOffset.toFixed(1)}dB`,
-          );
-        }
-
-        // creates array of uuid attributes for each code into groupedResponse
-        await this.businessTools.processGroupedResponses(
-          this.groupedMeasurements(),
-          this.selectedAverageMethod(),
-          this.DeleteOriginalForAverage(),
-        );
         const averagePosition = this.measurementsPositionList().find(
           pos => pos.text === 'Average',
         );
@@ -939,15 +666,10 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('Align peaks...');
 
-        for (const measurement of this.uniqueSpeakersMeasurements()) {
-          await measurement.setZeroAtIrPeak();
-        }
-
-        if (this.uniqueSubsMeasurements().length > 0) {
-          const sub = this.uniqueSubsMeasurements()[0];
-          await sub.setZeroAtIrPeak();
-          await this.setSameDelayToAll(this.uniqueSubsMeasurements());
-        }
+        await this.alignmentService.alignPeaks(
+          this.uniqueSpeakersMeasurements(),
+          this.uniqueSubsMeasurements(),
+        );
 
         this.handleSuccess('Align peaks successful');
       } catch (error) {
@@ -962,63 +684,12 @@ class MeasurementViewModel {
       try {
         await this.setProcessing(true);
         lm.info('Computing SPL alignment...');
-        const workingMeasurements = this.uniqueSpeakersMeasurements();
-        if (workingMeasurements.length === 0) {
-          throw new Error('No measurements found for SPL alignment');
-        } else if (workingMeasurements.length === 1) {
-          throw new Error('Only one measurement found for SPL alignment');
-        }
-        const firstWorkingMeasurement = workingMeasurements[0];
 
-        await firstWorkingMeasurement.resetTargetSettings();
-        // working settings must match filter settings
-        for (const work of this.uniqueMeasurements()) {
-          await work.resetIrWindows();
-        }
-        const uuids = this.uniqueMeasurements().map(m => m.uuid);
-        await this.rewMeasurements.smoothMeasurements(uuids, '1/1');
-
-        await this.rewMeasurements.alignSPL(
-          workingMeasurements.map(m => m.uuid),
-          'average',
-          2500,
-          5,
-        );
-
-        // take the new aligned measurements into account
-        await this.loadData();
-
-        // must be calculated before removing working settings
-        await firstWorkingMeasurement.setTargetSettings({
-          shape: 'Bass limited',
-          bassManagementSlopedBPerOctave: 24,
-          bassManagementCutoffHz: 150,
+        this.SubsFrequencyBands = await this.alignmentService.alignSPL({
+          speakerMeasurements: this.uniqueSpeakersMeasurements(),
+          uniqueMeasurements: this.uniqueMeasurements(),
+          subMeasurements: this.uniqueSubsMeasurements(),
         });
-        // TODO check target level calculation sometime is too high
-        await this.rewMeasurements.calculateTargetLevel(firstWorkingMeasurement.uuid);
-        await firstWorkingMeasurement.resetTargetSettings();
-
-        // working settings must match filter settings
-        for (const work of workingMeasurements) {
-          await work.applyWorkingSettings();
-        }
-
-        // set target level to all measurements including subs
-        await this.setTargetLevelFromMeasurement(firstWorkingMeasurement);
-
-        // copy SPL alignment level to other measurements positions
-        for (const measurement of this.uniqueMeasurements()) {
-          await measurement.copySplOffsetDeltadBToOther();
-        }
-
-        // ajust subwoofer levels
-        this.SubsFrequencyBands = await this.adjustSubwooferSPLLevels(
-          this.uniqueSubsMeasurements(),
-        );
-
-        for (const sub of this.uniqueSubsMeasurements()) {
-          await sub.applyWorkingSettings();
-        }
 
         this.handleSuccess(`SPL alignment successful `);
       } catch (error) {
@@ -1118,9 +789,7 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('Auto adjusting inversion...');
 
-        for (const speakerItem of this.uniqueSpeakersMeasurements()) {
-          await this.checkAlignment(speakerItem);
-        }
+        await this.alignmentService.autoAdjustInversion(this.uniqueSpeakersMeasurements());
       } catch (error) {
         this.handleError(`Auto adjust inversion failed: ${error.message}`, error);
       } finally {
@@ -1129,53 +798,12 @@ class MeasurementViewModel {
     };
 
     this.checkAlignment = async speakerItem => {
-      const mustBeDeleted = [];
+      // processing lock is a UI concern — the sequence lives in the service
       const allreadyProcessing = this.isProcessing();
       try {
         if (!allreadyProcessing) await this.setProcessing(true);
-        const cuttOffFrequency = speakerItem.crossover();
-        const PredictedLfe = speakerItem.relatedLfeMeasurement();
-
-        if (!PredictedLfe) {
-          throw new Error(`No LFE found, please use sum subs button`);
-        }
-
-        const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
-        mustBeDeleted.push(predictedFrontLeft);
-
-        const { PredictedLfeFiltered, predictedSpeakerFiltered } =
-          await this.businessTools.applyCutOffFilter(
-            PredictedLfe,
-            predictedFrontLeft,
-            cuttOffFrequency,
-          );
-        mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
-
-        const { shiftDelay, isBInverted } = await this.findAligment(
-          PredictedLfeFiltered,
-          predictedSpeakerFiltered,
-          cuttOffFrequency,
-          1,
-          false,
-          null,
-          -1,
-        );
-
-        speakerItem.shiftDelay(shiftDelay);
-
-        if (isBInverted) {
-          await speakerItem.toggleInversion();
-          lm.info(`Inversion toggled for ${speakerItem.displayMeasurementTitle()}`);
-        } else {
-          lm.info(`No inversion needed for ${speakerItem.displayMeasurementTitle()}`);
-        }
-      } catch {
-        lm.warn(
-          `Unable to determine inversion for ${speakerItem.displayMeasurementTitle()}`,
-        );
-        speakerItem.shiftDelay(Infinity);
+        await this.alignmentService.checkAlignment(speakerItem);
       } finally {
-        await this.removeMeasurements(mustBeDeleted);
         if (!allreadyProcessing) await this.setProcessing(false);
       }
     };
@@ -1298,59 +926,32 @@ class MeasurementViewModel {
       try {
         await this.setProcessing(true);
         lm.info('OCA file generation...');
-        const measurementsinError = this.uniqueMeasurements().filter(item =>
-          item.hasErrors(),
-        );
 
-        if (measurementsinError.length > 0) {
-          lm.warn(
-            `There are ${measurementsinError.length} measurements with errors. Please fix them before generating the OCA file.`,
-          );
-        }
         const avrData = this.jsonAvrData();
         if (!avrData?.targetModelName) {
           throw new Error(`Please load avr file first`);
         }
-        const OCAFile = new OCAFileGenerator(avrData);
-
         await this.setTargetLevelFromMeasurement();
-        if (!this.targetCurve()) {
-          throw new Error(
-            `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`,
-          );
-        }
-        OCAFile.fileFormat = this.ocaFileFormat();
-        OCAFile.tcName = ko.unwrap(this.tcName);
-        OCAFile.softRoll = this.softRoll();
-        OCAFile.enableDynamicEq = this.enableDynamicEq();
-        OCAFile.dynamicEqRefLevel = this.dynamicEqRefLevel();
-        OCAFile.enableDynamicVolume = this.enableDynamicVolume();
-        OCAFile.dynamicVolumeSetting = this.dynamicVolumeSetting();
-        OCAFile.enableLowFrequencyContainment = this.enableLowFrequencyContainment();
-        OCAFile.lowFrequencyContainmentLevel = this.lowFrequencyContainmentLevel();
-        OCAFile.subwooferOutput = this.subwooferOutput();
-        OCAFile.lpfForLFE = this.lpfForLFE();
-        OCAFile.numberOfSubwoofers = this.uniqueSubsMeasurements().length;
-        OCAFile.versionEvo = `RCH ${this.currentVersion}`;
 
-        const jsonData = await OCAFile.createOCAFile(this.uniqueMeasurements());
-
-        // Validate input
-        if (!jsonData) {
-          throw new Error('No data to save');
-        }
-
-        const timestamp = new Date()
-          .toISOString()
-          .slice(0, 16)
-          .replace('T', '-')
-          .replaceAll(':', '-');
-        const model = avrData.targetModelName.replaceAll(' ', '-');
-        const filename = `${timestamp}_${this.ocaFileFormat()}_${this.targetCurve()}_${model}.oca`;
-
-        // Create blob
-        const blob = new Blob([jsonData], {
-          type: 'application/json',
+        const { filename, blob } = await exportsService.generateOcaExport({
+          avrData,
+          measurements: this.uniqueMeasurements(),
+          config: {
+            targetCurve: this.targetCurve(),
+            fileFormat: this.ocaFileFormat(),
+            tcName: ko.unwrap(this.tcName),
+            softRoll: this.softRoll(),
+            enableDynamicEq: this.enableDynamicEq(),
+            dynamicEqRefLevel: this.dynamicEqRefLevel(),
+            enableDynamicVolume: this.enableDynamicVolume(),
+            dynamicVolumeSetting: this.dynamicVolumeSetting(),
+            enableLowFrequencyContainment: this.enableLowFrequencyContainment(),
+            lowFrequencyContainmentLevel: this.lowFrequencyContainmentLevel(),
+            subwooferOutput: this.subwooferOutput(),
+            lpfForLFE: this.lpfForLFE(),
+            numberOfSubwoofers: this.uniqueSubsMeasurements().length,
+            currentVersion: this.currentVersion,
+          },
         });
 
         // Save file
@@ -1375,145 +976,44 @@ class MeasurementViewModel {
           throw new Error(`Please load avr file first`);
         }
         await this.setTargetLevelFromMeasurement();
-        if (!this.targetCurve()) {
-          throw new Error(
-            `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`,
-          );
-        }
+
         const selectedSpeaker = this.findMeasurementByUuid(this.selectedSpeaker());
-        const selectedSpeakerText = selectedSpeaker?.displayMeasurementTitle() || 'None';
-        const selectedSpeakerCrossover = selectedSpeaker?.crossover();
         // find if we have revert LFE frequency
         const subWithFreq = this.uniqueSubsMeasurements().find(
           item => item.revertLfeFrequency !== 0,
         );
-        const revertLfeFrequency = subWithFreq?.revertLfeFrequency;
 
-        // function to add "Hz" suffix to frequency values
-        const addHzSuffix = freq => (freq ? `${freq} Hz` : 'None');
-
-        // Generate a text file containing all the settings and parameters
-        let textData = '';
-
-        // Title and timestamp
-        const now = new Date();
-        textData += `=======================================================\n`;
-        textData += `  ROOM CORRECTION HELPER - ${now.toLocaleDateString()} ${now.toLocaleTimeString()}\n`;
-        textData += `=======================================================\n\n`;
-
-        // Basic settings section
-        textData += `BASIC SETTINGS\n`;
-        textData += `-------------\n`;
-        textData += `Loaded File:       ${this.loadedFileName()}\n`;
-        textData += `Target Curve:      ${this.targetCurve()}\n`;
-        textData += `Target Level:      ${this.mainTargetLevel()} dB\n`;
-        textData += `Average Method:    ${this.selectedAverageMethod()}\n\n`;
-
-        // AVR Info section
-        textData += `AVR INFORMATION\n`;
-        textData += `--------------\n`;
-        textData += `Model:                    ${avrData.targetModelName}\n`;
-        textData += `MultEQ Type:              ${avrData.avr.multEQType}\n`;
-        textData += `Has Cirrus Logic DSP:     ${
-          avrData.avr.hasCirrusLogicDsp ? 'Yes' : 'No'
-        }\n`;
-        textData += `Speed of Sound:           ${avrData.avr.speedOfSound} m/s\n\n`;
-
-        // Speaker settings section
-        textData += `SPEAKER SETTINGS\n`;
-        textData += `----------------\n`;
-        textData += `Smoothing Method:         ${this.selectedSmoothingMethod()}\n`;
-        textData += `Windowing:                ${this.selectedIrWindows()}\n`;
-        textData += `Room Curve:               ${this.selectedRoomCurve()}\n`;
-        textData += `Individual Max Boost:     ${this.individualMaxBoostValue()} dB\n`;
-        textData += `Overall Max Boost:        ${this.overallBoostValue()} dB\n`;
-        textData += `Equalization Mode:        ${this.selectedEqualizationMode().toUpperCase()}\n\n`;
-
-        // Subwoofer settings section
-        textData += `SUBWOOFER SETTINGS\n`;
-        textData += `------------------\n`;
-        textData += `Number of Subs:           ${this.uniqueSubsMeasurements().length}\n`;
-        textData += `Revert LFE Filter Freq:   ${addHzSuffix(revertLfeFrequency)}\n`;
-
-        textData += `Max Boost Individual:     ${this.maxBoostIndividualValue()} dB\n`;
-        textData += `Max Boost Overall:        ${this.maxBoostOverallValue()} dB\n`;
-
-        textData += `Align Frequency:          ${addHzSuffix(
-          selectedSpeakerCrossover,
-        )}\n`;
-        textData += `Selected Speaker:         ${selectedSpeakerText}\n`;
-
-        textData += `LPF for LFE:              ${this.lpfForLFE()} Hz\n`;
-        textData += `Subwoofer Output:         ${this.subwooferOutput()}\n\n`;
-
-        // Dynamic settings section
-        textData += `DYNAMIC SETTINGS\n`;
-        textData += `----------------\n`;
-        textData += `Dynamic EQ:        ${
-          this.enableDynamicEq() ? 'Enabled' : 'Disabled'
-        }\n`;
-        if (this.enableDynamicEq()) {
-          textData += `  Reference Level:  ${this.dynamicEqRefLevel()} dB\n`;
-        }
-        textData += `Dynamic Volume:    ${
-          this.enableDynamicVolume() ? 'Enabled' : 'Disabled'
-        }\n`;
-        if (this.enableDynamicVolume()) {
-          textData += `  Volume Setting:   ${this.dynamicVolumeSetting()}\n`;
-        }
-        textData += `LF Containment:    ${
-          this.enableLowFrequencyContainment() ? 'Enabled' : 'Disabled'
-        }\n`;
-        if (this.enableLowFrequencyContainment()) {
-          textData += `  LFC Level:        ${this.lowFrequencyContainmentLevel()}\n`;
-        }
-        textData += `\n`;
-
-        // Version information
-        textData += `VERSION INFORMATION\n`;
-        textData += `-------------------\n`;
-        textData += `REW Version:       ${this.rewVersion()}\n`;
-        textData += `RCH Version:       ${this.currentVersion}\n\n`;
-
-        // Save to persistent store
-        const reducedMeasurements = this.uniqueMeasurements().map(item => item.toJSON());
-
-        // Create table header
-        textData +=
-          '\n+------------------------+---------------+----------+-------------+---------------------+----------+\n';
-        textData +=
-          '| Measurement            | Channel       | Distance | SPL Offset  | Crossover Frequency | Inverted |\n';
-        textData +=
-          '+------------------------+---------------+----------+-------------+---------------------+----------+\n';
-
-        // Add table rows
-        for (const measurement of reducedMeasurements) {
-          const title = measurement.displayMeasurementTitle.padEnd(22);
-          const channel = measurement.channelName.padEnd(13);
-          const distance = measurement.distance.toFixed(2).padStart(8);
-          const splOffset = measurement.splForAvr.toString().padStart(11);
-          const crossover = measurement.crossover.toString().padStart(19);
-          const inverted = (measurement.inverted ? 'Yes' : '').padEnd(8);
-
-          textData += `| ${title} | ${channel} | ${distance} | ${splOffset} | ${crossover} | ${inverted} |\n`;
-        }
-
-        // Add table footer
-        textData +=
-          '+------------------------+---------------+----------+-------------+---------------------+----------+\n';
-
-        // Create timestamp
-        const timestamp = new Date()
-          .toISOString()
-          .slice(0, 16)
-          .replace('T', '-')
-          .replaceAll(':', '-');
-        const model = avrData.targetModelName.replaceAll(' ', '-');
-        const filename = `${timestamp}_${this.targetCurve()}_${model}.txt`;
-
-        // Create blob
-        const blob = new Blob([textData], {
-          type: 'application/text',
+        const { filename, blob } = exportsService.generateSettingsReport({
+          avrData,
+          reducedMeasurements: this.uniqueMeasurements().map(item => item.toJSON()),
+          settings: {
+            loadedFileName: this.loadedFileName(),
+            targetCurve: this.targetCurve(),
+            mainTargetLevel: this.mainTargetLevel(),
+            selectedAverageMethod: this.selectedAverageMethod(),
+            selectedSmoothingMethod: this.selectedSmoothingMethod(),
+            selectedIrWindows: this.selectedIrWindows(),
+            selectedRoomCurve: this.selectedRoomCurve(),
+            individualMaxBoostValue: this.individualMaxBoostValue(),
+            overallBoostValue: this.overallBoostValue(),
+            selectedEqualizationMode: this.selectedEqualizationMode(),
+            numberOfSubwoofers: this.uniqueSubsMeasurements().length,
+            revertLfeFrequency: subWithFreq?.revertLfeFrequency,
+            maxBoostIndividualValue: this.maxBoostIndividualValue(),
+            maxBoostOverallValue: this.maxBoostOverallValue(),
+            selectedSpeakerCrossover: selectedSpeaker?.crossover(),
+            selectedSpeakerText: selectedSpeaker?.displayMeasurementTitle() || 'None',
+            lpfForLFE: this.lpfForLFE(),
+            subwooferOutput: this.subwooferOutput(),
+            enableDynamicEq: this.enableDynamicEq(),
+            dynamicEqRefLevel: this.dynamicEqRefLevel(),
+            enableDynamicVolume: this.enableDynamicVolume(),
+            dynamicVolumeSetting: this.dynamicVolumeSetting(),
+            enableLowFrequencyContainment: this.enableLowFrequencyContainment(),
+            lowFrequencyContainmentLevel: this.lowFrequencyContainmentLevel(),
+            rewVersion: this.rewVersion(),
+            currentVersion: this.currentVersion,
+          },
         });
 
         // Save file
@@ -1527,31 +1027,12 @@ class MeasurementViewModel {
       }
     };
 
-    this.processMsoMeasurement = async (measurement, jszip, minFreq, maxFreq) => {
-      await measurement.resetAll(this.mainTargetLevel());
-      const frequencyResponse = await measurement.getFrequencyResponse();
-      await measurement.applyWorkingSettings();
-      const subName = measurement.channelName().replace('SW', 'SUB');
-      const localFilename = `POS${measurement.position()}-${subName}.txt`;
-
-      const lines = [];
-      for (let i = 0; i < frequencyResponse.freqs.length; i++) {
-        const freq = frequencyResponse.freqs[i];
-        if (freq >= minFreq && freq <= maxFreq) {
-          lines.push(
-            `${freq.toFixed(6)} ${frequencyResponse.magnitude[i].toFixed(
-              3,
-            )} ${frequencyResponse.phase[i].toFixed(4)}`,
-          );
-        }
-      }
-
-      if (!lines.length) {
-        throw new Error(`no file content for ${localFilename}`);
-      }
-
-      jszip.file(localFilename, lines.join('\n'));
-    };
+    this.processMsoMeasurement = async (measurement, jszip, minFreq, maxFreq) =>
+      exportsService.appendMsoMeasurement(jszip, measurement, {
+        minFreq,
+        maxFreq,
+        targetLevel: this.mainTargetLevel(),
+      });
 
     this.buttonCreatesMsoExports = async () => {
       if (this.isProcessing()) return;
@@ -1563,24 +1044,15 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('Exports Subs...');
 
-        const jszip = new JSZip();
-        const zipFilename = `MSO-${this.jsonAvrData().model}.zip`;
-        const minFreq = 5; // minimum frequency in Hz
-        const maxFreq = 400; // maximum frequency in Hz
+        const { filename, blob } = await exportsService.buildMsoExportZip(
+          this.subsMeasurements(),
+          {
+            model: this.jsonAvrData().model,
+            targetLevel: this.mainTargetLevel(),
+          },
+        );
 
-        const measurements = this.subsMeasurements();
-        const chunkSize = 5;
-
-        for (let i = 0; i < measurements.length; i += chunkSize) {
-          const chunk = measurements.slice(i, i + chunkSize);
-          for (const measurement of chunk) {
-            await this.processMsoMeasurement(measurement, jszip, minFreq, maxFreq);
-          }
-        }
-
-        // Generate the zip file once and save it
-        const zipContent = await jszip.generateAsync({ type: 'blob' });
-        saveAs(zipContent, zipFilename);
+        saveAs(blob, filename);
         this.handleSuccess('Exports Subs successful');
       } catch (error) {
         this.handleError(`Exports Subs failed: ${error.message}`, error);
@@ -1886,45 +1358,17 @@ class MeasurementViewModel {
       this.measurements().filter(item => item.isValid),
     );
 
-    this.groupedMeasurements = ko.pureComputed(() => {
-      const groups = {};
-      for (const item of this.measurements()) {
-        if (item.isUnknownChannel) continue;
-
-        const channelName = item.channelName();
-        let group = groups[channelName];
-        if (!group) {
-          group = { items: [], count: 0 };
-          groups[channelName] = group;
-        }
-        group.items.push(item);
-        group.count++;
-      }
-      return groups;
-    });
+    this.groupedMeasurements = ko.pureComputed(() =>
+      groupByChannel(this.measurements()),
+    );
     // creates a map from groupedMeasurements with items grouped by the same position attribute
-    this.byPositionsGroupedSubsMeasurements = ko.pureComputed(() => {
-      const groups = {};
-      for (const item of this.subsMeasurements()) {
-        const key = item.position();
-        if (!groups[key]) {
-          groups[key] = [];
-        }
-        groups[key].push(item);
-      }
-      return groups;
-    });
+    this.byPositionsGroupedSubsMeasurements = ko.pureComputed(() =>
+      groupByPosition(this.subsMeasurements()),
+    );
 
     this.measurementsPositionList = ko.computed(() => {
       try {
-        const seen = new Map();
-        for (const item of this.measurements()) {
-          const pos = item.position();
-          if (pos && !seen.has(pos)) {
-            seen.set(pos, { value: pos, text: item.displayPositionText() });
-          }
-        }
-        return [...seen.values()].sort((a, b) => a.text.localeCompare(b.text));
+        return positionChoices(this.measurements());
       } catch (error) {
         this.handleError('Error computing measurements position list:', error);
         return [];
@@ -2016,17 +1460,13 @@ class MeasurementViewModel {
       return `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
     });
 
-    this.allPredictedLfeMeasurement = ko.pureComputed(() => {
-      return this.measurements().filter(response =>
-        response?.title().startsWith(MeasurementItem.DEFAULT_LFE_PREDICTED),
-      );
-    });
+    this.allPredictedLfeMeasurement = ko.pureComputed(() =>
+      filterPredictedLfe(this.measurements()),
+    );
 
-    this.predictedLfeMeasurement = ko.pureComputed(() => {
-      return this.allPredictedLfeMeasurement().find(
-        response => response?.title() === this.predictedLfeMeasurementTitle(),
-      );
-    });
+    this.predictedLfeMeasurement = ko.pureComputed(() =>
+      findPredictedLfeForPosition(this.measurements(), this.currentSelectedPosition()),
+    );
 
     this.uniqueSpeakersMeasurements = ko.pureComputed(() => {
       return this.uniqueMeasurements().filter(item => !item.isSub());
@@ -2056,6 +1496,112 @@ class MeasurementViewModel {
       );
 
       return this.maxDistanceInMetersError() - this.maxSubDistanceInMeters() + shift;
+    });
+
+    // REW session service (lot V2) — owns polling, list sync and the
+    // processing lock; the viewmodel keeps mirror fields for its consumers.
+    // `self` because the state accessors are property getters (own `this`).
+    const self = this;
+    this.rewSession = createRewSession({
+      state: {
+        get isPolling() {
+          return self.isPolling();
+        },
+        set isPolling(value) {
+          self.isPolling(value);
+        },
+        get isProcessing() {
+          return self.isProcessing();
+        },
+        set isProcessing(value) {
+          self.isProcessing(value);
+        },
+        get isLoading() {
+          return self.isLoading();
+        },
+        set isLoading(value) {
+          self.isLoading(value);
+        },
+        get hasError() {
+          return self.hasError();
+        },
+        get rewVersion() {
+          return self.rewVersion();
+        },
+        set rewVersion(value) {
+          self.rewVersion(value);
+        },
+        get maxMeasurements() {
+          return self.maxMeasurements();
+        },
+        set maxMeasurements(value) {
+          self.maxMeasurements(value);
+        },
+        get inhibitGraphUpdates() {
+          return self.inhibitGraphUpdates();
+        },
+        get apiBaseUrl() {
+          return self.apiBaseUrl();
+        },
+      },
+      measurements: {
+        get: () => this.measurements(),
+        set: list => this.measurements(list),
+        push: item => this.measurements.push(item),
+        removeWhere: predicate => this.measurements.remove(predicate),
+      },
+      createMeasurement: apiItem => new MeasurementItem(apiItem, this),
+      adoptMeasurement: item =>
+        item instanceof MeasurementItem ? item : new MeasurementItem(item, this),
+      createApi: baseUrl => new RewApi(baseUrl, false, this.blocking),
+      onConnected: () => this.setTargetLevelFromMeasurement(),
+      onProcessingEnded: () => this.saveMeasurements(),
+      onApiServicesChanged: () => {
+        this.apiService = this.rewSession.apiService;
+        this.rewEq = this.rewSession.rewEq;
+        this.rewMeasurements = this.rewSession.rewMeasurements;
+        this.rewImport = this.rewSession.rewImport;
+        this.rewAlignmentTool = this.rewSession.rewAlignmentTool;
+      },
+      onError: (message, error) => this.handleError(message, error),
+      pollingInterval: this.pollingInterval,
+      log: lm,
+    });
+
+    // Target curve / alignment services (lot V4).
+    this.targetCurveService = createTargetCurveService({
+      session: this.rewSession,
+      state: {
+        get tcName() {
+          return self.tcName();
+        },
+        set targetCurve(value) {
+          self.targetCurve(value);
+        },
+        get mainTargetLevel() {
+          return self.mainTargetLevel();
+        },
+        set mainTargetLevel(value) {
+          self.mainTargetLevel(value);
+        },
+      },
+      lists: {
+        firstMeasurement: () => this.firstMeasurement(),
+        validMeasurements: () => this.validMeasurements(),
+        predictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),
+      },
+      isMeasurement: value => value instanceof MeasurementItem,
+      log: lm,
+    });
+
+    this.alignmentService = createAlignmentService({
+      session: this.rewSession,
+      applyCutOffFilter: (lfe, speaker, frequency) =>
+        this.businessTools.applyCutOffFilter(lfe, speaker, frequency),
+      setTargetLevelFromMeasurement: measurement =>
+        this.setTargetLevelFromMeasurement(measurement),
+      getPredictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),
+      log: lm,
     });
   }
 
@@ -2230,39 +1776,7 @@ class MeasurementViewModel {
   }
 
   async updateTargetCurve(referenceMeasurement) {
-    const prefix = 'Target';
-    const title = `${prefix} ${this.tcName()}`;
-
-    if (this.measurements().some(item => item.title() === title)) {
-      lm.debug(`Current target curve ${title} is valid, skipping creation.`);
-      return false;
-    }
-
-    lm.debug(`Current target curve needs to be updated to ${title}.`);
-
-    await this.removeMeasurements(
-      this.measurements().filter(item => item.title().startsWith(prefix)),
-    );
-
-    let targetMeasurement, comments;
-    if (referenceMeasurement) {
-      const apiResponse = await this.rewMeasurements.generateTargetMeasurement(
-        referenceMeasurement.uuid,
-      );
-      targetMeasurement = await this.analyseApiResponse(apiResponse);
-      comments = `from ${referenceMeasurement.title()}`;
-    } else {
-      // api response of generateTargetMeasurement is bugged: uuid returned is not the created measurement's uuid
-      targetMeasurement = await this.addMeasurementFromRewOperation(
-        () => this.rewEq.generateTargetMeasurement(),
-        { operationLabel: 'target measurement generation' },
-      );
-      comments = 'no reference measurement';
-    }
-    await targetMeasurement.setTitle(title, comments);
-
-    lm.info(`Created target curve: ${title}`);
-    return true;
+    return this.targetCurveService.updateTargetCurve(referenceMeasurement);
   }
 
   async equalizeSub(subMeasurement) {
@@ -2309,173 +1823,21 @@ class MeasurementViewModel {
   }
 
   async setSameDelayToAll(measurements) {
-    if (measurements.length <= 1) {
-      return;
-    }
-    // align the others sub to first measurement delay
-    const mainDelay = measurements[0].cumulativeIRShiftSeconds();
-    for (const measurement of measurements) {
-      await measurement.setcumulativeIRShiftSeconds(mainDelay);
-    }
+    return setSameDelayToAll(measurements);
   }
 
   async adjustSubwooferSPLLevels(subsMeasurements, targetLevelFreq = 40) {
-    if (!subsMeasurements?.length) {
-      return;
-    }
-
-    const targetLevelAtFreq = await this.getTargetLevelAtFreq(
-      subsMeasurements[0],
-      targetLevelFreq,
-    );
-    if (!Number.isFinite(targetLevelAtFreq)) {
-      throw new TypeError(`Invalid target level at ${targetLevelFreq}Hz`);
-    }
-
-    const targetLevel = targetLevelAtFreq - 20 * Math.log10(subsMeasurements.length);
-
-    const subwooferAnalyses = [];
-    for (const measurement of subsMeasurements) {
-      subwooferAnalyses.push(await this.analyzeSubwooferSPLAlignment(measurement));
-    }
-
-    const lowFrequency = Math.min(...subwooferAnalyses.map(({ lowCutoff }) => lowCutoff));
-    const highFrequency = Math.max(
-      ...subwooferAnalyses.map(({ highCutoff }) => highCutoff),
-    );
-
-    await this.removeMeasurements(this.allPredictedLfeMeasurement());
-
-    for (const analysis of subwooferAnalyses) {
-      const { measurement, title, lowCutoff, highCutoff, centerFrequency, octaves } =
-        analysis;
-
-      const alignResult = await this.rewMeasurements.alignSPL(
-        [measurement.uuid],
-        targetLevel,
-        centerFrequency,
-        octaves,
-      );
-
-      const alignOffset = MeasurementItem.getAlignSPLOffsetdBByUUID(
-        alignResult,
-        measurement.uuid,
-      );
-      measurement.alignSPLOffsetdB(alignOffset);
-      measurement.splOffsetdB(
-        MeasurementItem.cleanFloat32Value(
-          measurement.initialSplOffsetdB + alignOffset,
-          2,
-        ),
-      );
-      lm.info(
-        `\nAdjust ${title} SPL levels to ${targetLevel.toFixed(1)}dB` +
-          `(center: ${centerFrequency}Hz, ${octaves} octaves, ${lowCutoff}Hz - ${highCutoff}Hz)` +
-          ` => ${alignOffset}dB`,
-      );
-      await measurement.copySplOffsetDeltadBToOther();
-    }
-
-    return {
-      lowFrequency,
-      highFrequency,
-      targetLevelAtFreq,
-    };
+    return this.alignmentService.adjustSubwooferSPLLevels(subsMeasurements, targetLevelFreq);
   }
 
-  async analyzeSubwooferSPLAlignment(
-    measurement,
-    options = SUBWOOFER_SPL_ALIGNMENT_OPTIONS,
-  ) {
-    const { analysisRangeHz, passbandHz, thresholdDb, smoothing, pointsPerOctave } =
-      options;
-    const title = measurement.displayMeasurementTitle();
-
-    await measurement.removeWorkingSettings();
-    try {
-      await measurement.resetTargetSettings();
-      const frequencyResponse = {
-        ...(await measurement.getFrequencyResponse('SPL', 'None', pointsPerOctave)),
-        measurement: measurement.uuid,
-        name: title,
-        position: measurement.position(),
-      };
-      const bandwidth = FrequencyResponseAnalyzer.detectBandwidth(frequencyResponse, {
-        rangeHz: analysisRangeHz,
-        passbandHz,
-        thresholdDb,
-        smoothing,
-      });
-
-      if (bandwidth.status !== 'ok') {
-        throw new Error(
-          `Unable to detect subwoofer bandwidth for ${title}: ${bandwidth.reason ?? 'indeterminate response'}`,
-        );
-      }
-
-      if (bandwidth.warnings?.length) {
-        lm.debug(
-          `Bandwidth detection warnings for ${title}: ${bandwidth.warnings.join('; ')}`,
-        );
-      }
-
-      const lowCutoff = Math.ceil(Math.max(analysisRangeHz[0], bandwidth.lowCutoffHz));
-      const highCutoff = Math.floor(Math.min(analysisRangeHz[1], bandwidth.highCutoffHz));
-      const centerFrequency = Math.round(bandwidth.centerFrequencyHz);
-      const octaves = MeasurementItem.cleanFloat32Value(bandwidth.bandwidthOctaves, 2);
-
-      if (
-        [lowCutoff, highCutoff, centerFrequency, octaves].some(
-          value => !Number.isFinite(value),
-        ) ||
-        lowCutoff >= highCutoff ||
-        octaves <= 0
-      ) {
-        throw new Error(`Invalid subwoofer bandwidth for ${title}`);
-      }
-
-      return {
-        measurement,
-        title,
-        lowCutoff,
-        highCutoff,
-        centerFrequency,
-        octaves,
-        bandwidth,
-      };
-    } finally {
-      await measurement.applyWorkingSettings();
-    }
+  async analyzeSubwooferSPLAlignment(measurement, options) {
+    return options
+      ? this.alignmentService.analyzeSubwooferSPLAlignment(measurement, options)
+      : this.alignmentService.analyzeSubwooferSPLAlignment(measurement);
   }
 
   async getTargetLevelAtFreq(measurement, targetFreq = 40) {
-    // Input validation
-    if (!Number.isFinite(targetFreq) || targetFreq <= 0) {
-      throw new Error('Target frequency must be a positive number');
-    }
-
-    if (!measurement) {
-      measurement = this.uniqueMeasurements()[0];
-    }
-
-    if (!measurement) {
-      throw new Error('No measurements available');
-    }
-
-    // Find the level of target curve at 40Hz
-
-    const targetCurveResponse = await measurement.getTargetResponse('SPL', 6);
-    if (!targetCurveResponse) {
-      throw new Error('Failed to get target curve response');
-    }
-
-    const freqIndex = targetCurveResponse.freqs.reduce((closestIdx, curr, idx) => {
-      const closestFreq = targetCurveResponse.freqs[closestIdx];
-      return Math.abs(curr - targetFreq) < Math.abs(closestFreq - targetFreq)
-        ? idx
-        : closestIdx;
-    }, 0);
-    return targetCurveResponse.magnitude[freqIndex];
+    return getTargetLevelAtFreq(measurement || this.uniqueMeasurements()[0], targetFreq);
   }
 
   /**
@@ -2501,64 +1863,13 @@ class MeasurementViewModel {
    * @returns {Promise<number|undefined>} The new target level in dB, or `undefined`
    *   when no update was needed.
    */
+  // Target level sync — logic in services/target-curve.js (lot V4); the
+  // processing lock stays here.
   setTargetLevelFromMeasurement = async measurement => {
-    if (!measurement || !(measurement instanceof MeasurementItem)) {
-      // use first measurement as default
-      measurement = this.firstMeasurement();
-      if (!measurement) {
-        lm.warn('No measurements available to set target level from');
-      }
-    }
     const initialProcessing = this.isProcessing();
     try {
       if (!initialProcessing) await this.setProcessing(true);
-      lm.debug(`Setting target level from measurement: ${measurement?.title()}`);
-      const targetLevel = measurement
-        ? await measurement.getTargetLevel()
-        : await this.rewEq.getDefaultTargetLevel();
-      const newValue = targetLevel || MeasurementItem.DEFAULT_TARGET_LEVEL;
-
-      const currentTc = await this.rewEq.checkTargetCurve();
-      if (currentTc === 'None') {
-        lm.warn('No target curve set in REW, please set a target curve first');
-      }
-
-      const previousTcName = this.tcName();
-      this.targetCurve(currentTc);
-
-      // check if target curve or target level changed, if not, skip
-      // this.tcName() after setting targetCurve has the new curve name + old level
-      if (this.tcName() === previousTcName && newValue === this.mainTargetLevel()) {
-        // sometimes target not exist, this creates it
-        await this.updateTargetCurve(measurement);
-        return;
-      }
-
-      // update target level
-      this.mainTargetLevel(newValue);
-
-      lm.info(`Current target curve: ${this.tcName()}`);
-
-      // update all measurements target level
-      const targets = this.validMeasurements();
-      for (const otherItem of targets) {
-        // Filters will be deleted if target level is changed
-        lm.info(`Updating target level for measurement: ${otherItem.title()}`);
-        await otherItem.setTargetLevel(newValue);
-      }
-
-      // set default target level for future measurements
-      await this.rewEq.setDefaultTargetLevel(newValue);
-
-      //delete previous LFE predicted measurements
-      await this.removeMeasurements(this.allPredictedLfeMeasurement());
-      // if main target level change, we need to update target curve measurement
-      const updated = await this.updateTargetCurve(this.firstMeasurement());
-      if (!updated) {
-        lm.warn(`Target curve update failed`);
-      }
-
-      return newValue;
+      return await this.targetCurveService.setTargetLevelFromMeasurement(measurement);
     } finally {
       if (!initialProcessing) await this.setProcessing(false);
     }
@@ -2683,172 +1994,22 @@ class MeasurementViewModel {
     return newDefaultLfePredicted;
   }
 
+  // REW session sync — logic in services/rew-session.js (lot V2); thin
+  // delegates keep the public API stable for BusinessTools and the items.
   async loadData() {
-    if (!this.isPolling()) {
-      lm.warn('Please connect to REW to load measurements');
-      return;
-    }
-
-    try {
-      this.isLoading(true);
-      const data = await this.rewMeasurements.list();
-      this.mergeMeasurements(data);
-    } catch (error) {
-      throw new Error(`Failed to load data: ${error.message}`, {
-        cause: error,
-      });
-    } finally {
-      this.isLoading(false);
-    }
+    return this.rewSession.loadData();
   }
 
   mergeMeasurements(data) {
-    const apiItems = Object.values(data).filter(item => item?.uuid);
-    const currentMeasurements = this.measurements();
-    const currentByUuid = new Map(currentMeasurements.map(item => [item.uuid, item]));
-    const apiUuids = new Set(apiItems.map(item => item.uuid));
-    const currentUuids = new Set(currentMeasurements.map(item => item.uuid));
-    const previousOrder = currentMeasurements.map(item => item.uuid).join('|');
-    let hasOrphanedFilterChanges = false;
-
-    for (const item of currentMeasurements) {
-      if (item.associatedFilter && !apiUuids.has(item.associatedFilter)) {
-        item.associatedFilter = null;
-        hasOrphanedFilterChanges = true;
-        lm.debug(`Removing filter: ${item.displayMeasurementTitle()}`);
-      }
-    }
-
-    const deletedMeasurements = currentMeasurements.filter(
-      item => !apiUuids.has(item.uuid),
-    );
-    const addedMeasurements = [];
-    const mergedMeasurements = apiItems.map(apiItem => {
-      const existingMeasurement = currentByUuid.get(apiItem.uuid);
-      if (existingMeasurement) {
-        return existingMeasurement;
-      }
-
-      const newMeasurement = new MeasurementItem(apiItem, this);
-      addedMeasurements.push(newMeasurement);
-      return newMeasurement;
-    });
-    const nextOrder = mergedMeasurements.map(item => item.uuid).join('|');
-    const hasOrderChanges = previousOrder !== nextOrder;
-    const hasDeletedMeasurements = deletedMeasurements.length > 0;
-
-    // Commit the new measurement list BEFORE pushing API deltas into existing
-    // items. Otherwise, observables like `cumulativeIRShiftSeconds` may fire
-    // their subscriptions synchronously and reach into a `otherPositionMeasurements`
-    // computed that still includes a measurement we are about to drop, producing
-    // REW API calls against UUIDs that no longer exist (404).
-    if (hasOrderChanges || hasOrphanedFilterChanges || hasDeletedMeasurements) {
-      this.measurements(mergedMeasurements);
-    }
-
-    for (const apiItem of apiItems) {
-      const existingMeasurement = currentByUuid.get(apiItem.uuid);
-      if (existingMeasurement) {
-        existingMeasurement.updateFromApi(apiItem);
-      }
-    }
-
-    for (const item of deletedMeasurements) {
-      item.dispose?.();
-    }
-
-    if (deletedMeasurements.length) {
-      lm.debug(
-        `Removed measurements: ${deletedMeasurements.map(item => item.title()).join(', ')}`,
-      );
-    }
-    if (addedMeasurements.length) {
-      lm.debug(
-        `Added new measurements: ${addedMeasurements.map(item => item.title()).join(', ')}`,
-      );
-    }
-    if (currentUuids.size && hasOrderChanges) {
-      lm.debug('Measurements order synced with REW');
-    }
+    return this.rewSession.mergeMeasurements(data);
   }
 
-  async addMeasurementFromRewOperation(
-    operation,
-    {
-      expectedTitle = null,
-      operationLabel = 'measurement creation',
-      timeoutMs = 5000,
-      pollIntervalMs = 100,
-    } = {},
-  ) {
-    if (typeof operation !== 'function') {
-      throw new TypeError('operation must be a function');
-    }
-
-    const beforeData = await this.rewMeasurements.list();
-    const beforeUuids = new Set(
-      Object.values(beforeData)
-        .filter(item => item?.uuid)
-        .map(item => item.uuid),
-    );
-
-    await operation();
-
-    const startedAt = Date.now();
-    let latestData = beforeData;
-
-    while (Date.now() - startedAt <= timeoutMs) {
-      latestData = await this.rewMeasurements.list();
-      const newApiItems = Object.values(latestData).filter(
-        item => item?.uuid && !beforeUuids.has(item.uuid),
-      );
-
-      if (newApiItems.length) {
-        const createdItem = this.selectCreatedMeasurement(newApiItems, expectedTitle);
-        this.mergeMeasurements(latestData);
-        const measurement = this.findMeasurementByUuid(createdItem.uuid);
-
-        if (!measurement) {
-          throw new Error(`Created measurement not found after ${operationLabel}`);
-        }
-
-        return measurement;
-      }
-
-      await this.waitForRewMeasurement(pollIntervalMs);
-    }
-
-    this.mergeMeasurements(latestData);
-    throw new Error(`Unable to find created measurement after ${operationLabel}`);
+  async addMeasurementFromRewOperation(operation, options = {}) {
+    return this.rewSession.addMeasurementFromRewOperation(operation, options);
   }
 
   selectCreatedMeasurement(apiItems, expectedTitle) {
-    if (!apiItems.length) {
-      return null;
-    }
-
-    const normalizedExpectedTitle = expectedTitle?.trim();
-    if (normalizedExpectedTitle) {
-      const exactMatch = apiItems.find(item => item.title === normalizedExpectedTitle);
-      if (exactMatch) {
-        return exactMatch;
-      }
-
-      const prefixMatch = apiItems.find(
-        item =>
-          item.title?.startsWith(normalizedExpectedTitle) ||
-          normalizedExpectedTitle.startsWith(item.title),
-      );
-      if (prefixMatch) {
-        return prefixMatch;
-      }
-    }
-
-    return apiItems.at(-1);
-  }
-
-  waitForRewMeasurement(delayMs) {
-    return new Promise(resolve => setTimeout(resolve, delayMs));
+    return this.rewSession.selectCreatedMeasurement(apiItems, expectedTitle);
   }
 
   // Helper function to handle observable properties
@@ -2869,102 +2030,27 @@ class MeasurementViewModel {
   }
 
   findMeasurementByUuid(uuid) {
-    return this.measurements().find(m => m.uuid === uuid);
+    return this.rewSession.findMeasurementByUuid(uuid);
   }
 
-  // add measurement
   async addMeasurementApi(itemUuid) {
-    try {
-      if (!itemUuid) {
-        throw new Error('Add Measurement: Invalid measurement item');
-      }
-      const existingItem = this.findMeasurementByUuid(itemUuid);
-      if (existingItem) {
-        lm.warn(`measurement ${itemUuid} already exists, not added`);
-        return existingItem;
-      }
-      const item = await this.rewMeasurements.get(itemUuid);
-      // Transform data using the MeasurementItem class
-      const measurementItem = new MeasurementItem(item, this);
-      this.measurements.push(measurementItem);
-      lm.debug(`measurement ${measurementItem.title()} added`);
-      return measurementItem;
-    } catch (error) {
-      this.handleError(`Failed to add measurement: ${error.message}`, error);
-      return false;
-    }
+    return this.rewSession.addMeasurementApi(itemUuid);
   }
 
-  // add measurement
   async addMeasurement(item) {
-    if (!item) {
-      throw new Error('Add Measurement: Invalid measurement item');
-    }
-    const existingItem = this.findMeasurementByUuid(item.uuid);
-    if (existingItem) {
-      lm.warn(
-        `measurement ${existingItem.displayMeasurementTitle()} already exists, not added`,
-      );
-      return existingItem;
-    }
-    const measurementItem =
-      item instanceof MeasurementItem ? item : new MeasurementItem(item, this);
-    this.measurements.push(measurementItem);
-    lm.debug(`measurement ${measurementItem.title()} added`);
-    return measurementItem;
+    return this.rewSession.addMeasurement(item);
   }
 
   async removeMeasurements(items) {
-    if (!items || items.length === 0) {
-      return false;
-    }
-
-    for (const item of items) {
-      await this.removeMeasurement(item);
-    }
-    return true;
+    return this.rewSession.removeMeasurements(items);
   }
 
   async removeMeasurement(item) {
-    if (!item) {
-      return false;
-    }
-
-    await this.removeMeasurementUuid(item.uuid);
-    // remove associatedFilter
-    await this.removeMeasurementUuid(item.associatedFilter);
-
-    lm.debug(`measurement ${item.displayMeasurementTitle()} removed`);
-
-    return true;
+    return this.rewSession.removeMeasurement(item);
   }
 
   async removeMeasurementUuid(itemUuid) {
-    if (!itemUuid) {
-      return false;
-    }
-
-    if (!this.findMeasurementByUuid(itemUuid)) {
-      lm.debug('nothing to delete');
-      return false;
-    }
-
-    try {
-      // First attempt to delete from API to ensure consistency
-      await this.rewMeasurements.delete(itemUuid);
-
-      this.measurements.remove(item => item.uuid === itemUuid);
-
-      lm.debug(`measurement ${itemUuid} removed`);
-
-      return true; // Indicate successful deletion
-    } catch (error) {
-      if (error.message.includes('There is no measurement')) {
-        lm.warn(`measurement ${itemUuid} not found, not removed`);
-        return false;
-      }
-      throw new Error(`Failed to remove measurement: ${error.message}`, { cause: error });
-    }
+    return this.rewSession.removeMeasurementUuid(itemUuid);
   }
 
   async findAligment(
@@ -2976,77 +2062,19 @@ class MeasurementViewModel {
     sumTitle = null,
     minSearchRange = -0.5,
   ) {
-    if (createSum && !sumTitle) {
-      throw new Error('sumTitle is required when createSum is true');
-    }
-
-    try {
-      await this.rewAlignmentTool.setRemoveTimeDelay(false);
-      await this.rewAlignmentTool.resetAll();
-      await this.rewAlignmentTool.setMaxNegativeDelay(minSearchRange);
-      await this.rewAlignmentTool.setMaxPositiveDelay(maxSearchRange);
-
-      const AlignResults = await this.rewAlignmentTool.alignIRsBatch(
-        channelA.uuid,
-        channelB.uuid,
-        frequency,
-      );
-
-      if (!AlignResults.results) {
-        throw new Error('alignment-tool: Invalid AlignResults object or missing results');
-      }
-
-      const AlignResultsDetails = AlignResults.results[0];
-
-      if (AlignResultsDetails.Error?.length > 0) {
-        throw new Error(AlignResultsDetails.Error);
-      }
-
-      const shiftDelayMs = Number(AlignResultsDetails['Delay B ms']);
-      if (!Number.isFinite(shiftDelayMs)) {
-        throw new TypeError(
-          'alignment-tool: Invalid AlignResults object or missing Delay B ms',
-        );
-      }
-      if (shiftDelayMs === maxSearchRange || shiftDelayMs === minSearchRange) {
-        lm.warn('alignment-tool: Shift is maxed out to the limit: ' + shiftDelayMs);
-      }
-      const isBInverted = AlignResultsDetails['Invert B'] === 'true';
-
-      if (isBInverted) {
-        lm.warn('alignment-tool: Results provided were with toggled polarity');
-      }
-      if (createSum) {
-        const alignedSum = await this.rewAlignmentTool.alignedSum();
-        const alignedSumObject = await this.analyseApiResponse(alignedSum);
-        await alignedSumObject.setTitle(sumTitle);
-      }
-      return { shiftDelay: shiftDelayMs / 1000, isBInverted };
-    } catch (error) {
-      throw new Error(`Alignment tool failed: ${error.message}`, { cause: error });
-    }
+    return this.alignmentService.findAligment(
+      channelA,
+      channelB,
+      frequency,
+      maxSearchRange,
+      createSum,
+      sumTitle,
+      minSearchRange,
+    );
   }
 
   async analyseApiResponse(commandResult) {
-    if (!commandResult) {
-      throw new Error('Invalid command result');
-    }
-    if (typeof commandResult !== 'object') {
-      throw new TypeError('Command result must be an object');
-    }
-    // test if object is empty
-    if (Object.keys(commandResult).length === 0) {
-      throw new Error('Command result is empty');
-    }
-
-    // new measurement created
-    const operationResults = commandResult.results || commandResult.message?.results;
-    const operationResultUuid = Object.values(operationResults || {})[0]?.UUID;
-    if (!operationResultUuid) {
-      throw new Error('No measurement UUID found in command result');
-    }
-
-    return this.addMeasurementApi(operationResultUuid);
+    return this.rewSession.analyseApiResponse(commandResult);
   }
 
   //TODO: remove old findAligment when sure new one works fine
@@ -3258,77 +2286,15 @@ class MeasurementViewModel {
   }
 
   async startBackgroundPolling() {
-    if (this.isPolling()) return;
-    if (this.isProcessing()) return;
-    if (this.isLoading()) return;
-    if (this.hasError()) return;
-
-    lm.info('Starting background polling...');
-
-    try {
-      // Initial load
-      this.apiService = new RewApi(this.apiBaseUrl(), false, this.blocking);
-      this.rewEq = this.apiService.rewEq;
-      this.rewMeasurements = this.apiService.rewMeasurements;
-      this.rewImport = this.apiService.rewImport;
-      this.rewAlignmentTool = this.apiService.rewAlignmentTool;
-      await this.apiService.initializeAPI();
-      this.rewVersion(await this.apiService.checkVersion());
-      this.maxMeasurements(await this.rewMeasurements.getMaxMeasurements());
-      this.isPolling(true);
-      await this.loadData();
-      await this.setTargetLevelFromMeasurement();
-
-      // Set up regular polling
-      this.pollerId = setInterval(async () => {
-        try {
-          if (!this.isPolling()) return;
-          if (this.isProcessing()) return;
-          if (this.isLoading()) return;
-          if (this.hasError()) return;
-
-          await this.loadData();
-        } catch (error) {
-          this.stopBackgroundPolling();
-          this.handleError(`Polling failed: ${error.message}`, error);
-        }
-      }, this.pollingInterval);
-    } catch (error) {
-      this.stopBackgroundPolling();
-      if (
-        error.message.includes('Failed to fetch') ||
-        error.message.includes('NetworkError')
-      ) {
-        this.handleError(
-          `Failed to connect to REW API at ${this.apiBaseUrl()}. Please ensure the REW API server is running and accessible.`,
-          error,
-        );
-      } else {
-        this.handleError(`Failed to start background polling: ${error.message}`, error);
-      }
-    }
+    return this.rewSession.startBackgroundPolling();
   }
 
   stopBackgroundPolling() {
-    this.isPolling(false);
-    if (this.pollerId) {
-      clearInterval(this.pollerId);
-      this.pollerId = null;
-    }
-    this.apiService = null;
-    this.rewEq = null;
-    this.rewMeasurements = null;
-    this.rewImport = null;
-    this.rewAlignmentTool = null;
-    this.isLoading(false);
+    return this.rewSession.stopBackgroundPolling();
   }
 
   async toggleBackgroundPolling() {
-    if (this.isPolling()) {
-      this.stopBackgroundPolling();
-    } else {
-      await this.startBackgroundPolling();
-    }
+    return this.rewSession.toggleBackgroundPolling();
   }
 
   resetAutoEqConfig() {

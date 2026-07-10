@@ -36,6 +36,22 @@ const transportStatics = {
 
     return endpoint.split('?', 1)[0];
   },
+
+  // Restored from the pre-src/rew RewApi (dropped by mistake in the split
+  // while buttonDownloadAvr still calls it).
+  isValidIpAddress(ip) {
+    if (typeof ip !== 'string') return false;
+    const parts = ip.split('.');
+    if (parts.length !== 4) return false;
+
+    for (const part of parts) {
+      const num = Number(part);
+      if (part !== String(num) || num < 0 || num > 255) {
+        return false;
+      }
+    }
+    return true;
+  },
 };
 
 const transportMethods = {

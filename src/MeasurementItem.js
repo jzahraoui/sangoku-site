@@ -348,6 +348,8 @@ class MeasurementItem {
       ['splOffsetdB', this.splOffsetdB],
       ['alignSPLOffsetdB', this.alignSPLOffsetdB],
       ['timeOfIRPeakSeconds', this.timeOfIRPeakSeconds],
+      // not an API field: written by the alignment service (lot V4)
+      ['shiftDelay', this.shiftDelay],
     ];
     const propertyUpdates = [
       ['notes', 'notes'],
