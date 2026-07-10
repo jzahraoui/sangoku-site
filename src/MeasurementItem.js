@@ -4,7 +4,41 @@ import ko from 'knockout';
 import BusinessTools from './BusinessTools.js';
 import lm from './logs.js';
 import { AutoEQCalculator } from './autoeq/AutoEQCalculator.js';
-import { FrequencyResponseAnalyzer } from './analysis/index.js';
+import {
+  arraysMatchWithTolerance,
+  binarySearchLowerBound,
+  cleanFloat32Value,
+  compareIrWindows,
+  compareObjectsSorted,
+  metersToSeconds,
+  secondsToMeters,
+} from './measurement/measurement-calculations.js';
+import {
+  buildPhaseMatchFilters,
+  countFiltersSlotsAvailable,
+  validatePhaseMatchRange,
+} from './measurement/filter-slots.js';
+import {
+  channelDetailsFor,
+  channelNameFromTitle,
+  distanceInUnit,
+  distanceSeverity,
+  groupNameFor,
+  isSubChannel,
+  leftWindowWidthMilliseconds,
+  predictedLfeTitle,
+  speakerTypeFor,
+  splForAvr,
+  splIsAboveLimit,
+} from './measurement/measurement-info.js';
+import {
+  createMeasurementOperations,
+  getAlignSPLOffsetdBByUUID,
+} from './services/measurement-operations.js';
+
+// Simple REW wrappers live in src/services/measurement-operations.js (lot I3);
+// the methods below are thin adapters keeping the public API unchanged.
+const ops = createMeasurementOperations({ log: lm });
 
 class MeasurementItem {
   static AVR_MAX_GAIN = 12;
@@ -71,32 +105,25 @@ class MeasurementItem {
     this.positionName = ko.observable('');
     this.displayPositionText = ko.observable('');
 
-    // Computed properties
-    this.channelName = ko.computed(
-      () =>
-        CHANNEL_TYPES.getBestMatchCode(this.title()) ||
-        MeasurementItem.UNKNOWN_GROUP_NAME,
+    // Computed properties — derivations delegate to src/measurement/measurement-info.js
+    this.channelName = ko.computed(() => channelNameFromTitle(this.title()));
+
+    this.channelDetails = ko.computed(() =>
+      channelDetailsFor(this.channelName(), this.detectedChannels, this.haveImpulseResponse),
     );
 
-    this.channelDetails = ko.computed(() => {
-      if (!this.haveImpulseResponse) return null;
-      const foundChannel = this.detectedChannels.find(
-        channel => channel.commandId === this.channelName(),
-      );
-      return CHANNEL_TYPES.getByChannelIndex(foundChannel?.enChannelType);
-    });
-
-    this.groupName = ko.computed(() => this.channelDetails()?.group || 'Unknown');
+    this.groupName = ko.computed(() => groupNameFor(this.channelDetails()));
     this.crossover = ko.computed(() =>
       this.parentViewModel.measurementsByGroup()[this.groupName()]?.crossover(),
     );
-    this.isSub = ko.computed(() => this.channelDetails()?.group === 'Subwoofer');
-    this.speakerType = ko.pureComputed(() => {
-      if (this.isSub()) return 'E';
-      return this.crossover() === 0 ? 'L' : 'S';
-    });
+    this.isSub = ko.computed(() => isSubChannel(this.channelDetails()));
+    this.speakerType = ko.pureComputed(() =>
+      speakerTypeFor(this.isSub(), this.crossover()),
+    );
 
-    this.leftWindowWidthMilliseconds = ko.computed(() => (this.isSub() ? 70 : 30));
+    this.leftWindowWidthMilliseconds = ko.computed(() =>
+      leftWindowWidthMilliseconds(this.isSub()),
+    );
     this.rightWindowWidthMilliseconds = 1000;
 
     this.position = ko.computed(() => {
@@ -128,11 +155,7 @@ class MeasurementItem {
     this.relatedLfeMeasurement = ko.computed(() => {
       return this.parentViewModel
         .allPredictedLfeMeasurement()
-        .find(
-          response =>
-            response?.title() ===
-            `${MeasurementItem.DEFAULT_LFE_PREDICTED}${this.position()}`,
-        );
+        .find(response => response?.title() === predictedLfeTitle(this.position()));
     });
     this.absoluteIRPeakSeconds = ko.pureComputed(() =>
       this.haveImpulseResponse
@@ -151,24 +174,19 @@ class MeasurementItem {
     });
     this.distanceInUnits = ko.computed(() => {
       if (!this.haveImpulseResponse) return 0;
-      const unit = this.parentViewModel.distanceUnit();
-      if (unit === 'M') {
-        return this.distanceInMeters();
-      } else if (unit === 'ms') {
-        return this.cumulativeIRShiftSeconds() * 1000;
-      } else if (unit === 'ft') {
-        return this.distanceInMeters() * 3.28084;
-      }
-
-      throw new Error(`Unknown distance unit: ${unit}`);
+      return distanceInUnit(
+        this.parentViewModel.distanceUnit(),
+        this.distanceInMeters(),
+        this.cumulativeIRShiftSeconds(),
+      );
     });
 
     this.splOffsetDeltadB = ko.computed(() =>
       MeasurementItem.cleanFloat32Value(this.splOffsetdB() - this.initialSplOffsetdB, 2),
     );
-    this.splForAvr = ko.computed(() => Math.round(this.splOffsetDeltadB() * 2) / 2);
-    this.splIsAboveLimit = ko.computed(
-      () => Math.abs(this.splForAvr()) > MeasurementItem.AVR_MAX_GAIN,
+    this.splForAvr = ko.computed(() => splForAvr(this.splOffsetDeltadB()));
+    this.splIsAboveLimit = ko.computed(() =>
+      splIsAboveLimit(this.splForAvr(), MeasurementItem.AVR_MAX_GAIN),
     );
     this.splresidual = ko.computed(() => this.splOffsetDeltadB() - this.splForAvr());
     this.cumulativeIRDistanceMeters = ko.computed(
@@ -194,31 +212,14 @@ class MeasurementItem {
       );
     });
     this.exceedsDistance = ko.computed(() => {
-      // Check if parent view model exists
       if (!this.parentViewModel) {
         return 'normal';
       }
-
-      const maxErrorDistance = this.parentViewModel.maxDistanceInMetersError();
-      const maxWarningDistance = this.parentViewModel.maxDistanceInMetersWarning();
-      const currentDistance = this.distanceInMeters();
-
-      // Check for invalid values
-      if (Number.isNaN(maxErrorDistance) || Number.isNaN(maxWarningDistance)) {
-        return 'normal';
-      }
-
-      // Check error threshold first
-      if (currentDistance > maxErrorDistance || currentDistance < 0) {
-        return 'error';
-      }
-
-      // Check warning threshold
-      if (currentDistance > maxWarningDistance) {
-        return 'warning';
-      }
-
-      return 'normal';
+      return distanceSeverity(
+        this.distanceInMeters(),
+        this.parentViewModel.maxDistanceInMetersWarning(),
+        this.parentViewModel.maxDistanceInMetersError(),
+      );
     });
     this.hasErrors = ko.computed(
       () =>
@@ -380,15 +381,18 @@ class MeasurementItem {
     return this;
   }
 
-  // Compute methods
+  // ADR 002 write-back contract used by measurement-operations services.
+  update(partial) {
+    return this.updateFromApi(partial);
+  }
+
+  // Compute methods — delegate to src/measurement/measurement-calculations.js
   _computeInMeters(valueInSeconds) {
-    if (!Number.isFinite(valueInSeconds)) return 0;
-    return valueInSeconds * this.speedOfSound;
+    return secondsToMeters(valueInSeconds, this.speedOfSound);
   }
 
   _computeInSeconds(valueInMeters) {
-    if (!Number.isFinite(valueInMeters)) return 0;
-    return valueInMeters / this.speedOfSound;
+    return metersToSeconds(valueInMeters, this.speedOfSound);
   }
 
   // funtion is accessible from the UI
@@ -396,9 +400,7 @@ class MeasurementItem {
     const allreadyProcessing = this.parentViewModel.isProcessing();
     try {
       if (!allreadyProcessing) await this.parentViewModel.setProcessing(true);
-      const newInverted = !this.inverted();
-      await this.rewMeasurements.invert(this.uuid);
-      this.inverted(newInverted);
+      await ops.toggleInversion(this.rewMeasurements, this);
 
       return true;
     } catch (error) {
@@ -415,275 +417,131 @@ class MeasurementItem {
     }
   }
 
+  // The slice of the viewmodel that owns the measurement list, consumed by the
+  // sequence operations until the rew-session service exists (lot V2).
+  sessionContext() {
+    return {
+      analyseApiResponse: response => this.parentViewModel.analyseApiResponse(response),
+      removeMeasurements: items => this.parentViewModel.removeMeasurements(items),
+      removeMeasurementUuid: uuid => this.parentViewModel.removeMeasurementUuid(uuid),
+      findMeasurementByUuid: uuid => this.parentViewModel.findMeasurementByUuid(uuid),
+    };
+  }
+
+  irWindowWidths() {
+    return {
+      leftWindowWidthms: this.leftWindowWidthMilliseconds(),
+      rightWindowWidthms: this.rightWindowWidthMilliseconds,
+    };
+  }
+
   async resetAll(targetLevel = MeasurementItem.DEFAULT_TARGET_LEVEL) {
-    try {
-      await this.resetSmoothing();
-      await this.resetIrWindows();
-      await this.resetTargetSettings();
-      await this.resetRoomCurveSettings();
-      await this.resetEqualiser();
-      await this.resetcumulativeIRShiftSeconds();
-      await this.setInverted(false);
-      await this.setTargetLevel(targetLevel);
-      await this.resetFilters();
-    } catch (error) {
-      throw new Error(
-        `Failed to reset for response ${this.displayMeasurementTitle()}: ${
-          error.message
-        }`,
-        { cause: error },
-      );
-    }
+    return ops.resetAll(this.rewMeasurements, this, {
+      targetLevel,
+      irWindowWidths: this.irWindowWidths(),
+      equaliserDefaults: this.rewEq.defaulEqtSettings,
+      session: this.sessionContext(),
+    });
   }
 
   async resetSmoothing() {
-    lm.debug(`${this.displayMeasurementTitle()}: Resetting smoothing`);
-    return this.rewMeasurements.removeSmoothing([this.uuid]);
+    return ops.resetSmoothing(this.rewMeasurements, this);
   }
 
   async defaultSmoothing() {
-    // actually not possible to check current smoothing method
-    return this.rewMeasurements.smoothMeasurements(
-      [this.uuid],
+    return ops.defaultSmoothing(
+      this.rewMeasurements,
+      this,
       this.parentViewModel.selectedSmoothingMethod(),
     );
   }
 
   async setSmoothing(smoothingMethod) {
-    // actually not possible to check current smoothing method
-    return this.rewMeasurements.smooth([this.uuid], smoothingMethod);
+    return ops.setSmoothing(this.rewMeasurements, this, smoothingMethod);
   }
 
   async resetIrWindows() {
-    return this.setIrWindows({
-      leftWindowType: 'Rectangular',
-      rightWindowType: 'Rectangular',
-      leftWindowWidthms: this.leftWindowWidthMilliseconds(),
-      rightWindowWidthms: this.rightWindowWidthMilliseconds,
-      refTimems: this.timeOfIRPeakSeconds() * 1000,
-      addFDW: false,
-      addMTW: false,
-    });
+    return ops.resetIrWindows(this.rewMeasurements, this, this.irWindowWidths());
   }
 
   async resetTargetSettings() {
-    lm.debug(`${this.displayMeasurementTitle()}: Resetting target settings`);
-    return this.rewMeasurements.resetTargetSettings(this.uuid);
+    return ops.resetTargetSettings(this.rewMeasurements, this);
   }
 
   async resetRoomCurveSettings() {
-    lm.debug(`${this.displayMeasurementTitle()}: Resetting room curve settings`);
-    await this.rewMeasurements.resetRoomCurveSettings(this.uuid);
+    return ops.resetRoomCurveSettings(this.rewMeasurements, this);
   }
 
   async setRoomCurveSettings(settings) {
-    if (!settings || typeof settings !== 'object') {
-      throw new Error('Invalid room curve settings');
-    }
-
-    if (!settings.addRoomCurve) {
-      return this.resetRoomCurveSettings();
-    }
-
-    lm.debug(`${this.displayMeasurementTitle()}: Setting room curve settings`);
-    return this.rewMeasurements.setRoomCurveSettings(this.uuid, settings);
+    return ops.setRoomCurveSettings(this.rewMeasurements, this, settings);
   }
 
   async getEqualiser() {
-    return this.rewMeasurements.getEqualiser(this.uuid);
+    return ops.getEqualiser(this.rewMeasurements, this);
   }
 
   async isdefaultEqualiser() {
-    const commandResult = await this.getEqualiser();
-    const defaultSettings = this.rewEq.defaulEqtSettings;
-
-    // compare commandResult with defaultSettings
-    return (
-      commandResult.manufacturer === defaultSettings.manufacturer &&
-      commandResult.model === defaultSettings.model
-    );
+    return ops.isDefaultEqualiser(this.rewMeasurements, this, this.rewEq.defaulEqtSettings);
   }
 
   async resetEqualiser() {
-    const defaultSettings = this.rewEq.defaulEqtSettings;
-    // compare commandResult with defaultSettings
-    if (await this.isdefaultEqualiser()) {
-      return true;
-    }
-    lm.debug(`${this.displayMeasurementTitle()}: Resetting equaliser to Generic EQ`);
-    await this.rewMeasurements.setEqualiser(this.uuid, defaultSettings);
+    return ops.resetEqualiser(this.rewMeasurements, this, this.rewEq.defaulEqtSettings);
   }
 
   static arraysMatchWithTolerance(arr1, arr2, tolerance = 0.01) {
-    return (
-      Array.isArray(arr1) &&
-      Array.isArray(arr2) &&
-      arr1.length === arr2.length &&
-      arr1.every((val, i) => Math.abs(val - arr2[i]) < tolerance)
-    );
+    return arraysMatchWithTolerance(arr1, arr2, tolerance);
   }
 
   compareIwWindows(source, target) {
-    if (!source || !target) return false;
-
-    // Helper: si target a l'attribut défini, vérifier qu'il est égal à source
-    // Si target n'a pas l'attribut, accepter n'importe quelle valeur de source
-    const matches = (sourceVal, targetVal) => {
-      if (targetVal === undefined) return true; // Target n'a pas l'attribut → OK
-      return sourceVal === targetVal;
-    };
-
-    // Helper pour les valeurs numériques avec tolérance
-    const numbersMatch = (sourceVal, targetVal) => {
-      if (targetVal === undefined) return true; // Target n'a pas l'attribut → OK
-      if (sourceVal === undefined) return false; // Target a l'attribut mais pas source → KO
-      return sourceVal.toFixed(2) === targetVal.toFixed(2);
-    };
-
-    return (
-      matches(source.leftWindowType, target.leftWindowType) &&
-      matches(source.rightWindowType, target.rightWindowType) &&
-      numbersMatch(source.leftWindowWidthms, target.leftWindowWidthms) &&
-      numbersMatch(source.rightWindowWidthms, target.rightWindowWidthms) &&
-      numbersMatch(source.refTimems, target.refTimems) &&
-      matches(source.addFDW, target.addFDW) &&
-      matches(source.addMTW, target.addMTW) &&
-      (!target.mtwTimesms ||
-        MeasurementItem.arraysMatchWithTolerance(source.mtwTimesms, target.mtwTimesms))
-    );
+    return compareIrWindows(source, target);
   }
 
   async setIrWindows(irWindowsObject) {
-    // Check if cumulative IR distance exists and is valid
-    if (!this.haveImpulseResponse) {
-      return;
-    }
-
-    const commandResult = await this.rewMeasurements.getIRWindows(this.uuid);
-
-    if (this.compareIwWindows(commandResult, irWindowsObject)) return true;
-
-    lm.debug(`${this.displayMeasurementTitle()}: Setting IR windows`);
-    return this.rewMeasurements.setIRWindows(this.uuid, irWindowsObject);
+    return ops.setIrWindows(this.rewMeasurements, this, irWindowsObject);
   }
 
   async trimIRToWindows() {
-    // Check if cumulative IR distance exists and is valid
-    if (!this.haveImpulseResponse) {
-      return;
-    }
-    const result = await this.rewMeasurements.trimIRToWindows(this.uuid);
-    const newMeasurement = await this.parentViewModel.analyseApiResponse(result);
-    if (!newMeasurement) {
-      throw new Error(`trimIRToWindows failed for ${this.displayMeasurementTitle()}`);
-    }
-    return newMeasurement;
+    return ops.trimIRToWindows(this.rewMeasurements, this, this.sessionContext());
   }
 
   async responseCopy() {
-    return this.rewMeasurements.responseCopy(this.uuid);
+    return ops.responseCopy(this.rewMeasurements, this);
   }
 
   async setTargetSettings(targetSettings) {
-    return this.rewMeasurements.postTargetSettings(this.uuid, targetSettings);
+    return ops.setTargetSettings(this.rewMeasurements, this, targetSettings);
   }
 
   async generateFilterMeasurement() {
-    if (this.associatedFilterItem()) {
-      return this.associatedFilterItem();
-    }
-
-    const response = await this.rewMeasurements.generateFiltersMeasurement(this.uuid);
-    const filter = await this.parentViewModel.analyseApiResponse(response);
-    filter.isFilter = true;
-
-    if (!filter) {
-      throw new Error(`filters reponse failed for ${this.displayMeasurementTitle()}`);
-    }
-
-    // add spl residual to filter
-    await filter.addSPLOffsetDB(this.splresidual());
-    const cxText = this.crossover() ? `X@${this.crossover()}Hz` : 'FB';
-    await filter.setTitle(`Filter ${this.title()} ${cxText}`);
-    await this.setAssociatedFilter(filter);
-    return filter;
+    return ops.generateFilterMeasurement(this.rewMeasurements, this, this.sessionContext());
   }
 
   async getImpulseResponse(freq, unit = 'percent', windowed = true, normalised = true) {
-    const options = { unit, windowed, normalised, ...(freq && { samplerate: freq }) };
-    const reponseBody = await this.rewMeasurements.getImpulseResponse(this.uuid, options);
-
-    return reponseBody.data;
+    return ops.getImpulseResponse(this.rewMeasurements, this, {
+      freq,
+      unit,
+      windowed,
+      normalised,
+    });
   }
 
   async getFilterImpulseResponse(freq, sampleCount) {
-    if (!freq || !sampleCount) {
-      throw new Error(
-        `Invalid frequency or sample count for ${this.displayMeasurementTitle()}`,
-      );
-    }
-    const options = { length: sampleCount, samplerate: freq };
-    const reponseBody = await this.rewMeasurements.getFiltersImpulseResponse(
-      this.uuid,
-      options,
-    );
-
-    return reponseBody.data;
+    return ops.getFilterImpulseResponse(this.rewMeasurements, this, {
+      freq,
+      sampleCount,
+    });
   }
 
   async resolveSampleRate() {
-    if (Number.isFinite(this.sampleRate)) {
-      return this.sampleRate;
-    }
-
-    if (!this.haveImpulseResponse) {
-      throw new TypeError(
-        `Sample rate unavailable for ${this.displayMeasurementTitle()}`,
-      );
-    }
-
-    const impulseResponse = await this.rewMeasurements.getImpulseResponse(this.uuid, {
-      unit: 'percent',
-      windowed: false,
-      normalised: false,
-    });
-
-    if (!Number.isFinite(impulseResponse?.sampleRate)) {
-      throw new TypeError(
-        `Sample rate unavailable for ${this.displayMeasurementTitle()}`,
-      );
-    }
-
-    this.sampleRate = impulseResponse.sampleRate;
-    return this.sampleRate;
+    return ops.resolveSampleRate(this.rewMeasurements, this);
   }
 
   binarySearchLowerBound(arr, value) {
-    let lo = 0;
-    let hi = arr.length;
-
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if (arr[mid] < value) {
-        lo = mid + 1;
-      } else {
-        hi = mid;
-      }
-    }
-
-    return lo;
+    return binarySearchLowerBound(arr, value);
   }
 
   validatePhaseMatchRange(freqStart, freqEnd) {
-    if (
-      !Number.isFinite(freqStart) ||
-      !Number.isFinite(freqEnd) ||
-      freqStart >= freqEnd
-    ) {
-      throw new RangeError(
-        `Invalid optimization range ${freqStart}Hz-${freqEnd}Hz for ${this.displayMeasurementTitle()}`,
-      );
-    }
+    validatePhaseMatchRange(freqStart, freqEnd, this.displayMeasurementTitle());
   }
 
   createPhaseMatchCalculator(sampleRate, freqStart, freqEnd, options = {}) {
@@ -722,47 +580,17 @@ class MeasurementItem {
   }
 
   buildPhaseMatchFilters(activeFilters) {
-    if (!activeFilters?.length) {
-      throw new Error('No filters generated by optimizer');
-    }
-
-    const filters = [...this.emptyFilters];
-
-    activeFilters.forEach((filter, index) => {
-      filters[index] = {
-        index: index + 1,
-        type: filter.filterType === 'PEAKING' ? 'PK' : filter.filterType,
-        enabled: true,
-        isAuto: true,
-        frequency: filter.fc,
-        q: filter.Q,
-        gaindB: filter.gain,
-      };
-    });
-
-    return filters;
+    return buildPhaseMatchFilters(activeFilters);
   }
 
   async restoreWorkingSettings(useWorkingSettings, operationError) {
-    if (useWorkingSettings) {
-      return operationError;
-    }
-
-    try {
-      await this.applyWorkingSettings();
-      return operationError;
-    } catch (restoreError) {
-      if (operationError) {
-        lm.warn(
-          `${this.displayMeasurementTitle()}: failed to restore working settings after phase match filter creation: ${restoreError.message}`,
-        );
-        return operationError;
-      }
-
-      return new Error(`Phase match filter restoration failed: ${restoreError.message}`, {
-        cause: restoreError,
-      });
-    }
+    return ops.restoreWorkingSettings(
+      this.rewMeasurements,
+      this,
+      this.workingSettingsConfig(),
+      useWorkingSettings,
+      operationError,
+    );
   }
 
   async getPredictedImpulseResponse(
@@ -771,39 +599,28 @@ class MeasurementItem {
     windowed = true,
     normalised = true,
   ) {
-    const options = { unit, windowed, normalised, ...(freq && { samplerate: freq }) };
-    const reponseBody = await this.rewMeasurements.getPredictedImpulseResponse(
-      this.uuid,
-      options,
-    );
-
-    return reponseBody.data;
+    return ops.getPredictedImpulseResponse(this.rewMeasurements, this, {
+      freq,
+      unit,
+      windowed,
+      normalised,
+    });
   }
 
   async getFrequencyResponse(unit = 'SPL', smoothing = 'None', ppo = null) {
-    const options = { unit, smoothing, ...(ppo && { ppo }) };
-
-    return this.rewMeasurements.getFrequencyResponse(this.uuid, options);
+    return ops.getFrequencyResponse(this.rewMeasurements, this, {
+      unit,
+      smoothing,
+      ppo,
+    });
   }
 
-  /**
-   * Use the current target curve frequency response to detect the frequency cutoff points.
-   */
   async detectFallOff(threshold = -3, ppo = 12) {
-    const measurementData = await this.getFrequencyResponse('SPL', '1/6', ppo);
-    const targetCurveData = await this.getTargetResponse('SPL', ppo);
-
-    return FrequencyResponseAnalyzer.detectTargetRelativeFallOff(
-      targetCurveData,
-      measurementData,
-      { thresholdDb: threshold },
-    );
+    return ops.detectFallOff(this.rewMeasurements, this, { threshold, ppo });
   }
 
   async getTargetResponse(unit = 'SPL', ppo = 96) {
-    const options = { unit, ppo };
-
-    return this.rewMeasurements.getTargetResponse(this.uuid, options);
+    return ops.getTargetResponse(this.rewMeasurements, this, { unit, ppo });
   }
 
   async delete() {
@@ -811,344 +628,111 @@ class MeasurementItem {
   }
 
   async setInverted(inverted) {
-    // refreshed every seconds when connected
-    if (inverted === this.inverted()) return;
-    lm.debug(`${this.displayMeasurementTitle()}: Setting inverted to ${inverted}`);
-    return this.toggleInversion();
+    // the toggle callback keeps the processing lock/error shell of toggleInversion
+    return ops.setInverted(this.rewMeasurements, this, inverted, {
+      toggle: () => this.toggleInversion(),
+    });
   }
 
   async setTitle(newTitle, notescontent) {
-    const titleChanged = newTitle !== undefined && newTitle !== this.title();
-    const notesChanged = notescontent !== undefined && notescontent !== this.notes;
-
-    if (!titleChanged && !notesChanged) {
-      return false;
-    }
-    await this.rewMeasurements.update(this.uuid, {
-      title: newTitle,
-      notes: notescontent,
-    });
-
-    if (titleChanged) {
-      this.title(newTitle);
-    }
-
-    if (notescontent !== undefined) {
-      this.notes = notescontent;
-    }
-
-    return true;
+    return ops.setTitle(this.rewMeasurements, this, newTitle, notescontent);
   }
 
   async resetcumulativeIRShiftSeconds() {
-    lm.debug(`${this.displayMeasurementTitle()}: Resetting cumulative IR shift to 0s`);
-    await this.setcumulativeIRShiftSeconds(0);
+    return ops.resetcumulativeIRShiftSeconds(this.rewMeasurements, this);
   }
 
   async setcumulativeIRShiftSeconds(newValue) {
-    await this.addIROffsetSeconds(newValue - this.cumulativeIRShiftSeconds());
+    return ops.setcumulativeIRShiftSeconds(this.rewMeasurements, this, newValue);
   }
 
   async addIROffsetSeconds(amountToAdd) {
-    if (!this.haveImpulseResponse) {
-      return;
-    }
-    // 2 decimals on ms value
-    amountToAdd = MeasurementItem.cleanFloat32Value(amountToAdd, 10);
-    if (amountToAdd === 0) {
-      return false;
-    }
-    const newCumulativeShift = MeasurementItem.cleanFloat32Value(
-      this.cumulativeIRShiftSeconds() + amountToAdd,
-      10,
-    );
-    await this.rewMeasurements.offsetTZero(this.uuid, amountToAdd);
-    this.cumulativeIRShiftSeconds(newCumulativeShift);
-    lm.debug(`Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${this.title()}`);
-    return true;
+    return ops.addIROffsetSeconds(this.rewMeasurements, this, amountToAdd);
   }
 
   async setZeroAtIrPeak() {
-    await this.addIROffsetSeconds(this.timeOfIRPeakSeconds());
-    return true;
+    return ops.setZeroAtIrPeak(this.rewMeasurements, this);
   }
 
-  /**
-   * parse the response data to get the alignSPLOffsetdB for the targetUUID
-   */
   static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
-    try {
-      if (!responseData?.results) {
-        throw new Error('Invalid response data');
-      }
-      // Find the result with matching UUID
-      const result = Object.values(responseData.results).find(
-        item => item.UUID === targetUUID,
-      );
-
-      if (!result) {
-        throw new Error(`No result found for UUID: ${targetUUID}`);
-      }
-
-      const alignSPLOffset = Number(result.alignSPLOffsetdB);
-
-      if (Number.isNaN(alignSPLOffset)) {
-        throw new TypeError('Invalid alignSPLOffsetdB value');
-      }
-
-      return alignSPLOffset;
-    } catch (error) {
-      throw new Error(`Failed to get align SPL offset: ${error.message}`, {
-        cause: error,
-      });
-    }
+    return getAlignSPLOffsetdBByUUID(responseData, targetUUID);
   }
 
   async getBandwidth() {
-    if (this.cachedBandwidth) {
-      return this.cachedBandwidth;
-    }
-
-    const frequencyResponse = await this.getFrequencyResponse('SPL', '1/6');
-    const bandwidth = FrequencyResponseAnalyzer.detectBandwidth(frequencyResponse, {
-      rangeHz: [10, 20000],
-      thresholdDb: -6,
-    });
-
-    this.cachedBandwidth = bandwidth;
-    return bandwidth;
+    return ops.getBandwidth(this.rewMeasurements, this);
   }
 
   async setSPLOffsetDB(newValue) {
-    // check if the value is a number
-    if (Number.isNaN(newValue)) {
-      throw new TypeError(`Invalid SPL offset: ${newValue}`);
-    }
-    // round the value to 2 decimal places
-    newValue = MeasurementItem.cleanFloat32Value(newValue, 2);
-
-    // Check if the new value is the same as the current value
-    if (newValue === this.splOffsetDeltadB()) {
-      return true;
-    }
-    lm.debug(
-      `Setting SPL offset to ${newValue} dB for ${this.displayMeasurementTitle()}`,
-    );
-
-    const bandwidth = await this.getBandwidth();
-    // refence level is 75 dB just for the align command
-    const referenceLevel = MeasurementItem.DEFAULT_TARGET_LEVEL;
-    // frequency must be in the mid range
-    const frequencyHz = bandwidth.centerFrequencyHz;
-    const spanOctaves = 0;
-    // first align the SPL to get the reference level
-    const alignResult = await this.rewMeasurements.alignSPL(
-      [this.uuid],
-      referenceLevel,
-      frequencyHz,
-      spanOctaves,
-    );
-
-    const referenceAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
-      alignResult,
-      this.uuid,
-    );
-
-    const offset = newValue - referenceAlignSPLOffsetdB;
-
-    // align a second time to get the rigth level
-    const finalAlignResult = await this.rewMeasurements.alignSPL(
-      [this.uuid],
-      referenceLevel + offset,
-      frequencyHz,
-      spanOctaves,
-    );
-    //check results
-    const finalAlignSPLOffsetdB = MeasurementItem.getAlignSPLOffsetdBByUUID(
-      finalAlignResult,
-      this.uuid,
-    );
-    if (finalAlignSPLOffsetdB !== newValue) {
-      throw new Error(
-        `Failed to set SPL offset to ${newValue} dB, current value is ${finalAlignSPLOffsetdB}`,
-      );
-    }
-    this.alignSPLOffsetdB(finalAlignSPLOffsetdB);
-    this.splOffsetdB(
-      MeasurementItem.cleanFloat32Value(
-        this.initialSplOffsetdB + finalAlignSPLOffsetdB,
-        2,
-      ),
-    );
-    return true;
+    return ops.setSPLOffsetDB(this.rewMeasurements, this, newValue);
   }
 
   async addSPLOffsetDB(amountToAdd) {
-    return this.setSPLOffsetDB(this.splOffsetDeltadB() + amountToAdd);
+    return ops.addSPLOffsetDB(this.rewMeasurements, this, amountToAdd);
   }
 
   async getFilters() {
-    const autoDisableTypes = new Set(['LP', 'HP', 'HS', 'LS', 'All pass']);
-    const measurementFilters = await this.rewMeasurements.getFilters(this.uuid);
-    for (const filter of measurementFilters) {
-      if (autoDisableTypes.has(filter.type)) {
-        filter.isAuto = false;
-      }
-    }
-    return measurementFilters;
+    return ops.getFilters(this.rewMeasurements, this);
   }
 
   async setFilters(filters, overwrite = true) {
-    if (!filters) {
-      throw new Error(`Invalid filter: ${filters}`);
-    }
-    if (filters.length !== 22) {
-      lm.debug(`Invalid filter length: ${filters.length} expected 22`);
-    }
-
-    const allFilters = await this.getFilters();
-
-    if (this.compareObjects(allFilters, filters)) {
-      return false;
-    }
-
-    const currentFilters = overwrite ? allFilters : allFilters.filter(f => f.isAuto);
-
-    const filtersCleaned = [];
-    for (const filter of filters) {
-      const index = filter.index;
-      const found = currentFilters.find(f => f.index === index);
-      if (!found) {
-        lm.warn(
-          `Filter with index ${index} not found in current filters, make sure Generic EQ is selected`,
-        );
-        continue;
-      }
-      // set auto to false if type is all pass
-      if (filter.type === 'All pass' || index > 20) {
-        filter.isAuto = false;
-        found.isAuto = false;
-      }
-      if (!this.compareObjects(filter, found)) {
-        filtersCleaned.push(filter);
-      }
-    }
-    if (filtersCleaned.length === 0) {
-      return true;
-    }
-
-    await this.deleteAssociatedFilter();
-    lm.debug(
-      `${this.displayMeasurementTitle()}: Setting ${filtersCleaned.length} filters`,
-    );
-    return this.rewMeasurements.postFilters(this.uuid, {
-      filters: filtersCleaned,
+    return ops.setFilters(this.rewMeasurements, this, filters, {
+      overwrite,
+      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
     });
   }
 
   async setSingleFilter(filter) {
-    if (!filter) {
-      throw new Error(`Invalid filter: ${filter}`);
-    }
-
-    const filters = await this.getFilters();
-    const found = filters.find(f => f.index === filter.index);
-    if (!found) {
-      throw new Error(`Filter with index ${filter.index} not found`);
-    }
-    if (this.compareObjects(filter, found)) {
-      return false;
-    }
-
-    await this.rewMeasurements.setFilters(this.uuid, filter);
-
-    await this.deleteAssociatedFilter();
-    return true;
+    return ops.setSingleFilter(this.rewMeasurements, this, filter, {
+      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
+    });
   }
 
   async getFreeXFilterIndex() {
-    if (!(await this.isdefaultEqualiser())) {
-      throw new Error(`Invalid Equaliser: ${this.displayMeasurementTitle()}`);
-    }
-
-    const filters = await this.getFilters();
-    const freeIndex = [20, 21].find(i => filters[i]?.type === 'None');
-
-    if (freeIndex === undefined) {
-      throw new Error(`No free filter index found: ${this.displayMeasurementTitle()}`);
-    }
-
-    return freeIndex + 1;
+    return ops.getFreeXFilterIndex(
+      this.rewMeasurements,
+      this,
+      this.rewEq.defaulEqtSettings,
+    );
   }
 
   compareObjects(obj1, obj2) {
-    const sortedStringify = obj =>
-      JSON.stringify(
-        Object.keys(obj)
-          .sort((a, b) => a.localeCompare(b))
-          .reduce((sorted, key) => {
-            sorted[key] = obj[key];
-            return sorted;
-          }, {}),
-      );
-
-    return sortedStringify(obj1) === sortedStringify(obj2);
+    return compareObjectsSorted(obj1, obj2);
   }
 
   async copyFiltersToOther() {
-    const targets = this.otherPositionMeasurements();
-    if (!targets.length) return;
-
-    lm.info(`Copying filters to other positions of ${this.displayMeasurementTitle()}...`);
-    const measurementFilters = await this.getFilters();
-    for (const otherItem of targets) {
-      await otherItem.setFilters(measurementFilters);
-      otherItem.associatedFilter = this.associatedFilter;
-    }
+    return ops.copyFiltersToOther(
+      this.rewMeasurements,
+      this,
+      this.otherPositionMeasurements(),
+      this.sessionContext(),
+    );
   }
 
   async copySplOffsetDeltadBToOther() {
-    const targets = this.otherPositionMeasurements();
-    if (!targets.length) return;
-
-    lm.info(
-      `Copying SPL offset to other positions of ${this.displayMeasurementTitle()}...`,
+    return ops.copySplOffsetDeltadBToOther(
+      this.rewMeasurements,
+      this,
+      this.otherPositionMeasurements(),
     );
-    const splOffset = this.splOffsetDeltadB();
-    for (const otherItem of targets) {
-      await otherItem.setSPLOffsetDB(splOffset);
-    }
   }
 
   async copyCumulativeIRShiftToOther() {
-    if (!this.haveImpulseResponse) return;
-    const targets = this.otherPositionMeasurements();
-    if (!targets.length) return;
-
-    lm.info(
-      `Copying Cumulative IR Shift to other positions of ${this.displayMeasurementTitle()}...`,
+    return ops.copyCumulativeIRShiftToOther(
+      this.rewMeasurements,
+      this,
+      this.otherPositionMeasurements(),
     );
-    const irShift = this.cumulativeIRShiftSeconds();
-    for (const otherItem of targets) {
-      await otherItem.setcumulativeIRShiftSeconds(irShift);
-    }
   }
 
   async copyInversionToOtherPositions() {
     const targets = this.otherPositionMeasurements();
     if (!targets.length) return;
 
+    // processing lock is a UI concern — the copy loop itself lives in the service
     const allreadyProcessing = this.parentViewModel.isProcessing();
-    const inverted = this.inverted();
-
     if (!allreadyProcessing) await this.parentViewModel.setProcessing(true);
 
-    lm.info(
-      `Copying Inversion to other positions of ${this.displayMeasurementTitle()}...`,
-    );
-    for (const otherItem of targets) {
-      await otherItem.setInverted(inverted);
-    }
+    await ops.copyInversionToOtherPositions(this.rewMeasurements, this, targets);
 
     if (!allreadyProcessing) await this.parentViewModel.setProcessing(false);
   }
@@ -1163,399 +747,149 @@ class MeasurementItem {
   }
 
   async getTargetLevel() {
-    const level = await this.rewMeasurements.getTargetLevel(this.uuid);
-    return MeasurementItem.cleanFloat32Value(level, 2);
+    return ops.getTargetLevel(this.rewMeasurements, this);
   }
 
   async setTargetLevel(level) {
-    // Check if level is undefined/null, but allow zero
-    if (level === undefined || level === null) {
-      throw new TypeError(`Invalid level: ${level}`);
-    }
-    level = MeasurementItem.cleanFloat32Value(level, 2);
-
-    const currentLevel = await this.getTargetLevel();
-    if (level.toFixed(2) === currentLevel.toFixed(2)) {
-      return true;
-    }
-
-    lm.debug(
-      `${this.displayMeasurementTitle()}: Target level set to ${level.toFixed(1)} dB`,
-    );
-    await this.rewMeasurements.setTargetLevel(this.uuid, level);
-
-    return this.resetFilters();
-  }
-
-  get emptyFilters() {
-    return Array.from({ length: 22 }, (_, i) => ({
-      index: i + 1,
-      type: 'None',
-      enabled: true,
-      isAuto: true,
-    }));
+    return ops.setTargetLevel(this.rewMeasurements, this, level, {
+      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
+    });
   }
 
   async resetFilters() {
-    await this.deleteAssociatedFilter();
-    return this.setFilters(this.emptyFilters);
+    return ops.resetFilters(this.rewMeasurements, this, {
+      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
+    });
   }
 
   async getAssociatedFilterItem() {
-    if (this.associatedFilterItem()) {
-      return this.associatedFilterItem();
-    }
-
-    lm.warn(
-      `Associated filter not found: ${this.displayMeasurementTitle()}, creating a new one`,
-    );
-    return this.createUserFilter();
+    return ops.getAssociatedFilterItem(this.rewMeasurements, this, this.sessionContext());
   }
 
   async setAssociatedFilter(filter) {
-    if (!filter.isFilter) {
-      throw new Error(`Invalid filter: ${filter}`);
-    }
-    // check if the filter is already associated
-    if (this.associatedFilter === filter.uuid) {
-      return true;
-    }
-    await this.deleteAssociatedFilter();
-    this.associatedFilter = filter.uuid;
-    return true;
+    return ops.setAssociatedFilter(this, filter, this.sessionContext());
   }
 
   async setAssociatedFilterUuid(filterUuid) {
-    if (!filterUuid) {
-      return true;
-    }
-    const item = this.parentViewModel.findMeasurementByUuid(filterUuid);
-    if (!item) {
-      throw new Error(`filter do not exists: ${filterUuid}`);
-    }
-    await this.setAssociatedFilter(item);
+    return ops.setAssociatedFilterUuid(this, filterUuid, this.sessionContext());
   }
 
   async deleteAssociatedFilter() {
-    if (this.associatedFilter === null) {
-      return true;
-    }
-    if (this.associatedFilterItem()) {
-      await this.parentViewModel.removeMeasurementUuid(this.associatedFilter);
-      this.associatedFilter = null;
-      return true;
-    }
-    return false;
+    return ops.deleteAssociatedFilter(this, this.sessionContext());
   }
 
   async producePredictedMeasurementWithAssociatedFilter() {
-    if (this.isFilter) {
-      throw new Error(
-        `action can not be done on a Filter: ${this.displayMeasurementTitle()}`,
-      );
-    }
-
-    const filter = await this.getAssociatedFilterItem();
-
-    const predictedResult = await this.arithmeticConvolution(filter);
-
-    predictedResult.setTitle(`predicted ${this.title()}`);
-
-    return predictedResult;
+    return ops.producePredictedMeasurementWithAssociatedFilter(
+      this.rewMeasurements,
+      this,
+      this.sessionContext(),
+    );
   }
 
   async producePredictedMeasurement() {
-    if (this.isFilter) {
-      throw new Error(
-        `action can not be done on a Filter: ${this.displayMeasurementTitle()}`,
-      );
-    }
-
-    const apiResponse = await this.rewMeasurements.generatePredictedMeasurement(
-      this.uuid,
+    return ops.producePredictedMeasurement(
+      this.rewMeasurements,
+      this,
+      this.sessionContext(),
     );
-    const PredictedFiltered = await this.parentViewModel.analyseApiResponse(apiResponse);
-    if (!PredictedFiltered) {
-      throw new Error('Cannot generate predicted measurement');
-    }
-
-    await PredictedFiltered.setTitle(`predicted ${this.title()}`);
-
-    return PredictedFiltered;
   }
 
   async createUserFilter() {
-    if (this.isFilter) {
-      throw new Error(`Already a Filter: ${this.displayMeasurementTitle()}`);
-    }
-    await this.deleteAssociatedFilter();
+    return ops.createUserFilter(this.rewMeasurements, this, this.sessionContext());
+  }
 
-    const filterResponse = await this.generateFilterMeasurement();
-
-    await this.setAssociatedFilter(filterResponse);
-    return filterResponse;
+  // Snapshot of the viewmodel settings consumed by working-settings operations.
+  workingSettingsConfig() {
+    return {
+      smoothingMethod: this.parentViewModel.selectedSmoothingMethod(),
+      roomCurveSettings: this.parentViewModel.getRoomCurveConfig(),
+      irWindows: this.parentViewModel.selectedIrWindowsConfig(),
+    };
   }
 
   async applyWorkingSettings() {
-    if (this.isFilter) {
-      throw new Error(
-        `Operation not permitted on a filter ${this.displayMeasurementTitle()}`,
-      );
-    }
-    await this.defaultSmoothing();
-    await this.setRoomCurveSettings(this.parentViewModel.getRoomCurveConfig());
-    await this.setIrWindows(this.parentViewModel.selectedIrWindowsConfig());
+    return ops.applyWorkingSettings(
+      this.rewMeasurements,
+      this,
+      this.workingSettingsConfig(),
+    );
   }
 
   async removeWorkingSettings() {
-    if (this.isFilter) {
-      throw new Error(
-        `Operation not permitted on a filter ${this.displayMeasurementTitle()}`,
-      );
-    }
-    await this.resetIrWindows();
-    await this.resetSmoothing();
+    return ops.removeWorkingSettings(this.rewMeasurements, this, this.irWindowWidths());
   }
 
   async checkFilterGain() {
-    const filters = await this.getFilters();
-    for (const filter of filters) {
-      if (filter.type !== 'PK') continue;
-      // check if PK filters are inside limits -25dB to +25dB
-      if (filter.gaindB < -25 || filter.gaindB > 25) {
-        throw new Error(
-          `${this.displayMeasurementTitle()} Filter ${
-            filter.index
-          } gain is out of limits: ${Math.round(
-            filter.gaindB,
-          )}dB. Please add High Pass to X1 or X2 filter`,
-        );
-      }
-      // check if PK filters are inside limits 0.1 to 20
-      if (filter.q < 0.1 || filter.q > 20) {
-        throw new Error(
-          `${this.displayMeasurementTitle()} Filter ${filter.index} Q is out of limits: ${
-            filter.q
-          }.`,
-        );
-      }
-    }
+    return ops.checkFilterGain(this.rewMeasurements, this);
   }
 
-  /**
-   * !!! WARNING !!! set IR oversampling to None in the Analysis settings
-   *
-   * Creates a FIR (Finite Impulse Response) filter from the measurement.
-   * This method performs several operations including smoothing, phase correction,
-   * and amplitude correction to generate an appropriate filter.
-   *
-   * @throws {Error} If the operation is attempted on an existing filter
-   * @throws {Error} If the operation is attempted on a sub-measurement
-   * @throws {Error} If the filter creation process fails
-   *
-   * The process includes:
-   * - Smoothing the measurement
-   * - Creating a predicted measurement
-   * - Generating amplitude correction
-   * - Setting IR windows
-   * - Creating and applying phase correction
-   * - Combining phase and amplitude corrections
-   *
-   * @returns {Promise<boolean>} Returns true if the filter was successfully created
-   */
+  // Dependencies of the filter-creation sequences that still live on the
+  // viewmodel (configs, AutoEQ calculator, target-level sync).
+  filterCreationContext() {
+    const pv = this.parentViewModel;
+    return {
+      session: this.sessionContext(),
+      rewEq: this.rewEq,
+      workingConfig: this.workingSettingsConfig(),
+      irWindowWidths: this.irWindowWidths(),
+      smoothingMethod: pv.selectedSmoothingMethod(),
+      optimizedMtwWindows: () => pv.getIrWindowConfig('Optimized MTW'),
+      bounds: {
+        lower: pv.lowerFrequencyBound(),
+        upper: pv.upperFrequencyBound(),
+      },
+      boosts: {
+        individual: pv.individualMaxBoostValue(),
+        overall: pv.overallBoostValue(),
+      },
+      createCalculator: (sampleRate, freqStart, freqEnd, options) =>
+        this.createPhaseMatchCalculator(sampleRate, freqStart, freqEnd, options),
+      setTargetLevelFromMeasurement: () => pv.setTargetLevelFromMeasurement(this),
+      otherTargets: () => this.otherPositionMeasurements(),
+    };
+  }
+
+  // !!! WARNING !!! set IR oversampling to None in the Analysis settings
   async _runFirFilter(customStartFrequency, customEndFrequency) {
-    const toBeDeleted = [];
-
-    // TODO: use inversed measurement for amplitude filter creation
-    const preview = await this.producePredictedMeasurement();
-    toBeDeleted.push(preview);
-
-    const amplitudeCorrection = await this.generateFilterMeasurement();
-
-    await preview.setZeroAtIrPeak();
-    await preview.resetSmoothing();
-    await preview.setIrWindows(this.parentViewModel.getIrWindowConfig('Optimized MTW'));
-
-    const excessPhase = await preview.createExcessPhaseCopy();
-    toBeDeleted.push(excessPhase);
-
-    await excessPhase.resetSmoothing();
-
-    const phaseCorrection = await excessPhase.arithmeticInvertAPhase(
+    return ops.runFirFilter(
+      this.rewMeasurements,
       this,
+      this.filterCreationContext(),
       customStartFrequency,
       customEndFrequency,
     );
-    toBeDeleted.push(phaseCorrection);
-
-    const finalFIR = await phaseCorrection.arithmeticConvolution(amplitudeCorrection);
-
-    const cxText = this.crossover() ? `X@${this.crossover()}Hz` : 'FB';
-    await finalFIR.setTitle(`Filter ${this.title()} ${cxText}`);
-
-    finalFIR.isFilter = true;
-
-    await this.setAssociatedFilter(finalFIR);
-    await this.parentViewModel.removeMeasurements(toBeDeleted);
   }
 
   async createFilter(type, useWorkingSettings, copyFiltersToOther) {
-    if (this.isFilter) {
-      throw new Error(
-        `Operation not permitted on a filter ${this.displayMeasurementTitle()}`,
-      );
-    }
-
-    if (this.isSub()) {
-      throw new Error(
-        `Operation not permitted on a sub ${this.displayMeasurementTitle()}`,
-      );
-    }
-
-    let operationError = null;
-
-    // Synchronises the target level across all measurements from a reference measurement.
-    if (copyFiltersToOther) {
-      await this.parentViewModel.setTargetLevelFromMeasurement(this);
-    }
-
-    // must have only lower band filter to be able to use the high pass filter
-    await this.resetFilters();
-    await this.resetTargetSettings();
-    const fallOff = await this.detectFallOff(-6);
-
-    const customStartFrequency = Math.max(
-      this.parentViewModel.lowerFrequencyBound(),
-      fallOff.lowHz,
+    return ops.createFilter(
+      this.rewMeasurements,
+      this,
+      this.filterCreationContext(),
+      type,
+      useWorkingSettings,
+      copyFiltersToOther,
     );
-    const customEndFrequency = Math.min(
-      this.parentViewModel.upperFrequencyBound(),
-      fallOff.highHz,
-    );
-
-    try {
-      if (useWorkingSettings) {
-        await this.applyWorkingSettings();
-      } else {
-        await this.removeWorkingSettings();
-      }
-
-      if (type === 'standard') {
-        await this._runStandardFilter(customStartFrequency, customEndFrequency);
-      } else if (type === 'phase') {
-        await this._runPhaseMatchFilter(customStartFrequency, customEndFrequency);
-      } else if (type === 'fir') {
-        await this._runFirFilter(customStartFrequency, customEndFrequency);
-      } else {
-        throw new Error(`Unknown filter type: ${type}`);
-      }
-
-      await this.checkFilterGain();
-
-      if (copyFiltersToOther) {
-        await this.copyFiltersToOther();
-      }
-    } catch (error) {
-      operationError = new Error(`Filter creation failed: ${error.message}`, {
-        cause: error,
-      });
-    } finally {
-      operationError = await this.restoreWorkingSettings(
-        useWorkingSettings,
-        operationError,
-      );
-    }
-
-    if (operationError) {
-      throw operationError;
-    }
   }
 
   async _runPhaseMatchFilter(customStartFrequency, customEndFrequency, options = {}) {
-    lm.debug(
-      `[createPhaseMatchFilter] range=${customStartFrequency}-${customEndFrequency} Hz`,
-    );
-
-    this.validatePhaseMatchRange(customStartFrequency, customEndFrequency);
-
-    const sampleRate = await this.resolveSampleRate();
-
-    const smoothingMethod = this.parentViewModel.selectedSmoothingMethod();
-    const sourceFreqResponse = await this.getFrequencyResponse(
-      'SPL',
-      smoothingMethod,
-      96,
-    );
-
-    const targetFreqResponse = await this.getTargetResponse('SPL', 96);
-    const calculator = this.createPhaseMatchCalculator(
-      sampleRate,
+    return ops.runPhaseMatchFilter(
+      this.rewMeasurements,
+      this,
+      this.filterCreationContext(),
       customStartFrequency,
       customEndFrequency,
       options,
     );
-
-    await calculator.calculate(sourceFreqResponse, targetFreqResponse);
-    const activeFilters = calculator.filterSet.getActiveFilters();
-    lm.debug(
-      `[createPhaseMatchFilter] ${activeFilters.length} filters: ` +
-        activeFilters
-          .map(f => `${Math.round(f.fc)}Hz(${f.gain.toFixed(1)}dB)`)
-          .join(', '),
-    );
-    const filters = this.buildPhaseMatchFilters(activeFilters);
-
-    await this.setFilters(filters);
   }
 
   async _runStandardFilter(customStartFrequency, customEndFrequency) {
-    const customInterPassFrequency = 120;
-    const interPassEndFrequency = customInterPassFrequency * 2;
-    const interPassStartFrequency = customInterPassFrequency / 2;
-
-    // if range is too narrow, the optimization can fail
-    const firstPassRange = interPassEndFrequency - customStartFrequency;
-
-    if (firstPassRange > 40) {
-      // must be set seaparatly to be taken into account
-      await this.rewEq.setMatchTargetSettings({
-        endFrequency: interPassEndFrequency,
-      });
-      await this.rewEq.setMatchTargetSettings({
-        startFrequency: customStartFrequency,
-        individualMaxBoostdB: 0,
-        overallMaxBoostdB: 0,
-        flatnessTargetdB: 1,
-        allowNarrowFiltersBelow200Hz: false,
-        varyQAbove200Hz: false,
-        allowLowShelf: false,
-        allowHighShelf: false,
-      });
-
-      await this.rewMeasurements.matchTarget(this.uuid);
-
-      // set filters auto to off to prevent overwriting by the second pass
-      await this.setAllFiltersAuto(false);
-    }
-    const filters = await this.getFilters();
-    const availableSlots = this.countFiltersSlotsAvailable(filters);
-    if (availableSlots < 2) {
-      throw new Error(
-        `Not enough filter slots available for ${this.displayMeasurementTitle()}. Please remove some filters.`,
-      );
-    }
-
-    await this.rewEq.setMatchTargetSettings({
-      startFrequency: interPassStartFrequency,
-      endFrequency: customEndFrequency,
-      individualMaxBoostdB: this.parentViewModel.individualMaxBoostValue(),
-      overallMaxBoostdB: this.parentViewModel.overallBoostValue(),
-    });
-
-    await this.rewMeasurements.matchTarget(this.uuid);
-
-    // retore filters auto to on for next iteration
-    await this.setAllFiltersAuto(true);
+    return ops.runStandardFilter(
+      this.rewMeasurements,
+      this,
+      this.filterCreationContext(),
+      customStartFrequency,
+      customEndFrequency,
+    );
   }
 
   async createPhaseMatchFilter(useWorkingSettings = true, copyFiltersToOther = false) {
@@ -1563,12 +897,7 @@ class MeasurementItem {
   }
 
   countFiltersSlotsAvailable(filters) {
-    if (!filters || !Array.isArray(filters)) {
-      throw new Error(`Invalid filters: ${filters}`);
-    }
-
-    // count the number of filters that are not None
-    return filters.filter(filter => filter.isAuto === true && filter.index <= 20).length;
+    return countFiltersSlotsAvailable(filters);
   }
 
   async createStandardFilter(useWorkingSettings = true, copyFiltersToOther = true) {
@@ -1576,48 +905,23 @@ class MeasurementItem {
   }
 
   async setAllFiltersAuto(requiredState = true) {
-    const filters = await this.getFilters();
-    for (const filter of filters) {
-      if (filter.type === 'PK' && filter.index <= 20 && filter.isAuto !== requiredState) {
-        filter.isAuto = requiredState;
-      }
-    }
-    await this.setFilters(filters);
-    return true;
+    return ops.setAllFiltersAuto(this.rewMeasurements, this, requiredState, {
+      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
+    });
   }
 
   async createMinimumPhaseCopy() {
-    const minimumPhase = await this.rewMeasurements.minimumPhaseVersion(this.uuid, {
-      'include cal': true,
-      'append lf tail': false,
-      'append hf tail': false,
-      'frequency warping': false,
-      'replicate data': true,
-    });
-
-    return minimumPhase;
+    return ops.createMinimumPhaseCopy(this.rewMeasurements, this);
   }
 
   async createExcessPhaseCopy() {
-    return await this.rewMeasurements.excessPhaseVersion(this.uuid, {
-      'include cal': true,
-      'append lf tail': false,
-      'append hf tail': false,
-      'frequency warping': false,
-      'replicate data': true,
-    });
+    return ops.createExcessPhaseCopy(this.rewMeasurements, this);
   }
 
   static cleanFloat32Value(value, precision = 7) {
-    // Handle non-numeric values and NaN
-    const num = Number(value);
-    if (!Number.isFinite(num)) {
-      lm.warn(`Invalid numeric value: ${value}`);
-      return 0;
-    }
-    // Round to desired precision using Math.round (faster than toFixed)
-    const multiplier = 10 ** precision;
-    return Math.round(num * multiplier) / multiplier;
+    return cleanFloat32Value(value, precision, raw =>
+      lm.warn(`Invalid numeric value: ${raw}`),
+    );
   }
 
   // Method to get data for saving
@@ -1693,19 +997,21 @@ class MeasurementItem {
   }
 
   async arithmeticSum(otherMeasurement) {
-    const apiResponse = await this.rewMeasurements.arithmeticAPlusB(
-      this.uuid,
-      otherMeasurement.uuid,
+    return ops.arithmeticSum(
+      this.rewMeasurements,
+      this,
+      otherMeasurement,
+      this.sessionContext(),
     );
-    return this.parentViewModel.analyseApiResponse(apiResponse);
   }
 
   async arithmeticConvolution(otherMeasurement) {
-    const apiResponse = await this.rewMeasurements.arithmeticATimesB(
-      this.uuid,
-      otherMeasurement.uuid,
+    return ops.arithmeticConvolution(
+      this.rewMeasurements,
+      this,
+      otherMeasurement,
+      this.sessionContext(),
     );
-    return this.parentViewModel.analyseApiResponse(apiResponse);
   }
 
   async arithmeticADividedByB(
@@ -1714,24 +1020,26 @@ class MeasurementItem {
     lowerLimit = null,
     upperLimit = null,
   ) {
-    const apiResponse = await this.rewMeasurements.arithmeticADividedByB(
-      this.uuid,
-      otherMeasurement.uuid,
+    return ops.arithmeticADividedByB(
+      this.rewMeasurements,
+      this,
+      otherMeasurement,
+      this.sessionContext(),
       maxGain,
       lowerLimit,
       upperLimit,
     );
-    return this.parentViewModel.analyseApiResponse(apiResponse);
   }
 
   async arithmeticInvertAPhase(otherMeasurement, lowerLimit = null, upperLimit = null) {
-    const apiResponse = await this.rewMeasurements.arithmeticInvertAPhase(
-      this.uuid,
-      otherMeasurement.uuid,
+    return ops.arithmeticInvertAPhase(
+      this.rewMeasurements,
+      this,
+      otherMeasurement,
+      this.sessionContext(),
       lowerLimit,
       upperLimit,
     );
-    return this.parentViewModel.analyseApiResponse(apiResponse);
   }
 
   dispose() {

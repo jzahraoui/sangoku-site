@@ -19,15 +19,21 @@ function response(freqs, magnitude) {
   };
 }
 
+// detectFallOff delegates to measurement-operations (lot I3): the REW API is
+// the mocking seam, not the item's own methods.
 function createFallOffMeasurement(measurementData, ...targetResponses) {
   const measurement = Object.create(MeasurementItem.prototype);
+  measurement.uuid = 'measurement-1';
   measurement.title = () => 'Front Left';
-  measurement.getFrequencyResponse = vi.fn().mockResolvedValue(measurementData);
-  measurement.getTargetResponse = vi.fn();
 
+  const rewMeasurements = {
+    getFrequencyResponse: vi.fn().mockResolvedValue(measurementData),
+    getTargetResponse: vi.fn(),
+  };
   for (const targetResponse of targetResponses) {
-    measurement.getTargetResponse.mockResolvedValueOnce(targetResponse);
+    rewMeasurements.getTargetResponse.mockResolvedValueOnce(targetResponse);
   }
+  measurement.parentViewModel = { rewMeasurements };
 
   return measurement;
 }
