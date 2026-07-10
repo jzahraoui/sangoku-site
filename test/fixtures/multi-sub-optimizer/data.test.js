@@ -1,3 +1,16 @@
+/**
+ * Fixture: data.test
+ *
+ * 4 subwoofers (SW1avg–SW4avg), real REW measurements.
+ * Frequency grid: 10.25–305 Hz, log-spaced (ppo=96, freqStep derived).
+ * Smoothing: None (raw SPL).
+ *
+ * Scenario: typical multi-sub setup with moderate modal variation.
+ * Used to validate that the optimizer improves the combined response and
+ * that the GA matches or exceeds the classic exhaustive search.
+ *
+ * Config: delay range ±16.7ms (≈5.7m), gain fixed at 0, all-pass optional.
+ */
 /* eslint-disable no-loss-of-precision */
 const frequencyResponses = [
   {
@@ -2357,6 +2370,20 @@ const optimizerConfig = {
       min: 0.1,
       max: 0.5,
       step: 0.1,
+    },
+  },
+  optimization: {
+    objective: 'balanced',
+    globalRefinement: {
+      enabled: true,
+      passes: 4,
+      maxIterations: 30,
+    },
+    multiStart: {
+      enabled: false,
+      runs: 1,
+      coarseSeedCount: 8,
+      minRunImprovement: 0.25,
     },
   },
 };

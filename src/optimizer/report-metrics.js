@@ -4,7 +4,14 @@ export function calculateReportMetrics(
   { calculateOptimizationScoreDetails, calculateEfficiencyRatio },
 ) {
   const scoreDetails = calculateOptimizationScoreDetails(response, theoreticalMax);
-  const efficiencyRatio = calculateEfficiencyRatio(response, theoreticalMax);
+  // Cap the publicly-reported efficiency ratio at 100%: a value above 100%
+  // (possible when a positive gain is applied, since the theoretical max is
+  // computed without gains) is physically meaningless as a "ratio to the
+  // theoretical maximum" and would confuse downstream reports and audio
+  // selection scoring. The uncapped value is still used internally by
+  // calculateOptimizationScoreDetails for the objective score.
+  const rawEfficiencyRatio = calculateEfficiencyRatio(response, theoreticalMax);
+  const efficiencyRatio = Math.max(0, Math.min(rawEfficiencyRatio, 100));
   const magnitudeStats = calculateMagnitudeStats(response.magnitude);
 
   return {

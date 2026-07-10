@@ -1,3 +1,15 @@
+/**
+ * Fixture: data.bis.test
+ *
+ * 4 subwoofers, real REW measurements.
+ * Frequency grid: 11.35–244 Hz, log-spaced (freqStep=0.366 Hz).
+ * Smoothing: None (raw SPL).
+ *
+ * Scenario: alternative multi-sub configuration with different room modes.
+ * Used to validate optimizer robustness across diverse measurement sets.
+ *
+ * Config: delay range ±16.7ms (≈5.7m), gain fixed at 0, all-pass optional.
+ */
 /* eslint-disable no-loss-of-precision */
 const frequencyResponses = [
   {
@@ -1888,6 +1900,20 @@ const optimizerConfig = {
       min: 0.1,
       max: 0.5,
       step: 0.1,
+    },
+  },
+  optimization: {
+    objective: 'balanced',
+    globalRefinement: {
+      enabled: true,
+      passes: 4,
+      maxIterations: 30,
+    },
+    multiStart: {
+      enabled: false,
+      runs: 1,
+      coarseSeedCount: 8,
+      minRunImprovement: 0.25,
     },
   },
 };

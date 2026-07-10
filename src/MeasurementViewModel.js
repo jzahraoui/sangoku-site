@@ -789,7 +789,9 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('Auto adjusting inversion...');
 
-        await this.alignmentService.autoAdjustInversion(this.uniqueSpeakersMeasurements());
+        await this.alignmentService.autoAdjustInversion(
+          this.uniqueSpeakersMeasurements(),
+        );
       } catch (error) {
         this.handleError(`Auto adjust inversion failed: ${error.message}`, error);
       } finally {
@@ -1151,6 +1153,13 @@ class MeasurementViewModel {
       }
       return {
         frequency: { min: lowFrequency, max: highFrequency },
+        // Gains stay at 0: the efficiency ratio is computed as
+        // actual/theoretical linear magnitude. Allowing positive gain would
+        // artificially inflate the ratio above 100% without any real acoustic
+        // improvement — the optimizer would "cheat" by boosting level instead
+        // of improving alignment. MSO also optimizes with gains at 0 for the
+        // same reason. The delay/polarity/all-pass dimensions are sufficient
+        // to approach the theoretical maximum.
         gain: { min: 0, max: 0, step: 0.1 },
         delay: {
           min: -headroomSeconds,
@@ -1166,8 +1175,8 @@ class MeasurementViewModel {
           objective: 'balanced',
           globalRefinement: {
             enabled: true,
-            passes: 2,
-            maxIterations: 20,
+            passes: 4,
+            maxIterations: 30,
           },
           multiStart: {
             enabled: false,
@@ -1358,9 +1367,7 @@ class MeasurementViewModel {
       this.measurements().filter(item => item.isValid),
     );
 
-    this.groupedMeasurements = ko.pureComputed(() =>
-      groupByChannel(this.measurements()),
-    );
+    this.groupedMeasurements = ko.pureComputed(() => groupByChannel(this.measurements()));
     // creates a map from groupedMeasurements with items grouped by the same position attribute
     this.byPositionsGroupedSubsMeasurements = ko.pureComputed(() =>
       groupByPosition(this.subsMeasurements()),
@@ -1827,7 +1834,10 @@ class MeasurementViewModel {
   }
 
   async adjustSubwooferSPLLevels(subsMeasurements, targetLevelFreq = 40) {
-    return this.alignmentService.adjustSubwooferSPLLevels(subsMeasurements, targetLevelFreq);
+    return this.alignmentService.adjustSubwooferSPLLevels(
+      subsMeasurements,
+      targetLevelFreq,
+    );
   }
 
   async analyzeSubwooferSPLAlignment(measurement, options) {

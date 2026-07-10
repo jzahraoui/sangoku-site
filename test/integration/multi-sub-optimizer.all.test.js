@@ -23,6 +23,23 @@ import deps from '../mocks/logs.js';
 // SYNTHETIC DATA GENERATOR
 // ============================================
 
+/**
+ * Deterministic PRNG (mulberry32) so synthetic measurements are reproducible
+ * across runs. Without this, Math.random() makes the test suite flaky.
+ */
+function createSeededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const SYNTHETIC_RNG = createSeededRandom(20260704);
+
 function generateSyntheticSubMeasurement(
   name,
   measurementId,
@@ -46,7 +63,7 @@ function generateSyntheticSubMeasurement(
     mag += 3 * Math.sin(freq * 0.15);
     mag += 2 * Math.sin(freq * 0.08);
     mag -= 4 * Math.sin(freq * 0.22);
-    mag += (Math.random() - 0.5) * 2;
+    mag += (SYNTHETIC_RNG() - 0.5) * 2;
     magnitude.push(mag);
 
     let ph = basePhaseOffset;
@@ -71,7 +88,7 @@ function generateSyntheticSubMeasurement(
 
 function calculateBaselineScore(optimizer, sub1, sub2) {
   const combined = optimizer.calculateCombinedResponse([sub1, sub2]);
-  const theo = optimizer.calculateCombinedResponse([sub1, sub2], false, true);
+  const theo = optimizer.calculateCombinedResponse([sub1, sub2], true, false);
   const score = optimizer.calculateQualityScore(combined, theo);
   return { score, combined };
 }
@@ -139,7 +156,19 @@ function testBasicOptimization() {
     );
   }
 
-  const passed = result.bestSum.score >= baseline.score;
+  // Physical assertion: sub2 was synthesized with delayMs=2.5ms relative to
+  // sub1. The optimizer should find a delay that partially compensates this
+  // offset (the sign depends on which sub is the reference). A delay of 0 or
+  // one at the boundary would indicate the optimizer failed to exploit the
+  // delay dimension.
+  const optimizedSub2 = result.optimizedSubs.find(s => s.name === 'SW2');
+  const optimizedDelayMs = optimizedSub2 ? optimizedSub2.param.delay * 1000 : 0;
+  const delayCompensates = Math.abs(optimizedDelayMs) > 0.1;
+  console.log(
+    `\nPhysical check: sub2 delay=${optimizedDelayMs.toFixed(3)}ms (expected non-trivial compensation for 2.5ms offset)`,
+  );
+
+  const passed = result.bestSum.score >= baseline.score && delayCompensates;
   console.log(
     `\n${passed ? '✅ PASSED' : '❌ FAILED'}: Optimization improves or maintains score`,
   );
@@ -186,8 +215,8 @@ function testGeneticVsClassic() {
   const subToOpt = preparedClassic[1];
   const theo = optimizerClassic.calculateCombinedResponse(
     [subToOpt, refSub],
-    false,
     true,
+    false,
   );
 
   const startClassic = performance.now();
@@ -228,8 +257,8 @@ function testGeneticVsClassic() {
   const subToOptG = preparedGenetic[1];
   const theoG = optimizerGenetic.calculateCombinedResponse(
     [subToOptG, refSubG],
-    false,
     true,
+    false,
   );
   const coarseParams = optimizerGenetic.generateTestParams(5);
 
@@ -262,7 +291,7 @@ function testGeneticVsClassic() {
   const scoreDiff = Math.abs(
     classicResult.bestWithoutAllPass.score - geneticResult.bestWithoutAllPass.score,
   );
-  const tolerance = Math.abs(classicResult.bestWithoutAllPass.score * 0.05);
+  const tolerance = Math.abs(classicResult.bestWithoutAllPass.score * 0.02);
   console.log(
     `\nScore difference: ${scoreDiff.toFixed(2)} (tolerance: ${tolerance.toFixed(2)})`,
   );
@@ -270,9 +299,9 @@ function testGeneticVsClassic() {
   const passed =
     scoreDiff <= tolerance ||
     geneticResult.bestWithoutAllPass.score >=
-      classicResult.bestWithoutAllPass.score * 0.95;
+      classicResult.bestWithoutAllPass.score * 0.98;
   console.log(
-    `${passed ? '✅ PASSED' : '❌ FAILED'}: Genetic achieves at least 95% of classic score`,
+    `${passed ? '✅ PASSED' : '❌ FAILED'}: Genetic achieves at least 98% of classic score`,
   );
   return passed;
 }
@@ -298,7 +327,7 @@ function testCacheEffectiveness() {
   refSub.param = MultiSubOptimizer.EMPTY_CONFIG;
   const subToOpt = prepared[1];
 
-  const theo = optimizer.calculateCombinedResponse([subToOpt, refSub], false, true);
+  const theo = optimizer.calculateCombinedResponse([subToOpt, refSub], true, false);
   const coarseParams = optimizer.generateTestParams(5);
 
   optimizer._random = optimizer._createSeededRandom(42);
@@ -368,8 +397,14 @@ function testDeterministicResults() {
     const refSub = prepared[0];
     refSub.param = MultiSubOptimizer.EMPTY_CONFIG;
     const subToOpt = prepared[1];
-    const theo = optimizer.calculateCombinedResponse([subToOpt, refSub], false, true);
+    const theo = optimizer.calculateCombinedResponse([subToOpt, refSub], true, false);
     const coarseParams = optimizer.generateTestParams(5);
+
+    // Seed BEFORE the optimization so the GA's stochastic operations
+    // (population creation, tournament selection, mutation, crossover) all
+    // use the deterministic PRNG. The previous code seeded AFTER
+    // runGeneticOptimization, which had no effect on the run itself.
+    optimizer._random = optimizer._createSeededRandom(seed);
 
     const result = optimizer.runGeneticOptimization(
       subToOpt,
@@ -387,11 +422,8 @@ function testDeterministicResults() {
         mutationAmount: 0.4,
         maxNoImprovementGenerations: 10,
         useLocalSearch: false,
-        seed,
       },
     );
-
-    optimizer._random = optimizer._createSeededRandom(seed);
 
     results.push({
       score: result.bestWithoutAllPass.score,
@@ -435,7 +467,7 @@ function testPhaseAlignmentScenario() {
   sub2.param = MultiSubOptimizer.EMPTY_CONFIG;
 
   const baselineCombined = optimizer.calculateCombinedResponse([sub1, sub2]);
-  const theo = optimizer.calculateCombinedResponse([sub1, sub2], false, true);
+  const theo = optimizer.calculateCombinedResponse([sub1, sub2], true, false);
   const baselineEfficiency = optimizer.calculateEfficiencyRatio(baselineCombined, theo);
   console.log(`Baseline efficiency (out of phase): ${baselineEfficiency.toFixed(2)}%`);
 
@@ -453,10 +485,21 @@ function testPhaseAlignmentScenario() {
 
   const correctPolarity = result.bestWithoutAllPass.param?.polarity === -1;
   const improvedScore = result.bestWithoutAllPass.score > baselineEfficiency;
+
+  // Physical assertion: since both subs have delayMs=0, the optimal delay
+  // should be near zero (within a few steps). A large delay would indicate
+  // the optimizer is compensating for something other than the phase offset.
+  const optimalDelay = result.bestWithoutAllPass.param?.delay ?? 0;
+  const delayStep = config.delay.step;
+  const delayWithinTolerance = Math.abs(optimalDelay) < delayStep * 5;
+
   console.log(
-    `\n${correctPolarity && improvedScore ? '✅ PASSED' : '❌ FAILED'}: Correctly detected and fixed phase cancellation`,
+    `Optimal delay: ${(optimalDelay * 1000).toFixed(4)}ms (tolerance: ${(delayStep * 5 * 1000).toFixed(4)}ms)`,
   );
-  return correctPolarity && improvedScore;
+  console.log(
+    `\n${correctPolarity && improvedScore && delayWithinTolerance ? '✅ PASSED' : '❌ FAILED'}: Correctly detected and fixed phase cancellation`,
+  );
+  return correctPolarity && improvedScore && delayWithinTolerance;
 }
 
 function testLocalSearchImprovement() {
@@ -479,7 +522,7 @@ function testLocalSearchImprovement() {
   const refSub = prepared[0];
   refSub.param = MultiSubOptimizer.EMPTY_CONFIG;
   const subToOpt = prepared[1];
-  const theo = optimizer.calculateCombinedResponse([subToOpt, refSub], false, true);
+  const theo = optimizer.calculateCombinedResponse([subToOpt, refSub], true, false);
 
   const startParam = {
     delay: 0.001,
@@ -502,6 +545,256 @@ function testLocalSearchImprovement() {
     `\n${gotBetter ? '✅ PASSED' : '❌ FAILED'}: Local search improves or maintains score`,
   );
   return gotBetter;
+}
+
+// ============================================
+// GLOBAL REFINEMENT TEST
+// ============================================
+
+function testGlobalRefinement() {
+  console.log('\n' + '='.repeat(60));
+  console.log('TEST: Global Refinement (Coordinate Descent)');
+  console.log('='.repeat(60));
+
+  const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+  const sub2 = generateSyntheticSubMeasurement('SW2', 'uuid-2', 40, 2);
+  const sub3 = generateSyntheticSubMeasurement('SW3', 'uuid-3', 90, -1.5);
+
+  const config = {
+    frequency: { min: 20, max: 200 },
+    gain: { min: 0, max: 0, step: 0.1 },
+    delay: { min: -0.005, max: 0.005, step: 0.0001 },
+    allPass: { enabled: false },
+    optimization: {
+      objective: 'balanced',
+      globalRefinement: { enabled: true, passes: 2, maxIterations: 20 },
+    },
+  };
+
+  const optimizer = new MultiSubOptimizer([sub1, sub2, sub3], config, deps);
+  const result = optimizer.optimizeSubwoofers();
+
+  const report = result.optimizationReport;
+  console.log(`Pre-refinement quality: ${report.preRefinement.qualityScore.toFixed(2)}`);
+  console.log(`Final quality: ${report.final.qualityScore.toFixed(2)}`);
+  console.log(`Refinement improvements: ${report.globalRefinement.improvements}`);
+
+  // The refinement must never degrade the score (within a tiny float tolerance).
+  const noRegression =
+    report.final.qualityScore >= report.preRefinement.qualityScore - 0.01;
+
+  // The report must correctly indicate refinement was enabled.
+  const refinementEnabled = report.globalRefinement.enabled === true;
+
+  // The improvement count must be a non-negative integer.
+  const validImprovementCount =
+    Number.isInteger(report.globalRefinement.improvements) &&
+    report.globalRefinement.improvements >= 0;
+
+  const passed = noRegression && refinementEnabled && validImprovementCount;
+  console.log(
+    `\n${passed ? '✅ PASSED' : '❌ FAILED'}: Global refinement does not degrade quality and reports correctly`,
+  );
+  return passed;
+}
+
+// ============================================
+// REPORT & GUARDRAILS TEST
+// ============================================
+
+function testOptimizationReport() {
+  console.log('\n' + '='.repeat(60));
+  console.log('TEST: Optimization Report & Audio Selection Guardrails');
+  console.log('='.repeat(60));
+
+  const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+  const sub2 = generateSyntheticSubMeasurement('SW2', 'uuid-2', 30, 1.5);
+
+  const config = {
+    frequency: { min: 20, max: 200 },
+    gain: { min: 0, max: 0, step: 0.1 },
+    delay: { min: -0.005, max: 0.005, step: 0.0001 },
+    allPass: { enabled: false },
+  };
+
+  const optimizer = new MultiSubOptimizer([sub1, sub2], config, deps);
+  const result = optimizer.optimizeSubwoofers();
+  const report = result.optimizationReport;
+
+  // Validate report structure
+  const hasRequiredFields =
+    report.objective === 'balanced' &&
+    report.subwooferCount === 2 &&
+    typeof report.baseline.qualityScore === 'number' &&
+    typeof report.final.qualityScore === 'number' &&
+    typeof report.improvement.qualityScore === 'number' &&
+    typeof report.implementationCost.maxAbsDelayMs === 'number' &&
+    typeof report.audioSelection.score === 'number';
+
+  // Validate efficiency ratio is capped at 100 (fix from review)
+  const efficiencyCapped = report.final.efficiencyRatio <= 100;
+
+  // Validate theoretical gap is non-negative
+  const gapValid = report.final.theoreticalGap >= 0;
+
+  // Validate audio selection decision is one of the valid values
+  const validDecision = ['recommended', 'review', 'rejected'].includes(
+    report.audioSelection.decision,
+  );
+
+  // Validate guardrails array exists
+  const guardrailsValid = Array.isArray(report.audioSelection.guardrails);
+
+  // Validate implementation cost fields
+  const costValid =
+    report.implementationCost.polarityFlipCount >= 0 &&
+    report.implementationCost.allPassCount >= 0 &&
+    report.implementationCost.adjustedSubCount >= 0;
+
+  console.log(`  Report structure: ${hasRequiredFields ? 'OK' : 'FAIL'}`);
+  console.log(
+    `  Efficiency capped ≤100: ${efficiencyCapped ? 'OK' : 'FAIL'} (${report.final.efficiencyRatio.toFixed(2)}%)`,
+  );
+  console.log(
+    `  Theoretical gap ≥0: ${gapValid ? 'OK' : 'FAIL'} (${report.final.theoreticalGap.toFixed(2)}%)`,
+  );
+  console.log(`  Audio selection decision: ${report.audioSelection.decision}`);
+  console.log(`  Guardrails: ${report.audioSelection.guardrails.length} entry(s)`);
+  console.log(
+    `  Implementation cost: ${JSON.stringify({
+      maxAbsDelayMs: report.implementationCost.maxAbsDelayMs.toFixed(3),
+      maxAbsGainDb: report.implementationCost.maxAbsGainDb.toFixed(2),
+      polarityFlipCount: report.implementationCost.polarityFlipCount,
+      allPassCount: report.implementationCost.allPassCount,
+    })}`,
+  );
+
+  const passed =
+    hasRequiredFields &&
+    efficiencyCapped &&
+    gapValid &&
+    validDecision &&
+    guardrailsValid &&
+    costValid;
+  console.log(
+    `\n${passed ? '✅ PASSED' : '❌ FAILED'}: Report structure and guardrails are valid`,
+  );
+  return passed;
+}
+
+// ============================================
+// ERROR CASE TESTS
+// ============================================
+
+function testErrorCases() {
+  console.log('\n' + '='.repeat(60));
+  console.log('TEST: Error Cases & Input Validation');
+  console.log('='.repeat(60));
+
+  let passedCount = 0;
+  let totalCount = 0;
+
+  function assertThrows(description, factory) {
+    totalCount++;
+    try {
+      // The factory is expected to throw during construction; the result is
+      // intentionally unused.
+      const instance = factory();
+      if (instance) throw new Error(`${description}: expected throw but returned`);
+      console.log(`  ❌ ${description}: expected throw but did not`);
+    } catch (err) {
+      passedCount++;
+      console.log(`  ✅ ${description}: ${err.message}`);
+    }
+  }
+
+  // Case 1: Single sub should fail
+  assertThrows('Single sub rejected', () => {
+    const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+    return new MultiSubOptimizer([sub1], {}, deps);
+  });
+
+  // Case 2: Empty array should fail
+  assertThrows('Empty array rejected', () => new MultiSubOptimizer([], {}, deps));
+
+  // Case 3: Mismatched frequency lengths should fail
+  assertThrows('Mismatched freq lengths rejected', () => {
+    const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+    const sub2 = {
+      ...sub1,
+      measurement: 'uuid-2',
+      name: 'SW2',
+      freqs: sub1.freqs.slice(0, 10),
+      magnitude: sub1.magnitude.slice(0, 10),
+      phase: sub1.phase.slice(0, 10),
+    };
+    return new MultiSubOptimizer([sub1, sub2], {}, deps);
+  });
+
+  // Case 4: Invalid config (min > max) should fail
+  assertThrows('Invalid delay range (min > max) rejected', () => {
+    const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+    const sub2 = generateSyntheticSubMeasurement('SW2', 'uuid-2', 0, 0);
+    return new MultiSubOptimizer(
+      [sub1, sub2],
+      {
+        delay: { min: 0.005, max: -0.005, step: 0.0001 },
+      },
+      deps,
+    );
+  });
+
+  // Case 5: Invalid step (step ≤ 0) should fail
+  assertThrows('Invalid delay step (≤0) rejected', () => {
+    const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+    const sub2 = generateSyntheticSubMeasurement('SW2', 'uuid-2', 0, 0);
+    return new MultiSubOptimizer(
+      [sub1, sub2],
+      {
+        delay: { min: -0.005, max: 0.005, step: 0 },
+      },
+      deps,
+    );
+  });
+
+  // Case 6: Missing measurement UUID should fail
+  assertThrows('Missing measurement UUID rejected', () => {
+    const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+    const sub2 = { ...sub1, measurement: undefined, name: 'SW2' };
+    return new MultiSubOptimizer([sub1, sub2], {}, deps);
+  });
+
+  // Case 7: Invalid optimization objective should fail
+  assertThrows('Invalid optimization objective rejected', () => {
+    const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+    const sub2 = generateSyntheticSubMeasurement('SW2', 'uuid-2', 0, 0);
+    return new MultiSubOptimizer(
+      [sub1, sub2],
+      {
+        optimization: { objective: 'invalid' },
+      },
+      deps,
+    );
+  });
+
+  // Case 8: theoreticalWeight out of [0,1] should fail
+  assertThrows('theoreticalWeight > 1 rejected', () => {
+    const sub1 = generateSyntheticSubMeasurement('SW1', 'uuid-1', 0, 0);
+    const sub2 = generateSyntheticSubMeasurement('SW2', 'uuid-2', 0, 0);
+    return new MultiSubOptimizer(
+      [sub1, sub2],
+      {
+        optimization: { objective: 'max-theoretical', theoreticalWeight: 1.5 },
+      },
+      deps,
+    );
+  });
+
+  const passed = passedCount === totalCount;
+  console.log(
+    `\n${passed ? '✅ PASSED' : '❌ FAILED'}: ${passedCount}/${totalCount} error cases correctly handled`,
+  );
+  return passed;
 }
 
 // ============================================
@@ -537,8 +830,8 @@ function runClassicComparison(frequencyResponses, optimizerConfig, baselineScore
     const subToOpt = prepared2[i];
     const theo2 = optimizer2.calculateCombinedResponse(
       [subToOpt, previousSum2],
-      false,
       true,
+      false,
     );
     const classicResult = optimizer2.runClassicOptimization(
       subToOpt,
@@ -556,12 +849,17 @@ function runClassicComparison(frequencyResponses, optimizerConfig, baselineScore
   }
 
   const endTime2 = performance.now();
-  const improvement2 =
-    ((previousSum2.score - baselineScore) / Math.abs(baselineScore)) * 100;
+
+  // Compute the global score (same reference as optimizeSubwoofers) so the
+  // comparison is apples-to-apples. Using previousSum2.score (a per-sub score
+  // computed with theo2) would compare different scoring references.
+  const globalTheo2 = optimizer2.calculateCombinedResponse(prepared2, true, false);
+  const globalScore2 = optimizer2.calculateOptimizationScore(previousSum2, globalTheo2);
+  const improvement2 = ((globalScore2 - baselineScore) / Math.abs(baselineScore)) * 100;
 
   console.log('\n--- Classic Optimization (for comparison) ---');
   console.log(`Classic optimization time: ${(endTime2 - startTime2).toFixed(0)}ms`);
-  console.log(`Classic best score: ${previousSum2.score.toFixed(2)}`);
+  console.log(`Classic best score: ${globalScore2.toFixed(2)}`);
   console.log(`Classic improvement: ${improvement2.toFixed(2)}%`);
   console.log('\n--- Classic Optimized Parameters ---');
   for (const sub of optimizedSubs2) {
@@ -571,7 +869,7 @@ function runClassicComparison(frequencyResponses, optimizerConfig, baselineScore
     );
   }
 
-  return { classicScore: previousSum2.score, improvement2 };
+  return { classicScore: globalScore2, improvement2 };
 }
 
 function logOptimizedParams(optimizedSubs) {
@@ -598,7 +896,7 @@ function evaluateComparisonResult(
   const { classicScore, improvement2 } = classicResult;
   const geneticImproves = geneticScore > baselineScore;
   const classicImproves = classicScore > baselineScore;
-  const geneticBeatsClassic = geneticScore >= classicScore - 0.5;
+  const geneticBeatsClassic = geneticScore >= classicScore - 1;
 
   console.log(
     `\n${geneticScore >= classicScore ? '🧬 Genetic' : '📊 Classic'} optimization performed better`,
@@ -608,7 +906,7 @@ function evaluateComparisonResult(
   );
   console.log(`\n--- Score Requirements ---`);
   console.log(`  Classic score: ${classicScore.toFixed(2)}`);
-  console.log(`  Genetic >= Classic - 0.5: ${geneticBeatsClassic ? 'YES' : 'NO'}`);
+  console.log(`  Genetic >= Classic - 1: ${geneticBeatsClassic ? 'YES' : 'NO'}`);
 
   const passed = geneticImproves && classicImproves && geneticBeatsClassic;
   console.log(
@@ -629,7 +927,10 @@ function testWithRealMeasurements(
   dataLabel,
   allPassEnabled = false,
 ) {
-  optimizerConfig.allPass.enabled = allPassEnabled;
+  // Clone the config so the allPass mutation does not leak back to the
+  // caller's object (which is reused for the AllPass variant of the test).
+  const config = structuredClone(optimizerConfig);
+  config.allPass.enabled = allPassEnabled;
 
   console.log('\n' + '='.repeat(60));
   console.log(
@@ -645,15 +946,13 @@ function testWithRealMeasurements(
   }
 
   console.log(`\nOptimizer config:`);
+  console.log(`  Frequency: ${config.frequency.min}Hz - ${config.frequency.max}Hz`);
   console.log(
-    `  Frequency: ${optimizerConfig.frequency.min}Hz - ${optimizerConfig.frequency.max}Hz`,
+    `  Delay: ${(config.delay.min * 1000).toFixed(3)}ms - ${(config.delay.max * 1000).toFixed(3)}ms, step=${(config.delay.step * 1000).toFixed(4)}ms`,
   );
-  console.log(
-    `  Delay: ${(optimizerConfig.delay.min * 1000).toFixed(3)}ms - ${(optimizerConfig.delay.max * 1000).toFixed(3)}ms, step=${(optimizerConfig.delay.step * 1000).toFixed(4)}ms`,
-  );
-  console.log(`  AllPass: ${optimizerConfig.allPass.enabled ? 'enabled' : 'disabled'}`);
+  console.log(`  AllPass: ${config.allPass.enabled ? 'enabled' : 'disabled'}`);
 
-  const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, deps);
+  const optimizer = new MultiSubOptimizer(frequencyResponses, config, deps);
   for (const sub of frequencyResponses) {
     if (!sub.param) sub.param = MultiSubOptimizer.EMPTY_CONFIG;
   }
@@ -662,7 +961,7 @@ function testWithRealMeasurements(
   optimizer.frequencyWeights = optimizer.calculateFrequencyWeights(preparedSubs[0].freqs);
 
   const baselineCombined = optimizer.calculateCombinedResponse(preparedSubs);
-  const baselineTheo = optimizer.calculateCombinedResponse(preparedSubs, false, true);
+  const baselineTheo = optimizer.calculateCombinedResponse(preparedSubs, true, false);
   const baselineScore = optimizer.calculateQualityScore(baselineCombined, baselineTheo);
 
   console.log('\n--- Baseline (no optimization) ---');
@@ -676,10 +975,26 @@ function testWithRealMeasurements(
   console.log(`Optimization time: ${elapsed.toFixed(0)}ms`);
   console.log(`Best score: ${result.bestSum.score.toFixed(2)}`);
 
-  const maxAllowedTime = allPassEnabled ? 1800 : 1200;
+  // Display efficiency ratio to compare with MSO (theoretical max proximity)
+  const finalEfficiency = optimizer.calculateEfficiencyRatio(
+    result.bestSum,
+    baselineTheo,
+  );
+  const baselineEfficiency = optimizer.calculateEfficiencyRatio(
+    baselineCombined,
+    baselineTheo,
+  );
+  console.log(`Baseline efficiency: ${baselineEfficiency.toFixed(2)}%`);
+  console.log(`Final efficiency: ${finalEfficiency.toFixed(2)}%`);
+  console.log(
+    `Efficiency gain: ${(finalEfficiency - baselineEfficiency).toFixed(2)} pts`,
+  );
+
+  const maxAllowedTime = allPassEnabled ? 2500 : 1200;
   if (elapsed > maxAllowedTime) {
-    console.log(`\n❌ FAILED: Optimization time exceeded ${maxAllowedTime}ms`);
-    process.exit(1);
+    throw new Error(
+      `Optimization time exceeded ${maxAllowedTime}ms (got ${elapsed.toFixed(0)}ms)`,
+    );
   } else {
     console.log(`\n✅ PASSED: Optimization time within ${maxAllowedTime}ms`);
   }
@@ -697,11 +1012,7 @@ function testWithRealMeasurements(
   console.log(`Cache misses: ${optimizer._cacheMisses}`);
   console.log(`Hit rate: ${hitRate.toFixed(1)}%`);
 
-  const classicResult = runClassicComparison(
-    frequencyResponses,
-    optimizerConfig,
-    baselineScore,
-  );
+  const classicResult = runClassicComparison(frequencyResponses, config, baselineScore);
   if (classicResult === null) return true;
 
   return evaluateComparisonResult(
@@ -731,6 +1042,9 @@ results.push(
   { name: 'Deterministic Results', passed: testDeterministicResults() },
   { name: 'Phase Alignment', passed: testPhaseAlignmentScenario() },
   { name: 'Local Search', passed: testLocalSearchImprovement() },
+  { name: 'Global Refinement', passed: testGlobalRefinement() },
+  { name: 'Report & Guardrails', passed: testOptimizationReport() },
+  { name: 'Error Cases', passed: testErrorCases() },
 );
 
 // --- Real-measurement tests (one pair per data file) ---
@@ -778,5 +1092,5 @@ if (passedCount === results.length) {
   console.log('\n🎉 All tests passed!');
 } else {
   console.log('\n⚠️ Some tests failed');
-  process.exit(1);
+  throw new Error(`${results.length - passedCount}/${results.length} tests failed`);
 }

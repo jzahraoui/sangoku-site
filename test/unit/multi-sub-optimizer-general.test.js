@@ -510,12 +510,26 @@ describe('MultiSubOptimizer guards and parameter handling', () => {
     opt.preparedSubs[1].param = MultiSubOptimizer.EMPTY_CONFIG;
     vi.spyOn(opt, 'localSearch').mockReturnValue({ score: 999, param: improvedParam });
 
+    // The global refinement guard calls scoreOptimizedSubSum →
+    // calculateOptimizationScoreDetails → calculateQualityScore to validate
+    // that the global score actually improves. Mock calculateQualityScore so
+    // the guard accepts the mocked localSearch improvement.
+    let qualityScoreCallCount = 0;
+    vi.spyOn(opt, 'calculateQualityScore').mockImplementation(() => {
+      qualityScoreCallCount++;
+      // First call is the baseline; subsequent calls return a higher score
+      // so the guard accepts the refinement.
+      return qualityScoreCallCount === 1 ? 50 : 100;
+    });
+
     const refined = opt.refineOptimizedSubsGlobally(opt.preparedSubs, {
       optimizedSubs: opt.optimizedSubs,
       bestSum: opt.calculateCombinedResponse(opt.preparedSubs),
       comparativeAnalysis: [],
     });
 
+    // Global refinement optimizes subs 1..N-1 (not sub 0, the reference).
+    // With 2 subs, only Sub B is refined, so 1 improvement is expected.
     expect(opt.optimizedSubs[0].param).toEqual(improvedParam);
     expect(refined.globalRefinement).toEqual({ enabled: true, improvements: 1 });
   });

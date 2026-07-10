@@ -1,3 +1,16 @@
+/**
+ * Fixture: data.bug.test
+ *
+ * 4 subwoofers, real REW measurements.
+ * Frequency grid: 12–269 Hz, log-spaced (ppo=96).
+ * Smoothing: 1/48 octave.
+ *
+ * Scenario: regression case that previously triggered a bug in the optimizer
+ * (e.g. boundary delay, polarity mis-detection, or all-pass instability).
+ * The optimizer must not regress on this dataset.
+ *
+ * Config: delay range ±7.5ms (≈2.6m), gain fixed at 0, all-pass optional.
+ */
 /* eslint-disable no-loss-of-precision */
 const frequencyResponses = [
   {
@@ -339,7 +352,7 @@ const frequencyResponses = [
       allPass: {
         frequency: 0,
         q: 0,
-        enabled: false,
+        enabled: true,
       },
     },
   },
@@ -687,7 +700,7 @@ const frequencyResponses = [
       allPass: {
         frequency: 0,
         q: 0,
-        enabled: false,
+        enabled: true,
       },
     },
   },
@@ -1031,7 +1044,7 @@ const frequencyResponses = [
       allPass: {
         frequency: 0,
         q: 0,
-        enabled: false,
+        enabled: true,
       },
     },
   },
@@ -1379,7 +1392,7 @@ const frequencyResponses = [
       allPass: {
         frequency: 0,
         q: 0,
-        enabled: false,
+        enabled: true,
       },
     },
   },
@@ -1411,6 +1424,20 @@ const optimizerConfig = {
       min: 0.1,
       max: 0.5,
       step: 0.1,
+    },
+  },
+  optimization: {
+    objective: 'balanced',
+    globalRefinement: {
+      enabled: true,
+      passes: 4,
+      maxIterations: 30,
+    },
+    multiStart: {
+      enabled: true,
+      runs: 1,
+      coarseSeedCount: 8,
+      minRunImprovement: 0.25,
     },
   },
 };

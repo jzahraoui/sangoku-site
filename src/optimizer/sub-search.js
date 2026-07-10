@@ -38,16 +38,26 @@ export function optimizeSingleSub(
   } = options;
 
   if (!testParamsList) {
-    throw new Error('coarseParams is required for genetic optimization');
+    throw new Error('testParamsList is required for genetic optimization');
   }
 
   if (seed !== null) {
     optimizer._random = optimizer._createSeededRandom(seed);
   }
 
-  const theo = calculateCombinedResponse([subToOptimize, previousValidSum], false, true, {
-    validate: false,
-  });
+  // Theoretical max for per-sub scoring: uses the GLOBAL theoretical max
+  // (minimum phase of ALL prepared subs, computed once in flow.js) passed
+  // via options, rather than a per-sub theo that changes at each step.
+  // The per-sub theo ([sub + previousSum]) created a moving target: each
+  // sub was optimized against a different reference, and a solution that
+  // was good locally could degrade the global efficiency. Using the global
+  // max ensures all subs are scored against the same stable reference,
+  // which matches how the final result is evaluated.
+  const theo =
+    options.globalTheoreticalMax ??
+    calculateCombinedResponse([subToOptimize, previousValidSum], false, true, {
+      validate: false,
+    });
 
   const result =
     method === 'genetic'

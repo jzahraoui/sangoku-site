@@ -264,18 +264,23 @@ export function buildParameterizedSubResponses(
 }
 
 export function getFinalSubSum(optimizer) {
-  const [firstSub, ...subsWithoutFirst] = optimizer.subMeasurements;
+  // Use preparedSubs (frequency-filtered to the optimization band) so the
+  // returned response matches the band used during optimization. Using
+  // subMeasurements here would include out-of-band frequencies and produce a
+  // score inconsistent with the optimization result.
+  const preparedSubs = optimizer.preparedSubs;
+  const [firstSub, ...subsWithoutFirst] = preparedSubs;
   const optimizedSubArray = [firstSub];
 
-  for (const originalSub of subsWithoutFirst) {
+  for (const preparedSub of subsWithoutFirst) {
     const found = optimizer.optimizedSubs.find(
-      sub => sub.measurement === originalSub.measurement,
+      sub => sub.measurement === preparedSub.measurement,
     );
 
     if (!found) throw new Error('Sub not found in optimized subs');
 
     optimizedSubArray.push(
-      calculateResponseWithParams({ ...originalSub, param: found.param }),
+      calculateResponseWithParams({ ...preparedSub, param: found.param }),
     );
   }
 

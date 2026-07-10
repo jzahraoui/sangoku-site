@@ -164,9 +164,16 @@ class Scorer {
       len,
     );
 
-    // Weights determined by psychoacoustic importance
+    // Weights determined by psychoacoustic importance.
+    // Efficiency is weighted 2× because it represents proximity to the
+    // theoretical maximum (coherent sum). Without this weight, the optimizer
+    // sacrifices level to reduce dips — acceptable with all-pass filters (which
+    // can correct phase without losing level) but harmful without them (where
+    // delay is the only tool and trades level for smoothness). The 2× weight
+    // ensures the optimizer does not degrade the overall level when smoothing
+    // the response.
     return (
-      efficiency -
+      efficiency * 2 -
       dipPenalty * 3 -
       nullPenalty * 3 -
       peakPenalty * 0.5 -
@@ -290,8 +297,7 @@ class Scorer {
     const SLOPE_REFERENCE_DB_PER_OCT = 24;
     const REFERENCE_CONTRIBUTION = 0.6; // == legacy (24 - 12) * 0.05
     const PER_BIN_PENALTY_CAP = 2.5;
-    const slopeNorm =
-      SLOPE_REFERENCE_DB_PER_OCT - SLOPE_THRESHOLD_DB_PER_OCT;
+    const slopeNorm = SLOPE_REFERENCE_DB_PER_OCT - SLOPE_THRESHOLD_DB_PER_OCT;
     let smoothnessPenalty = 0;
 
     for (let i = 1; i < len; i++) {

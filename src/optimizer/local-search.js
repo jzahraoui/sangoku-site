@@ -72,6 +72,10 @@ function buildLocalSearchPerturbations(stepSizes, hasAllPass) {
     { key: 'delay', delta: -stepSizes.delay.delta },
     { key: 'gain', delta: stepSizes.gain.delta },
     { key: 'gain', delta: -stepSizes.gain.delta },
+    // Polarity flip: discrete perturbation (delta is ignored, the key
+    // triggers a full 180° phase rotation). Without this, the local search
+    // can never correct a wrong polarity chosen by the coarse/GA phase.
+    { key: 'polarity', delta: 0 },
   ];
 
   if (hasAllPass) {
@@ -129,6 +133,12 @@ function applyLocalSearchPerturbation(config, param, perturbation, stepSizes) {
       config.allPass.q,
       stepSizes.allPassQ.quantum,
     );
+  } else if (perturbation.key === 'polarity') {
+    // Discrete perturbation: flip polarity (1 ↔ -1). This lets the local
+    // search escape a wrong polarity choice from the coarse/GA phase, which
+    // is critical because polarity has the largest impact on the combined
+    // response (180° phase rotation).
+    testParam.polarity = testParam.polarity === 1 ? -1 : 1;
   }
 
   return testParam;

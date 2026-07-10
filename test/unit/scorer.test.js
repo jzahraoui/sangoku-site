@@ -36,7 +36,9 @@ describe('Scorer psychoacoustic invariants', () => {
     const flat = response(freqs, [80, 80, 80, 80, 80]);
     const scorer = scorerWithUnitWeights(freqs.length);
 
-    expect(scorer.calculateQualityScore(flat, flat)).toBeCloseTo(100, 5);
+    // Efficiency is weighted 2×, so a perfect flat response at full
+    // efficiency scores 100 * 2 = 200 (no dip/null/peak/smoothness penalties).
+    expect(scorer.calculateQualityScore(flat, flat)).toBeCloseTo(200, 5);
   });
 
   it('penalizes dips much more strongly than equivalent peaks', () => {

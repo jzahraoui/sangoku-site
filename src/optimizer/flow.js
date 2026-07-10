@@ -47,7 +47,15 @@ export function findOptimalParameters(optimizer, preparedSubs) {
   const referenceSub = preparedSubs[0];
   referenceSub.param = EMPTY_CONFIG;
 
-  const globalTheoreticalMax = calculateCombinedResponse(preparedSubs, false, true, {
+  // Absolute theoretical maximum (phase=0 for all subs): this is
+  // time-invariant — it does not change when delays or polarity are applied.
+  // The minimum phase was previously used, but it represents the best phase
+  // alignment WITHOUT delays. Since the optimizer applies delays, the
+  // minimum phase is a moving target that shifts as params change, causing
+  // the efficiency to drop artificially when delays are applied. The absolute
+  // max (phase=0) provides a stable, physically meaningful upper bound that
+  // rewards phase alignment without penalizing delay usage.
+  const globalTheoreticalMax = calculateCombinedResponse(preparedSubs, true, false, {
     validate: false,
   });
   const baselineMetrics = calculateReportMetrics(
@@ -68,6 +76,9 @@ export function findOptimalParameters(optimizer, preparedSubs) {
   optimizer.optimizedSubs = [];
   const comparativeAnalysis = [];
   const options = buildOptimizationOptions(optimizer.config, method);
+  // Pass the global theoretical max so each sub is scored against the same
+  // stable reference, instead of a per-sub theo that shifts at each step.
+  options.globalTheoreticalMax = globalTheoreticalMax;
 
   for (const subToOptimize of subsWithoutFirst) {
     const { finalResponse, comparative } = optimizeSingleSub(
