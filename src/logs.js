@@ -1,5 +1,5 @@
 /**
- * Framework-agnostic log service (CLAUDE.md [MIXTE] #5 decontamination).
+ * Framework-agnostic log service.
  *
  * State + levels + ring buffer + a plain listener API — no Knockout, no DOM. The
  * whole engine, the business services and the UI import this singleton as `lm`

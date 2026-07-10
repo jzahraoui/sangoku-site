@@ -1,7 +1,7 @@
 # ADR 002 — Interface de MeasurementItem post-décontamination (D-03)
 
 - **Statut** : accepté (décision auto-tracée du run de migration, 2026-06-12,
-  prérequis des lots d'extraction I3+ — cf. `docs/reverse/03-vm-decontamination.md`)
+  prérequis des extractions de services)
 - **Contexte** : `MeasurementItem` mêle aujourd'hui trois rôles : miroir de l'état REW
   (observables `title`, `splOffsetdB`, `cumulativeIRShiftSeconds`…), dérivations métier
   (computeds canal/distance/SPL) et orchestration REW (60+ méthodes async). CLAUDE.md

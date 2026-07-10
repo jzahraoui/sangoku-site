@@ -52,7 +52,7 @@ function createSPLOffsetMeasurement({ initialSplOffsetdB = 10, splOffsetdB = 10 
     );
   measurement.displayMeasurementTitle = () => '1: Front Left';
   // setSPLOffsetDB reads the bandwidth through the measurement-operations
-  // cache carried by the measurement (lot I4).
+  // cache carried by the measurement.
   measurement.cachedBandwidth = { centerFrequencyHz: 80 };
   measurement.refresh = vi.fn();
   measurement.parentViewModel = { rewMeasurements };

@@ -1,6 +1,6 @@
 /**
- * MSO Equalizer-APO import into REW (lot MSO-B). Decontaminated equivalent of
- * BusinessTools.importFilterInREW (D-04, ADR 002): applies the parsed REW
+ * MSO Equalizer-APO import into REW. Decontaminated equivalent of
+ * BusinessTools.importFilterInREW (ADR 002): applies the parsed REW
  * configurations (filters, inversion, delay, gain) to the matching subwoofer
  * records through the operations service.
  *

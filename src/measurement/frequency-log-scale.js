@@ -1,9 +1,8 @@
 /**
- * Logarithmic frequency-scale maths for the dual-range frequency slider (D-05).
+ * Logarithmic frequency-scale maths for the dual-range frequency slider.
  *
- * [MOTEUR] module — no DOM, no Knockout, no Vue. Extracted verbatim from the
- * Knockout `FrequencyRangeSlider` widget so the reactive UI (KO class today,
- * Vue `DualRangeSlider.vue` on the migration path) shares one source of truth
+ * [MOTEUR] module — no DOM, no Knockout, no UI framework. Extracted verbatim from the
+ * Knockout `FrequencyRangeSlider` widget so any slider UI shares one source of truth
  * for the log10 ↔ frequency ↔ ratio conversions, clamping and snapping.
  *
  * A slider maps a linear position (ratio 0..1 across the track) onto a log10

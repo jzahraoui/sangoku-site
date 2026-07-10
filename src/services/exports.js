@@ -5,7 +5,7 @@ import ampAssignType from '../amp-type.js';
 
 /**
  * Export/report generation service extracted from MeasurementViewModel
- * (décontamination lot V3 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [ORCHESTRATION] service: builds the OCA file, the settings report, the MSO
  * sub package and the .avr receiver config as `{ filename, blob }` results —

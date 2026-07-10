@@ -37,7 +37,7 @@ import {
   getAlignSPLOffsetdBByUUID,
 } from './services/measurement-operations.js';
 
-// Simple REW wrappers live in src/services/measurement-operations.js (lot I3);
+// Simple REW wrappers live in src/services/measurement-operations.js;
 // the methods below are thin adapters keeping the public API unchanged.
 const ops = createMeasurementOperations({ log: lm });
 
@@ -386,7 +386,7 @@ class MeasurementItem {
   }
 
   // The slice of the viewmodel that owns the measurement list, consumed by the
-  // sequence operations until the rew-session service exists (lot V2).
+  // sequence operations until the rew-session service exists.
   sessionContext() {
     return {
       analyseApiResponse: response => this.parentViewModel.analyseApiResponse(response),

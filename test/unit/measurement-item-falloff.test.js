@@ -19,7 +19,7 @@ function response(freqs, magnitude) {
   };
 }
 
-// detectFallOff delegates to measurement-operations (lot I3): the REW API is
+// detectFallOff delegates to measurement-operations: the REW API is
 // the mocking seam, not the item's own methods.
 function createFallOffMeasurement(measurementData, ...targetResponses) {
   const measurement = Object.create(MeasurementItem.prototype);

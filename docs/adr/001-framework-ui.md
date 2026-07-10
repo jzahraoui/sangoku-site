@@ -1,6 +1,10 @@
 # ADR 001 — Framework UI cible et décisions de cadrage de la migration
 
-- **Statut** : accepté (validé par Jaoued le 2026-06-12, cadrage du run de migration)
+- **Statut** : accepté (validé par Jaoued le 2026-06-12, cadrage du run de migration).
+  **Mise à jour 2026-07-10** : le premier portage Vue a été abandonné (régressions de
+  parité) — son historique est conservé sur la branche `feat/vue-migration`. La décision
+  de cible Vue 3 reste valable pour une future tentative, qui repartira de la base
+  décontaminée actuelle (moteur + services agnostiques, ADR 002).
 - **Date** : 2026-06-12
 - **Contexte** : migration de la couche de présentation de Knockout vers un framework moderne,
   en préservant intégralement le moteur de calcul (cf. `CLAUDE.md`,

@@ -2,13 +2,13 @@ import RoomCurvesSettings from '../room-curve-settings.js';
 
 /**
  * Persistence service extracted from MeasurementViewModel
- * (décontamination lot V6 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [ORCHESTRATION] service: serialises the session (measurements + settings)
  * into the persistent store and restores it. No Knockout, no DOM.
  *
  * Construction dependencies:
- * - `store`: the PersistentStore (save/load/clear) — D-07: conservé tel quel.
+ * - `store`: the PersistentStore (save/load/clear) — conservé tel quel.
  * - `settings`: generic accessor — { get(name), set(name, value) }. Persisted
  *   keys match the viewmodel observable names, except `avrFileContent` which
  *   maps to `jsonAvrData` (handled here).

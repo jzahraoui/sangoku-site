@@ -8,7 +8,7 @@ import { setSameDelayToAll } from './alignment.js';
 
 /**
  * Subwoofer optimization service extracted from MeasurementViewModel
- * (décontamination lot V5 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [ORCHESTRATION] service: subwoofer sums, single/multi sub equalization and
  * the MultiSubOptimizer sequence. No Knockout, no DOM.
@@ -37,7 +37,7 @@ const labelOf = m => unwrap(m.displayMeasurementTitle) ?? unwrap(m.title);
  * every call delegates to the measurement's own method (Knockout MeasurementItem
  * adapter) — bit-for-bit the historical behaviour, so the existing unit tests and
  * the multi-sub-optimizer golden masters (which pass no `operations`) are
- * unaffected. With `operations` (Vue, ADR 002) the calls route to the
+ * unaffected. With `operations` (ADR 002) the calls route to the
  * createMeasurementOperations functions, and the per-item context the KO methods
  * derived from the viewmodel comes from the injected providers.
  */
@@ -101,9 +101,9 @@ function buildMeasurementApi({
     setcumulativeIRShiftSeconds: (m, value) =>
       operations.setcumulativeIRShiftSeconds(rew(), m, value),
     detectFallOff: (m, threshold) => operations.detectFallOff(rew(), m, { threshold }),
-    // 'rch' phase-match mode is not on the Vue path (selectedEqualizationMode='rew').
+    // 'rch' phase-match mode is not on the operations path (selectedEqualizationMode='rew').
     runPhaseMatchFilter: () => {
-      throw new Error('rch phase-match is not wired in the Vue entry yet');
+      throw new Error('rch phase-match is not wired on the operations path yet');
     },
     checkFilterGain: m => operations.checkFilterGain(rew(), m),
     setFilters: (m, filters, overwrite) =>

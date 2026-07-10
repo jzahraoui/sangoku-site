@@ -8,7 +8,7 @@ const API_UPDATE_FIELDS = [
   'splOffsetdB',
   'alignSPLOffsetdB',
   'timeOfIRPeakSeconds',
-  // not an API field: written by the alignment service (lot V4)
+  // not an API field: written by the alignment service
   'shiftDelay',
   'notes',
   'date',
@@ -42,7 +42,7 @@ const PLAIN_FIELDS = [
 ];
 
 // Fields mirrored as KO observables by the MeasurementItem adapter (and as
-// shallowRef by the future Vue composable).
+// by a future reactive UI layer).
 const OBSERVABLE_FIELDS = [
   'title',
   'inverted',

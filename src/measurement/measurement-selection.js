@@ -2,7 +2,7 @@ import { DEFAULT_LFE_PREDICTED } from './measurement-info.js';
 
 /**
  * Pure list selection/grouping logic extracted from MeasurementViewModel
- * (décontamination lot V1 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [MOTEUR] module. Items are read through `unwrap`, so the functions accept
  * both today's Knockout items (getter observables) and tomorrow's plain

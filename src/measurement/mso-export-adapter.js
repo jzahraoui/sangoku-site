@@ -1,13 +1,13 @@
 /**
- * Method-bearing sub-measurement adapters for the MSO export (lot MSO-A).
+ * Method-bearing sub-measurement adapters for the MSO export pour oca-file.js.
  *
  * exports.js `appendMsoMeasurement` drives the measurement through methods
  * (resetAll, getFrequencyResponse, applyWorkingSettings) and reads channelName/
- * position — the KO MeasurementItem interface. The Vue entry holds flat
+ * position — the KO MeasurementItem interface. Record-based callers hold flat
  * MeasurementRecords (ADR 002), so these adapters wrap a record and route the
  * writes to the operations service and the derivations to measurement-view.
  *
- * [MOTEUR] module: no Knockout, no DOM, no Vue.
+ * [MOTEUR] module: no Knockout, no DOM, no UI framework.
  */
 
 function createMsoMeasurement(record, ctx) {

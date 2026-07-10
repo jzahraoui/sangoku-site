@@ -14,14 +14,14 @@ import {
  *
  * `oca-file.js` is a golden-master [MOTEUR] generator that consumes measurement
  * *objects* with methods (generateFilterMeasurement, isSub(), crossover(), …) —
- * it must not be rewritten. The Vue entry holds flat MeasurementRecords
+ * it must not be rewritten. Record-based callers hold flat MeasurementRecords
  * (ADR 002), so these adapters wrap a record and expose the exact interface
  * createOCAFile expects: derived getters route to measurement-export.js, write
  * methods route to the operations service. This is the "measurement model"
  * limited to the export surface (the option-C service refactor cannot apply to
  * a generator we cannot modify).
  *
- * [MOTEUR] module: no Knockout, no DOM, no Vue.
+ * [MOTEUR] module: no Knockout, no DOM, no UI framework.
  */
 
 function sessionContextOf(session) {

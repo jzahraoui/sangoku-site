@@ -4,7 +4,7 @@ import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
 
 /**
  * Time/SPL alignment service extracted from MeasurementViewModel
- * (décontamination lot V4 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [ORCHESTRATION] service: peak/SPL alignment sequences, subwoofer SPL
  * adjustment and inversion detection. No Knockout, no DOM.
@@ -17,12 +17,12 @@ import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
  * - `getPredictedLfeMeasurements()`: current predicted-LFE list.
  * - `operations`: (optional) createMeasurementOperations instance. When absent
  *   (Knockout entry) the service drives the measurement objects through their
- *   own methods — historical behaviour. When provided (Vue entry, ADR 002) the
+ *   own methods — historical behaviour. When provided (ADR 002) the
  *   flat MeasurementRecords carry no methods, so writes route to the operations
  *   functions instead. The context providers below feed the per-item arguments
  *   the KO item methods used to derive from the viewmodel.
  * - `getOtherPositionMeasurements(m)`, `workingSettingsConfig(m)`,
- *   `irWindowWidthsFor(m)`: (Vue only) context for the operations bridge.
+ *   `irWindowWidthsFor(m)`: (operations path) context for the operations bridge.
  */
 
 const SUBWOOFER_SPL_ALIGNMENT_OPTIONS = {
@@ -82,7 +82,7 @@ async function getTargetLevelAtFreq(measurement, targetFreq = 40) {
 /**
  * Measurement write API used by the alignment sequences. Without `operations`
  * every call delegates to the measurement's own method (Knockout MeasurementItem
- * adapter) — bit-for-bit the historical behaviour. With `operations` (Vue,
+ * adapter) — bit-for-bit the historical behaviour. With `operations` (ADR 002,
  * ADR 002) the calls route to the createMeasurementOperations functions, and the
  * per-item context the KO methods derived from the viewmodel is supplied by the
  * injected providers.
@@ -152,7 +152,7 @@ function createAlignmentService({
   workingSettingsConfig,
   irWindowWidthsFor,
   // Per-item context for checkAlignment. Defaults call the item's own getters
-  // (KO path); the Vue entry injects derivation-based providers on records.
+  // (KO path); record-based callers inject derivation-based providers.
   crossoverFor = m => unwrap(m.crossover),
   relatedLfeFor = m => unwrap(m.relatedLfeMeasurement),
   log = noopLog,

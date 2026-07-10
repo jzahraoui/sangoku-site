@@ -1,5 +1,5 @@
 /**
- * Decontaminated BusinessTools (D-04, ADR 002) for the Vue entry. The Knockout
+ * Decontaminated BusinessTools (ADR 002). The Knockout
  * BusinessTools drives the measurement objects through their methods; here the
  * same sequences run over the flat MeasurementRecords by routing writes to the
  * operations service. The internally-created measurements (predicted sums,

@@ -1,7 +1,6 @@
 /**
  * Speaker filter generation / bulk-apply service extracted from
- * MeasurementViewModel (décontamination lot V5 —
- * docs/reverse/03-vm-decontamination.md).
+ * MeasurementViewModel.
  *
  * [ORCHESTRATION] service. No Knockout, no DOM — the button shells (locks,
  * error channel, DOM icon toggles) stay in the viewmodel.
@@ -42,7 +41,7 @@ function selectMeasurementsForBulkApply({
 
 function createFiltersService({
   config,
-  // Vue path (ADR 002): route filter creation to createMeasurementOperations over
+  // operations path (ADR 002): route filter creation to createMeasurementOperations over
   // the flat records. When `operations` is absent the item methods are used
   // (Knockout path — unchanged), so the viewmodel + filters-service.test stay green.
   operations = null,
@@ -54,8 +53,8 @@ function createFiltersService({
   boostsFor = () => undefined,
   setTargetLevelFromMeasurement = () => {},
   getOtherPositionMeasurements = () => [],
-  // One-speaker preview. Default calls the item's own method (KO path); the Vue
-  // entry injects createMeasurementPreview + copyFiltersToOther over records.
+  // One-speaker preview. Default calls the item's own method (KO path);
+  // record-based callers inject createMeasurementPreview + copyFiltersToOther.
   previewOne = item => item.previewMeasurement(),
   log = noopLog,
 }) {
@@ -82,7 +81,7 @@ function createFiltersService({
       setTargetLevelFromMeasurement: () => setTargetLevelFromMeasurement(m),
       otherTargets: () => getOtherPositionMeasurements(m),
       createCalculator: () => {
-        throw new Error('phase-match calculator (rch mode) is not wired in the Vue entry');
+        throw new Error('phase-match calculator (rch mode) is not wired on the operations path');
       },
     };
   }
@@ -93,7 +92,7 @@ function createFiltersService({
       return isRch ? item.createPhaseMatchFilter() : item.createStandardFilter();
     }
     if (isRch) {
-      throw new Error('rch (phase-match) filter mode is not wired in the Vue entry');
+      throw new Error('rch (phase-match) filter mode is not wired on the operations path');
     }
     // Parity with item.createStandardFilter(useWorkingSettings=true, copyToOther=true).
     return operations.createFilter(

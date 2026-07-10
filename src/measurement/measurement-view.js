@@ -8,13 +8,13 @@ import {
 
 /**
  * Pure list-level derivations extracted from MeasurementViewModel /
- * MeasurementItem (lot É4a — portage Vue). Given the flat MeasurementRecords
+ * MeasurementItem. Given the flat MeasurementRecords
  * (ADR 002), the detected AVR channels and the currently selected listening
  * position, this rebuilds every grouped/filtered list the KO viewmodel exposed
  * as pureComputeds (validMeasurements, uniqueMeasurements, grouped, …) — the
  * arguments the averaging/alignment services consume.
  *
- * [MOTEUR] module: no Knockout, no DOM, no Vue. Records are read through
+ * [MOTEUR] module: no Knockout, no DOM, no UI framework. Records are read through
  * `titleOf`, so KO items (title observable) and plain records (title string)
  * both work.
  */

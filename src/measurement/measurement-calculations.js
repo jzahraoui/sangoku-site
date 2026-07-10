@@ -1,6 +1,6 @@
 /**
  * Pure numeric/comparison helpers extracted from MeasurementItem
- * (décontamination lot I1 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [MOTEUR] module: no Knockout, no DOM, no logger — callers inject
  * side-effects where needed.

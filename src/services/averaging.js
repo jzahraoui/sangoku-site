@@ -8,7 +8,7 @@ import {
 
 /**
  * Averaging service extracted from MeasurementViewModel
- * (décontamination lot V4 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [ORCHESTRATION] service: validates that the measurements are consistent
  * (SPL offsets, polarity) then hands the grouped responses to
@@ -81,7 +81,7 @@ function measurementsToDelete(uuids, deleteOriginal) {
 
 /**
  * Decontaminated equivalent of BusinessTools.processGroupedResponses for the
- * Vue entry (D-04, ADR 002): drives REW cross-correlation + averaging over the
+ * operations path (ADR 002): drives REW cross-correlation + averaging over the
  * flat MeasurementRecords, renames the created average through the operations
  * service, and returns true. The Knockout entry keeps BusinessTools until the
  * class is reclassed [MOTEUR].

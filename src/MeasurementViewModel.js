@@ -47,13 +47,13 @@ import { createPersistenceService } from './services/persistence.js';
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
 
 const store = new PersistentStore('myAppData');
-// Import/export orchestration lives in src/services/ (lot V3).
+// Import/export orchestration lives in src/services/.
 const importSession = createImportSession({ log: lm });
 const exportsService = createExportsService({ log: lm });
 const DEFAULT_IR_WINDOW_CHOICE = 'Optimized MTW';
 const FALLBACK_IR_WINDOW_CHOICE = 'None';
 // ALIGN_OFFSET_TOLERANCE et quantize3dB vivent désormais dans
-// src/measurement/measurement-selection.js (lot V1).
+// src/measurement/measurement-selection.js.
 const IR_WINDOW_PRESETS = {
   None: {
     leftWindowType: 'Rectangular',
@@ -386,7 +386,7 @@ class MeasurementViewModel {
     );
 
     // File import — validation/parsing/REW import in services/import-session.js
-    // (lot V3); only the DOM parts (File reading, download buttons) stay here.
+    //; only the DOM parts (File reading, download buttons) stay here.
     this.validateFile = file => importSession.validateFile(file);
 
     this.processMqxFile = async data =>
@@ -541,7 +541,7 @@ class MeasurementViewModel {
 
     this.isProcessing = ko.observable(false);
 
-    // Application-wide processing lock — logic in services/rew-session.js (lot V2).
+    // Application-wide processing lock — logic in services/rew-session.js.
     this.setProcessing = async newValue => this.rewSession.setProcessing(newValue);
 
     this.currentSelectedPosition = ko.observable();
@@ -1293,7 +1293,7 @@ class MeasurementViewModel {
       return this.maxDistanceInMetersError() - this.maxSubDistanceInMeters() + shift;
     });
 
-    // REW session service (lot V2) — owns polling, list sync and the
+    // REW session service — owns polling, list sync and the
     // processing lock; the viewmodel keeps mirror fields for its consumers.
     this.rewSession = createRewSession({
       state: observableProxy(this, [
@@ -1330,7 +1330,7 @@ class MeasurementViewModel {
       log: lm,
     });
 
-    // Target curve / alignment services (lot V4).
+    // Target curve / alignment services.
     this.targetCurveService = createTargetCurveService({
       session: this.rewSession,
       state: observableProxy(this, [
@@ -1357,7 +1357,7 @@ class MeasurementViewModel {
       log: lm,
     });
 
-    // Subwoofer optimization / filter generation services (lot V5).
+    // Subwoofer optimization / filter generation services.
     this.subOptimizationService = createSubOptimizationService({
       session: this.rewSession,
       businessTools: {
@@ -1390,7 +1390,7 @@ class MeasurementViewModel {
       log: lm,
     });
 
-    // Persistence service (lot V6) — the persisted keys match the observable
+    // Persistence service — the persisted keys match the observable
     // names, so the settings adapter resolves them generically.
     this.persistenceService = createPersistenceService({
       store,
@@ -1471,7 +1471,7 @@ class MeasurementViewModel {
       return;
     }
 
-    // selection logic in services/filters.js (lot V5)
+    // selection logic in services/filters.js
     const selectedMeasurements = selectMeasurementsForBulkApply({
       validMeasurements: this.validMeasurements(),
       predicted: includePredictedLfeMeasurement && this.predictedLfeMeasurement(),
@@ -1633,7 +1633,7 @@ class MeasurementViewModel {
    * @returns {Promise<number|undefined>} The new target level in dB, or `undefined`
    *   when no update was needed.
    */
-  // Target level sync — logic in services/target-curve.js (lot V4); the
+  // Target level sync — logic in services/target-curve.js; the
   // processing lock stays here.
   setTargetLevelFromMeasurement = async measurement => {
     const initialProcessing = this.isProcessing();
@@ -1675,7 +1675,7 @@ class MeasurementViewModel {
     return this.subOptimizationService.produceSumProcess(subsList);
   }
 
-  // REW session sync — logic in services/rew-session.js (lot V2); thin
+  // REW session sync — logic in services/rew-session.js; thin
   // delegates keep the public API stable for BusinessTools and the items.
   async loadData() {
     return this.rewSession.loadData();
@@ -1845,7 +1845,7 @@ class MeasurementViewModel {
     }
   }
 
-  // Persistence — logic in services/persistence.js (lot V6).
+  // Persistence — logic in services/persistence.js.
   restore() {
     return this.persistenceService.restore();
   }

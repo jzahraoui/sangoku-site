@@ -1,6 +1,6 @@
 /**
  * REW Generic-EQ filter bank helpers extracted from MeasurementItem
- * (décontamination lot I1 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [MOTEUR] module: REW exposes a fixed bank of 22 filter slots per
  * measurement; slots 21-22 are reserved for manual (non-auto) filters.

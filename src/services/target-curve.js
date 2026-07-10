@@ -2,7 +2,7 @@ import { DEFAULT_TARGET_LEVEL } from './measurement-operations.js';
 
 /**
  * Target curve / target level service extracted from MeasurementViewModel
- * (décontamination lot V4 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [ORCHESTRATION] service. No Knockout, no DOM.
  *
@@ -26,7 +26,7 @@ const unwrap = value => (typeof value === 'function' ? value() : value);
 /**
  * Measurement write API used by the service. The default delegates to the
  * measurement's own methods — the historical behaviour of the Knockout
- * `MeasurementItem` adapter. The Vue entry (ADR 002) holds plain
+ * `MeasurementItem` adapter. Record-based callers (ADR 002) hold plain
  * `MeasurementRecord`s without these methods, so it injects a bridge routing
  * to the `createMeasurementOperations` functions instead.
  */

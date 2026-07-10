@@ -2,7 +2,7 @@ import MqxTools from '../mqx-tools.js';
 
 /**
  * Session-file import service extracted from MeasurementViewModel
- * (décontamination lot V3 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [ORCHESTRATION] service: validation and parsing of .avr/.ady/.mqx session
  * files, and import of their impulse responses into REW through the

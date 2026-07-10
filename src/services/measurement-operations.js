@@ -13,7 +13,7 @@ import {
 
 /**
  * Simple REW wrappers extracted from MeasurementItem
- * (décontamination lot I3 — docs/reverse/03-vm-decontamination.md, ADR 002).
+ * (ADR 002).
  *
  * [ORCHESTRATION] service: functions `(rew, measurement, params)` with no
  * Knockout and no DOM. `rew` is the REW measurements API service
@@ -23,9 +23,9 @@ import {
  * after ADR 002) and `update(partial)` for state write-back.
  *
  * Simple writes pass `invalidateAssociatedFilter` where a filter write must
- * drop the associated filter. Sequences (lot I4) receive instead a `session`
+ * drop the associated filter. Sequences receive instead a `session`
  * object — the parts of the viewmodel that own the measurement list until the
- * rew-session service exists (lot V2):
+ * rew-session service exists:
  *   { analyseApiResponse, removeMeasurements, removeMeasurementUuid,
  *     findMeasurementByUuid }
  *
@@ -242,7 +242,7 @@ async function detectFallOff(rew, m, { threshold = -3, ppo = 12 } = {}) {
   );
 }
 
-// --- Log-free sequences (lot I4) ----------------------------------------------
+// --- Log-free sequences ----------------------------------------------
 
 /** Parse an alignSPL response to get the alignSPLOffsetdB for the target UUID. */
 function getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
@@ -650,7 +650,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     }
   }
 
-  // --- IR shift / SPL offset sequences (lot I4) --------------------------------
+  // --- IR shift / SPL offset sequences --------------------------------
 
   async function addIROffsetSeconds(rew, m, amountToAdd) {
     if (!m.haveImpulseResponse) {

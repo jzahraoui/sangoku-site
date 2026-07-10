@@ -3,12 +3,12 @@ import { saveAs } from 'file-saver';
 import lm, { LEVELS } from './logs.js';
 
 /**
- * Knockout display adapter over the agnostic log service (CLAUDE.md [MIXTE] #5).
+ * Knockout display adapter over the agnostic log service.
  *
  * Mirrors the service into ko observables the index.html log panel binds to
  * (`lm.autoScroll`, `lm.logLevel`, `lm.filteredLogs`, `lm.exportLogs`) and owns
  * the DOM side effects (auto-scroll, the Clear-logs button). Retired with the
- * Knockout entry (D-08); the Vue UI never imports this.
+ * Knockout entry; nothing else imports this.
  */
 class KoLogsAdapter {
   constructor(service) {

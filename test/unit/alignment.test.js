@@ -290,7 +290,7 @@ describe('alignPeaks', () => {
   });
 });
 
-describe('operations bridge (Vue records, no methods)', () => {
+describe('operations bridge (flat records, no methods)', () => {
   it('routes alignPeaks writes to the operations functions', async () => {
     const operations = {
       setZeroAtIrPeak: vi.fn().mockResolvedValue(true),

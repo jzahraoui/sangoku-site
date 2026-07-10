@@ -2,10 +2,10 @@ import { CHANNEL_TYPES } from '../audyssey.js';
 
 /**
  * Pure measurement-identity derivations extracted from MeasurementItem
- * (décontamination lot I2 — docs/reverse/03-vm-decontamination.md).
+ *.
  *
  * [MOTEUR] module: every function maps plain inputs to a value; reactive
- * wiring stays in the viewmodels (then in Vue composables).
+ * wiring stays in the viewmodels (or any future UI layer).
  */
 
 const UNKNOWN_GROUP_NAME = 'UNKNOWN';

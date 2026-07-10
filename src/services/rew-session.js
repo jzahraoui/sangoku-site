@@ -1,6 +1,6 @@
 /**
  * REW session service extracted from MeasurementViewModel
- * (décontamination lot V2 — docs/reverse/03-vm-decontamination.md, ADR 002).
+ * (ADR 002).
  *
  * [ORCHESTRATION] service owning the connection lifecycle (polling), the
  * synchronisation of the measurement list with REW, and the application-wide
@@ -10,7 +10,7 @@
  * - `state`: accessor object over the app state (getters/setters) —
  *   isPolling, isProcessing, isLoading, hasError (r), rewVersion (w),
  *   maxMeasurements (w), inhibitGraphUpdates (r), apiBaseUrl (r).
- *   Backed by KO observables today, by a Pinia store on the Vue side.
+ *   Backed by KO observables today; any state container matching the get/set contract works.
  * - `measurements`: accessor over the list — { get, set, push, removeWhere }.
  * - `createMeasurement(apiItem)` / `adoptMeasurement(item)`: item factory
  *   (MeasurementItem today, MeasurementRecord after ADR 002).
@@ -43,7 +43,7 @@ class RewSession {
     onError = () => {},
     pollingInterval = 1000,
     // renameMeasurements context. Defaults read the item getters / call
-    // setTitle (Knockout path — unchanged); the Vue entry injects derivation-
+    // setTitle (Knockout path — unchanged); record-based callers inject derivation-
     // based providers over the flat records (ADR 002).
     renameDescriptorFor = item => ({
       position: unwrap(item.position),
