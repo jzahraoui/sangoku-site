@@ -100,6 +100,67 @@ describe('updateTargetCurve', () => {
   });
 });
 
+describe('measurementOps injection', () => {
+  it('routes title/level writes through the injected bridge, not item methods', async () => {
+    const reference = measurement('FL_P01', {
+      getTargetLevel: vi.fn().mockResolvedValue(72),
+    });
+    const other = measurement('C_P01');
+    const created = measurement('generated');
+    const { service, session } = createHarness({ measurements: [reference, other] });
+    session.analyseApiResponse.mockResolvedValue(created);
+
+    const measurementOps = {
+      setTitle: vi.fn().mockResolvedValue(true),
+      getTargetLevel: vi.fn().mockResolvedValue(72),
+      setTargetLevel: vi.fn().mockResolvedValue(true),
+    };
+    // rebuild the service with the bridge (createHarness uses the defaults)
+    const bridged = createTargetCurveService({
+      session,
+      state: {
+        _tc: 'harman',
+        _level: 75,
+        get tcName() {
+          return `${this._tc} ${this._level}dB`;
+        },
+        set targetCurve(value) {
+          this._tc = value;
+        },
+        get mainTargetLevel() {
+          return this._level;
+        },
+        set mainTargetLevel(value) {
+          this._level = value;
+        },
+      },
+      lists: {
+        firstMeasurement: () => reference,
+        validMeasurements: () => [reference, other],
+        predictedLfeMeasurements: () => [],
+      },
+      isMeasurement: value => typeof value === 'object' && value !== null,
+      measurementOps,
+    });
+
+    await bridged.setTargetLevelFromMeasurement(reference);
+
+    // the bridge is used with (measurement, …) — the item methods stay untouched
+    expect(measurementOps.getTargetLevel).toHaveBeenCalledWith(reference);
+    expect(measurementOps.setTargetLevel).toHaveBeenCalledWith(reference, 72);
+    expect(measurementOps.setTargetLevel).toHaveBeenCalledWith(other, 72);
+    expect(measurementOps.setTitle).toHaveBeenCalledWith(
+      created,
+      'Target harman 72dB',
+      'from FL_P01',
+    );
+    expect(reference.getTargetLevel).not.toHaveBeenCalled();
+    expect(reference.setTargetLevel).not.toHaveBeenCalled();
+    expect(created.setTitle).not.toHaveBeenCalled();
+    void service;
+  });
+});
+
 describe('setTargetLevelFromMeasurement', () => {
   it('only refreshes the target curve when nothing changed', async () => {
     const reference = measurement('FL_P01');

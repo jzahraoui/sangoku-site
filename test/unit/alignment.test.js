@@ -290,6 +290,38 @@ describe('alignPeaks', () => {
   });
 });
 
+describe('operations bridge (Vue records, no methods)', () => {
+  it('routes alignPeaks writes to the operations functions', async () => {
+    const operations = {
+      setZeroAtIrPeak: vi.fn().mockResolvedValue(true),
+      setcumulativeIRShiftSeconds: vi.fn().mockResolvedValue(true),
+    };
+    const session = { rewMeasurements: { id: 'rew' } };
+    const service = createAlignmentService({
+      session,
+      operations,
+      applyCutOffFilter: vi.fn(),
+      setTargetLevelFromMeasurement: vi.fn(),
+      getPredictedLfeMeasurements: () => [],
+    });
+
+    // plain records: flat fields, zero methods
+    const speaker = { uuid: 'FL' };
+    const subA = { uuid: 'SW1', cumulativeIRShiftSeconds: 0.001 };
+    const subB = { uuid: 'SW2', cumulativeIRShiftSeconds: 0 };
+
+    await service.alignPeaks([speaker], [subA, subB]);
+
+    expect(operations.setZeroAtIrPeak).toHaveBeenCalledWith(session.rewMeasurements, speaker);
+    expect(operations.setZeroAtIrPeak).toHaveBeenCalledWith(session.rewMeasurements, subA);
+    expect(operations.setcumulativeIRShiftSeconds).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      subB,
+      0.001,
+    );
+  });
+});
+
 describe('checkAlignment', () => {
   it('resets the shift delay and warns instead of failing', async () => {
     const { session, service } = createHarness();

@@ -437,6 +437,12 @@ function createMeasurementOperations({ log = noopLog } = {}) {
   const cleanValue = (value, precision) =>
     cleanFloat32Value(value, precision, raw => log.warn(`Invalid numeric value: ${raw}`));
 
+  // splOffsetDeltadB derived from the flat fields (splOffsetdB - initialSplOffsetdB),
+  // so ops work on plain MeasurementRecords (ADR 002) as well as the KO adapter —
+  // identical to MeasurementItem.splOffsetDeltadB.
+  const splOffsetDeltadBOf = m =>
+    cleanValue(unwrap(m.splOffsetdB) - m.initialSplOffsetdB, 2);
+
   async function setInverted(rew, m, inverted, { toggle } = {}) {
     // refreshed every second when connected
     if (inverted === unwrap(m.inverted)) return;
@@ -688,7 +694,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     newValue = cleanValue(newValue, 2);
 
     // Check if the new value is the same as the current value
-    if (newValue === unwrap(m.splOffsetDeltadB)) {
+    if (newValue === splOffsetDeltadBOf(m)) {
       return true;
     }
     log.debug(`Setting SPL offset to ${newValue} dB for ${labelOf(m)}`);
@@ -733,7 +739,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
   }
 
   async function addSPLOffsetDB(rew, m, amountToAdd) {
-    return setSPLOffsetDB(rew, m, unwrap(m.splOffsetDeltadB) + amountToAdd);
+    return setSPLOffsetDB(rew, m, splOffsetDeltadBOf(m) + amountToAdd);
   }
 
   // --- Copies towards the other positions of the same channel ------------------
@@ -755,7 +761,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     if (!targets.length) return;
 
     log.info(`Copying SPL offset to other positions of ${labelOf(m)}...`);
-    const splOffset = unwrap(m.splOffsetDeltadB);
+    const splOffset = splOffsetDeltadBOf(m);
     for (const otherItem of targets) {
       await setSPLOffsetDB(rew, otherItem, splOffset);
     }

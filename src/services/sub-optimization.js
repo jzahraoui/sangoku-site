@@ -1,5 +1,8 @@
 import MultiSubOptimizer from '../multi-sub-optimizer.js';
-import { cleanFloat32Value } from '../measurement/measurement-calculations.js';
+import {
+  cleanFloat32Value,
+  metersToSeconds,
+} from '../measurement/measurement-calculations.js';
 import { DEFAULT_LFE_PREDICTED } from '../measurement/measurement-info.js';
 import { setSameDelayToAll } from './alignment.js';
 
@@ -29,28 +32,94 @@ const unwrap = value => (typeof value === 'function' ? value() : value);
 
 const labelOf = m => unwrap(m.displayMeasurementTitle) ?? unwrap(m.title);
 
-async function applySubPolarity(subMeasurement, polarity) {
-  if (polarity === -1) {
-    await subMeasurement.setInverted(true);
-  } else if (polarity === 1) {
-    await subMeasurement.setInverted(false);
-  } else {
-    throw new Error(`Invalid invert value for ${await labelOf(subMeasurement)}`);
+/**
+ * Measurement write API used by the optimizer sequences. Without `operations`
+ * every call delegates to the measurement's own method (Knockout MeasurementItem
+ * adapter) — bit-for-bit the historical behaviour, so the existing unit tests and
+ * the multi-sub-optimizer golden masters (which pass no `operations`) are
+ * unaffected. With `operations` (Vue, ADR 002) the calls route to the
+ * createMeasurementOperations functions, and the per-item context the KO methods
+ * derived from the viewmodel comes from the injected providers.
+ */
+function buildMeasurementApi({
+  operations,
+  session,
+  getOtherPositionMeasurements = () => [],
+  workingSettingsConfig = () => undefined,
+  irWindowWidthsFor = () => undefined,
+  speedOfSound = () => 343,
+}) {
+  if (!operations) {
+    return {
+      setInverted: (m, inverted) => m.setInverted(inverted),
+      setSingleFilter: (m, filter) => m.setSingleFilter(filter),
+      applyWorkingSettings: m => m.applyWorkingSettings(),
+      setTargetLevel: (m, level) => m.setTargetLevel(level),
+      resetTargetSettings: m => m.resetTargetSettings(),
+      removeWorkingSettings: m => m.removeWorkingSettings(),
+      getFrequencyResponse: m => m.getFrequencyResponse(),
+      setcumulativeIRShiftSeconds: (m, value) => m.setcumulativeIRShiftSeconds(value),
+      detectFallOff: (m, threshold) => m.detectFallOff(threshold),
+      runPhaseMatchFilter: (m, start, end, options) =>
+        m._runPhaseMatchFilter(start, end, options),
+      checkFilterGain: m => m.checkFilterGain(),
+      setFilters: (m, filters, overwrite) => m.setFilters(filters, overwrite),
+      copyFiltersToOther: m => m.copyFiltersToOther(),
+      addIROffsetSeconds: (m, value) => m.addIROffsetSeconds(value),
+      addSPLOffsetDB: (m, value) => m.addSPLOffsetDB(value),
+      copySplOffsetDeltadBToOther: m => m.copySplOffsetDeltadBToOther(),
+      getFilters: m => m.getFilters(),
+      computeInSeconds: (m, meters) => m._computeInSeconds(meters),
+    };
   }
-}
 
-async function applySubAllPassFilter(subMeasurement, allPassParam) {
-  const allPassFilter = allPassParam.enabled
-    ? {
-        index: 20,
-        enabled: true,
-        isAuto: false,
-        frequency: allPassParam.frequency,
-        q: allPassParam.q,
-        type: 'All pass',
-      }
-    : { index: 20, enabled: true, isAuto: true, type: 'None' };
-  await subMeasurement.setSingleFilter(allPassFilter);
+  const rew = () => session.rewMeasurements;
+  const sessionContext = {
+    analyseApiResponse: result => session.analyseApiResponse(result),
+    removeMeasurements: items => session.removeMeasurements(items),
+    removeMeasurementUuid: uuid => session.removeMeasurementUuid(uuid),
+    findMeasurementByUuid: uuid => session.findMeasurementByUuid(uuid),
+  };
+  const invalidate = m => async () => {
+    if (m.associatedFilter == null) return;
+    if (session.findMeasurementByUuid(m.associatedFilter)) {
+      await session.removeMeasurementUuid(m.associatedFilter);
+      m.associatedFilter = null;
+    }
+  };
+
+  return {
+    setInverted: (m, inverted) => operations.setInverted(rew(), m, inverted),
+    setSingleFilter: (m, filter) =>
+      operations.setSingleFilter(rew(), m, filter, { invalidateAssociatedFilter: invalidate(m) }),
+    applyWorkingSettings: m => operations.applyWorkingSettings(rew(), m, workingSettingsConfig()),
+    setTargetLevel: (m, level) =>
+      operations.setTargetLevel(rew(), m, level, { invalidateAssociatedFilter: invalidate(m) }),
+    resetTargetSettings: m => operations.resetTargetSettings(rew(), m),
+    removeWorkingSettings: m => operations.removeWorkingSettings(rew(), m, irWindowWidthsFor(m)),
+    getFrequencyResponse: m => operations.getFrequencyResponse(rew(), m, {}),
+    setcumulativeIRShiftSeconds: (m, value) =>
+      operations.setcumulativeIRShiftSeconds(rew(), m, value),
+    detectFallOff: (m, threshold) => operations.detectFallOff(rew(), m, { threshold }),
+    // 'rch' phase-match mode is not on the Vue path (selectedEqualizationMode='rew').
+    runPhaseMatchFilter: () => {
+      throw new Error('rch phase-match is not wired in the Vue entry yet');
+    },
+    checkFilterGain: m => operations.checkFilterGain(rew(), m),
+    setFilters: (m, filters, overwrite) =>
+      operations.setFilters(rew(), m, filters, {
+        overwrite,
+        invalidateAssociatedFilter: invalidate(m),
+      }),
+    copyFiltersToOther: m =>
+      operations.copyFiltersToOther(rew(), m, getOtherPositionMeasurements(m), sessionContext),
+    addIROffsetSeconds: (m, value) => operations.addIROffsetSeconds(rew(), m, value),
+    addSPLOffsetDB: (m, value) => operations.addSPLOffsetDB(rew(), m, value),
+    copySplOffsetDeltadBToOther: m =>
+      operations.copySplOffsetDeltadBToOther(rew(), m, getOtherPositionMeasurements(m)),
+    getFilters: m => operations.getFilters(rew(), m),
+    computeInSeconds: (_m, meters) => metersToSeconds(meters, speedOfSound()),
+  };
 }
 
 function getMaxFromArray(array) {
@@ -72,8 +141,45 @@ function createSubOptimizationService({
   businessTools,
   config,
   lists,
+  operations = null,
+  getOtherPositionMeasurements,
+  workingSettingsConfig,
+  irWindowWidthsFor,
+  speedOfSound,
   log = noopLog,
 }) {
+  const mops = buildMeasurementApi({
+    operations,
+    session,
+    getOtherPositionMeasurements,
+    workingSettingsConfig,
+    irWindowWidthsFor,
+    speedOfSound,
+  });
+
+  async function applySubPolarity(subMeasurement, polarity) {
+    if (polarity === -1) {
+      await mops.setInverted(subMeasurement, true);
+    } else if (polarity === 1) {
+      await mops.setInverted(subMeasurement, false);
+    } else {
+      throw new Error(`Invalid invert value for ${await labelOf(subMeasurement)}`);
+    }
+  }
+
+  async function applySubAllPassFilter(subMeasurement, allPassParam) {
+    const allPassFilter = allPassParam.enabled
+      ? {
+          index: 20,
+          enabled: true,
+          isAuto: false,
+          frequency: allPassParam.frequency,
+          q: allPassParam.q,
+          type: 'All pass',
+        }
+      : { index: 20, enabled: true, isAuto: true, type: 'None' };
+    await mops.setSingleFilter(subMeasurement, allPassFilter);
+  }
   /** Import an optimizer frequency response into REW and prepare it. */
   async function sendToREW(optimizedSubsSum, maximisedSumTitle) {
     const options = {
@@ -94,9 +200,9 @@ function createSubOptimizationService({
       throw new Error('Error creating maximised sum');
     }
 
-    await maximisedSum.applyWorkingSettings();
-    await maximisedSum.setTargetLevel(config.mainTargetLevel);
-    await maximisedSum.resetTargetSettings();
+    await mops.applyWorkingSettings(maximisedSum);
+    await mops.setTargetLevel(maximisedSum, config.mainTargetLevel);
+    await mops.resetTargetSettings(maximisedSum);
 
     return maximisedSum;
   }
@@ -109,11 +215,11 @@ function createSubOptimizationService({
       }
       const frequencyResponses = [];
       for (const measurement of measurementList) {
-        await measurement.removeWorkingSettings();
-        const frequencyResponse = await measurement.getFrequencyResponse();
+        await mops.removeWorkingSettings(measurement);
+        const frequencyResponse = await mops.getFrequencyResponse(measurement);
         frequencyResponse.uuid = measurement.uuid;
         frequencyResponses.push(frequencyResponse);
-        await measurement.applyWorkingSettings();
+        await mops.applyWorkingSettings(measurement);
       }
 
       const optimizer = new MultiSubOptimizer(
@@ -136,7 +242,7 @@ function createSubOptimizationService({
   }
 
   /** Sum the given position's subs into the predicted LFE measurement. */
-  async function produceSumProcess(subsList) {
+  async function produceSumProcess(subsList, position = unwrap(subsList?.[0]?.position)) {
     if (!subsList?.length) {
       throw new Error(`No subs found`);
     }
@@ -145,8 +251,6 @@ function createSubOptimizationService({
     }
     const subResponsesTitles = subsList.map(response => unwrap(response.title));
     log.info(`Using: ${subResponsesTitles.join(', ')} to create subwoofer sum`);
-    // get first subsList element position
-    const position = unwrap(subsList[0].position);
     const resultTitle = `${DEFAULT_LFE_PREDICTED}${position}`;
 
     const previousSubSum = session.measurements
@@ -176,8 +280,9 @@ function createSubOptimizationService({
       // Handle based on number of subwoofers
       if (subResponses.length === 0) continue;
 
-      // Multiple subwoofers case - produce sum
-      await produceSumProcess(subResponses);
+      // Multiple subwoofers case - produce sum (position from the group key so
+      // flat records need not carry a derived position field)
+      await produceSumProcess(subResponses, position);
     }
   }
 
@@ -185,7 +290,7 @@ function createSubOptimizationService({
   async function produceAligned(speakerItem) {
     await businessTools.produceAligned(speakerItem, lists.uniqueSubsMeasurements());
 
-    syncAllPredictedLfeMeasurement();
+    await syncAllPredictedLfeMeasurement();
   }
 
   async function syncAllPredictedLfeMeasurement() {
@@ -200,8 +305,8 @@ function createSubOptimizationService({
 
     for (const predictedLfe of lists.predictedLfeMeasurements()) {
       if (predictedLfe.uuid === selectedLfe.uuid) continue;
-      await predictedLfe.setcumulativeIRShiftSeconds(selectedLfeIRShift);
-      await predictedLfe.setInverted(selectedLfeInverted);
+      await mops.setcumulativeIRShiftSeconds(predictedLfe, selectedLfeIRShift);
+      await mops.setInverted(predictedLfe, selectedLfeInverted);
       log.debug(`Syncing LFE ${labelOf(predictedLfe)} to selected LFE settings`);
     }
 
@@ -211,20 +316,27 @@ function createSubOptimizationService({
   // --- Sub equalization ----------------------------------------------------
 
   async function equalizeSub(subMeasurement) {
-    await subMeasurement.setTargetLevel(config.mainTargetLevel);
-    await subMeasurement.applyWorkingSettings();
-    await subMeasurement.resetTargetSettings();
-    const fallOff = await subMeasurement.detectFallOff(-3);
+    await mops.setTargetLevel(subMeasurement, config.mainTargetLevel);
+    await mops.applyWorkingSettings(subMeasurement);
+    await mops.resetTargetSettings(subMeasurement);
+    const fallOff = await mops.detectFallOff(subMeasurement, -3);
 
     const customStartFrequency = Math.max(config.lowerFrequencyBoundSub, fallOff.lowHz);
     const customEndFrequency = Math.min(config.upperFrequencyBoundSub, fallOff.highHz);
+    if (customStartFrequency >= customEndFrequency) {
+      throw new Error(
+        `Cannot equalize ${labelOf(subMeasurement)}: detected band ` +
+          `${fallOff.lowHz}Hz-${fallOff.highHz}Hz does not overlap the configured ` +
+          `bounds ${config.lowerFrequencyBoundSub}Hz-${config.upperFrequencyBoundSub}Hz`,
+      );
+    }
 
     log.info(
       `Creating ${config.selectedEqualizationMode.toUpperCase()} EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`,
     );
 
     if (config.selectedEqualizationMode === 'rch') {
-      await subMeasurement._runPhaseMatchFilter(customStartFrequency, customEndFrequency, {
+      await mops.runPhaseMatchFilter(subMeasurement, customStartFrequency, customEndFrequency, {
         individualMaxBoostDb: config.maxBoostIndividualValue,
         overallMaxBoostDb: config.maxBoostOverallValue,
       });
@@ -244,7 +356,7 @@ function createSubOptimizationService({
       await session.rewMeasurements.matchTarget(subMeasurement.uuid);
     }
 
-    await subMeasurement.checkFilterGain();
+    await mops.checkFilterGain(subMeasurement);
 
     return true;
   }
@@ -256,18 +368,18 @@ function createSubOptimizationService({
 
   async function applyFiltersToSubs(sourceSub) {
     log.info(`Apply calculated filters to each sub`);
-    const filters = await sourceSub.getFilters();
+    const filters = await mops.getFilters(sourceSub);
     const subsMeasurements = lists.uniqueSubsMeasurements();
     for (const sub of subsMeasurements) {
       // do not overwrite the all pass filter if set
-      await sub.setFilters(filters, false);
+      await mops.setFilters(sub, filters, false);
     }
   }
 
   async function copySubFiltersToOtherPositions() {
     const subsMeasurements = lists.uniqueSubsMeasurements();
     for (const sub of subsMeasurements) {
-      await sub.copyFiltersToOther();
+      await mops.copyFiltersToOther(sub);
     }
   }
 
@@ -310,7 +422,7 @@ function createSubOptimizationService({
 
     const subMeasurement = lists.uniqueSubsMeasurements()[0];
     const headroomSeconds = cleanFloat32Value(
-      subMeasurement._computeInSeconds(config.distanceLeftBeforeError),
+      mops.computeInSeconds(subMeasurement, config.distanceLeftBeforeError),
       4,
     );
     if (headroomSeconds <= 0.002) {
@@ -370,9 +482,9 @@ function createSubOptimizationService({
       throw new Error(`Measurement not found for ${sub.measurement}`);
     }
     await applySubPolarity(subMeasurement, sub.param.polarity);
-    await subMeasurement.addIROffsetSeconds(sub.param.delay);
-    await subMeasurement.addSPLOffsetDB(sub.param.gain);
-    await subMeasurement.copySplOffsetDeltadBToOther();
+    await mops.addIROffsetSeconds(subMeasurement, sub.param.delay);
+    await mops.addSPLOffsetDB(subMeasurement, sub.param.gain);
+    await mops.copySplOffsetDeltadBToOther(subMeasurement);
     await applySubAllPassFilter(subMeasurement, sub.param.allPass);
   }
 
@@ -396,8 +508,19 @@ function createSubOptimizationService({
     //delete previous LFE predicted measurements
     await session.removeMeasurements(lists.predictedLfeMeasurements());
 
-    // set the same delay for all subwoofers
-    await setSameDelayToAll(subsMeasurements);
+    // set the same delay for all subwoofers (parity with setSameDelayToAll:
+    // early-return on a single sub, align the others to the first sub's delay —
+    // [0] already carries mainDelay, so skip it rather than issue a no-op write).
+    if (operations) {
+      if (subsMeasurements.length > 1) {
+        const mainDelay = unwrap(subsMeasurements[0].cumulativeIRShiftSeconds);
+        for (const measurement of subsMeasurements.slice(1)) {
+          await mops.setcumulativeIRShiftSeconds(measurement, mainDelay);
+        }
+      }
+    } else {
+      await setSameDelayToAll(subsMeasurements);
+    }
 
     const optimizerConfig = createOptimizerConfig(
       subsFrequencyBands.lowFrequency,
@@ -423,9 +546,9 @@ function createSubOptimizationService({
 
     const frequencyResponses = [];
     for (const measurement of subsMeasurements) {
-      await measurement.setInverted(false);
-      await measurement.applyWorkingSettings();
-      const frequencyResponse = await measurement.getFrequencyResponse();
+      await mops.setInverted(measurement, false);
+      await mops.applyWorkingSettings(measurement);
+      const frequencyResponse = await mops.getFrequencyResponse(measurement);
       frequencyResponse.measurement = measurement.uuid;
       frequencyResponse.name = labelOf(measurement);
       frequencyResponse.position = unwrap(measurement.position);
@@ -466,7 +589,7 @@ function createSubOptimizationService({
         isAuto: false,
         type: 'None',
       };
-      await maximisedSum.setSingleFilter(maximisedSumFilter);
+      await mops.setSingleFilter(maximisedSum, maximisedSumFilter);
     }
   }
 

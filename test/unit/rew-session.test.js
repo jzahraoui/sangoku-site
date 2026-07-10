@@ -13,7 +13,7 @@ class FakeMeasurement {
     this.displayMeasurementTitle = () => `${this.uuid}: ${this.title}`;
   }
 
-  updateFromApi(apiItem) {
+  update(apiItem) {
     if (Object.hasOwn(apiItem, 'title')) this.title = apiItem.title;
     return this;
   }

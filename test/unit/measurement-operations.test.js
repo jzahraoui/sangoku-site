@@ -557,7 +557,8 @@ describe('SPL offset sequence', () => {
   });
 
   it('is a no-op when the offset already matches', async () => {
-    const m = record({ splOffsetDeltadB: () => 2.5 });
+    // splOffsetDeltadB is derived from the flat fields (splOffsetdB - initial).
+    const m = record({ splOffsetdB: 2.5, initialSplOffsetdB: 0 });
     const rew = { alignSPL: vi.fn() };
 
     await expect(ops.setSPLOffsetDB(rew, m, 2.5)).resolves.toBe(true);

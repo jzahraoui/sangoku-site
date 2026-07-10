@@ -40,12 +40,70 @@ function selectMeasurementsForBulkApply({
   return selectedMeasurements;
 }
 
-function createFiltersService({ config, log = noopLog }) {
+function createFiltersService({
+  config,
+  // Vue path (ADR 002): route filter creation to createMeasurementOperations over
+  // the flat records. When `operations` is absent the item methods are used
+  // (Knockout path — unchanged), so the viewmodel + filters-service.test stay green.
+  operations = null,
+  session = null,
+  rewEqFor = () => session?.rewEq,
+  workingSettingsConfig = () => undefined,
+  irWindowWidthsFor = () => undefined,
+  boundsFor = () => undefined,
+  boostsFor = () => undefined,
+  setTargetLevelFromMeasurement = () => {},
+  getOtherPositionMeasurements = () => [],
+  // One-speaker preview. Default calls the item's own method (KO path); the Vue
+  // entry injects createMeasurementPreview + copyFiltersToOther over records.
+  previewOne = item => item.previewMeasurement(),
+  log = noopLog,
+}) {
+  const rew = () => session?.rewMeasurements;
+  const sessionContext =
+    operations && session
+      ? {
+          analyseApiResponse: result => session.analyseApiResponse(result),
+          removeMeasurements: items => session.removeMeasurements(items),
+          removeMeasurementUuid: uuid => session.removeMeasurementUuid(uuid),
+          findMeasurementByUuid: uuid => session.findMeasurementByUuid(uuid),
+        }
+      : null;
+
+  // Mirror of MeasurementItem.filterCreationContext for the operations path.
+  function buildFilterContext(m) {
+    return {
+      session: sessionContext,
+      rewEq: rewEqFor(),
+      workingConfig: workingSettingsConfig(m),
+      irWindowWidths: irWindowWidthsFor(m),
+      bounds: boundsFor(),
+      boosts: boostsFor(),
+      setTargetLevelFromMeasurement: () => setTargetLevelFromMeasurement(m),
+      otherTargets: () => getOtherPositionMeasurements(m),
+      createCalculator: () => {
+        throw new Error('phase-match calculator (rch mode) is not wired in the Vue entry');
+      },
+    };
+  }
+
   function createSpeakerFilterForSelectedMode(item) {
-    if (config.selectedEqualizationMode === 'rch') {
-      return item.createPhaseMatchFilter();
+    const isRch = config.selectedEqualizationMode === 'rch';
+    if (!operations) {
+      return isRch ? item.createPhaseMatchFilter() : item.createStandardFilter();
     }
-    return item.createStandardFilter();
+    if (isRch) {
+      throw new Error('rch (phase-match) filter mode is not wired in the Vue entry');
+    }
+    // Parity with item.createStandardFilter(useWorkingSettings=true, copyToOther=true).
+    return operations.createFilter(
+      rew(),
+      item,
+      buildFilterContext(item),
+      'standard',
+      true,
+      true,
+    );
   }
 
   /** Generate the filter of every speaker with the selected equalization mode. */
@@ -66,7 +124,7 @@ function createFiltersService({ config, log = noopLog }) {
     for (const item of speakerMeasurements) {
       // display progression in the status
       log.info(`Generating preview for ${labelOf(item)}`);
-      const previewCreated = await item.previewMeasurement();
+      const previewCreated = await previewOne(item);
       if (previewCreated === false) return false;
     }
     return true;
@@ -96,6 +154,7 @@ function createFiltersService({ config, log = noopLog }) {
     generatePreviews,
     generateSelectedFilters,
     invertAll,
+    previewMeasurement: previewOne,
     selectMeasurementsForBulkApply,
   };
 }

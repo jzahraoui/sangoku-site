@@ -189,6 +189,13 @@ class MeasurementRecord {
       shiftDelay: this.shiftDelay,
     };
   }
+
+  /**
+   * No-op teardown. Unlike the Knockout MeasurementItem (which disposes its
+   * computed observables), the flat record has nothing to release; the method
+   * exists so the shared persistence service can call `item.dispose()` on both.
+   */
+  dispose() {}
 }
 
 export default MeasurementRecord;

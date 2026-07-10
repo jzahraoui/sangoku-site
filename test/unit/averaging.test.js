@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createAverages } from '../../src/services/averaging.js';
+import {
+  createAverages,
+  createAveragingProcessor,
+} from '../../src/services/averaging.js';
 
 function item(title, overrides = {}) {
   return {
@@ -55,5 +58,71 @@ describe('createAverages', () => {
     ).rejects.toThrow(/appear to be inverted: FL_P02/);
 
     expect(processGroupedResponses).not.toHaveBeenCalled();
+  });
+});
+
+describe('createAveragingProcessor (records)', () => {
+  const record = (uuid, title, IRPeakValue = 0.5) => ({ uuid, title, IRPeakValue });
+
+  function harness() {
+    const created = record('avg-uuid', 'created');
+    const session = {
+      rewMeasurements: {
+        crossCorrAlign: vi.fn().mockResolvedValue(true),
+        processMeasurements: vi.fn().mockResolvedValue({ ok: true }),
+      },
+      analyseApiResponse: vi.fn().mockResolvedValue(created),
+      removeMeasurements: vi.fn().mockResolvedValue(true),
+      removeMeasurementUuid: vi.fn().mockResolvedValue(true),
+    };
+    const operations = { setTitle: vi.fn().mockResolvedValue(true) };
+    const { processGroupedResponses } = createAveragingProcessor({ session, operations });
+    return { session, operations, created, processGroupedResponses };
+  }
+
+  it('averages each usable channel group, renames via operations, deletes originals', async () => {
+    const { session, operations, created, processGroupedResponses } = harness();
+    const fl1 = record('fl1', 'FL_P01');
+    const fl2 = record('fl2', 'FL_P02');
+    const c1 = record('c1', 'C_P01');
+    const c2 = record('c2', 'C_P02');
+    const grouped = {
+      FL: { items: [fl1, fl2], count: 2 },
+      C: { items: [c1, c2], count: 2 },
+    };
+
+    await expect(processGroupedResponses(grouped, 'Vector average', 'all')).resolves.toBe(
+      true,
+    );
+
+    expect(session.rewMeasurements.crossCorrAlign).toHaveBeenCalledWith(['fl1', 'fl2']);
+    expect(session.rewMeasurements.processMeasurements).toHaveBeenCalledWith(
+      'Vector average',
+      ['fl1', 'fl2'],
+    );
+    expect(operations.setTitle).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      created,
+      'FLavg',
+    );
+    // deleteOriginal 'all' → the 4 source uuids are removed
+    expect(session.removeMeasurementUuid.mock.calls.map(c => c[0])).toEqual([
+      'fl1',
+      'fl2',
+      'c1',
+      'c2',
+    ]);
+  });
+
+  it('excludes existing averages/predictions and rejects groups below 2 usable', async () => {
+    const { processGroupedResponses } = harness();
+    const grouped = {
+      FL: { items: [record('fl1', 'FL_P01'), record('fla', 'FLavg')], count: 2 },
+      C: { items: [record('c1', 'C_P01'), record('c2', 'C_P02')], count: 2 },
+    };
+
+    await expect(processGroupedResponses(grouped, 'Vector average', 'all')).rejects.toThrow(
+      'Need at least 2 measurements to make an average: FL',
+    );
   });
 });

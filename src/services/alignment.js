@@ -15,6 +15,14 @@ import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
  * - `applyCutOffFilter(lfe, speaker, frequency)`: BusinessTools bridge.
  * - `setTargetLevelFromMeasurement(measurement)`: target-curve service bridge.
  * - `getPredictedLfeMeasurements()`: current predicted-LFE list.
+ * - `operations`: (optional) createMeasurementOperations instance. When absent
+ *   (Knockout entry) the service drives the measurement objects through their
+ *   own methods — historical behaviour. When provided (Vue entry, ADR 002) the
+ *   flat MeasurementRecords carry no methods, so writes route to the operations
+ *   functions instead. The context providers below feed the per-item arguments
+ *   the KO item methods used to derive from the viewmodel.
+ * - `getOtherPositionMeasurements(m)`, `workingSettingsConfig(m)`,
+ *   `irWindowWidthsFor(m)`: (Vue only) context for the operations bridge.
  */
 
 const SUBWOOFER_SPL_ALIGNMENT_OPTIONS = {
@@ -42,23 +50,11 @@ async function setSameDelayToAll(measurements) {
   }
 }
 
-async function getTargetLevelAtFreq(measurement, targetFreq = 40) {
-  // Input validation
-  if (!Number.isFinite(targetFreq) || targetFreq <= 0) {
-    throw new Error('Target frequency must be a positive number');
-  }
-
-  if (!measurement) {
-    throw new Error('No measurements available');
-  }
-
-  // Find the level of target curve at 40Hz
-
-  const targetCurveResponse = await measurement.getTargetResponse('SPL', 6);
+/** Pick the target-curve magnitude at the frequency closest to `targetFreq`. */
+function magnitudeAtClosestFreq(targetCurveResponse, targetFreq) {
   if (!targetCurveResponse) {
     throw new Error('Failed to get target curve response');
   }
-
   const freqIndex = targetCurveResponse.freqs.reduce((closestIdx, curr, idx) => {
     const closestFreq = targetCurveResponse.freqs[closestIdx];
     return Math.abs(curr - targetFreq) < Math.abs(closestFreq - targetFreq)
@@ -68,13 +64,115 @@ async function getTargetLevelAtFreq(measurement, targetFreq = 40) {
   return targetCurveResponse.magnitude[freqIndex];
 }
 
+function assertTargetLevelInputs(measurement, targetFreq) {
+  if (!Number.isFinite(targetFreq) || targetFreq <= 0) {
+    throw new Error('Target frequency must be a positive number');
+  }
+  if (!measurement) {
+    throw new Error('No measurements available');
+  }
+}
+
+async function getTargetLevelAtFreq(measurement, targetFreq = 40) {
+  assertTargetLevelInputs(measurement, targetFreq);
+  const targetCurveResponse = await measurement.getTargetResponse('SPL', 6);
+  return magnitudeAtClosestFreq(targetCurveResponse, targetFreq);
+}
+
+/**
+ * Measurement write API used by the alignment sequences. Without `operations`
+ * every call delegates to the measurement's own method (Knockout MeasurementItem
+ * adapter) — bit-for-bit the historical behaviour. With `operations` (Vue,
+ * ADR 002) the calls route to the createMeasurementOperations functions, and the
+ * per-item context the KO methods derived from the viewmodel is supplied by the
+ * injected providers.
+ */
+function buildMeasurementApi({
+  operations,
+  session,
+  getOtherPositionMeasurements = () => [],
+  workingSettingsConfig = () => undefined,
+  irWindowWidthsFor = () => undefined,
+}) {
+  // rewMeasurements is only wired after connect — read it lazily.
+  const rew = () => session.rewMeasurements;
+  if (!operations) {
+    return {
+      setZeroAtIrPeak: m => m.setZeroAtIrPeak(),
+      setcumulativeIRShiftSeconds: (m, value) => m.setcumulativeIRShiftSeconds(value),
+      removeWorkingSettings: m => m.removeWorkingSettings(),
+      applyWorkingSettings: m => m.applyWorkingSettings(),
+      resetTargetSettings: m => m.resetTargetSettings(),
+      resetIrWindows: m => m.resetIrWindows(),
+      setTargetSettings: (m, settings) => m.setTargetSettings(settings),
+      getFrequencyResponse: (m, unit, smoothing, ppo) =>
+        m.getFrequencyResponse(unit, smoothing, ppo),
+      getTargetResponse: (m, unit, ppo) => m.getTargetResponse(unit, ppo),
+      copySplOffsetDeltadBToOther: m => m.copySplOffsetDeltadBToOther(),
+      producePredictedMeasurement: m => m.producePredictedMeasurement(),
+      toggleInversion: m => m.toggleInversion(),
+    };
+  }
+  const sessionContext = {
+    analyseApiResponse: result => session.analyseApiResponse(result),
+    removeMeasurements: items => session.removeMeasurements(items),
+    removeMeasurementUuid: uuid => session.removeMeasurementUuid(uuid),
+    findMeasurementByUuid: uuid => session.findMeasurementByUuid(uuid),
+  };
+  return {
+    setZeroAtIrPeak: m => operations.setZeroAtIrPeak(rew(), m),
+    setcumulativeIRShiftSeconds: (m, value) =>
+      operations.setcumulativeIRShiftSeconds(rew(), m, value),
+    removeWorkingSettings: m =>
+      operations.removeWorkingSettings(rew(), m, irWindowWidthsFor(m)),
+    applyWorkingSettings: m =>
+      operations.applyWorkingSettings(rew(), m, workingSettingsConfig(m)),
+    resetTargetSettings: m => operations.resetTargetSettings(rew(), m),
+    resetIrWindows: m => operations.resetIrWindows(rew(), m, irWindowWidthsFor(m)),
+    setTargetSettings: (m, settings) => operations.setTargetSettings(rew(), m, settings),
+    getFrequencyResponse: (m, unit, smoothing, ppo) =>
+      operations.getFrequencyResponse(rew(), m, { unit, smoothing, ppo }),
+    getTargetResponse: (m, unit, ppo) =>
+      operations.getTargetResponse(rew(), m, { unit, ppo }),
+    copySplOffsetDeltadBToOther: m =>
+      operations.copySplOffsetDeltadBToOther(rew(), m, getOtherPositionMeasurements(m)),
+    producePredictedMeasurement: m =>
+      operations.producePredictedMeasurement(rew(), m, sessionContext),
+    toggleInversion: m => operations.toggleInversion(rew(), m),
+  };
+}
+
 function createAlignmentService({
   session,
   applyCutOffFilter,
   setTargetLevelFromMeasurement,
   getPredictedLfeMeasurements = () => [],
+  operations = null,
+  getOtherPositionMeasurements,
+  workingSettingsConfig,
+  irWindowWidthsFor,
+  // Per-item context for checkAlignment. Defaults call the item's own getters
+  // (KO path); the Vue entry injects derivation-based providers on records.
+  crossoverFor = m => unwrap(m.crossover),
+  relatedLfeFor = m => unwrap(m.relatedLfeMeasurement),
   log = noopLog,
 }) {
+  const mops = buildMeasurementApi({
+    operations,
+    session,
+    getOtherPositionMeasurements,
+    workingSettingsConfig,
+    irWindowWidthsFor,
+  });
+
+  // getTargetLevelAtFreq routed through the measurement API (mops) so it works
+  // on records; the module-level export keeps the item-method form for the KO
+  // viewmodel wrapper and sub-optimization.
+  async function getTargetLevelAtFreqVia(measurement, targetFreq = 40) {
+    assertTargetLevelInputs(measurement, targetFreq);
+    const targetCurveResponse = await mops.getTargetResponse(measurement, 'SPL', 6);
+    return magnitudeAtClosestFreq(targetCurveResponse, targetFreq);
+  }
   async function analyzeSubwooferSPLAlignment(
     measurement,
     options = SUBWOOFER_SPL_ALIGNMENT_OPTIONS,
@@ -83,11 +181,11 @@ function createAlignmentService({
       options;
     const title = labelOf(measurement);
 
-    await measurement.removeWorkingSettings();
+    await mops.removeWorkingSettings(measurement);
     try {
-      await measurement.resetTargetSettings();
+      await mops.resetTargetSettings(measurement);
       const frequencyResponse = {
-        ...(await measurement.getFrequencyResponse('SPL', 'None', pointsPerOctave)),
+        ...(await mops.getFrequencyResponse(measurement, 'SPL', 'None', pointsPerOctave)),
         measurement: measurement.uuid,
         name: title,
         position: unwrap(measurement.position),
@@ -136,7 +234,7 @@ function createAlignmentService({
         bandwidth,
       };
     } finally {
-      await measurement.applyWorkingSettings();
+      await mops.applyWorkingSettings(measurement);
     }
   }
 
@@ -145,7 +243,7 @@ function createAlignmentService({
       return;
     }
 
-    const targetLevelAtFreq = await getTargetLevelAtFreq(
+    const targetLevelAtFreq = await getTargetLevelAtFreqVia(
       subsMeasurements[0],
       targetLevelFreq,
     );
@@ -188,7 +286,7 @@ function createAlignmentService({
           `(center: ${centerFrequency}Hz, ${octaves} octaves, ${lowCutoff}Hz - ${highCutoff}Hz)` +
           ` => ${alignOffset}dB`,
       );
-      await measurement.copySplOffsetDeltadBToOther();
+      await mops.copySplOffsetDeltadBToOther(measurement);
     }
 
     return {
@@ -198,16 +296,27 @@ function createAlignmentService({
     };
   }
 
+  /** Give every sub the first sub's delay (mops-aware internal variant). */
+  async function setSameDelayToAllVia(measurements) {
+    if (measurements.length <= 1) {
+      return;
+    }
+    const mainDelay = unwrap(measurements[0].cumulativeIRShiftSeconds);
+    for (const measurement of measurements) {
+      await mops.setcumulativeIRShiftSeconds(measurement, mainDelay);
+    }
+  }
+
   /** Align every speaker on its IR peak, then give all subs the same delay. */
   async function alignPeaks(speakerMeasurements, subMeasurements) {
     for (const measurement of speakerMeasurements) {
-      await measurement.setZeroAtIrPeak();
+      await mops.setZeroAtIrPeak(measurement);
     }
 
     if (subMeasurements.length > 0) {
       const sub = subMeasurements[0];
-      await sub.setZeroAtIrPeak();
-      await setSameDelayToAll(subMeasurements);
+      await mops.setZeroAtIrPeak(sub);
+      await setSameDelayToAllVia(subMeasurements);
     }
   }
 
@@ -224,10 +333,10 @@ function createAlignmentService({
     }
     const firstWorkingMeasurement = speakerMeasurements[0];
 
-    await firstWorkingMeasurement.resetTargetSettings();
+    await mops.resetTargetSettings(firstWorkingMeasurement);
     // working settings must match filter settings
     for (const work of uniqueMeasurements) {
-      await work.resetIrWindows();
+      await mops.resetIrWindows(work);
     }
     const uuids = uniqueMeasurements.map(m => m.uuid);
     await session.rewMeasurements.smoothMeasurements(uuids, '1/1');
@@ -243,18 +352,18 @@ function createAlignmentService({
     await session.loadData();
 
     // must be calculated before removing working settings
-    await firstWorkingMeasurement.setTargetSettings({
+    await mops.setTargetSettings(firstWorkingMeasurement, {
       shape: 'Bass limited',
       bassManagementSlopedBPerOctave: 24,
       bassManagementCutoffHz: 150,
     });
     // TODO check target level calculation sometime is too high
     await session.rewMeasurements.calculateTargetLevel(firstWorkingMeasurement.uuid);
-    await firstWorkingMeasurement.resetTargetSettings();
+    await mops.resetTargetSettings(firstWorkingMeasurement);
 
     // working settings must match filter settings
     for (const work of speakerMeasurements) {
-      await work.applyWorkingSettings();
+      await mops.applyWorkingSettings(work);
     }
 
     // set target level to all measurements including subs
@@ -262,14 +371,14 @@ function createAlignmentService({
 
     // copy SPL alignment level to other measurements positions
     for (const measurement of uniqueMeasurements) {
-      await measurement.copySplOffsetDeltadBToOther();
+      await mops.copySplOffsetDeltadBToOther(measurement);
     }
 
     // ajust subwoofer levels
     const subsFrequencyBands = await adjustSubwooferSPLLevels(subMeasurements);
 
     for (const sub of subMeasurements) {
-      await sub.applyWorkingSettings();
+      await mops.applyWorkingSettings(sub);
     }
 
     return subsFrequencyBands;
@@ -344,14 +453,14 @@ function createAlignmentService({
   async function checkAlignment(speakerItem) {
     const mustBeDeleted = [];
     try {
-      const cuttOffFrequency = unwrap(speakerItem.crossover);
-      const PredictedLfe = unwrap(speakerItem.relatedLfeMeasurement);
+      const cuttOffFrequency = crossoverFor(speakerItem);
+      const PredictedLfe = relatedLfeFor(speakerItem);
 
       if (!PredictedLfe) {
         throw new Error(`No LFE found, please use sum subs button`);
       }
 
-      const predictedFrontLeft = await speakerItem.producePredictedMeasurement();
+      const predictedFrontLeft = await mops.producePredictedMeasurement(speakerItem);
       mustBeDeleted.push(predictedFrontLeft);
 
       const { PredictedLfeFiltered, predictedSpeakerFiltered } = await applyCutOffFilter(
@@ -374,7 +483,7 @@ function createAlignmentService({
       speakerItem.update({ shiftDelay });
 
       if (isBInverted) {
-        await speakerItem.toggleInversion();
+        await mops.toggleInversion(speakerItem);
         log.info(`Inversion toggled for ${labelOf(speakerItem)}`);
       } else {
         log.info(`No inversion needed for ${labelOf(speakerItem)}`);

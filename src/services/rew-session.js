@@ -42,6 +42,16 @@ class RewSession {
     onApiServicesChanged = () => {},
     onError = () => {},
     pollingInterval = 1000,
+    // renameMeasurements context. Defaults read the item getters / call
+    // setTitle (Knockout path — unchanged); the Vue entry injects derivation-
+    // based providers over the flat records (ADR 002).
+    renameDescriptorFor = item => ({
+      position: unwrap(item.position),
+      isAverage: item.isAverage,
+      isUnknownChannel: item.isUnknownChannel,
+      channelName: unwrap(item.channelName),
+    }),
+    titleWriter = (item, name) => item.setTitle(name),
     log = noopLog,
   }) {
     this.state = state;
@@ -54,6 +64,8 @@ class RewSession {
     this.onApiServicesChanged = onApiServicesChanged;
     this.onError = onError;
     this.pollingInterval = pollingInterval;
+    this.renameDescriptorFor = renameDescriptorFor;
+    this.titleWriter = titleWriter;
     this.log = log;
 
     this.apiService = null;
@@ -247,7 +259,8 @@ class RewSession {
     for (const apiItem of apiItems) {
       const existingMeasurement = currentByUuid.get(apiItem.uuid);
       if (existingMeasurement) {
-        existingMeasurement.updateFromApi(apiItem);
+        // ADR 002 write contract: items are updated through update(partial)
+        existingMeasurement.update(apiItem);
       }
     }
 
@@ -468,23 +481,19 @@ class RewSession {
 
   async renameMeasurements() {
     for (const item of this.measurements.get()) {
-      if (unwrap(item.position) === 0) {
+      const { position, isAverage, isUnknownChannel, channelName } =
+        this.renameDescriptorFor(item);
+      if (position === 0 || !position) {
         continue;
       }
-      // do not rename averaged measurements
-      if (item.isAverage) {
+      // do not rename averaged / unknown-channel measurements
+      if (isAverage || isUnknownChannel) {
         continue;
       }
 
-      if (item.isUnknownChannel) {
-        continue;
-      }
+      const newName = `${channelName}_P${position.toString().padStart(2, '0')}`;
 
-      const newName = `${unwrap(item.channelName)}_P${unwrap(item.position)
-        .toString()
-        .padStart(2, '0')}`;
-
-      item.setTitle(newName);
+      await this.titleWriter(item, newName);
     }
   }
 }

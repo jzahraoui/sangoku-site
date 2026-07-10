@@ -23,11 +23,25 @@ const noopLog = { debug: () => {}, info: () => {}, warn: () => {}, error: () => 
 
 const unwrap = value => (typeof value === 'function' ? value() : value);
 
+/**
+ * Measurement write API used by the service. The default delegates to the
+ * measurement's own methods — the historical behaviour of the Knockout
+ * `MeasurementItem` adapter. The Vue entry (ADR 002) holds plain
+ * `MeasurementRecord`s without these methods, so it injects a bridge routing
+ * to the `createMeasurementOperations` functions instead.
+ */
+const defaultMeasurementOps = {
+  setTitle: (measurement, title, comments) => measurement.setTitle(title, comments),
+  getTargetLevel: measurement => measurement.getTargetLevel(),
+  setTargetLevel: (measurement, level) => measurement.setTargetLevel(level),
+};
+
 function createTargetCurveService({
   session,
   state,
   lists,
   isMeasurement = () => true,
+  measurementOps = defaultMeasurementOps,
   log = noopLog,
 }) {
   /**
@@ -64,7 +78,7 @@ function createTargetCurveService({
       );
       comments = 'no reference measurement';
     }
-    await targetMeasurement.setTitle(title, comments);
+    await measurementOps.setTitle(targetMeasurement, title, comments);
 
     log.info(`Created target curve: ${title}`);
     return true;
@@ -86,7 +100,7 @@ function createTargetCurveService({
     }
     log.debug(`Setting target level from measurement: ${unwrap(measurement?.title)}`);
     const targetLevel = measurement
-      ? await measurement.getTargetLevel()
+      ? await measurementOps.getTargetLevel(measurement)
       : await session.rewEq.getDefaultTargetLevel();
     const newValue = targetLevel || DEFAULT_TARGET_LEVEL;
 
@@ -116,7 +130,7 @@ function createTargetCurveService({
     for (const otherItem of targets) {
       // Filters will be deleted if target level is changed
       log.info(`Updating target level for measurement: ${unwrap(otherItem.title)}`);
-      await otherItem.setTargetLevel(newValue);
+      await measurementOps.setTargetLevel(otherItem, newValue);
     }
 
     // set default target level for future measurements
