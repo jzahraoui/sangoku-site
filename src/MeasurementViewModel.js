@@ -32,6 +32,16 @@ import {
 } from './services/alignment.js';
 import { createTargetCurveService } from './services/target-curve.js';
 import { createAverages } from './services/averaging.js';
+import {
+  MAXIMISED_SUM_TITLE,
+  createSubOptimizationService,
+  getMaxFromArray,
+} from './services/sub-optimization.js';
+import {
+  createFiltersService,
+  selectMeasurementsForBulkApply,
+} from './services/filters.js';
+import { createPersistenceService } from './services/persistence.js';
 
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
 
@@ -59,9 +69,46 @@ const IR_WINDOW_PRESETS = {
   },
 };
 
+/**
+ * Creates a proxy that exposes the instance's Knockout observables as
+ * plain properties (get/set). Reading `proxy.foo` calls `instance.foo()`,
+ * writing `proxy.foo = x` calls `instance.foo(x)`. Non-observable
+ * properties are passed through unchanged.
+ *
+ * This replaces the previous `bindState` helper and the `self = this` alias:
+ * no per-property listing needed, and arrow functions in the trap capture
+ * `instance` lexically.
+ *
+ * @param {object} instance - The MeasurementViewModel instance
+ * @param {string[]} [keys] - Optional allowlist of property names to expose
+ * @returns {object} Proxy with get/set traps over the observables
+ */
+function observableProxy(instance, keys) {
+  const allowed = keys ? new Set(keys) : null;
+  return new Proxy({}, {
+    get(_target, prop) {
+      if (typeof prop !== 'string') return undefined;
+      if (allowed && !allowed.has(prop)) return undefined;
+      const value = instance[prop];
+      return typeof value === 'function' ? value() : value;
+    },
+    set(_target, prop, value) {
+      if (typeof prop !== 'string') return false;
+      if (allowed && !allowed.has(prop)) return false;
+      const observable = instance[prop];
+      if (typeof observable === 'function') {
+        observable(value);
+      } else {
+        instance[prop] = value;
+      }
+      return true;
+    },
+  });
+}
+
 class MeasurementViewModel {
   static DEFAULT_SHIFT_IN_METERS = 3;
-  static MAXIMISED_SUM_TITLE = 'LFE Max Sum';
+  static MAXIMISED_SUM_TITLE = MAXIMISED_SUM_TITLE;
   static MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_BYTES;
   static VALID_FILE_EXTENSIONS = VALID_FILE_EXTENSIONS;
 
@@ -738,16 +785,9 @@ class MeasurementViewModel {
         await this.setTargetLevelFromMeasurement(this.firstMeasurement());
 
         // Process each position's subwoofer measurements
-        const positionGroups = this.byPositionsGroupedSubsMeasurements();
-        for (const [position, subResponses] of Object.entries(positionGroups)) {
-          lm.info(`Processing position ${position}`);
-
-          // Handle based on number of subwoofers
-          if (subResponses.length === 0) continue;
-
-          // Multiple subwoofers case - produce sum
-          await this.produceSumProcess(subResponses);
-        }
+        await this.subOptimizationService.produceSubSums(
+          this.byPositionsGroupedSubsMeasurements(),
+        );
       } catch (error) {
         this.handleError(`Sum failed: ${error.message}`, error);
       } finally {
@@ -766,12 +806,7 @@ class MeasurementViewModel {
           throw new Error(`Speaker not found`);
         }
 
-        await this.businessTools.produceAligned(
-          speakerItem,
-          this.uniqueSubsMeasurements(),
-        );
-
-        this.syncAllPredictedLfeMeasurement();
+        await this.subOptimizationService.produceAligned(speakerItem);
 
         // set lpf for lfe according to speaker crossover or 120Hz minimum
         this.lpfForLFE(Math.max(120, speakerItem.crossover()));
@@ -810,59 +845,29 @@ class MeasurementViewModel {
       }
     };
 
-    this.syncAllPredictedLfeMeasurement = async () => {
-      const selectedLfe = this.predictedLfeMeasurement();
-
-      if (!selectedLfe) {
-        throw new Error(`No LFE found, please use sum subs button`);
-      }
-
-      const selectedLfeIRShift = selectedLfe.cumulativeIRShiftSeconds();
-      const selectedLfeInverted = selectedLfe.inverted();
-
-      for (const predictedLfe of this.allPredictedLfeMeasurement()) {
-        if (predictedLfe.uuid === selectedLfe.uuid) continue;
-        await predictedLfe.setcumulativeIRShiftSeconds(selectedLfeIRShift);
-        await predictedLfe.setInverted(selectedLfeInverted);
-        lm.debug(
-          `Syncing LFE ${predictedLfe.displayMeasurementTitle()} to selected LFE settings`,
-        );
-      }
-
-      // TODO each related subwoofer measurement should follow the same settings as predicted LFE (applyTimeOffsetToSubs)
-    };
+    this.syncAllPredictedLfeMeasurement = async () =>
+      this.subOptimizationService.syncAllPredictedLfeMeasurement();
 
     this.buttongenratesPreview = async () => {
-      for (const item of this.uniqueSpeakersMeasurements()) {
-        // display progression in the status
-        lm.info(`Generating preview for ${item.displayMeasurementTitle()}`);
-        const previewCreated = await item.previewMeasurement();
-        if (previewCreated === false) return;
-      }
+      const completed = await this.filtersService.generatePreviews(
+        this.uniqueSpeakersMeasurements(),
+      );
+      if (completed === false) return;
 
       this.handleSuccess(`Preview generated successfully`);
     };
 
-    this.createSpeakerFilterForSelectedMode = item => {
-      if (this.selectedEqualizationMode() === 'rch') {
-        return item.createPhaseMatchFilter();
-      }
-      return item.createStandardFilter();
-    };
+    this.createSpeakerFilterForSelectedMode = item =>
+      this.filtersService.createSpeakerFilterForSelectedMode(item);
 
     this.buttongeneratesSelectedFilters = async () => {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
-        const filterModeLabel = this.selectedEqualizationMode() === 'rch' ? 'RCH' : 'REW';
 
-        for (const item of this.uniqueSpeakersMeasurements()) {
-          // display progression in the status
-          lm.info(
-            `Generating ${filterModeLabel} filter for channel ${item.channelName()}`,
-          );
-          await this.createSpeakerFilterForSelectedMode(item);
-        }
+        const filterModeLabel = await this.filtersService.generateSelectedFilters(
+          this.uniqueSpeakersMeasurements(),
+        );
 
         this.handleSuccess(`${filterModeLabel} filters generated successfully`);
       } catch (error) {
@@ -886,11 +891,7 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
-        for (const item of this.uniqueSpeakersMeasurements()) {
-          // display progression in the status
-          lm.info(`Inverting channel ${item.channelName()}`);
-          await item.toggleInversion();
-        }
+        await this.filtersService.invertAll(this.uniqueSpeakersMeasurements());
 
         // toggle inversion icon of element in UI invert-icon
         const invertIcon = document.getElementById('invert-icon');
@@ -1070,11 +1071,7 @@ class MeasurementViewModel {
           throw new Error('No subwoofers found');
         }
         await this.setProcessing(true);
-        if (this.uniqueSubsMeasurements().length === 1) {
-          await this.buttonSingleSubOptimizer();
-        } else if (this.uniqueSubsMeasurements().length > 1) {
-          await this.buttonMutipleSubOptimizer();
-        }
+        await this.subOptimizationService.equalizeSubs();
 
         this.handleSuccess('Equalize Subs successful');
       } catch (error) {
@@ -1084,147 +1081,32 @@ class MeasurementViewModel {
       }
     };
 
-    this.buttonMutipleSubOptimizer = async () => {
-      lm.info('Equalize multiple subs...');
+    this.buttonMutipleSubOptimizer = async () =>
+      this.subOptimizationService.multipleSubOptimizer();
 
-      const maximisedSum = this.measurements().find(
-        item => item.title() === MeasurementViewModel.MAXIMISED_SUM_TITLE,
-      );
-      if (!maximisedSum) {
-        throw new Error('No maximised sum found');
-      }
-      await this.equalizeSubProcess(maximisedSum);
-      await this.applyFiltersToSubs(maximisedSum);
-      await this.copySubFiltersToOtherPositions();
-    };
+    this.applyFiltersToSubs = async sourceSub =>
+      this.subOptimizationService.applyFiltersToSubs(sourceSub);
 
-    this.applyFiltersToSubs = async sourceSub => {
-      lm.info(`Apply calculated filters to each sub`);
-      const filters = await sourceSub.getFilters();
-      const subsMeasurements = this.uniqueSubsMeasurements();
-      for (const sub of subsMeasurements) {
-        // do not overwrite the all pass filter if set
-        await sub.setFilters(filters, false);
-      }
-    };
+    this.equalizeSubProcess = async subMeasurement =>
+      this.subOptimizationService.equalizeSubProcess(subMeasurement);
 
-    this.equalizeSubProcess = async subMeasurement => {
-      lm.info(`Equalizing ${await subMeasurement.displayMeasurementTitle()}`);
-      await this.equalizeSub(subMeasurement);
-    };
+    this.copySubFiltersToOtherPositions = async () =>
+      this.subOptimizationService.copySubFiltersToOtherPositions();
 
-    this.copySubFiltersToOtherPositions = async () => {
-      const subsMeasurements = this.uniqueSubsMeasurements();
-      for (const sub of subsMeasurements) {
-        await sub.copyFiltersToOther();
-      }
-    };
+    this.buttonSingleSubOptimizer = async () =>
+      this.subOptimizationService.singleSubOptimizer();
 
-    this.buttonSingleSubOptimizer = async () => {
-      lm.info('Equalize single sub...');
-      const subMeasurement = this.uniqueSubsMeasurements()[0];
-      await this.equalizeSubProcess(subMeasurement);
-      await this.copySubFiltersToOtherPositions();
-    };
+    this.createOptimizerConfig = (lowFrequency, highFrequency) =>
+      this.subOptimizationService.createOptimizerConfig(lowFrequency, highFrequency);
 
-    this.createOptimizerConfig = (lowFrequency, highFrequency) => {
-      if (!this.jsonAvrData()?.avr) {
-        throw new Error('Please load AVR data first');
-      }
+    this.applySubPolarity = async (subMeasurement, polarity) =>
+      this.subOptimizationService.applySubPolarity(subMeasurement, polarity);
 
-      const subMeasurement = this.uniqueSubsMeasurements()[0];
-      const headroomSeconds = MeasurementItem.cleanFloat32Value(
-        subMeasurement._computeInSeconds(this.distanceLeftBeforeError()),
-        4,
-      );
-      if (headroomSeconds <= 0.002) {
-        lm.warn(
-          `Low distance left before error (${(headroomSeconds * 1000).toFixed(
-            1,
-          )} ms). Optimization may fail. Consider increasing the distance left before error in settings.`,
-        );
-      }
-      if (headroomSeconds <= 0) {
-        throw new Error(
-          `Distance left before error (${(headroomSeconds * 1000).toFixed(
-            1,
-          )} ms) is too low. Please increase the distance left before error in settings.`,
-        );
-      }
-      return {
-        frequency: { min: lowFrequency, max: highFrequency },
-        // Gains stay at 0: the efficiency ratio is computed as
-        // actual/theoretical linear magnitude. Allowing positive gain would
-        // artificially inflate the ratio above 100% without any real acoustic
-        // improvement — the optimizer would "cheat" by boosting level instead
-        // of improving alignment. MSO also optimizes with gains at 0 for the
-        // same reason. The delay/polarity/all-pass dimensions are sufficient
-        // to approach the theoretical maximum.
-        gain: { min: 0, max: 0, step: 0.1 },
-        delay: {
-          min: -headroomSeconds,
-          max: headroomSeconds,
-          step: this.jsonAvrData().avr.minDistAccuracy || 0.00001,
-        },
-        allPass: {
-          enabled: this.useAllPassFiltersForSubs(),
-          frequency: { min: 10, max: 500, step: 10 },
-          q: { min: 0.1, max: 0.5, step: 0.1 },
-        },
-        optimization: {
-          objective: 'balanced',
-          globalRefinement: {
-            enabled: true,
-            passes: 4,
-            maxIterations: 30,
-          },
-          multiStart: {
-            enabled: false,
-            runs: 1,
-            coarseSeedCount: 8,
-            minRunImprovement: 0.25,
-          },
-        },
-      };
-    };
+    this.applySubAllPassFilter = async (subMeasurement, allPassParam) =>
+      this.subOptimizationService.applySubAllPassFilter(subMeasurement, allPassParam);
 
-    this.applySubPolarity = async (subMeasurement, polarity) => {
-      if (polarity === -1) {
-        await subMeasurement.setInverted(true);
-      } else if (polarity === 1) {
-        await subMeasurement.setInverted(false);
-      } else {
-        throw new Error(
-          `Invalid invert value for ${await subMeasurement.displayMeasurementTitle()}`,
-        );
-      }
-    };
-
-    this.applySubAllPassFilter = async (subMeasurement, allPassParam) => {
-      const allPassFilter = allPassParam.enabled
-        ? {
-            index: 20,
-            enabled: true,
-            isAuto: false,
-            frequency: allPassParam.frequency,
-            q: allPassParam.q,
-            type: 'All pass',
-          }
-        : { index: 20, enabled: true, isAuto: true, type: 'None' };
-      await subMeasurement.setSingleFilter(allPassFilter);
-    };
-
-    this.applyOptimizedSubSettings = async sub => {
-      const subMeasurement = this.findMeasurementByUuid(sub.measurement);
-      if (!subMeasurement) {
-        throw new Error(`Measurement not found for ${sub.measurement}`);
-      }
-      await this.applySubPolarity(subMeasurement, sub.param.polarity);
-      await subMeasurement.addIROffsetSeconds(sub.param.delay);
-      await subMeasurement.addSPLOffsetDB(sub.param.gain);
-      await subMeasurement.copySplOffsetDeltadBToOther();
-      await this.applySubAllPassFilter(subMeasurement, sub.param.allPass);
-    };
+    this.applyOptimizedSubSettings = async sub =>
+      this.subOptimizationService.applyOptimizedSubSettings(sub);
 
     this.buttonMultiSubOptimizer = async () => {
       if (this.isProcessing()) return;
@@ -1232,104 +1114,7 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('MultiSubOptimizer...');
 
-        const subsMeasurements = this.uniqueSubsMeasurements();
-
-        if (subsMeasurements.length === 0) {
-          throw new Error('No subwoofers found');
-        }
-        if (subsMeasurements.length === 1) {
-          throw new Error(
-            'Only one subwoofer found, please use single sub optimizer button',
-          );
-        }
-
-        if (
-          !this.SubsFrequencyBands?.lowFrequency ||
-          !this.SubsFrequencyBands?.highFrequency
-        ) {
-          throw new Error(
-            'Subwoofer frequency bands not defined, please use Align SPL button first',
-          );
-        }
-
-        //delete previous LFE predicted measurements
-        await this.removeMeasurements(this.allPredictedLfeMeasurement());
-
-        // set the same delay for all subwoofers
-        await this.setSameDelayToAll(subsMeasurements);
-
-        const optimizerConfig = this.createOptimizerConfig(
-          this.SubsFrequencyBands.lowFrequency,
-          this.SubsFrequencyBands.highFrequency,
-        );
-        lm.info(
-          `frequency range: ${optimizerConfig.frequency.min}Hz - ${optimizerConfig.frequency.max}Hz`,
-        );
-        lm.info(
-          `delay range: ${optimizerConfig.delay.min * 1000}ms - ${
-            optimizerConfig.delay.max * 1000
-          }ms`,
-        );
-
-        lm.info(`Deleting previous settings...`);
-
-        // remove previous maximised sum and maximised sum theoretical
-        const previousMaxSum = this.measurements().filter(item =>
-          item.title().startsWith(MeasurementViewModel.MAXIMISED_SUM_TITLE),
-        );
-
-        await this.removeMeasurements(previousMaxSum);
-
-        const frequencyResponses = [];
-        for (const measurement of subsMeasurements) {
-          await measurement.setInverted(false);
-          await measurement.applyWorkingSettings();
-          const frequencyResponse = await measurement.getFrequencyResponse();
-          frequencyResponse.measurement = measurement.uuid;
-          frequencyResponse.name = measurement.displayMeasurementTitle();
-          frequencyResponse.position = measurement.position();
-          frequencyResponses.push(frequencyResponse);
-        }
-
-        lm.info(`Sarting lookup...`);
-        const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, lm);
-        const optimizerResults = optimizer.optimizeSubwoofers();
-
-        for (const sub of optimizerResults.optimizedSubs) {
-          await this.applyOptimizedSubSettings(sub);
-        }
-
-        lm.info(`Creating sub sumation...`);
-        // DEBUG use REW api way to generate the sum for compare
-        // const maximisedSum = await this.produceSumProcess(subsMeasurements);
-
-        const optimizedSubsSum = optimizer.getFinalSubSum();
-
-        const maximisedSum = await this.sendToREW(
-          optimizedSubsSum,
-          MeasurementViewModel.MAXIMISED_SUM_TITLE,
-        );
-
-        const maximisedSumTheo = await this.sendToREW(
-          optimizer.theoreticalMaxResponse,
-          MeasurementViewModel.MAXIMISED_SUM_TITLE + ' Theo',
-        );
-
-        maximisedSum.isSubOperationResult = true;
-        maximisedSumTheo.isSubOperationResult = true;
-        // DEBUG to check if this is the same
-        // await this.sendToREW(optimizerResults.bestSum, 'test');
-
-        // reserve filter emplacement 20 for all pass
-        if (optimizerConfig.allPass.enabled) {
-          const maximisedSumFilter = {
-            index: 20,
-            enabled: true,
-            isAuto: false,
-            type: 'None',
-          };
-          await maximisedSum.setSingleFilter(maximisedSumFilter);
-        }
+        await this.subOptimizationService.multiSubOptimizer(this.SubsFrequencyBands);
 
         this.handleSuccess(`MultiSubOptimizer successfull`);
       } catch (error) {
@@ -1507,50 +1292,17 @@ class MeasurementViewModel {
 
     // REW session service (lot V2) — owns polling, list sync and the
     // processing lock; the viewmodel keeps mirror fields for its consumers.
-    // `self` because the state accessors are property getters (own `this`).
-    const self = this;
     this.rewSession = createRewSession({
-      state: {
-        get isPolling() {
-          return self.isPolling();
-        },
-        set isPolling(value) {
-          self.isPolling(value);
-        },
-        get isProcessing() {
-          return self.isProcessing();
-        },
-        set isProcessing(value) {
-          self.isProcessing(value);
-        },
-        get isLoading() {
-          return self.isLoading();
-        },
-        set isLoading(value) {
-          self.isLoading(value);
-        },
-        get hasError() {
-          return self.hasError();
-        },
-        get rewVersion() {
-          return self.rewVersion();
-        },
-        set rewVersion(value) {
-          self.rewVersion(value);
-        },
-        get maxMeasurements() {
-          return self.maxMeasurements();
-        },
-        set maxMeasurements(value) {
-          self.maxMeasurements(value);
-        },
-        get inhibitGraphUpdates() {
-          return self.inhibitGraphUpdates();
-        },
-        get apiBaseUrl() {
-          return self.apiBaseUrl();
-        },
-      },
+      state: observableProxy(this, [
+        'isPolling',
+        'isProcessing',
+        'isLoading',
+        'hasError',
+        'rewVersion',
+        'maxMeasurements',
+        'inhibitGraphUpdates',
+        'apiBaseUrl',
+      ]),
       measurements: {
         get: () => this.measurements(),
         set: list => this.measurements(list),
@@ -1578,20 +1330,11 @@ class MeasurementViewModel {
     // Target curve / alignment services (lot V4).
     this.targetCurveService = createTargetCurveService({
       session: this.rewSession,
-      state: {
-        get tcName() {
-          return self.tcName();
-        },
-        set targetCurve(value) {
-          self.targetCurve(value);
-        },
-        get mainTargetLevel() {
-          return self.mainTargetLevel();
-        },
-        set mainTargetLevel(value) {
-          self.mainTargetLevel(value);
-        },
-      },
+      state: observableProxy(this, [
+        'tcName',
+        'targetCurve',
+        'mainTargetLevel',
+      ]),
       lists: {
         firstMeasurement: () => this.firstMeasurement(),
         validMeasurements: () => this.validMeasurements(),
@@ -1609,6 +1352,84 @@ class MeasurementViewModel {
         this.setTargetLevelFromMeasurement(measurement),
       getPredictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),
       log: lm,
+    });
+
+    // Subwoofer optimization / filter generation services (lot V5).
+    this.subOptimizationService = createSubOptimizationService({
+      session: this.rewSession,
+      businessTools: {
+        produceAligned: (speakerItem, subs) =>
+          this.businessTools.produceAligned(speakerItem, subs),
+        createsSum: (subsList, title, deleteOriginals) =>
+          this.businessTools.createsSum(subsList, title, deleteOriginals),
+      },
+      config: observableProxy(this, [
+        'mainTargetLevel',
+        'selectedEqualizationMode',
+        'lowerFrequencyBoundSub',
+        'upperFrequencyBoundSub',
+        'maxBoostIndividualValue',
+        'maxBoostOverallValue',
+        'useAllPassFiltersForSubs',
+        'distanceLeftBeforeError',
+        'jsonAvrData',
+      ]),
+      lists: {
+        uniqueSubsMeasurements: () => this.uniqueSubsMeasurements(),
+        predictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),
+        selectedPredictedLfeMeasurement: () => this.predictedLfeMeasurement(),
+      },
+      log: lm,
+    });
+
+    this.filtersService = createFiltersService({
+      config: observableProxy(this, ['selectedEqualizationMode']),
+      log: lm,
+    });
+
+    // Persistence service (lot V6) — the persisted keys match the observable
+    // names, so the settings adapter resolves them generically.
+    this.persistenceService = createPersistenceService({
+      store,
+      settings: {
+        get: name => ko.unwrap(this[name]),
+        set: (name, value) => {
+          if (ko.isObservable(this[name])) {
+            this[name](value);
+          } else {
+            this[name] = value;
+          }
+        },
+      },
+      measurements: {
+        get: () => this.measurements(),
+        set: list => this.measurements(list),
+      },
+      createMeasurement: item => new MeasurementItem(item, this),
+      crossovers: {
+        toJSON: () =>
+          Object.fromEntries(
+            Object.entries(this._crossoverMap).map(([key, obs]) => [
+              key,
+              { crossover: obs() },
+            ]),
+          ),
+        restore: groups => {
+          for (const [key, value] of Object.entries(groups)) {
+            this._crossoverMap[key] = ko.observable(value.crossover);
+          }
+        },
+      },
+      autoEq: {
+        toJSON: () => ko.toJS(this.autoEqConfig),
+        apply: config => {
+          for (const [key, val] of Object.entries(config)) {
+            this.autoEqConfig[key]?.(val);
+          }
+        },
+      },
+      applyPolling: shouldPoll =>
+        shouldPoll ? this.startBackgroundPolling() : this.stopBackgroundPolling(),
     });
   }
 
@@ -1647,16 +1468,13 @@ class MeasurementViewModel {
       return;
     }
 
-    const selectedMeasurements = this.validMeasurements().filter(filter);
-    const predicted = includePredictedLfeMeasurement && this.predictedLfeMeasurement();
-
-    if (
-      predicted &&
-      filter(predicted) &&
-      !selectedMeasurements.some(({ uuid }) => uuid === predicted.uuid)
-    ) {
-      selectedMeasurements.push(predicted);
-    }
+    // selection logic in services/filters.js (lot V5)
+    const selectedMeasurements = selectMeasurementsForBulkApply({
+      validMeasurements: this.validMeasurements(),
+      predicted: includePredictedLfeMeasurement && this.predictedLfeMeasurement(),
+      filter,
+      includePredicted: includePredictedLfeMeasurement,
+    });
 
     if (!selectedMeasurements.length) return;
 
@@ -1757,29 +1575,7 @@ class MeasurementViewModel {
   };
 
   resetApplicationState() {
-    store.clear();
-
-    // Reset all application state
-    for (const item of this.measurements()) {
-      item.dispose();
-    }
-    this.measurements([]);
-    this.jsonAvrData(null);
-
-    this.targetCurve('');
-    this.rewVersion('');
-    this.maxBoostIndividualValue(0);
-    this.maxBoostOverallValue(0);
-    this.loadedFileName('');
-
-    // Reset selectors to default values
-    this.selectedSpeaker('');
-    this.selectedLfeFrequency(250);
-    this.selectedAverageMethod('');
-    this.selectedMeasurementsFilter(true);
-    this.selectedEqualizationMode('rew');
-    this.selectedRoomCurve(RoomCurvesSettings.DEFAULT_CHOICE);
-    this.SubsFrequencyBands = null;
+    return this.persistenceService.resetApplicationState();
   }
 
   async updateTargetCurve(referenceMeasurement) {
@@ -1787,46 +1583,7 @@ class MeasurementViewModel {
   }
 
   async equalizeSub(subMeasurement) {
-    await subMeasurement.setTargetLevel(this.mainTargetLevel());
-    await subMeasurement.applyWorkingSettings();
-    await subMeasurement.resetTargetSettings();
-    const fallOff = await subMeasurement.detectFallOff(-3);
-
-    const customStartFrequency = Math.max(this.lowerFrequencyBoundSub(), fallOff.lowHz);
-    const customEndFrequency = Math.min(this.upperFrequencyBoundSub(), fallOff.highHz);
-
-    lm.info(
-      `Creating ${this.selectedEqualizationMode().toUpperCase()} EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`,
-    );
-
-    if (this.selectedEqualizationMode() === 'rch') {
-      await subMeasurement._runPhaseMatchFilter(
-        customStartFrequency,
-        customEndFrequency,
-        {
-          individualMaxBoostDb: this.maxBoostIndividualValue(),
-          overallMaxBoostDb: this.maxBoostOverallValue(),
-        },
-      );
-    } else {
-      await this.rewEq.setMatchTargetSettings({
-        startFrequency: customStartFrequency,
-        endFrequency: customEndFrequency,
-        individualMaxBoostdB: this.maxBoostIndividualValue(),
-        overallMaxBoostdB: this.maxBoostOverallValue(),
-        flatnessTargetdB: 1,
-        allowNarrowFiltersBelow200Hz: false,
-        varyQAbove200Hz: false,
-        allowLowShelf: false,
-        allowHighShelf: false,
-      });
-
-      await this.rewMeasurements.matchTarget(subMeasurement.uuid);
-    }
-
-    await subMeasurement.checkFilterGain();
-
-    return true;
+    return this.subOptimizationService.equalizeSub(subMeasurement);
   }
 
   async setSameDelayToAll(measurements) {
@@ -1886,87 +1643,22 @@ class MeasurementViewModel {
   };
 
   getMaxFromArray(array) {
-    if (!Array.isArray(array)) {
-      throw new TypeError('Input is not an array');
-    }
-
-    let maxPeak = -Infinity;
-    for (const value of array) {
-      if (value > maxPeak) {
-        maxPeak = value;
-      }
-    }
-    return maxPeak;
+    return getMaxFromArray(array);
   }
 
   async createsSumFromFR(measurementList) {
-    try {
-      if (!Array.isArray(measurementList) || measurementList.length === 0) {
-        throw new Error('Invalid measurement list');
-      }
-      const frequencyResponses = [];
-      for (const measurement of measurementList) {
-        await measurement.removeWorkingSettings();
-        const frequencyResponse = await measurement.getFrequencyResponse();
-        frequencyResponse.uuid = measurement.uuid;
-        frequencyResponses.push(frequencyResponse);
-        await measurement.applyWorkingSettings();
-      }
-
-      const optimizer = new MultiSubOptimizer(
-        frequencyResponses,
-        MultiSubOptimizer.DEFAULT_CONFIG,
-        lm,
-      );
-      const optimizedSubsSum = optimizer.calculateCombinedResponse(frequencyResponses);
-      const data = optimizer.displayResponse(optimizedSubsSum);
-
-      // Create blob with data content
-      const blob = new Blob([data], { type: 'text/plain;charset=utf-8' });
-
-      // Save file using FileSaver
-      await saveAs(blob, `sum.txt`);
-    } catch (error) {
-      throw new Error(`Failed to create sum: ${error.message}`, {
-        cause: error,
-      });
-    }
+    const { filename, blob } =
+      await this.subOptimizationService.createsSumFromFR(measurementList);
+    // Save file using FileSaver
+    await saveAs(blob, filename);
   }
 
   async sendToREW(optimizedSubsSum, maximisedSumTitle) {
-    const options = {
-      identifier: maximisedSumTitle.slice(0, 24),
-      isImpedance: false,
-      startFreq: optimizedSubsSum.freqs[0],
-      freqStep: optimizedSubsSum.freqStep,
-      magnitude: optimizedSubsSum.magnitude,
-      phase: optimizedSubsSum.phase,
-      ppo: optimizedSubsSum.ppo,
-    };
-    const maximisedSum = await this.addMeasurementFromRewOperation(
-      () => this.rewImport.importFrequencyResponseData(options),
-      { expectedTitle: options.identifier, operationLabel: maximisedSumTitle },
-    );
-
-    if (!maximisedSum) {
-      throw new Error('Error creating maximised sum');
-    }
-
-    await maximisedSum.applyWorkingSettings();
-    await maximisedSum.setTargetLevel(this.mainTargetLevel());
-    await maximisedSum.resetTargetSettings();
-
-    return maximisedSum;
+    return this.subOptimizationService.sendToREW(optimizedSubsSum, maximisedSumTitle);
   }
 
   async copyMeasurementCommonAttributes() {
-    console.time('copyMeasurements');
-
-    for (const item of this.uniqueMeasurements()) {
-      await item.copyAllToOther();
-    }
-
-    console.timeEnd('copyMeasurements');
+    return this.filtersService.copyMeasurementCommonAttributes(this.uniqueMeasurements());
   }
 
   updateTranslations(language) {
@@ -1977,31 +1669,7 @@ class MeasurementViewModel {
   }
 
   async produceSumProcess(subsList) {
-    if (!subsList?.length) {
-      throw new Error(`No subs found`);
-    }
-    if (subsList.length < 1) {
-      throw new Error(`Not enough subs found to compute sum`);
-    }
-    const subResponsesTitles = subsList.map(response => response.title());
-    lm.info(`Using: ${subResponsesTitles.join(', ')} to create subwoofer sum`);
-    // get first subsList element position
-    const position = subsList[0].position();
-    const resultTitle = `${MeasurementItem.DEFAULT_LFE_PREDICTED}${position}`;
-
-    const previousSubSum = this.measurements().find(item => item.title() === resultTitle);
-    // remove previous
-    await this.removeMeasurement(previousSubSum);
-    // create sum of all subwoofer measurements
-    const newDefaultLfePredicted = await this.businessTools.createsSum(
-      subsList,
-      resultTitle,
-      true,
-    );
-    newDefaultLfePredicted.isSubOperationResult = true;
-
-    lm.info(`Subwoofer sum created successfully: ${newDefaultLfePredicted.title()}`);
-    return newDefaultLfePredicted;
+    return this.subOptimizationService.produceSumProcess(subsList);
   }
 
   // REW session sync — logic in services/rew-session.js (lot V2); thin
@@ -2174,125 +1842,13 @@ class MeasurementViewModel {
     }
   }
 
+  // Persistence — logic in services/persistence.js (lot V6).
   restore() {
-    const data = store.load();
-    if (!data) return;
-
-    this.restoreMeasurementGroups(data);
-    this.restoreAvrAndMeasurements(data);
-    this.restoreSettings(data);
-  }
-
-  restoreAvrAndMeasurements(data) {
-    if (!data.avrFileContent) return;
-    this.jsonAvrData(data.avrFileContent);
-    const enhancedMeasurements = Object.values(data.measurements).map(
-      item => new MeasurementItem(item, this),
-    );
-    this.measurements(enhancedMeasurements);
-  }
-
-  restoreSettings(data) {
-    data.apiBaseUrl && this.apiBaseUrl(data.apiBaseUrl);
-    this.selectedSpeaker(data.selectedSpeaker);
-    this.targetCurve(data.targetCurve);
-    this.rewVersion(data.rewVersion);
-    this.selectedLfeFrequency(data.selectedLfeFrequency);
-    this.selectedAverageMethod(data.selectedAverageMethod);
-    this.maxBoostIndividualValue(data.maxBoostIndividualValue || 0);
-    this.maxBoostOverallValue(data.maxBoostOverallValue || 0);
-    this.loadedFileName(data.loadedFileName || '');
-    data.isPolling ? this.startBackgroundPolling() : this.stopBackgroundPolling();
-    data.selectedSmoothingMethod &&
-      this.selectedSmoothingMethod(data.selectedSmoothingMethod);
-    data.selectedIrWindows && this.selectedIrWindows(data.selectedIrWindows);
-    data.individualMaxBoostValue &&
-      this.individualMaxBoostValue(+data.individualMaxBoostValue);
-    data.overallBoostValue && this.overallBoostValue(+data.overallBoostValue);
-    data.upperFrequencyBound && this.upperFrequencyBound(data.upperFrequencyBound);
-    data.lowerFrequencyBound && this.lowerFrequencyBound(data.lowerFrequencyBound);
-    data.upperFrequencyBoundSub &&
-      this.upperFrequencyBoundSub(data.upperFrequencyBoundSub);
-    data.lowerFrequencyBoundSub &&
-      this.lowerFrequencyBoundSub(data.lowerFrequencyBoundSub);
-    data.ocaFileFormat && this.ocaFileFormat(data.ocaFileFormat);
-    data.avrIpAddress && this.avrIpAddress(data.avrIpAddress);
-    data.inhibitGraphUpdates !== undefined &&
-      this.inhibitGraphUpdates(data.inhibitGraphUpdates);
-    this.restoreEqualizationMode(data);
-    this.restoreRoomCurveChoice(data);
-    data.mainTargetLevel && this.mainTargetLevel(data.mainTargetLevel);
-    if (data.autoEqConfig) {
-      for (const [key, val] of Object.entries(data.autoEqConfig)) {
-        this.autoEqConfig[key]?.(val);
-      }
-    }
-    data.SubsFrequencyBands && (this.SubsFrequencyBands = data.SubsFrequencyBands);
-  }
-
-  restoreEqualizationMode(data) {
-    const selectedEqualizationMode =
-      data.selectedEqualizationMode || data.selectedSpeakerFilterMode;
-    if (selectedEqualizationMode) {
-      this.selectedEqualizationMode(selectedEqualizationMode);
-    }
-  }
-
-  restoreRoomCurveChoice(data) {
-    if (RoomCurvesSettings.hasChoice(data.selectedRoomCurve)) {
-      this.selectedRoomCurve(data.selectedRoomCurve);
-    }
-  }
-
-  restoreMeasurementGroups(data) {
-    if (!data.measurementsByGroup) return;
-    for (const [key, value] of Object.entries(data.measurementsByGroup)) {
-      this._crossoverMap[key] = ko.observable(value.crossover);
-    }
+    return this.persistenceService.restore();
   }
 
   saveMeasurements() {
-    // Save to persistent store
-    const reducedMeasurements = this.measurements().map(item => item.toJSON());
-    const data = {
-      measurements: reducedMeasurements,
-      selectedSpeaker: this.selectedSpeaker(),
-      targetCurve: this.targetCurve(),
-      rewVersion: this.rewVersion(),
-      selectedLfeFrequency: this.selectedLfeFrequency(),
-      selectedAverageMethod: this.selectedAverageMethod(),
-      maxBoostIndividualValue: this.maxBoostIndividualValue(),
-      maxBoostOverallValue: this.maxBoostOverallValue(),
-      avrFileContent: this.jsonAvrData(),
-      loadedFileName: this.loadedFileName(),
-      isPolling: this.isPolling(),
-      selectedSmoothingMethod: this.selectedSmoothingMethod(),
-      selectedIrWindows: this.selectedIrWindows(),
-      individualMaxBoostValue: this.individualMaxBoostValue(),
-      overallBoostValue: this.overallBoostValue(),
-      upperFrequencyBound: this.upperFrequencyBound(),
-      lowerFrequencyBound: this.lowerFrequencyBound(),
-      upperFrequencyBoundSub: this.upperFrequencyBoundSub(),
-      lowerFrequencyBoundSub: this.lowerFrequencyBoundSub(),
-      apiBaseUrl: this.apiBaseUrl(),
-      ocaFileFormat: this.ocaFileFormat(),
-      avrIpAddress: this.avrIpAddress(),
-      inhibitGraphUpdates: this.inhibitGraphUpdates(),
-      selectedEqualizationMode: this.selectedEqualizationMode(),
-      selectedRoomCurve: this.selectedRoomCurve(),
-      measurementsByGroup: Object.fromEntries(
-        Object.entries(this._crossoverMap).map(([key, obs]) => [
-          key,
-          { crossover: obs() },
-        ]),
-      ),
-      mainTargetLevel: this.mainTargetLevel(),
-      autoEqConfig: ko.toJS(this.autoEqConfig),
-      SubsFrequencyBands: this.SubsFrequencyBands,
-    };
-    // Convert observables to plain objects
-    // const plainData = ko.toJS(data);
-    store.save(data);
+    return this.persistenceService.saveMeasurements();
   }
 
   async startBackgroundPolling() {
