@@ -9,6 +9,7 @@ import AvrCaracteristics from './avr-caracteristics.js';
 import ko from 'knockout';
 import { saveAs } from 'file-saver';
 import lm from './logs.js';
+import koLogs from './ko-logs.js';
 import { Room3DViewer } from './room-3d-viewer.js';
 import RoomCurvesSettings from './room-curve-settings.js';
 import {
@@ -176,7 +177,9 @@ class MeasurementViewModel {
 
     this.businessTools = new BusinessTools(this);
 
-    this.lm = lm;
+    // index.html binds the log panel (lm.autoScroll / logLevel / filteredLogs /
+    // exportLogs) to the Knockout display adapter over the agnostic log service.
+    this.lm = koLogs;
 
     // Observables
     this.measurements = ko.observableArray([]);
