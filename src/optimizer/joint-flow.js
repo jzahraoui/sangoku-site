@@ -79,14 +79,25 @@ export async function runJointOptimization(optimizer, options = {}) {
       reportProgress(optimizer, onProgress, 'alignment', progress, joint),
   });
 
-  // --- Phase 2 : full space, seeded with the alignment winner (neutral
-  // filters) and the neutral genome.
+  // --- Phase 2 : full space. Half the population starts as focused
+  // perturbations of the alignment winner (plus the winner and the neutral
+  // genome), the rest random. With a fully random population, DE/rand/1
+  // builds nearly every trial from random members whose junk filter genes
+  // mask small refinements — measured stall: when the clamped target is
+  // almost reached by alignment alone, 400×80 trials produced zero
+  // improvement on all fixtures.
   let phase2 = null;
   if (!phase1.cancelled && joint.filtersPerSub > 0) {
+    const focusedSeeds = buildPerturbedSeeds(
+      phase1.best,
+      layout.bounds,
+      Math.floor(joint.populationSize / 2),
+      random,
+    );
     phase2 = await runDifferentialEvolution({
       bounds: layout.bounds,
       cost,
-      seeds: [phase1.best, neutralGenome],
+      seeds: [phase1.best, neutralGenome, ...focusedSeeds],
       populationSize: joint.populationSize,
       generations: joint.generations,
       patience: joint.patience,
@@ -254,6 +265,25 @@ export function decodeGenome(layout, genome) {
   }
 
   return params;
+}
+
+/**
+ * Focused seeds around a base genome: each dimension is jittered by ±scale
+ * of its range (bounds clamping happens in the solver). Gives the DE an
+ * exploitation nucleus around the previous phase's winner while the random
+ * remainder of the population keeps exploring.
+ */
+function buildPerturbedSeeds(base, bounds, count, random, scale = 0.05) {
+  const seeds = [];
+  for (let i = 0; i < count; i++) {
+    const seed = new Float64Array(base.length);
+    for (let dim = 0; dim < base.length; dim++) {
+      const span = bounds[dim][1] - bounds[dim][0];
+      seed[dim] = base[dim] + (random() * 2 - 1) * scale * span;
+    }
+    seeds.push(seed);
+  }
+  return seeds;
 }
 
 function neutralFilterValue(layout, dim) {

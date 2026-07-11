@@ -30,10 +30,49 @@ export function prepareMeasurements(optimizer) {
 
   const targetCurve = optimizer.config.optimization.targetCurve;
   if (targetCurve) {
-    optimizer.targetMagnitude = resampleCurveToGrid(targetCurve, preparedSubs[0].freqs);
+    optimizer.targetMagnitude = clampTargetToTheoreticalCeiling(
+      optimizer,
+      resampleCurveToGrid(targetCurve, preparedSubs[0].freqs),
+      preparedSubs,
+    );
   }
 
   return preparedSubs;
+}
+
+/**
+ * Caps the effective target at the theoretical ceiling (coherent sum of the
+ * raw magnitudes). The requested target is anchored for the SUM of N subs;
+ * wherever fewer subs carry the signal (low-end extension, band edges,
+ * geometrically incoherent zones) it exceeds what any solution can reach —
+ * and the asymmetric below-target cost would endlessly pull boost onto the
+ * remaining sub(s) chasing it. Above-ceiling bins are structurally
+ * unreachable: clamping them makes the optimizer spend its levers where
+ * they can actually win.
+ */
+function clampTargetToTheoreticalCeiling(optimizer, targetMagnitude, preparedSubs) {
+  const size = targetMagnitude.length;
+  let clampedCount = 0;
+
+  for (let i = 0; i < size; i++) {
+    let linearSum = 0;
+    for (const sub of preparedSubs) {
+      linearSum += Math.pow(10, sub.magnitude[i] / 20);
+    }
+    const ceilingDb = 20 * Math.log10(Math.max(linearSum, Number.EPSILON));
+    if (targetMagnitude[i] > ceilingDb) {
+      targetMagnitude[i] = ceilingDb;
+      clampedCount++;
+    }
+  }
+
+  if (clampedCount > 0) {
+    optimizer.lm.info(
+      `Target clamped to the theoretical ceiling on ${clampedCount}/${size} bins ` +
+        `(requested target unreachable there)`,
+    );
+  }
+  return targetMagnitude;
 }
 
 /**

@@ -698,6 +698,19 @@ structure d'interférence).
   ≤ cap, et sur data.test un RMS meilleur (2.93 → 2.67 dB) avec des délais
   courts et des polarités normales.
 
+- **Cible plafonnée au max théorique** (constat utilisateur : la cible,
+  calibrée pour la somme, est trop haute pour un sub seul) : là où peu de
+  subs portent le signal, la cible est structurellement inatteignable et
+  l'asymétrie sous-cible aspirait du boost sans fin — la cible effective est
+  écrêtée bin par bin au plafond (somme cohérente des magnitudes brutes,
+  `clampTargetToTheoreticalCeiling`). ⚠️ Piège DE découvert dans la foulée :
+  quand l'alignement seul approche l'optimum, une population initiale
+  aléatoire fait décrocher DE/rand/1 (les gènes de filtres parasites des
+  membres aléatoires masquent les petits raffinements — zéro amélioration en
+  400×80 essais). La moitié de la population de phase 2 démarre en
+  perturbations focalisées (±5 % des bornes) du vainqueur. Banc : RMS 1.58 /
+  1.63 / 1.78 dB, realign +1.2 à +3.6 points.
+
 Reste : Lot 4 (objectif multi-positions).
 
 ### Résultats finaux (efficiency ratio)

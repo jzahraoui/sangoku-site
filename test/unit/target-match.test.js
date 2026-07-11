@@ -167,6 +167,36 @@ describe('target-match objective', () => {
     ).toThrow(/targetCurve/);
   });
 
+  it('clamps the effective target to the theoretical ceiling', () => {
+    const sub1 = makeSub('SW1', 'uuid-1');
+    const sub2 = makeSub('SW2', 'uuid-2');
+    const optimizer = new MultiSubOptimizer(
+      [sub1, sub2],
+      {
+        frequency: { min: 20, max: 200 },
+        optimization: {
+          objective: 'target-match',
+          // Two coherent 80 dB subs peak at 86 dB: a 95 dB request is
+          // structurally unreachable and must be clamped to the ceiling —
+          // otherwise the asymmetric cost pulls boost forever chasing it.
+          targetCurve: { freqs: [10, 400], magnitude: [95, 95] },
+        },
+      },
+      deps,
+    );
+    const prepared = optimizer.prepareMeasurements();
+
+    for (const value of optimizer.targetMagnitude) {
+      expect(value).toBeCloseTo(86.02, 1);
+    }
+
+    // The perfectly coherent pair reaches the clamped target: base score.
+    prepared[0].param = MultiSubOptimizer.EMPTY_CONFIG;
+    prepared[1].param = MultiSubOptimizer.EMPTY_CONFIG;
+    const result = optimizer.evaluateParameters(prepared[1], prepared[0], null);
+    expect(result.score).toBeCloseTo(100, 1);
+  });
+
   it('evaluates parameters against the resampled target through the standard path', () => {
     const sub1 = makeSub('SW1', 'uuid-1');
     const sub2 = makeSub('SW2', 'uuid-2');
