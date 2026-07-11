@@ -45,16 +45,15 @@ export function optimizeSingleSub(
     optimizer._random = optimizer._createSeededRandom(seed);
   }
 
-  // Theoretical max for per-sub scoring: uses the GLOBAL theoretical max
-  // (minimum phase of ALL prepared subs, computed once in flow.js) passed
-  // via options, rather than a per-sub theo that changes at each step.
-  // The per-sub theo ([sub + previousSum]) created a moving target: each
-  // sub was optimized against a different reference, and a solution that
-  // was good locally could degrade the global efficiency. Using the global
-  // max ensures all subs are scored against the same stable reference,
-  // which matches how the final result is evaluated.
+  // Theoretical max for per-sub scoring: the phase=0 max of the subs present
+  // in the current partial sum (computed in flow.js and passed via options).
+  // Being phase=0, it only depends on the magnitudes — never on the delays,
+  // polarity or all-pass applied so far — so it is a stable target within the
+  // step. The historical per-sub minimum-phase theo ([sub + previousSum])
+  // created a moving target that penalized delay usage; it remains only as a
+  // fallback for direct callers that do not provide a reference.
   const theo =
-    options.globalTheoreticalMax ??
+    options.stepTheoreticalMax ??
     calculateCombinedResponse([subToOptimize, previousValidSum], false, true, {
       validate: false,
     });
