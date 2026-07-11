@@ -219,16 +219,20 @@ class VirtualSubwoofer {
    *
    * The sum is imported as an IMPULSE response (client-side inverse FFT):
    * REW exposes no impulse data for frequency-response imports, which breaks
-   * every IR consumer (Find Sub Alignment, previews, peak measurements). The
-   * phase carries the absolute delays, so the impulse peak lands at the
-   * physically correct time; with splOffset 0 REW reads back the exact
-   * magnitude the sum encodes (verified against a live REW).
+   * every IR consumer (Find Sub Alignment, previews, peak measurements).
+   *
+   * The impulse is centered in the buffer and imported with the matching
+   * NEGATIVE startTime: every sample keeps its physical time (the peak
+   * arithmetic of produceAligned still holds — verified on a live REW) and
+   * the content before t = 0 is preserved. Without this, zero-phase sums
+   * (Theo) and negatively-delayed sums wrap their anticausal half to the end
+   * of the buffer and REW discards it: truncated responses.
    */
-  async project(sum, title, notes, sampleRate, { center = false } = {}) {
-    const impulse = synthesizeImpulseFromResponse(sum, { sampleRate, center });
+  async project(sum, title, notes, sampleRate) {
+    const impulse = synthesizeImpulseFromResponse(sum, { sampleRate, center: true });
     const options = {
       identifier: title.slice(0, 24),
-      startTime: 0,
+      startTime: impulse.startTimeSeconds,
       sampleRate: impulse.sampleRate,
       splOffset: 0,
       applyCal: false,
@@ -256,7 +260,7 @@ class VirtualSubwoofer {
    * and already projected, unless `force` is set. Returns the predicted
    * projection, or null when the position has no sub.
    */
-  async refresh(subs, { force = false } = {}) {
+  async refresh(subs, { force = false, theoResponse = null } = {}) {
     if (!subs?.length) {
       await this.removeProjection();
       return null;
@@ -286,15 +290,16 @@ class VirtualSubwoofer {
     this.projectionUuid = projection.uuid;
 
     if (this.withTheo) {
-      const theoSum = calculateCombinedResponse(responses, true);
-      // Zero-phase sum → acausal impulse: center it in the buffer, otherwise
-      // REW discards the wrapped anticausal half (≈ −6 dB on the reference).
+      // Reference ceiling: the caller-provided raw response when available
+      // (align-sub passes the pre-optimization sum — no EQ, no gain trims —
+      // so the Theo is invariant to the applied settings), otherwise the
+      // zero-phase sum of the current predicted responses.
+      const theoSum = theoResponse ?? calculateCombinedResponse(responses, true);
       const theo = await this.project(
         theoSum,
         this.theoTitle,
         `theoretical (zero-phase) sum from:\n${titles.join('\n')}`,
         sampleRate,
-        { center: true },
       );
       this.theoUuid = theo.uuid;
     }
@@ -401,12 +406,16 @@ function createVirtualSubwooferService({
    * Refresh one position; subs default to the current group of the position.
    * `withTheo: true` (align-sub) enables the zero-phase Theo reference — it
    * then stays enabled and is recomputed by every subsequent refresh.
+   * `theoResponse` (optional) supplies the reference to project instead of
+   * the zero-phase sum of the current predicted responses: align-sub passes
+   * the RAW ceiling (no EQ filters, no gain trims) so the Theo stays
+   * invariant whatever settings the optimizer applied.
    */
-  async function refresh(position, { force = false, withTheo } = {}) {
+  async function refresh(position, { force = false, withTheo, theoResponse } = {}) {
     const virtualSub = subwooferFor(position);
     if (withTheo === true) virtualSub.withTheo = true;
     const subs = getSubsByPosition()[position] ?? [];
-    return virtualSub.refresh(subs, { force });
+    return virtualSub.refresh(subs, { force, theoResponse });
   }
 
   /**

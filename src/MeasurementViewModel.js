@@ -525,6 +525,14 @@ class MeasurementViewModel {
 
     this.useAllPassFiltersForSubs = ko.observable(false);
 
+    // Joint (target-match) sub optimization: alignment + per-sub filters
+    // solved together against the target curve (replaces align + shared EQ).
+    this.useJointSubOptimization = ko.observable(false);
+    // Solver budget override (population/generations/filtersPerSub…) — test
+    // and e2e hook, no UI; null lets the engine defaults apply.
+    this.jointOptimizerBudget = ko.observable(null);
+    this.subOptimizerProgress = ko.observable('');
+
     this.DeleteOriginalForLfeRevert = ko.observable(true);
 
     this.isProcessing = ko.observable(false);
@@ -1116,12 +1124,22 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         lm.info('MultiSubOptimizer...');
 
-        await this.subOptimizationService.multiSubOptimizer(this.SubsFrequencyBands);
+        await this.subOptimizationService.multiSubOptimizer(this.SubsFrequencyBands, {
+          onProgress: progress => {
+            const percent = Math.round(
+              (progress.generation / Math.max(progress.generations, 1)) * 100,
+            );
+            const phaseLabel =
+              progress.phase === 'alignment' ? 'Alignment' : 'Filters';
+            this.subOptimizerProgress(`${phaseLabel} ${percent}%`);
+          },
+        });
 
         this.handleSuccess(`MultiSubOptimizer successfull`);
       } catch (error) {
         this.handleError(`MultiSubOptimizer failed: ${error.message}`, error);
       } finally {
+        this.subOptimizerProgress('');
         await this.setProcessing(false);
       }
     };
@@ -1367,6 +1385,8 @@ class MeasurementViewModel {
         'maxBoostIndividualValue',
         'maxBoostOverallValue',
         'useAllPassFiltersForSubs',
+        'useJointSubOptimization',
+        'jointOptimizerBudget',
         'distanceLeftBeforeError',
         'jsonAvrData',
       ]),

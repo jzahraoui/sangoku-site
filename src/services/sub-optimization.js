@@ -64,6 +64,7 @@ function buildMeasurementApi({
       resetTargetSettings: m => m.resetTargetSettings(),
       removeWorkingSettings: m => m.removeWorkingSettings(),
       getFrequencyResponse: m => m.getFrequencyResponse(),
+      getTargetResponse: (m, unit, ppo) => m.getTargetResponse(unit, ppo),
       setcumulativeIRShiftSeconds: (m, value) => m.setcumulativeIRShiftSeconds(value),
       detectFallOff: (m, threshold) => m.detectFallOff(threshold),
       runPhaseMatchFilter: (m, start, end, options) =>
@@ -106,6 +107,8 @@ function buildMeasurementApi({
     resetTargetSettings: m => operations.resetTargetSettings(rew(), m),
     removeWorkingSettings: m => operations.removeWorkingSettings(rew(), m, irWindowWidthsFor(m)),
     getFrequencyResponse: m => operations.getFrequencyResponse(rew(), m, {}),
+    getTargetResponse: (m, unit, ppo) =>
+      operations.getTargetResponse(rew(), m, { unit, ppo }),
     setcumulativeIRShiftSeconds: (m, value) =>
       operations.setcumulativeIRShiftSeconds(rew(), m, value),
     detectFallOff: (m, threshold) => operations.detectFallOff(rew(), m, { threshold }),
@@ -674,10 +677,76 @@ function createSubOptimizationService({
     await mops.addSPLOffsetDB(subMeasurement, sub.param.gain);
     await mops.copySplOffsetDeltadBToOther(subMeasurement);
     await applySubAllPassFilter(subMeasurement, sub.param.allPass);
+    await applySubIndividualFilters(subMeasurement, sub.param.filters);
+  }
+
+  /**
+   * Writes the per-sub PK filters of the joint (target-match) solution in
+   * slots 1..N. Non-auto so later bulk writes with overwrite=false (the
+   * shared-EQ path) leave them alone — same convention as the slot-20
+   * all-pass reservation. Slots start clean: the optimizer preamble resets
+   * every sub's filters before capturing the responses.
+   */
+  async function applySubIndividualFilters(subMeasurement, filters) {
+    if (!filters?.length) return;
+
+    for (const [filterIndex, filter] of filters.entries()) {
+      await mops.setSingleFilter(subMeasurement, {
+        index: filterIndex + 1,
+        enabled: true,
+        isAuto: false,
+        type: 'PK',
+        frequency: filter.frequency,
+        // REW's filter field is `gaindB` — an unknown `gain` key is silently
+        // ignored and the filter stays at 0 dB (observed on a live REW).
+        gaindB: filter.gain,
+        q: filter.q,
+      });
+    }
   }
 
   /** Full MultiSubOptimizer sequence over the given frequency bands. */
-  async function multiSubOptimizer(subsFrequencyBands) {
+  /**
+   * Measures the sub↔front alignment gaps (delay reserve) on the refreshed
+   * projection — delays equalised, filters just purged — exactly like
+   * produceAligned will measure them. Returns null on the historical surface
+   * (no virtual subwoofers or no gap measurement available).
+   */
+  async function measureAlignmentGaps(subsMeasurements, applySameDelayToAll) {
+    if (!virtualSubwoofers || !businessTools.alignmentGapSeconds) {
+      //delete previous LFE predicted measurements
+      await session.removeMeasurements(lists.predictedLfeMeasurements());
+      await applySameDelayToAll();
+      return null;
+    }
+
+    await applySameDelayToAll();
+    await virtualSubwoofers.refresh(unwrap(subsMeasurements[0].position), {
+      force: true,
+    });
+    const alignmentGapsSeconds = [];
+    for (const speaker of lists.frontSpeakersMeasurements?.() ?? []) {
+      try {
+        const gapSeconds = await businessTools.alignmentGapSeconds(speaker);
+        if (gapSeconds != null) alignmentGapsSeconds.push(gapSeconds);
+      } catch (error) {
+        log.warn(
+          `Alignment gap measurement failed for ${labelOf(speaker)}: ${error.message}`,
+        );
+      }
+    }
+    //delete previous LFE predicted measurements
+    await session.removeMeasurements(lists.predictedLfeMeasurements());
+    return alignmentGapsSeconds;
+  }
+
+  /**
+   * Shared preamble of the legacy and joint optimizers: guards, delay
+   * equalisation, delay-budget measurement, previous-results cleanup, per-sub
+   * clean state and frequency-response capture. Returns null when the
+   * single-sub case was fully handled here.
+   */
+  async function prepareMultiSubOptimization(subsFrequencyBands) {
     const subsMeasurements = lists.uniqueSubsMeasurements();
 
     if (subsMeasurements.length === 0) {
@@ -694,7 +763,7 @@ function createSubOptimizationService({
       await virtualSubwoofers.refresh(unwrap(subsMeasurements[0].position), {
         force: true,
       });
-      return;
+      return null;
     }
 
     if (!subsFrequencyBands?.lowFrequency || !subsFrequencyBands?.highFrequency) {
@@ -719,33 +788,20 @@ function createSubOptimizationService({
       }
     };
 
-    let alignmentGapsSeconds = null;
-    if (virtualSubwoofers && businessTools.alignmentGapSeconds) {
-      // Measure the alignment gaps exactly like produceAligned will (predicted
-      // LFE vs front speakers, crossover-filtered) to size the delay reserve —
-      // on the refreshed projection, delays equalised, filters just purged.
-      await applySameDelayToAll();
-      await virtualSubwoofers.refresh(unwrap(subsMeasurements[0].position), {
-        force: true,
-      });
-      alignmentGapsSeconds = [];
-      for (const speaker of lists.frontSpeakersMeasurements?.() ?? []) {
-        try {
-          const gapSeconds = await businessTools.alignmentGapSeconds(speaker);
-          if (gapSeconds != null) alignmentGapsSeconds.push(gapSeconds);
-        } catch (error) {
-          log.warn(
-            `Alignment gap measurement failed for ${labelOf(speaker)}: ${error.message}`,
-          );
-        }
-      }
-      //delete previous LFE predicted measurements
-      await session.removeMeasurements(lists.predictedLfeMeasurements());
-    } else {
-      //delete previous LFE predicted measurements
-      await session.removeMeasurements(lists.predictedLfeMeasurements());
-      await applySameDelayToAll();
+    // Reset the previous run's per-sub state BEFORE anything is measured:
+    // leftover inversions and filters (legacy polarity, joint PK filters)
+    // would skew both the alignment-gap measurement (delay reserve) and the
+    // responses captured for the optimizer.
+    log.info(`Resetting previous sub settings...`);
+    for (const measurement of subsMeasurements) {
+      await mops.resetFilters(measurement);
+      await mops.setInverted(measurement, false);
     }
+
+    const alignmentGapsSeconds = await measureAlignmentGaps(
+      subsMeasurements,
+      applySameDelayToAll,
+    );
 
     const optimizerConfig = createOptimizerConfig(
       subsFrequencyBands.lowFrequency,
@@ -772,11 +828,8 @@ function createSubOptimizationService({
 
     const frequencyResponses = [];
     for (const measurement of subsMeasurements) {
-      // Start the alignment from a clean state: any leftover EQ (previous
-      // equalize-sub run, all-pass) would skew the optimisation and the
-      // predicted responses summed by the virtual sub projection.
-      await mops.resetFilters(measurement);
-      await mops.setInverted(measurement, false);
+      // Filters and inversion were reset before the gap measurement; only
+      // the working settings remain to apply before capturing the responses.
       await mops.applyWorkingSettings(measurement);
       const frequencyResponse = await mops.getFrequencyResponse(measurement);
       frequencyResponse.measurement = measurement.uuid;
@@ -785,6 +838,49 @@ function createSubOptimizationService({
       frequencyResponses.push(frequencyResponse);
     }
 
+    return { subsMeasurements, optimizerConfig, frequencyResponses };
+  }
+
+  /** Recompute (or import) the maximised sum after the optimised settings. */
+  async function produceMaximisedSum(subsMeasurements, optimizer, frequencyResponses) {
+    log.info(`Creating sub sumation...`);
+
+    if (virtualSubwoofers) {
+      // ADR 003 — the optimised settings are applied to the real subs, so the
+      // recomputed projection *is* the maximised sum. The Theo reference is
+      // the RAW ceiling — zero-phase sum of the responses captured on clean
+      // subs (no EQ filters, no gain trims) — so it stays identical whatever
+      // settings the optimizer (legacy or joint) applied.
+      const theoResponse = optimizer.calculateCombinedResponse(
+        frequencyResponses,
+        true,
+        false,
+      );
+      return virtualSubwoofers.refresh(unwrap(subsMeasurements[0].position), {
+        force: true,
+        withTheo: true,
+        theoResponse,
+      });
+    }
+
+    const optimizedSubsSum = optimizer.getFinalSubSum();
+    const maximisedSum = await sendToREW(optimizedSubsSum, MAXIMISED_SUM_TITLE);
+    maximisedSum.isSubOperationResult = true;
+
+    const maximisedSumTheo = await sendToREW(
+      optimizer.theoreticalMaxResponse,
+      MAXIMISED_SUM_TITLE + ' Theo',
+    );
+    maximisedSumTheo.isSubOperationResult = true;
+
+    return maximisedSum;
+  }
+
+  async function runLegacyMultiSubOptimizer({
+    subsMeasurements,
+    optimizerConfig,
+    frequencyResponses,
+  }) {
     log.info(`Sarting lookup...`);
     const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, log);
     const optimizerResults = optimizer.optimizeSubwoofers();
@@ -793,32 +889,11 @@ function createSubOptimizationService({
       await applyOptimizedSubSettings(sub);
     }
 
-    log.info(`Creating sub sumation...`);
-    // DEBUG use REW api way to generate the sum for compare
-    // const maximisedSum = await produceSumProcess(subsMeasurements);
-
-    let maximisedSum;
-    if (virtualSubwoofers) {
-      // ADR 003 — the optimised settings are applied to the real subs, so the
-      // recomputed projection *is* the maximised sum, and the virtual sub
-      // computes the zero-phase Theo reference from the same responses (v2).
-      maximisedSum = await virtualSubwoofers.refresh(
-        unwrap(subsMeasurements[0].position),
-        { force: true, withTheo: true },
-      );
-    } else {
-      const optimizedSubsSum = optimizer.getFinalSubSum();
-      maximisedSum = await sendToREW(optimizedSubsSum, MAXIMISED_SUM_TITLE);
-      maximisedSum.isSubOperationResult = true;
-
-      const maximisedSumTheo = await sendToREW(
-        optimizer.theoreticalMaxResponse,
-        MAXIMISED_SUM_TITLE + ' Theo',
-      );
-      maximisedSumTheo.isSubOperationResult = true;
-    }
-    // DEBUG to check if this is the same
-    // await sendToREW(optimizerResults.bestSum, 'test');
+    const maximisedSum = await produceMaximisedSum(
+      subsMeasurements,
+      optimizer,
+      frequencyResponses,
+    );
 
     // reserve filter emplacement 20 for all pass
     if (optimizerConfig.allPass.enabled) {
@@ -830,6 +905,72 @@ function createSubOptimizationService({
       };
       await mops.setSingleFilter(maximisedSum, maximisedSumFilter);
     }
+  }
+
+  /**
+   * Joint (target-match) optimizer: alignment AND per-sub filters solved
+   * together against the target curve — one process replacing the legacy
+   * two-step logic (align, then copy one shared EQ onto every sub). The
+   * user gets a complete per-sub solution: delay, polarity, gain and
+   * individual PK filters.
+   */
+  async function runJointMultiSubOptimizer(
+    { subsMeasurements, optimizerConfig, frequencyResponses },
+    { onProgress = null } = {},
+  ) {
+    // The target curve (house curve at the configured target level) anchors
+    // the absolute goal, exactly like equalize-sub anchors REW's matchTarget.
+    const targetSource = subsMeasurements[0];
+    await mops.setTargetLevel(targetSource, config.mainTargetLevel);
+    await mops.resetTargetSettings(targetSource);
+    const targetCurve = await mops.getTargetResponse(targetSource, 'SPL', 96);
+
+    optimizerConfig.allPass.enabled = false;
+    optimizerConfig.optimization.objective = 'target-match';
+    optimizerConfig.optimization.targetCurve = {
+      freqs: targetCurve.freqs,
+      magnitude: targetCurve.magnitude,
+    };
+    // Test/e2e hook: lets the caller shrink the solver budget (population,
+    // generations, filtersPerSub…) without exposing UI settings.
+    if (config.jointOptimizerBudget) {
+      optimizerConfig.optimization.joint = {
+        ...optimizerConfig.optimization.joint,
+        ...config.jointOptimizerBudget,
+      };
+    }
+
+    log.info(`Starting joint lookup (target-match)...`);
+    const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, log);
+    const optimizerResults = await optimizer.optimizeSubwoofersJoint({
+      onProgress: progress => {
+        onProgress?.(progress);
+        if (progress.generation % 200 === 0) {
+          log.info(
+            `Joint ${progress.phase}: generation ${progress.generation}/${progress.generations}, score ${progress.bestScore.toFixed(2)}`,
+          );
+        }
+      },
+    });
+
+    // The reference sub is part of the joint result (it carries filters).
+    for (const sub of optimizerResults.optimizedSubs) {
+      await applyOptimizedSubSettings(sub);
+    }
+
+    await produceMaximisedSum(subsMeasurements, optimizer, frequencyResponses);
+    return optimizerResults;
+  }
+
+  async function multiSubOptimizer(subsFrequencyBands, options = {}) {
+    const prepared = await prepareMultiSubOptimization(subsFrequencyBands);
+    if (!prepared) return;
+
+    if (config.useJointSubOptimization) {
+      await runJointMultiSubOptimizer(prepared, options);
+      return;
+    }
+    await runLegacyMultiSubOptimizer(prepared);
   }
 
   return {

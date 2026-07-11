@@ -60,11 +60,15 @@ function interpolateAt(freqs, values, frequency, cursor) {
  *   freqStep? } — the shape returned by calculateCombinedResponse and the REW
  *   frequency-response getters.
  * @param {object} [options] - { sampleRate, maxLength, center }. `center: true`
- *   adds a linear phase placing the impulse at the middle of the buffer:
- *   required for zero-phase (acausal) responses such as the Theo reference —
- *   imported raw, their anticausal half wraps to the end of the buffer and
- *   REW discards it (≈ −6 dB, verified on a live REW).
- * @returns {{ data: Float32Array, sampleRate: number }}
+ *   adds a linear phase placing the impulse at the middle of the buffer and
+ *   reports the matching negative `startTimeSeconds`: importing with that
+ *   start time keeps every sample at its physical time (verified on a live
+ *   REW — a centered peak imported with startTime −N/2/fs reads back at its
+ *   original t) while preserving the anticausal content. Without it,
+ *   zero-phase responses (Theo) and negatively-delayed sums wrap their
+ *   pre-t=0 half to the end of the buffer and REW discards it (≈ −6 dB on
+ *   the reference, truncated predicted responses).
+ * @returns {{ data: Float32Array, sampleRate: number, startTimeSeconds: number }}
  */
 function synthesizeImpulseFromResponse(
   response,
@@ -109,7 +113,7 @@ function synthesizeImpulseFromResponse(
   for (let i = 0; i < fftLength; i++) {
     data[i] = timeDomain[i].re;
   }
-  return { data, sampleRate };
+  return { data, sampleRate, startTimeSeconds: -centerSeconds };
 }
 
 export { synthesizeImpulseFromResponse };

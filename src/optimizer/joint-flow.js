@@ -103,7 +103,10 @@ export async function runJointOptimization(optimizer, options = {}) {
   for (let subIndex = 0; subIndex < preparedSubs.length; subIndex++) {
     preparedSubs[subIndex].param = cloneParam(bestParams[subIndex]);
   }
-  optimizer.optimizedSubs = preparedSubs.slice(1);
+  // Unlike the sequential flow, the reference sub IS part of the result: it
+  // keeps the timing anchor (delay 0, polarity 1, gain 0) but carries its own
+  // filters, which the caller must apply like any other sub's.
+  optimizer.optimizedSubs = preparedSubs.slice();
 
   const bestSum = buildScoredSum(optimizer, preparedSubs);
   const executionTimeMs = performance.now() - start;

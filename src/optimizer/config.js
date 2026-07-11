@@ -50,8 +50,12 @@ export const DEFAULT_CONFIG = {
       filterQ: { min: 0.3, max: 8 },
       // Center-frequency window, intersected with the optimization band.
       filterFrequency: { min: 15, max: 250 },
-      // Per-sub broadband trim (the reference sub stays at 0 dB).
-      gain: { min: -12, max: 3 },
+      // Per-sub broadband trim (the reference sub stays at 0 dB). Disabled by
+      // default: the trim is written as an SPL offset on the measurement,
+      // which the next run's preamble cannot reset (it would accumulate), and
+      // a level change moves the theoretical-max reference. Re-enable only
+      // with offset bookkeeping in the applying service.
+      gain: { min: 0, max: 0 },
       populationSize: 80,
       alignmentGenerations: 800,
       generations: 2500,

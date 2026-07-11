@@ -1325,10 +1325,22 @@
                   <input
                     class="checkmark"
                     type="checkbox"
-                    data-bind="checked: useAllPassFiltersForSubs"
+                    data-bind="checked: useAllPassFiltersForSubs, disable: useJointSubOptimization"
                   />
                   <span data-i18n="use_all_pass_filters"
                     >Use all pass filters (slower)</span
+                  >
+                  <span class="checkmark"></span>
+                </label>
+                <label class="checkbox-container">
+                  <input
+                    class="checkmark"
+                    type="checkbox"
+                    data-testid="use-joint-sub-optimization"
+                    data-bind="checked: useJointSubOptimization"
+                  />
+                  <span data-i18n="use_joint_sub_optimization"
+                    >Joint optimization: per-sub filters (minutes)</span
                   >
                   <span class="checkmark"></span>
                 </label>
@@ -1349,6 +1361,10 @@
                   ></i>
                   <span data-i18n="align_sub">Align Sub</span>
                 </button>
+                <span
+                  data-testid="sub-optimizer-progress"
+                  data-bind="text: subOptimizerProgress, visible: subOptimizerProgress().length > 0"
+                ></span>
                 <button
                   class="button"
                   data-testid="equalize-sub"

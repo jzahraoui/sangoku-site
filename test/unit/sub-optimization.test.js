@@ -669,3 +669,121 @@ describe('equalizeSub rch sur le chemin operations (ADR 002)', () => {
     expect(calculator.overallMaxBoostDb).toBe(3);
   });
 });
+
+describe('multiSubOptimizer joint route (target-match)', () => {
+  function syntheticFrequencyResponse({ level = 80, delayMs = 0 } = {}) {
+    const ppo = 24;
+    const freqs = [];
+    let f = 20;
+    while (freqs.length < 72) {
+      freqs.push(f);
+      f *= Math.pow(2, 1 / ppo);
+    }
+    const phase = freqs.map(freq => {
+      const deg = -360 * freq * (delayMs / 1000);
+      return ((deg + 180) % 360 + 360) % 360 - 180;
+    });
+    return {
+      freqs,
+      magnitude: new Float32Array(freqs.length).fill(level),
+      phase: Float32Array.from(phase),
+      freqStep: Math.pow(2, 1 / ppo),
+      ppo,
+    };
+  }
+
+  function jointSub(uuid, frequencyResponse) {
+    return fakeSub(uuid, {
+      resetFilters: vi.fn().mockResolvedValue(undefined),
+      getFrequencyResponse: vi.fn().mockResolvedValue({ ...frequencyResponse }),
+      getTargetResponse: vi
+        .fn()
+        .mockResolvedValue({ freqs: [10, 400], magnitude: [86, 86] }),
+    });
+  }
+
+  function createJointHarness() {
+    const sub1 = jointSub('sw1', syntheticFrequencyResponse());
+    const sub2 = jointSub('sw2', syntheticFrequencyResponse({ delayMs: 2 }));
+    const harness = createHarness({
+      subs: [sub1, sub2],
+      measurements: [sub1, sub2],
+      config: {
+        useJointSubOptimization: true,
+        jointOptimizerBudget: {
+          filtersPerSub: 1,
+          populationSize: 8,
+          alignmentGenerations: 6,
+          generations: 8,
+          patience: 20,
+        },
+      },
+    });
+    harness.session.addMeasurementFromRewOperation.mockImplementation(
+      async operation => {
+        await operation();
+        return fakeSub('created-sum');
+      },
+    );
+    return { ...harness, sub1, sub2 };
+  }
+
+  it('runs the joint solver and applies per-sub settings including PK filters', async () => {
+    const { service, session, sub1, sub2 } = createJointHarness();
+
+    await service.multiSubOptimizer({ lowFrequency: 20, highFrequency: 150 });
+
+    // Target curve anchored on the first sub, like equalize-sub anchors REW.
+    expect(sub1.setTargetLevel).toHaveBeenCalledWith(75);
+    expect(sub1.getTargetResponse).toHaveBeenCalledWith('SPL', 96);
+
+    // Every sub (reference included) receives its alignment writes.
+    for (const sub of [sub1, sub2]) {
+      expect(sub.addIROffsetSeconds).toHaveBeenCalled();
+      expect(sub.addSPLOffsetDB).toHaveBeenCalled();
+      expect(sub.setInverted).toHaveBeenCalled();
+    }
+
+    // Per-sub PK filters land in slot 1 (filtersPerSub = 1), non-auto so a
+    // later shared write with overwrite=false leaves them alone.
+    const pkWrites = [sub1, sub2].flatMap(sub =>
+      sub.setSingleFilter.mock.calls.filter(([filter]) => filter.type === 'PK'),
+    );
+    expect(pkWrites.length).toBeGreaterThan(0);
+    for (const [filter] of pkWrites) {
+      expect(filter).toMatchObject({ index: 1, enabled: true, isAuto: false });
+      expect(filter.frequency).toBeGreaterThan(0);
+      expect(filter.q).toBeGreaterThan(0);
+      // REW's filter gain field is `gaindB`: a `gain` key is silently ignored
+      // and the filter stays flat (bug observed on a live REW).
+      expect(typeof filter.gaindB).toBe('number');
+      expect(filter).not.toHaveProperty('gain');
+    }
+
+    // Legacy surface (no virtual subwoofers): the maximised sum and its Theo
+    // reference are imported into REW.
+    expect(session.addMeasurementFromRewOperation).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the legacy path when the joint toggle is off', async () => {
+    const sub1 = jointSub('sw1', syntheticFrequencyResponse());
+    const sub2 = jointSub('sw2', syntheticFrequencyResponse({ delayMs: 2 }));
+    const harness = createHarness({
+      subs: [sub1, sub2],
+      measurements: [sub1, sub2],
+      config: { useJointSubOptimization: false },
+    });
+    harness.session.addMeasurementFromRewOperation.mockImplementation(
+      async operation => {
+        await operation();
+        return fakeSub('created-sum');
+      },
+    );
+
+    await harness.service.multiSubOptimizer({ lowFrequency: 20, highFrequency: 150 });
+
+    // The joint-only target fetch must not happen on the legacy path.
+    expect(sub1.getTargetResponse).not.toHaveBeenCalled();
+    expect(sub1.setInverted).toHaveBeenCalled();
+  });
+});

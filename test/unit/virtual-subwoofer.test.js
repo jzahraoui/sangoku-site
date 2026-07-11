@@ -125,7 +125,10 @@ describe('VirtualSubwoofer.refresh', () => {
     expect(options.data).toBeInstanceOf(Float32Array);
     expect(options.sampleRate).toBe(48000);
     expect(options.splOffset).toBe(0);
-    expect(options.startTime).toBe(0);
+    // Centered impulse + matching negative startTime: physical times are
+    // preserved and the pre-t=0 content (negative delays, zero-phase Theo)
+    // is not wrapped/discarded by REW.
+    expect(options.startTime).toBeCloseTo(-options.data.length / 2 / 48000, 9);
 
     // The projection is owned, titled, post-processed and flagged (transition).
     expect(projection.uuid).toBe('proj-1');

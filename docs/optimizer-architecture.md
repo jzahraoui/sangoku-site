@@ -664,9 +664,31 @@ structure d'interférence).
   produit doit refléter le rolloff) ; les scores de phase incluent les
   pénalités delay/effort, `final.score` non.
 
-Reste : Lot 3 (intégration produit : cible réelle, application des filtres
-par sub via `setFilters`, toggle A/B avec l'ancien pipeline, e2e), Lot 4
-(objectif multi-positions).
+- **Lot 3 (intégration produit)** : le bouton Align Sub route vers le
+  solveur joint quand le toggle « Optimisation jointe » est coché
+  (`useJointSubOptimization`). Préambule partagé avec le chemin legacy
+  (`prepareMultiSubOptimization`). Cible = `target-response` REW du premier
+  sub après `setTargetLevel(mainTargetLevel)` (même ancrage
+  qu'equalize-sub). Filtres PK par sub écrits en slots 1..N **non-auto**
+  (survivent aux écritures `overwrite=false`, convention du slot 20
+  all-pass) ; le sub de référence fait partie du résultat (il porte ses
+  filtres). Budget surchargeable via `config.jointOptimizerBudget` (hook
+  test/e2e). Progression : callback UI (phase + %) + logs. Parcours e2e
+  `sub-align-joint` (27 au total).
+
+- **Corrections post-test sur REW réel** : le champ de gain des filtres REW
+  est **`gaindB`** (une clé `gain` est ignorée silencieusement → filtres à
+  0 dB) ; le Theo projeté est la somme phase=0 des réponses **brutes**
+  (subs propres, avant gains/filtres) passée via `refresh({theoResponse})` —
+  invariante aux réglages appliqués ; la purge filtres/inversions se fait en
+  tête de préambule (avant la mesure des réserves d'alignement) ;
+  `joint.gain` vaut {0,0} par défaut (le trim SPL n'est pas réinitialisable
+  au run suivant et déplace le Theo) ; les projections d'impulsions sont
+  centrées et importées avec un `startTime` négatif (temps physiques
+  préservés, contenu pré-t=0 conservé — sinon REW tronque la partie
+  acausale).
+
+Reste : Lot 4 (objectif multi-positions).
 
 ### Résultats finaux (efficiency ratio)
 
