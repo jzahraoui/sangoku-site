@@ -1371,6 +1371,7 @@ class MeasurementViewModel {
     this.subOptimizationService = createSubOptimizationService({
       session: this.rewSession,
       virtualSubwoofers: this.virtualSubwooferService,
+      autoEqConfig: () => this.autoEqConfig,
       businessTools: {
         produceAligned: (speakerItem, subs) =>
           this.businessTools.produceAligned(speakerItem, subs),

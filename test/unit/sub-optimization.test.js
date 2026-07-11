@@ -40,6 +40,7 @@ function createHarness({
   config = {},
   virtualSubwoofers = null,
   groupedSubs = null,
+  autoEqConfig = () => null,
 } = {}) {
   const session = {
     measurements: { get: () => measurements },
@@ -59,6 +60,7 @@ function createHarness({
     session,
     businessTools,
     virtualSubwoofers,
+    autoEqConfig,
     config: {
       mainTargetLevel: 75,
       selectedEqualizationMode: 'rch',
@@ -204,8 +206,13 @@ describe('equalizeSubs routing', () => {
 
     expect(maximisedSum._runPhaseMatchFilter).toHaveBeenCalledOnce();
     for (const sub of subs) {
-      // filters applied without overwriting the reserved all-pass slot
-      expect(sub.setFilters).toHaveBeenCalledWith([{ index: 1, type: 'PK' }], false);
+      // repacked bank: the computed filter plus the 'None' empties, applied
+      // without overwriting the subs' own non-auto slots
+      const [bank, overwrite] = sub.setFilters.mock.calls[0];
+      expect(bank[0]).toMatchObject({ index: 1, type: 'PK' });
+      expect(bank).toHaveLength(20);
+      expect(bank.slice(1).every(f => f.type === 'None' && f.isAuto === true)).toBe(true);
+      expect(overwrite).toBe(false);
       expect(sub.copyFiltersToOther).toHaveBeenCalledOnce();
     }
   });
@@ -324,13 +331,26 @@ describe('projection du sub virtuel (ADR 003)', () => {
 
     await service.equalizeSubs();
 
-    expect(bridge.refresh).toHaveBeenCalledWith(1, {});
+    // The previous shared EQ (auto slots) is cleared on the real subs, then
+    // the projection is recomputed from that baseline.
+    for (const sub of subs) {
+      const [bank, overwrite] = sub.setFilters.mock.calls[0];
+      expect(bank).toHaveLength(22);
+      expect(bank.every(f => f.type === 'None' && f.isAuto === true)).toBe(true);
+      expect(overwrite).toBe(false);
+    }
+    expect(bridge.refresh).toHaveBeenCalledWith(1, { force: true });
+    // Target level before any reservation: setTargetLevel resets the bank
+    // when the level changes.
+    expect(projection.setTargetLevel).toHaveBeenCalledWith(75);
     expect(projection._runPhaseMatchFilter).toHaveBeenCalledOnce();
-    // The EQ of the projection is distributed by the virtual sub command,
-    // which also recomputes the projections.
-    expect(bridge.setFilters).toHaveBeenCalledWith([{ index: 1, type: 'PK' }], {
-      position: 1,
-    });
+    // The EQ of the projection is distributed by the virtual sub command
+    // (repacked bank: content first, 'None' empties after), which also
+    // recomputes the projections.
+    const [distributed, options] = bridge.setFilters.mock.calls[0];
+    expect(options).toEqual({ position: 1 });
+    expect(distributed[0]).toMatchObject({ index: 1, type: 'PK' });
+    expect(distributed).toHaveLength(20);
     for (const sub of subs) {
       expect(sub.copyFiltersToOther).toHaveBeenCalledOnce();
     }
@@ -349,9 +369,9 @@ describe('projection du sub virtuel (ADR 003)', () => {
 
     expect(projection._runPhaseMatchFilter).toHaveBeenCalledOnce();
     expect(sub._runPhaseMatchFilter).not.toHaveBeenCalled();
-    expect(bridge.setFilters).toHaveBeenCalledWith([{ index: 1, type: 'PK' }], {
-      position: 1,
-    });
+    const [distributed, options] = bridge.setFilters.mock.calls[0];
+    expect(options).toEqual({ position: 1 });
+    expect(distributed[0]).toMatchObject({ index: 1, type: 'PK' });
   });
 
   it('equalizeSubs throws when the projection cannot be produced', async () => {
@@ -454,7 +474,145 @@ describe('produceAligned via le sub virtuel (ADR 003 v2)', () => {
     expect(bridge.refreshProjected).toHaveBeenCalledWith({ force: true });
   });
 
-  it('reserves the all-pass slot on the projection before equalizing', async () => {
+  it('mirrors the subs non-auto slots on the projection before equalizing', async () => {
+    const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
+    const bridge = {
+      refresh: vi.fn().mockResolvedValue(projection),
+      setFilters: vi.fn().mockResolvedValue([projection]),
+    };
+    const sw1 = fakeSub('sw1', {
+      getFilters: vi.fn().mockResolvedValue([
+        { index: 1, type: 'PK', isAuto: true },
+        { index: 20, type: 'All pass', isAuto: false },
+      ]),
+    });
+    const sw2 = fakeSub('sw2', {
+      getFilters: vi.fn().mockResolvedValue([
+        { index: 3, type: 'PK', isAuto: false },
+        { index: 20, type: 'All pass', isAuto: false },
+        { index: 21, type: 'LP', isAuto: false },
+      ]),
+    });
+    const { service } = createHarness({
+      subs: [sw1, sw2],
+      virtualSubwoofers: bridge,
+      config: { useAllPassFiltersForSubs: true },
+    });
+
+    await service.equalizeSubs();
+
+    // Union of the non-auto slots (<= 20) of every sub, ascending; the
+    // out-of-bank slot 21 is never reserved.
+    const reservations = projection.setSingleFilter.mock.calls.map(([filter]) => filter);
+    expect(reservations).toEqual([
+      { index: 3, enabled: true, isAuto: false, type: 'None' },
+      { index: 20, enabled: true, isAuto: false, type: 'None' },
+    ]);
+    // Reservations placed after the target level: setTargetLevel resets the
+    // whole bank when the level changes.
+    expect(projection.setTargetLevel.mock.invocationCallOrder[0]).toBeLessThan(
+      projection.setSingleFilter.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('repacks the shared EQ around the subs reserved slots before distributing', async () => {
+    // REW's match target ignores the empty reservation placeholders and
+    // claims their slots: the projection comes back with content on slots
+    // that are non-auto on the subs (1..3 here).
+    const projection = fakeSub('proj', {
+      title: () => 'LFE predicted_P1',
+      getFilters: vi.fn().mockResolvedValue([
+        { index: 1, type: 'PK', enabled: true, isAuto: true, frequency: 25, q: 4, gaindB: -5 },
+        { index: 2, type: 'None', enabled: true, isAuto: false },
+        { index: 4, type: 'PK', enabled: true, isAuto: true, frequency: 63, q: 4, gaindB: -3 },
+      ]),
+    });
+    const bridge = {
+      refresh: vi.fn().mockResolvedValue(projection),
+      setFilters: vi.fn().mockResolvedValue([projection]),
+    };
+    const sub = fakeSub('sw1', {
+      getFilters: vi.fn().mockResolvedValue([
+        { index: 1, type: 'PK', isAuto: false },
+        { index: 2, type: 'PK', isAuto: false },
+        { index: 3, type: 'PK', isAuto: false },
+      ]),
+    });
+    const { service } = createHarness({ subs: [sub], virtualSubwoofers: bridge });
+
+    await service.equalizeSubs();
+
+    // Content repacked into the free slots (4..20), placeholders never
+    // travel, remaining free slots emptied.
+    const [distributed] = bridge.setFilters.mock.calls[0];
+    expect(distributed[0]).toMatchObject({ index: 4, type: 'PK', frequency: 25, gaindB: -5 });
+    expect(distributed[1]).toMatchObject({ index: 5, type: 'PK', frequency: 63, gaindB: -3 });
+    expect(distributed[2]).toEqual({ index: 6, type: 'None', enabled: true, isAuto: true });
+    expect(distributed.map(f => f.index)).toEqual(
+      Array.from({ length: 17 }, (unused, i) => i + 4),
+    );
+  });
+
+  it('refuses to equalize when the subs non-auto filters fill every auto slot', async () => {
+    const fullBank = Array.from({ length: 20 }, (unused, i) => ({
+      index: i + 1,
+      type: 'PK',
+      enabled: true,
+      isAuto: false,
+    }));
+    const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
+    const bridge = {
+      refresh: vi.fn().mockResolvedValue(projection),
+      setFilters: vi.fn().mockResolvedValue([projection]),
+    };
+    const sub = fakeSub('sw1', { getFilters: vi.fn().mockResolvedValue(fullBank) });
+    const { service } = createHarness({ subs: [sub], virtualSubwoofers: bridge });
+
+    await expect(service.equalizeSubs()).rejects.toThrow(
+      /occupy all 20 auto slots/,
+    );
+  });
+
+  it('drops the joint filters below the configured min filter gain', async () => {
+    const sub = fakeSub('sw1');
+    const { service } = createHarness({
+      subs: [sub],
+      measurements: [sub],
+      autoEqConfig: () => ({ minFilterGain: 0.4 }),
+    });
+
+    await service.applyOptimizedSubSettings({
+      measurement: 'sw1',
+      param: {
+        polarity: 1,
+        delay: 0,
+        gain: 0,
+        allPass: { enabled: false },
+        filters: [
+          { frequency: 40, gain: -0.2, q: 5 },
+          { frequency: 63, gain: -3, q: 4 },
+        ],
+      },
+    });
+
+    const written = sub.setSingleFilter.mock.calls
+      .map(([filter]) => filter)
+      .filter(filter => filter.type === 'PK');
+    // The -0.2 dB filter is discarded; the audible one takes the first slot.
+    expect(written).toEqual([
+      {
+        index: 1,
+        enabled: true,
+        isAuto: false,
+        type: 'PK',
+        frequency: 63,
+        gaindB: -3,
+        q: 4,
+      },
+    ]);
+  });
+
+  it('reserves nothing when the subs only carry auto filters', async () => {
     const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
     const bridge = {
       refresh: vi.fn().mockResolvedValue(projection),
@@ -463,17 +621,11 @@ describe('produceAligned via le sub virtuel (ADR 003 v2)', () => {
     const { service } = createHarness({
       subs: [fakeSub('sw1'), fakeSub('sw2')],
       virtualSubwoofers: bridge,
-      config: { useAllPassFiltersForSubs: true },
     });
 
     await service.equalizeSubs();
 
-    expect(projection.setSingleFilter).toHaveBeenCalledWith({
-      index: 20,
-      enabled: true,
-      isAuto: false,
-      type: 'None',
-    });
+    expect(projection.setSingleFilter).not.toHaveBeenCalled();
   });
 });
 

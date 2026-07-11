@@ -5,6 +5,11 @@ import {
   metersToSeconds,
 } from '../measurement/measurement-calculations.js';
 import { DEFAULT_LFE_PREDICTED } from '../measurement/measurement-info.js';
+import {
+  AUTO_SLOTS_LIMIT,
+  createEmptyFilters,
+  packFiltersIntoFreeSlots,
+} from '../measurement/filter-slots.js';
 import { setSameDelayToAll } from './alignment.js';
 
 /**
@@ -445,12 +450,96 @@ function createSubOptimizationService({
     await equalizeSub(subMeasurement);
   }
 
-  async function applyFiltersToSubs(sourceSub) {
-    log.info(`Apply calculated filters to each sub`);
-    const filters = await mops.getFilters(sourceSub);
-    const subsMeasurements = lists.uniqueSubsMeasurements();
+  /**
+   * Slots holding a non-auto filter (≤ 20) on at least one sub — the joint
+   * per-sub filters and the slot-20 all-pass reservation. The shared EQ
+   * must stay out of these slots on every sub.
+   */
+  async function collectReservedSlots(subsMeasurements) {
+    const reservedIndices = new Set();
     for (const sub of subsMeasurements) {
-      // do not overwrite the all pass filter if set
+      for (const filter of await mops.getFilters(sub)) {
+        if (filter.isAuto === false && filter.index <= AUTO_SLOTS_LIMIT) {
+          reservedIndices.add(filter.index);
+        }
+      }
+    }
+
+    if (reservedIndices.size >= AUTO_SLOTS_LIMIT) {
+      throw new Error(
+        `The subs' own filters occupy all ${AUTO_SLOTS_LIMIT} auto slots: ` +
+          `no room left for a shared EQ. Reset the sub filters and re-run ` +
+          `the optimization.`,
+      );
+    }
+
+    return [...reservedIndices].sort((a, b) => a - b);
+  }
+
+  /**
+   * Mirrors the reserved slots onto the EQ-target measurement as non-auto
+   * 'None' placeholders (generalisation of the historical slot-20 all-pass
+   * reservation). The projection's response already INCLUDES the effect of
+   * the subs' filters, so the shared EQ must not re-model them. The rch
+   * path reads these placeholders back and packs around them; REW's match
+   * target however only honours the manual flag on slots that CONTAIN a
+   * filter — the distribution repacks (sharedEqFilters) to cover that case.
+   */
+  async function reserveSubFilterSlotsOn(eqTarget, reservedIndices) {
+    for (const index of reservedIndices) {
+      await mops.setSingleFilter(eqTarget, {
+        index,
+        enabled: true,
+        isAuto: false,
+        type: 'None',
+      });
+    }
+
+    if (reservedIndices.length > 0) {
+      log.info(
+        `Reserved filter slots ${reservedIndices.join(', ')} ` +
+          `for the per-sub filters (shared EQ packs around them)`,
+      );
+    }
+  }
+
+  /**
+   * The computed shared EQ of the EQ-target, repacked into the slots left
+   * free by the subs' own filters. Whatever layout the EQ engine produced
+   * (REW's match target ignores empty reservation placeholders and claims
+   * their slots), the content lands on slots that are free on EVERY sub,
+   * and the remaining free slots are 'None' empties that clear a previous
+   * run's filters. The non-auto entries never travel: distributed to a sub
+   * whose slot is auto, they would turn it non-auto for good.
+   */
+  async function sharedEqFilters(eqTarget, reservedIndices) {
+    const bank = await mops.getFilters(eqTarget);
+    const contentFilters = bank.filter(
+      filter =>
+        filter.isAuto !== false &&
+        filter.index <= AUTO_SLOTS_LIMIT &&
+        filter.type !== 'None',
+    );
+    const { filters, dropped } = packFiltersIntoFreeSlots(
+      contentFilters,
+      reservedIndices,
+    );
+    if (dropped.length > 0) {
+      log.warn(
+        `${dropped.length} shared EQ filter(s) dropped: only ` +
+          `${AUTO_SLOTS_LIMIT - reservedIndices.length} slots are free on the subs`,
+      );
+    }
+    return filters;
+  }
+
+  async function applyFiltersToSubs(sourceSub, reservedIndices = null) {
+    log.info(`Apply calculated filters to each sub`);
+    const subsMeasurements = lists.uniqueSubsMeasurements();
+    const reserved = reservedIndices ?? (await collectReservedSlots(subsMeasurements));
+    const filters = await sharedEqFilters(sourceSub, reserved);
+    for (const sub of subsMeasurements) {
+      // do not overwrite the joint per-sub filters nor the all-pass slot
       await mops.setFilters(sub, filters, false);
     }
   }
@@ -478,8 +567,13 @@ function createSubOptimizationService({
     if (!maximisedSum) {
       throw new Error('No maximised sum found');
     }
+    const reservedIndices = await collectReservedSlots(lists.uniqueSubsMeasurements());
+    // Target level first: setTargetLevel resets the whole filter bank when
+    // the level changes — reservations placed before it would be wiped.
+    await mops.setTargetLevel(maximisedSum, config.mainTargetLevel);
+    await reserveSubFilterSlotsOn(maximisedSum, reservedIndices);
     await equalizeSubProcess(maximisedSum);
-    await applyFiltersToSubs(maximisedSum);
+    await applyFiltersToSubs(maximisedSum, reservedIndices);
     await copySubFiltersToOtherPositions();
   }
 
@@ -501,23 +595,25 @@ function createSubOptimizationService({
     // projection, distributed to the real subs through the group command
     // (which recomputes the projections), then copied to the other positions.
     const position = unwrap(subsMeasurements[0].position);
-    const projection = await virtualSubwoofers.refresh(position, {});
+
+    // The projection's response includes the subs' filters: clear the auto
+    // slots (a previous shared EQ) first so every run computes the EQ from
+    // the optimizer baseline instead of compounding over the last result.
+    // The non-auto slots (joint per-sub filters, all-pass) are untouched.
+    for (const sub of subsMeasurements) {
+      await mops.setFilters(sub, createEmptyFilters(), false);
+    }
+    const projection = await virtualSubwoofers.refresh(position, { force: true });
     if (!projection) {
       throw new Error('No subwoofer found');
     }
-    if (config.useAllPassFiltersForSubs) {
-      // The slot-20 reservation set by align-sub lives on a throwaway
-      // projection: re-assert it so matchTarget cannot claim the slot the
-      // subs keep for their all-pass filter.
-      await mops.setSingleFilter(projection, {
-        index: 20,
-        enabled: true,
-        isAuto: false,
-        type: 'None',
-      });
-    }
+    const reservedIndices = await collectReservedSlots(subsMeasurements);
+    // Target level first: setTargetLevel resets the whole filter bank when
+    // the level changes — reservations placed before it would be wiped.
+    await mops.setTargetLevel(projection, config.mainTargetLevel);
+    await reserveSubFilterSlotsOn(projection, reservedIndices);
     await equalizeSubProcess(projection);
-    const filters = await mops.getFilters(projection);
+    const filters = await sharedEqFilters(projection, reservedIndices);
     await virtualSubwoofers.setFilters(filters, { position });
     await copySubFiltersToOtherPositions();
   }
@@ -695,7 +791,20 @@ function createSubOptimizationService({
   async function applySubIndividualFilters(subMeasurement, filters) {
     if (!filters?.length) return;
 
-    for (const [filterIndex, filter] of filters.entries()) {
+    // Same floor as the RCH engine ("Min filter gain"): a ±0.1 dB filter has
+    // no audible effect but would hold a reserved slot forever.
+    const minFilterGain = Number(unwrap(autoEqConfig()?.minFilterGain)) || 0;
+    const audibleFilters = filters.filter(
+      filter => Math.abs(filter.gain) >= minFilterGain,
+    );
+    if (audibleFilters.length < filters.length) {
+      log.info(
+        `${labelOf(subMeasurement)}: ${filters.length - audibleFilters.length} ` +
+          `joint filter(s) below min filter gain ${minFilterGain} dB discarded`,
+      );
+    }
+
+    for (const [filterIndex, filter] of audibleFilters.entries()) {
       await mops.setSingleFilter(subMeasurement, {
         index: filterIndex + 1,
         enabled: true,
