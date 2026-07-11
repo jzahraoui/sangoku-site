@@ -558,3 +558,36 @@ comparer des scores per-sub avec des scores globaux.
 | data.bis.test | 48.90%   | **63.47%** (+15)      | —                     |
 
 L'efficacité **augmente** pendant l'optimisation sur tous les datasets.
+
+## 6. Budget de délai — fenêtre de distances AVR
+
+Le paramètre `delay {min, max}` de la configuration (construit par
+`createOptimizerConfig`, `src/services/sub-optimization.js`) n'est pas
+symétrique : il modélise la **fenêtre de distances de l'AVR** — chaque canal
+doit rester entre le canal le plus proche (l'« ancre ») et l'ancre + 6 m
+(7,35 m avec le hack). Les délais relatifs cherchés ici consomment le même
+budget que l'**alignement de groupe** sub ↔ enceinte frontale qui suit
+(`produceAligned`) :
+
+- **Borne négative** = marge d'ancre : un sub avancé ne doit pas descendre
+  sous le canal le plus proche, sinon l'ancre glisse et tous les canaux
+  perdent de la marge. Calculée en `cumulativeIRShiftSeconds` purs (le shift
+  global s'annule dans la différence).
+- **Borne positive** = headroom (`distanceLeftBeforeError`) **moins la réserve
+  d'alignement**. Source préférée : l'écart **mesuré comme `produceAligned` le
+  mesurera** — la projection `LFE predicted` (délais égalisés, filtres purgés)
+  contre chaque frontale LCR, les deux versions prédites **filtrées au
+  crossover** (`alignmentGapSeconds`, BusinessTools) : le retard de groupe des
+  filtres est donc inclus. Repli : l'écart de pics d'impulsion bruts (sub de
+  référence vs frontales), approximation biaisée de ce retard de groupe.
+  Pire cas parmi les LCR, signé : un groupe **en retard** (cas typique : le
+  signal des subs est traité avec un délai, on doit les déclarer plus loin)
+  réserve le côté positif ; un groupe **en avance** réserve le côté ancre.
+  La réserve reste une valeur de planification : `produceAligned` fait seul le
+  calcul précis des délais, et garde son clamp vivant sur la marge restante en
+  dernier recours.
+
+Sans les providers de listes (`uniqueMeasurements`,
+`frontSpeakersMeasurements`), les bornes restent symétriques à ±headroom
+(surface de test historique). Si les deux bornes tombent à 0, l'optimizer ne
+cherche que polarité/all-pass (warning loggé).

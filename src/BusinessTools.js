@@ -333,6 +333,35 @@ class BusinessTools {
    * Aligns a subwoofer (LFE) with a speaker by calculating and applying the optimal time offset
    *
    */
+  /**
+   * Measured alignment gap (seconds) between the predicted LFE and a speaker,
+   * both crossover-filtered — the exact quantity produceAligned starts from.
+   * Used to size the optimizer's alignment reserve. Returns null when the
+   * context (predicted LFE, crossover) is not available.
+   */
+  async alignmentGapSeconds(speakerItem) {
+    const cuttOffFrequency = speakerItem.crossover();
+    const PredictedLfe = speakerItem.relatedLfeMeasurement();
+    if (!PredictedLfe || !cuttOffFrequency) return null;
+
+    const mustBeDeleted = [];
+    try {
+      const predictedSpeaker = await speakerItem.producePredictedMeasurement();
+      mustBeDeleted.push(predictedSpeaker);
+
+      const { PredictedLfeFiltered, predictedSpeakerFiltered } =
+        await this.applyCutOffFilter(PredictedLfe, predictedSpeaker, cuttOffFrequency);
+      mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
+
+      return (
+        PredictedLfeFiltered.timeOfIRPeakSeconds() -
+        predictedSpeakerFiltered.timeOfIRPeakSeconds()
+      );
+    } finally {
+      await this.viewModel.removeMeasurements(mustBeDeleted);
+    }
+  }
+
   async produceAligned(speakerItem, subResponses) {
     const cuttOffFrequency = speakerItem.crossover();
     const PredictedLfe = speakerItem.relatedLfeMeasurement();
@@ -401,6 +430,8 @@ class BusinessTools {
           1000
         ).toFixed(2)}ms)`,
       );
+      // Applied alignment, so callers can carry it to other positions' subs.
+      return { offsetSeconds: finalDistance, inverted: isBInverted };
     } finally {
       await this.viewModel.removeMeasurements(mustBeDeleted);
     }

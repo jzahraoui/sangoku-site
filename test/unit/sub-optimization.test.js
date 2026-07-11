@@ -34,7 +34,13 @@ function fakeSub(uuid, overrides = {}) {
   };
 }
 
-function createHarness({ subs = [], measurements = [], config = {} } = {}) {
+function createHarness({
+  subs = [],
+  measurements = [],
+  config = {},
+  virtualSubwoofers = null,
+  groupedSubs = null,
+} = {}) {
   const session = {
     measurements: { get: () => measurements },
     removeMeasurement: vi.fn().mockResolvedValue(true),
@@ -52,6 +58,7 @@ function createHarness({ subs = [], measurements = [], config = {} } = {}) {
   const service = createSubOptimizationService({
     session,
     businessTools,
+    virtualSubwoofers,
     config: {
       mainTargetLevel: 75,
       selectedEqualizationMode: 'rch',
@@ -68,6 +75,7 @@ function createHarness({ subs = [], measurements = [], config = {} } = {}) {
       uniqueSubsMeasurements: () => subs,
       predictedLfeMeasurements: () => [],
       selectedPredictedLfeMeasurement: () => null,
+      byPositionsGroupedSubsMeasurements: () => groupedSubs ?? { 1: subs },
     },
   });
   return { service, session, businessTools };
@@ -301,5 +309,293 @@ describe('syncAllPredictedLfeMeasurement', () => {
     await expect(service.syncAllPredictedLfeMeasurement()).rejects.toThrow(
       'No LFE found, please use sum subs button',
     );
+  });
+});
+
+describe('projection du sub virtuel (ADR 003)', () => {
+  it('equalizeSubs equalizes the projection then distributes via the group command', async () => {
+    const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
+    const bridge = {
+      refresh: vi.fn().mockResolvedValue(projection),
+      setFilters: vi.fn().mockResolvedValue([projection]),
+    };
+    const subs = [fakeSub('sw1'), fakeSub('sw2')];
+    const { service } = createHarness({ subs, virtualSubwoofers: bridge });
+
+    await service.equalizeSubs();
+
+    expect(bridge.refresh).toHaveBeenCalledWith(1, {});
+    expect(projection._runPhaseMatchFilter).toHaveBeenCalledOnce();
+    // The EQ of the projection is distributed by the virtual sub command,
+    // which also recomputes the projections.
+    expect(bridge.setFilters).toHaveBeenCalledWith([{ index: 1, type: 'PK' }], {
+      position: 1,
+    });
+    for (const sub of subs) {
+      expect(sub.copyFiltersToOther).toHaveBeenCalledOnce();
+    }
+  });
+
+  it('equalizeSubs routes a single sub through the same projection path', async () => {
+    const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
+    const bridge = {
+      refresh: vi.fn().mockResolvedValue(projection),
+      setFilters: vi.fn().mockResolvedValue([projection]),
+    };
+    const sub = fakeSub('sw1');
+    const { service } = createHarness({ subs: [sub], virtualSubwoofers: bridge });
+
+    await service.equalizeSubs();
+
+    expect(projection._runPhaseMatchFilter).toHaveBeenCalledOnce();
+    expect(sub._runPhaseMatchFilter).not.toHaveBeenCalled();
+    expect(bridge.setFilters).toHaveBeenCalledWith([{ index: 1, type: 'PK' }], {
+      position: 1,
+    });
+  });
+
+  it('equalizeSubs throws when the projection cannot be produced', async () => {
+    const bridge = { refresh: vi.fn().mockResolvedValue(null) };
+    const { service } = createHarness({
+      subs: [fakeSub('sw1')],
+      virtualSubwoofers: bridge,
+    });
+
+    await expect(service.equalizeSubs()).rejects.toThrow('No subwoofer found');
+  });
+
+  it('multiSubOptimizer with one sub refreshes the projection instead of throwing', async () => {
+    const bridge = { refresh: vi.fn().mockResolvedValue(fakeSub('proj')) };
+    const { service } = createHarness({
+      subs: [fakeSub('sw1')],
+      virtualSubwoofers: bridge,
+    });
+
+    await service.multiSubOptimizer({});
+
+    expect(bridge.refresh).toHaveBeenCalledWith(1, { force: true });
+  });
+});
+
+describe('equalizeSub — garde des bornes', () => {
+  it('rejects a detected band that does not overlap the configured bounds', async () => {
+    const sub = fakeSub('sw1', {
+      detectFallOff: vi.fn().mockResolvedValue({ lowHz: 600, highHz: 800 }),
+    });
+    const { service } = createHarness({ subs: [sub] });
+
+    await expect(service.equalizeSub(sub)).rejects.toThrow('does not overlap');
+    expect(sub._runPhaseMatchFilter).not.toHaveBeenCalled();
+  });
+});
+
+describe('produceAligned via le sub virtuel (ADR 003 v2)', () => {
+  function bridgeWithCapture(projection) {
+    const forEachCalls = [];
+    return {
+      bridge: {
+        refresh: vi.fn().mockResolvedValue(projection),
+        refreshProjected: vi.fn().mockResolvedValue([]),
+        setFilters: vi.fn().mockResolvedValue([]),
+        forEachSub: vi.fn().mockImplementation(async (fn, options) => {
+          forEachCalls.push({ fn, options });
+        }),
+      },
+      forEachCalls,
+    };
+  }
+
+  it('propagates the found alignment to the other positions then recomputes', async () => {
+    const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
+    const { bridge, forEachCalls } = bridgeWithCapture(projection);
+    const sw1 = fakeSub('sw1');
+    const sw2p2 = fakeSub('sw2p2', { position: () => 2, inverted: () => false });
+    const { service, businessTools } = createHarness({
+      subs: [sw1],
+      virtualSubwoofers: bridge,
+      groupedSubs: { 1: [sw1], 2: [sw2p2] },
+    });
+    businessTools.produceAligned.mockResolvedValue({
+      offsetSeconds: 0.002,
+      inverted: true,
+    });
+
+    await service.produceAligned(fakeSub('FL'));
+
+    // Projection ensured before the alignment, recompute after.
+    expect(bridge.refresh).toHaveBeenCalledWith(1, {});
+    expect(bridge.refreshProjected).toHaveBeenCalledWith({ force: true });
+
+    // Only the OTHER position receives the offset + inversion toggle.
+    expect(forEachCalls).toHaveLength(1);
+    expect(forEachCalls[0].options).toEqual({ position: '2' });
+    const vmops = {
+      addIROffsetSeconds: vi.fn().mockResolvedValue(true),
+      setInverted: vi.fn().mockResolvedValue(true),
+    };
+    await forEachCalls[0].fn(vmops, sw2p2);
+    expect(vmops.addIROffsetSeconds).toHaveBeenCalledWith(sw2p2, 0.002);
+    expect(vmops.setInverted).toHaveBeenCalledWith(sw2p2, true);
+  });
+
+  it('skips the propagation when no alignment result is returned', async () => {
+    const projection = fakeSub('proj');
+    const { bridge } = bridgeWithCapture(projection);
+    const { service, businessTools } = createHarness({
+      subs: [fakeSub('sw1')],
+      virtualSubwoofers: bridge,
+      groupedSubs: { 1: [fakeSub('sw1')], 2: [fakeSub('sw2p2')] },
+    });
+    businessTools.produceAligned.mockResolvedValue(undefined);
+
+    await service.produceAligned(fakeSub('FL'));
+
+    expect(bridge.forEachSub).not.toHaveBeenCalled();
+    expect(bridge.refreshProjected).toHaveBeenCalledWith({ force: true });
+  });
+
+  it('reserves the all-pass slot on the projection before equalizing', async () => {
+    const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
+    const bridge = {
+      refresh: vi.fn().mockResolvedValue(projection),
+      setFilters: vi.fn().mockResolvedValue([projection]),
+    };
+    const { service } = createHarness({
+      subs: [fakeSub('sw1'), fakeSub('sw2')],
+      virtualSubwoofers: bridge,
+      config: { useAllPassFiltersForSubs: true },
+    });
+
+    await service.equalizeSubs();
+
+    expect(projection.setSingleFilter).toHaveBeenCalledWith({
+      index: 20,
+      enabled: true,
+      isAuto: false,
+      type: 'None',
+    });
+  });
+});
+
+describe('createOptimizerConfig — budget de délai (fenêtre AVR)', () => {
+  const withDistance = (uuid, overrides = {}) =>
+    fakeSub(uuid, { timeOfIRPeakSeconds: () => 0, ...overrides });
+
+  it('keeps the historical symmetric bounds without the list providers', () => {
+    const sub = withDistance('sw1');
+    const { service } = createHarness({ subs: [sub], config: { distanceLeftBeforeError: 3.43 } });
+
+    const optimizerConfig = service.createOptimizerConfig(20, 200);
+
+    expect(optimizerConfig.delay.max).toBeCloseTo(0.01, 4);
+    expect(optimizerConfig.delay.min).toBeCloseTo(-0.01, 4);
+  });
+
+  it('anchors the negative bound on the closest channel', () => {
+    // Subs sit 1.03 ms above the closest channel: they may only come down
+    // that far, whatever the remaining headroom is.
+    const sub1 = withDistance('sw1', { cumulativeIRShiftSeconds: () => 0.005 });
+    const sub2 = withDistance('sw2', { cumulativeIRShiftSeconds: () => 0.007 });
+    const speaker = withDistance('FL', { cumulativeIRShiftSeconds: () => 0.00397 });
+    const service = createSubOptimizationService({
+      session: {},
+      businessTools: {},
+      config: { distanceLeftBeforeError: 3.43, jsonAvrData: { avr: { minDistAccuracy: 0.00001 } } },
+      lists: {
+        uniqueSubsMeasurements: () => [sub1, sub2],
+        predictedLfeMeasurements: () => [],
+        selectedPredictedLfeMeasurement: () => null,
+        uniqueMeasurements: () => [speaker, sub1, sub2],
+        frontSpeakersMeasurements: () => [],
+      },
+    });
+
+    const optimizerConfig = service.createOptimizerConfig(20, 200);
+
+    expect(optimizerConfig.delay.min).toBeCloseTo(-(0.005 - 0.00397), 4);
+    expect(optimizerConfig.delay.max).toBeCloseTo(0.01, 4);
+  });
+
+  it('reserves the alignment latitude from the worst-case front-speaker peak gap', () => {
+    // Sub group peak 6 ms after the worst front: the later group alignment
+    // will need that much positive budget — the optimizer must not spend it.
+    const sub = withDistance('sw1', { timeOfIRPeakSeconds: () => 0.006 });
+    const sub2 = withDistance('sw2');
+    const fl = withDistance('FL', { timeOfIRPeakSeconds: () => 0.002 });
+    const center = withDistance('C', { timeOfIRPeakSeconds: () => 0 });
+    const service = createSubOptimizationService({
+      session: {},
+      businessTools: {},
+      config: { distanceLeftBeforeError: 3.43, jsonAvrData: { avr: { minDistAccuracy: 0.00001 } } },
+      lists: {
+        uniqueSubsMeasurements: () => [sub, sub2],
+        predictedLfeMeasurements: () => [],
+        selectedPredictedLfeMeasurement: () => null,
+        uniqueMeasurements: () => [fl, center, sub, sub2],
+        frontSpeakersMeasurements: () => [fl, center],
+      },
+    });
+
+    const optimizerConfig = service.createOptimizerConfig(20, 200);
+
+    // max = headroom (10 ms) − pire écart tardif (6 ms vs C)
+    expect(optimizerConfig.delay.max).toBeCloseTo(0.004, 4);
+    // ancre : subs déjà au niveau du canal le plus proche → 0 de latitude basse
+    expect(optimizerConfig.delay.min).toBeCloseTo(0, 4);
+  });
+
+  it('reserves the anchor side when the sub group is EARLY vs the fronts', () => {
+    const sub = withDistance('sw1', {
+      timeOfIRPeakSeconds: () => 0,
+      cumulativeIRShiftSeconds: () => 0.008,
+    });
+    const fl = withDistance('FL', {
+      timeOfIRPeakSeconds: () => 0.005,
+      cumulativeIRShiftSeconds: () => 0.002,
+    });
+    const service = createSubOptimizationService({
+      session: {},
+      businessTools: {},
+      config: { distanceLeftBeforeError: 3.43, jsonAvrData: { avr: { minDistAccuracy: 0.00001 } } },
+      lists: {
+        uniqueSubsMeasurements: () => [sub, withDistance('sw2', { cumulativeIRShiftSeconds: () => 0.009 })],
+        predictedLfeMeasurements: () => [],
+        selectedPredictedLfeMeasurement: () => null,
+        uniqueMeasurements: () => [fl, sub],
+        frontSpeakersMeasurements: () => [fl],
+      },
+    });
+
+    const optimizerConfig = service.createOptimizerConfig(20, 200);
+
+    // marge d'ancre 6 ms, réduite par la réserve « en avance » de 5 ms
+    expect(optimizerConfig.delay.min).toBeCloseTo(-0.001, 4);
+    expect(optimizerConfig.delay.max).toBeCloseTo(0.01, 4);
+  });
+});
+
+describe('createOptimizerConfig — écarts mesurés (LFE predicted filtrée)', () => {
+  it('prefers the measured alignment gaps over the raw peak fallback', () => {
+    const sub = fakeSub('sw1', { timeOfIRPeakSeconds: () => 0.001 });
+    const fl = fakeSub('FL', { timeOfIRPeakSeconds: () => 0.001 });
+    const service = createSubOptimizationService({
+      session: {},
+      businessTools: {},
+      config: { distanceLeftBeforeError: 3.43, jsonAvrData: { avr: { minDistAccuracy: 0.00001 } } },
+      lists: {
+        uniqueSubsMeasurements: () => [sub, fakeSub('sw2')],
+        predictedLfeMeasurements: () => [],
+        selectedPredictedLfeMeasurement: () => null,
+        uniqueMeasurements: () => [fl, sub],
+        frontSpeakersMeasurements: () => [fl], // écart brut = 0
+      },
+    });
+
+    // Écart mesuré (filtré) de 6 ms — c'est lui qui doit dimensionner la réserve.
+    const optimizerConfig = service.createOptimizerConfig(20, 200, {
+      alignmentGapsSeconds: [0.006, Number.NaN],
+    });
+
+    expect(optimizerConfig.delay.max).toBeCloseTo(0.01 - 0.006, 4);
   });
 });

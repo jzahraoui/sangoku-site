@@ -374,6 +374,39 @@ function createBusinessTools({
    * the optimal time offset (parity with BusinessTools.produceAligned). The
    * temporary predicted/filtered measurements are cleaned up in the finally.
    */
+  /**
+   * Measured alignment gap (seconds) between the predicted LFE and a speaker,
+   * both crossover-filtered — the exact quantity produceAligned starts from.
+   * Used to size the optimizer's alignment reserve. Returns null when the
+   * context (predicted LFE, crossover) is not available.
+   */
+  async function alignmentGapSeconds(speakerItem) {
+    const cuttOffFrequency = crossoverForSpeaker(speakerItem);
+    const PredictedLfe = relatedLfeFor(speakerItem);
+    if (!PredictedLfe || !cuttOffFrequency) return null;
+
+    const mustBeDeleted = [];
+    try {
+      const predictedSpeaker = await operations.producePredictedMeasurement(
+        rew(),
+        speakerItem,
+        sessionContext,
+      );
+      mustBeDeleted.push(predictedSpeaker);
+
+      const { PredictedLfeFiltered, predictedSpeakerFiltered } =
+        await applyCutOffFilter(PredictedLfe, predictedSpeaker, cuttOffFrequency);
+      mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
+
+      return (
+        unwrap(PredictedLfeFiltered.timeOfIRPeakSeconds) -
+        unwrap(predictedSpeakerFiltered.timeOfIRPeakSeconds)
+      );
+    } finally {
+      await session.removeMeasurements(mustBeDeleted);
+    }
+  }
+
   async function produceAligned(speakerItem, subResponses) {
     const cuttOffFrequency = crossoverForSpeaker(speakerItem);
     const PredictedLfe = relatedLfeFor(speakerItem);
@@ -444,6 +477,8 @@ function createBusinessTools({
           1000
         ).toFixed(2)}ms)`,
       );
+      // Applied alignment, so callers can carry it to other positions' subs.
+      return { offsetSeconds: finalDistance, inverted: isBInverted };
     } finally {
       await session.removeMeasurements(mustBeDeleted);
     }
@@ -507,9 +542,11 @@ function createBusinessTools({
   }
 
   return {
+    alignmentGapSeconds,
     createsSum,
     createLowPassFilter,
     revertLfeFilterProccess,
+    revertLfeFilterProccessList,
     applyCutOffFilter,
     produceAligned,
     createMeasurementPreview,

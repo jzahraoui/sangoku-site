@@ -170,6 +170,28 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     return { operations, session, tools, findAligment, predictedLfe };
   }
 
+  it('alignmentGapSeconds measures the crossover-filtered peak gap and cleans up', async () => {
+    const { tools, session } = harness();
+    const speaker = { uuid: 'fl', title: 'FL', role: 'spk' };
+
+    const gap = await tools.alignmentGapSeconds(speaker);
+
+    // filtered LFE peak (0.002) minus filtered speaker peak (0.001)
+    expect(gap).toBeCloseTo(0.001, 6);
+    expect(session.removeMeasurements).toHaveBeenCalled();
+  });
+
+  it('alignmentGapSeconds returns null without a predicted LFE', async () => {
+    const tools = createBusinessTools({
+      operations: {},
+      session: { rewMeasurements: {}, removeMeasurements: vi.fn() },
+      relatedLfeFor: () => null,
+      crossoverForSpeaker: () => 80,
+    });
+
+    await expect(tools.alignmentGapSeconds({ uuid: 'fl' })).resolves.toBeNull();
+  });
+
   it('applyCutOffFilter short-circuits to response copies at 0Hz', async () => {
     const { operations, tools } = harness();
     const sub = { uuid: 's' };

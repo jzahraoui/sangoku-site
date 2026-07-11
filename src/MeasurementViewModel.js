@@ -43,6 +43,7 @@ import {
   selectMeasurementsForBulkApply,
 } from './services/filters.js';
 import { createPersistenceService } from './services/persistence.js';
+import { createVirtualSubwooferService } from './services/virtual-subwoofer.js';
 
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
 
@@ -560,6 +561,10 @@ class MeasurementViewModel {
               this.handleSuccess(`REW import successful for position: ${position}`),
           },
         );
+
+        // The subs' filters/delays/levels changed: recompute the existing
+        // projections (ADR 003).
+        await this.virtualSubwooferService.refreshProjected({ force: true });
       } catch (error) {
         this.handleError(`REW import failed: ${error.message}`, error);
       } finally {
@@ -702,6 +707,9 @@ class MeasurementViewModel {
           true,
         );
 
+        // The subs' responses changed: recompute the existing projections.
+        await this.virtualSubwooferService.refreshProjected({ force: true });
+
         this.handleSuccess('LFE filter reverted successfully');
       } catch (error) {
         this.handleError(`Reverting LFE filter failed: ${error.message}`, error);
@@ -720,6 +728,9 @@ class MeasurementViewModel {
           this.uniqueSpeakersMeasurements(),
           this.uniqueSubsMeasurements(),
         );
+
+        // The sub delays changed: recompute the owned projections (ADR 003).
+        await this.virtualSubwooferService.refreshProjected({ force: true });
 
         this.handleSuccess('Align peaks successful');
       } catch (error) {
@@ -741,6 +752,10 @@ class MeasurementViewModel {
           subMeasurements: this.uniqueSubsMeasurements(),
         });
 
+        // The sub levels changed: recompute the owned projections (ADR 003)
+        // instead of leaving them deleted by the alignment.
+        await this.virtualSubwooferService.refreshProjected({ force: true });
+
         this.handleSuccess(`SPL alignment successful `);
       } catch (error) {
         this.handleError(`SPL alignment: ${error.message}`, error);
@@ -749,14 +764,14 @@ class MeasurementViewModel {
       }
     };
 
+    // Sub trim gain (ADR 003 v2): a group command of the virtual subwoofer —
+    // the offset is applied to every real sub, and the projections (LFE
+    // predicted + Theo reference) follow by recomputation.
     this.increaseSubTrimGain = async () => {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
-
-        for (const sub of this.subsLikeMeasurements()) {
-          await sub.addSPLOffsetDB(0.5);
-        }
+        await this.virtualSubwooferService.addSPLOffset(0.5);
       } catch (error) {
         this.handleError(`Increasing sub trim gain failed: ${error.message}`, error);
       } finally {
@@ -768,9 +783,7 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
-        for (const sub of this.subsLikeMeasurements()) {
-          await sub.addSPLOffsetDB(-0.5);
-        }
+        await this.virtualSubwooferService.addSPLOffset(-0.5);
       } catch (error) {
         this.handleError(`Decreasing sub trim gain failed: ${error.message}`, error);
       } finally {
@@ -787,10 +800,9 @@ class MeasurementViewModel {
         // Ensure accurate predicted measurements with correct target level
         await this.setTargetLevelFromMeasurement(this.firstMeasurement());
 
-        // Process each position's subwoofer measurements
-        await this.subOptimizationService.produceSubSums(
-          this.byPositionsGroupedSubsMeasurements(),
-        );
+        // Refresh the per-position virtual subwoofers (ADR 003): client-side
+        // sum of the predicted sub responses, projected as LFE predicted.
+        await this.virtualSubwooferService.refreshAll({ force: true });
       } catch (error) {
         this.handleError(`Sum failed: ${error.message}`, error);
       } finally {
@@ -1357,14 +1369,25 @@ class MeasurementViewModel {
       log: lm,
     });
 
+    // Virtual subwoofers (ADR 003): one combined response per position,
+    // projected into REW as the LFE predicted measurement.
+    this.virtualSubwooferService = createVirtualSubwooferService({
+      session: this.rewSession,
+      getSubsByPosition: () => this.byPositionsGroupedSubsMeasurements(),
+      log: lm,
+    });
+
     // Subwoofer optimization / filter generation services.
     this.subOptimizationService = createSubOptimizationService({
       session: this.rewSession,
+      virtualSubwoofers: this.virtualSubwooferService,
       businessTools: {
         produceAligned: (speakerItem, subs) =>
           this.businessTools.produceAligned(speakerItem, subs),
         createsSum: (subsList, title, deleteOriginals) =>
           this.businessTools.createsSum(subsList, title, deleteOriginals),
+        alignmentGapSeconds: speakerItem =>
+          this.businessTools.alignmentGapSeconds(speakerItem),
       },
       config: observableProxy(this, [
         'mainTargetLevel',
@@ -1381,6 +1404,15 @@ class MeasurementViewModel {
         uniqueSubsMeasurements: () => this.uniqueSubsMeasurements(),
         predictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),
         selectedPredictedLfeMeasurement: () => this.predictedLfeMeasurement(),
+        byPositionsGroupedSubsMeasurements: () =>
+          this.byPositionsGroupedSubsMeasurements(),
+        // Delay-budget context (AVR distance window): every selected channel
+        // (anchor detection) and the LCR fronts (alignment reserve).
+        uniqueMeasurements: () => this.uniqueMeasurements(),
+        frontSpeakersMeasurements: () =>
+          this.uniqueSpeakersMeasurements().filter(item =>
+            ['FL', 'C', 'FR'].includes(item.channelName()),
+          ),
       },
       log: lm,
     });
