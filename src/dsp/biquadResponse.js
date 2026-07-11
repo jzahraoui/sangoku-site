@@ -85,6 +85,44 @@ export function getComplexResponseFromCoefficients(coeffs, freq, sampleRate) {
 }
 
 /**
+ * Same computation as getComplexResponseFromCoefficients, with the
+ * frequency-dependent trigonometry supplied by the caller. Lets hot loops
+ * (per-candidate filter evaluation on a fixed frequency grid) precompute
+ * cos/sin tables once instead of paying four transcendental calls per bin.
+ *
+ * @param {{ a0,a1,a2,b0,b1,b2 }} coeffs
+ * @param {{ cosW,sinW,cos2W,sin2W }} trig - Precomputed at the target
+ *   frequency for the same sample rate the coefficients were designed for
+ * @returns {{ re: number, im: number }}
+ */
+export function getComplexResponseWithTrig(coeffs, trig) {
+  const { a0, a1, a2, b0, b1, b2 } = coeffs;
+  const { cosW, sinW, cos2W, sin2W } = trig;
+
+  const b0n = b0 / a0;
+  const b1n = b1 / a0;
+  const b2n = b2 / a0;
+  const a1n = a1 / a0;
+  const a2n = a2 / a0;
+
+  const numRe = b0n + b1n * cosW + b2n * cos2W;
+  const numIm = -b1n * sinW - b2n * sin2W;
+
+  const denRe = 1 + a1n * cosW + a2n * cos2W;
+  const denIm = -a1n * sinW - a2n * sin2W;
+
+  const denMagSq = denRe * denRe + denIm * denIm;
+  if (denMagSq < 1e-30) {
+    return { re: 1, im: 0 };
+  }
+
+  const re = (numRe * denRe + numIm * denIm) / denMagSq;
+  const im = (numIm * denRe - numRe * denIm) / denMagSq;
+
+  return Number.isFinite(re) && Number.isFinite(im) ? { re, im } : { re: 1, im: 0 };
+}
+
+/**
  * Computes filter phase in degrees.
  *
  * @param {{ p1,p2,p3,p4,p5 }} coeffs - Phase coefficients

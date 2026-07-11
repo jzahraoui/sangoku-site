@@ -636,6 +636,38 @@ comparer des scores per-sub avec des scores globaux.
    en mode all-pass (~66 %) — l'heuristique de placement w=0.6 est conservée
    pour tous les objectifs.
 
+### Session 7 — Process joint target-match (Lots 0-2, 2026-07-11)
+
+Refonte MSO-like validée par prototype puis implémentée dans le moteur : un
+process unique optimise **simultanément** delay/polarité/gain **et des
+biquads peaking par sub** contre la **courbe cible** (le matériel supporte
+les filtres par sub ; l'EQ commune recopiée ne peut pas modifier la
+structure d'interférence).
+
+- **Lot 0 (go/no-go, scratchpad)** : DE joint + 3 biquads/sub vs chaîne
+  actuelle, même EQ commune finale — RMS vs cible 3.32→1.23 / 2.17→0.98 /
+  2.27→0.84 dB. La valeur vient des filtres par sub (le DE joint sans
+  filtres ≈ chaîne actuelle).
+- **Lot 1** : `param.filters` (peaking, via `src/dsp`) dans le contrat +
+  `calculateResponseWithParams` ; objectif `target-match` (écart asymétrique
+  ×4 sous-cible + garde GD, base 100, `optimization.targetCurve`
+  rééchantillonnée log-f) ; régularisateur d'effort (|gain|, boost ×2).
+- **Lot 2** : `optimizeSubwoofersJoint()` — DE/rand/1/bin générique
+  (`differential-evolution.js`, async, onProgress, annulation coopérative),
+  flow deux phases (`joint-flow.js`) : alignement seul puis espace complet
+  seedé par le vainqueur. Coût partagé avec le chemin d'évaluation standard.
+  Tables trig par grille (WeakMap) + `getComplexResponseWithTrig` (dsp).
+  Banc fixtures : RMS 2.93/1.65/1.81 dB en 120/65/94 s (gardes actives).
+- **Pièges notés** : pas de raffinement legacy dans le flow joint (le
+  `config.gain` prod {0,0} clamperait les gains DE) ; une cible plate
+  au-delà de la bande utile fait garer des boosts en bord de bande (la cible
+  produit doit refléter le rolloff) ; les scores de phase incluent les
+  pénalités delay/effort, `final.score` non.
+
+Reste : Lot 3 (intégration produit : cible réelle, application des filtres
+par sub via `setFilters`, toggle A/B avec l'ancien pipeline, e2e), Lot 4
+(objectif multi-positions).
+
 ### Résultats finaux (efficiency ratio)
 
 | Fixture       | Baseline | Final (sans all-pass) | Final (avec all-pass) |

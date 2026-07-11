@@ -97,7 +97,7 @@ const DELAY_PENALTY_MAX_POINTS = 0.5;
 const FILTER_EFFORT_POINTS_PER_DB = 0.05;
 const FILTER_EFFORT_BOOST_MULTIPLIER = 2;
 
-function calculateFilterEffortPenalty(param) {
+export function calculateFilterEffortPenalty(param) {
   const filters = param.filters ?? [];
   let penalty = 0;
   for (const filter of filters) {
@@ -108,7 +108,7 @@ function calculateFilterEffortPenalty(param) {
   return penalty;
 }
 
-function calculateDelayPenalty(optimizer, param) {
+export function calculateDelayPenalty(optimizer, param) {
   const maxDelay = Math.max(
     Math.abs(optimizer.config.delay.max),
     Math.abs(optimizer.config.delay.min),

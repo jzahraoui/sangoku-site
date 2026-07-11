@@ -40,6 +40,23 @@ export const DEFAULT_CONFIG = {
       coarseSeedCount: 8,
       minRunImprovement: 0.25,
     },
+    // Joint (target-match) solver: alignment + per-sub peaking filters
+    // optimized together by differential evolution. Runtime scales with
+    // population × generations × grid size; the defaults land in the
+    // "couple of minutes with a progress bar" budget on 4 subs.
+    joint: {
+      filtersPerSub: 3,
+      filterGain: { min: -12, max: 6 },
+      filterQ: { min: 0.3, max: 8 },
+      // Center-frequency window, intersected with the optimization band.
+      filterFrequency: { min: 15, max: 250 },
+      // Per-sub broadband trim (the reference sub stays at 0 dB).
+      gain: { min: -12, max: 3 },
+      populationSize: 80,
+      alignmentGenerations: 800,
+      generations: 2500,
+      patience: 400,
+    },
   },
 };
 
@@ -70,6 +87,7 @@ export function normalizeConfig(config = {}) {
     typeof optimization.multiStart === 'boolean'
       ? { enabled: optimization.multiStart }
       : (optimization.multiStart ?? {});
+  const joint = optimization.joint ?? {};
 
   return {
     frequency: { ...DEFAULT_CONFIG.frequency, ...(source.frequency ?? {}) },
@@ -91,6 +109,26 @@ export function normalizeConfig(config = {}) {
       multiStart: {
         ...DEFAULT_CONFIG.optimization.multiStart,
         ...multiStart,
+      },
+      joint: {
+        ...DEFAULT_CONFIG.optimization.joint,
+        ...joint,
+        filterGain: {
+          ...DEFAULT_CONFIG.optimization.joint.filterGain,
+          ...(joint.filterGain ?? {}),
+        },
+        filterQ: {
+          ...DEFAULT_CONFIG.optimization.joint.filterQ,
+          ...(joint.filterQ ?? {}),
+        },
+        filterFrequency: {
+          ...DEFAULT_CONFIG.optimization.joint.filterFrequency,
+          ...(joint.filterFrequency ?? {}),
+        },
+        gain: {
+          ...DEFAULT_CONFIG.optimization.joint.gain,
+          ...(joint.gain ?? {}),
+        },
       },
     },
   };
@@ -239,6 +277,36 @@ export function validateOptimizerConfig(config) {
   ) {
     throw new Error(
       'optimization multiStart.minRunImprovement must be a non-negative number',
+    );
+  }
+
+  const { joint } = config.optimization;
+  if (
+    !Number.isInteger(joint.filtersPerSub) ||
+    joint.filtersPerSub < 0 ||
+    joint.filtersPerSub > 10
+  ) {
+    throw new Error('optimization joint.filtersPerSub must be an integer in [0, 10]');
+  }
+  validateBounds(joint.filterGain, 'joint filterGain', false);
+  validateBounds(joint.filterQ, 'joint filterQ', false);
+  validateBounds(joint.filterFrequency, 'joint filterFrequency', false);
+  validateBounds(joint.gain, 'joint gain', false);
+  if (joint.filterQ.min <= 0 || joint.filterFrequency.min <= 0) {
+    throw new Error('joint filterQ and filterFrequency ranges must be positive');
+  }
+  if (
+    !Number.isInteger(joint.populationSize) ||
+    joint.populationSize < 4 ||
+    !Number.isInteger(joint.generations) ||
+    joint.generations < 1 ||
+    !Number.isInteger(joint.alignmentGenerations) ||
+    joint.alignmentGenerations < 0 ||
+    !Number.isInteger(joint.patience) ||
+    joint.patience < 1
+  ) {
+    throw new Error(
+      'optimization joint populationSize/generations/alignmentGenerations/patience are invalid',
     );
   }
 }

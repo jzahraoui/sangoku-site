@@ -1,6 +1,7 @@
 import * as coarseSearch from './coarse-search.js';
 import * as evaluation from './evaluation.js';
 import * as flow from './flow.js';
+import * as jointFlow from './joint-flow.js';
 import * as geneticSearch from './genetic-search.js';
 import * as localSearch from './local-search.js';
 import * as measurements from './measurements.js';
@@ -49,6 +50,17 @@ export default class OptimizerFacadeMethods {
 
   optimizeSubwoofers() {
     return flow.optimizeSubwoofers(this);
+  }
+
+  /**
+   * Joint (target-match) optimization: delay/polarity/gain + per-sub peaking
+   * filters solved together against the target curve. Async — the solver
+   * yields between generation batches; `onProgress({phase, generation,
+   * generations, bestScore})` feeds a progress bar and `shouldCancel()` stops
+   * cooperatively (the best solution found so far is returned).
+   */
+  optimizeSubwoofersJoint(options = {}) {
+    return jointFlow.runJointOptimization(this, options);
   }
 
   prepareMeasurements() {

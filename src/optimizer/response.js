@@ -1,13 +1,38 @@
 import Polar from '../Polar.js';
 import FrequencyResponseProcessor from '../frequency-response-processor.js';
 import { computePeakingCoefficients } from '../dsp/biquadCoefficients.js';
-import { getComplexResponseFromCoefficients } from '../dsp/biquadResponse.js';
+import { getComplexResponseWithTrig } from '../dsp/biquadResponse.js';
 import { normalizeParam } from './config.js';
 
 // Sample rate used to realize the per-sub peaking biquads. Only affects the
 // bilinear warp of the biquad response, which is negligible in the subwoofer
 // band (< 500 Hz vs 24 kHz Nyquist); the product DSP chain runs at 48 kHz.
 const FILTER_SAMPLE_RATE = 48000;
+
+// Per-grid trigonometry for the biquad evaluation, keyed by the freqs array
+// itself: a prepared sub keeps the same grid for thousands of candidate
+// evaluations during the joint search, so the four transcendentals per bin
+// are paid once per grid instead of once per (candidate × bin × filter).
+const filterTrigTables = new WeakMap();
+
+function getFilterTrigTable(freqs) {
+  let table = filterTrigTables.get(freqs);
+  if (table) return table;
+
+  const size = freqs.length;
+  table = new Array(size);
+  for (let i = 0; i < size; i++) {
+    const omega = (Polar.TWO_PI * freqs[i]) / FILTER_SAMPLE_RATE;
+    table[i] = {
+      cosW: Math.cos(omega),
+      sinW: Math.sin(omega),
+      cos2W: Math.cos(2 * omega),
+      sin2W: Math.sin(2 * omega),
+    };
+  }
+  filterTrigTables.set(freqs, table);
+  return table;
+}
 
 export function validateResponseArrays(response, label, requirePhase = true) {
   const { freqs, magnitude, phase } = response ?? {};
@@ -250,6 +275,7 @@ export function calculateResponseWithParams(sub, { validate = true } = {}) {
         sampleRate: FILTER_SAMPLE_RATE,
       }),
     );
+  const trigTable = filterCoefficients.length > 0 ? getFilterTrigTable(sub.freqs) : null;
 
   for (let freqIndex = 0; freqIndex < size; freqIndex++) {
     let magnitudeLinear = Polar.DbToLinearGain(sub.magnitude[freqIndex]) * gainLinear;
@@ -264,11 +290,7 @@ export function calculateResponseWithParams(sub, { validate = true } = {}) {
     }
 
     for (const coefficients of filterCoefficients) {
-      const h = getComplexResponseFromCoefficients(
-        coefficients,
-        sub.freqs[freqIndex],
-        FILTER_SAMPLE_RATE,
-      );
+      const h = getComplexResponseWithTrig(coefficients, trigTable[freqIndex]);
       magnitudeLinear *= Math.hypot(h.re, h.im);
       phaseRadians += Math.atan2(h.im, h.re);
     }
