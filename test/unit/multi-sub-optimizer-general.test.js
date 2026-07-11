@@ -505,6 +505,7 @@ describe('MultiSubOptimizer guards and parameter handling', () => {
       gain: 0,
       polarity: -1,
       allPass: { frequency: 0, q: 0, enabled: false },
+      filters: [],
     };
     opt.optimizedSubs = [opt.preparedSubs[1]];
     opt.preparedSubs[1].param = MultiSubOptimizer.EMPTY_CONFIG;

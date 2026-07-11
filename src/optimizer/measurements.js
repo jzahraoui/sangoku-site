@@ -28,7 +28,43 @@ export function prepareMeasurements(optimizer) {
   validatePreparedFrequencyGrid(preparedSubs);
   calculateFrequencyWeights(optimizer, preparedSubs[0].freqs);
 
+  const targetCurve = optimizer.config.optimization.targetCurve;
+  if (targetCurve) {
+    optimizer.targetMagnitude = resampleCurveToGrid(targetCurve, preparedSubs[0].freqs);
+  }
+
   return preparedSubs;
+}
+
+/**
+ * Resamples a {freqs, magnitude} curve onto the optimization grid by linear
+ * interpolation on log-frequency (flat extrapolation beyond the curve ends).
+ * Used for the target curve of the 'target-match' objective; the curve may
+ * come from an arbitrary grid (REW target, house curve).
+ */
+export function resampleCurveToGrid(curve, gridFreqs) {
+  const { freqs, magnitude } = curve;
+  if (!freqs?.length || freqs.length !== magnitude.length) {
+    throw new Error('Curve must provide matching freqs and magnitude arrays');
+  }
+
+  const out = new Float64Array(gridFreqs.length);
+  let j = 0;
+  for (let i = 0; i < gridFreqs.length; i++) {
+    const f = gridFreqs[i];
+    if (f <= freqs[0]) {
+      out[i] = magnitude[0];
+      continue;
+    }
+    if (f >= freqs[freqs.length - 1]) {
+      out[i] = magnitude[freqs.length - 1];
+      continue;
+    }
+    while (freqs[j + 1] < f) j++;
+    const t = Math.log(f / freqs[j]) / Math.log(freqs[j + 1] / freqs[j]);
+    out[i] = magnitude[j] + t * (magnitude[j + 1] - magnitude[j]);
+  }
+  return out;
 }
 
 function findFirstFrequencyIndex(freqs, freqRangeStart) {

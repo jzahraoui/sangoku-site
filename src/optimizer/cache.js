@@ -69,7 +69,13 @@ export function hashParam(param) {
     : 0;
   const allPassEnabled = normalizedParam.allPass.enabled ? 1 : 0;
 
-  return `${delay}|${gain}|${polarity}|${allPassEnabled}|${allPassFrequency}|${allPassQ}`;
+  let hash = `${delay}|${gain}|${polarity}|${allPassEnabled}|${allPassFrequency}|${allPassQ}`;
+  for (const filter of normalizedParam.filters) {
+    hash += `|${Math.round(filter.frequency * 100)}:${Math.round(
+      filter.gain * 1000,
+    )}:${Math.round(filter.q * 1000)}`;
+  }
+  return hash;
 }
 
 export function hashEvaluation({

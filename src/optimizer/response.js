@@ -1,6 +1,13 @@
 import Polar from '../Polar.js';
 import FrequencyResponseProcessor from '../frequency-response-processor.js';
+import { computePeakingCoefficients } from '../dsp/biquadCoefficients.js';
+import { getComplexResponseFromCoefficients } from '../dsp/biquadResponse.js';
 import { normalizeParam } from './config.js';
+
+// Sample rate used to realize the per-sub peaking biquads. Only affects the
+// bilinear warp of the biquad response, which is negligible in the subwoofer
+// band (< 500 Hz vs 24 kHz Nyquist); the product DSP chain runs at 48 kHz.
+const FILTER_SAMPLE_RATE = 48000;
 
 export function validateResponseArrays(response, label, requirePhase = true) {
   const { freqs, magnitude, phase } = response ?? {};
@@ -221,7 +228,7 @@ export function calculateResponseWithParams(sub, { validate = true } = {}) {
     param,
     ppo: sub.ppo,
   };
-  const { gain, delay, polarity, allPass } = param;
+  const { gain, delay, polarity, allPass, filters } = param;
   const gainLinear = Polar.DbToLinearGain(gain);
   const polarityPhase = polarity === -1 ? Math.PI : 0;
 
@@ -230,8 +237,22 @@ export function calculateResponseWithParams(sub, { validate = true } = {}) {
     allPassPhaseShift = calculateAllPassResponse(allPass.frequency, allPass.q);
   }
 
+  // Peaking biquad coefficients are param-dependent but frequency-independent:
+  // compute them once per call, evaluate per bin below. Near-zero gains are
+  // acoustically neutral and skipped.
+  const filterCoefficients = (filters ?? [])
+    .filter(filter => Math.abs(filter.gain) >= 0.01)
+    .map(filter =>
+      computePeakingCoefficients({
+        fc: filter.frequency,
+        Q: filter.q,
+        gain: filter.gain,
+        sampleRate: FILTER_SAMPLE_RATE,
+      }),
+    );
+
   for (let freqIndex = 0; freqIndex < size; freqIndex++) {
-    const magnitudeLinear = Polar.DbToLinearGain(sub.magnitude[freqIndex]) * gainLinear;
+    let magnitudeLinear = Polar.DbToLinearGain(sub.magnitude[freqIndex]) * gainLinear;
     let phaseRadians =
       sub.phase[freqIndex] * Polar.DEGREES_TO_RADIANS +
       Polar.TWO_PI * sub.freqs[freqIndex] * delay +
@@ -240,6 +261,16 @@ export function calculateResponseWithParams(sub, { validate = true } = {}) {
     if (allPass?.enabled) {
       phaseRadians +=
         allPassPhaseShift(sub.freqs[freqIndex]) * Polar.DEGREES_TO_RADIANS;
+    }
+
+    for (const coefficients of filterCoefficients) {
+      const h = getComplexResponseFromCoefficients(
+        coefficients,
+        sub.freqs[freqIndex],
+        FILTER_SAMPLE_RATE,
+      );
+      magnitudeLinear *= Math.hypot(h.re, h.im);
+      phaseRadians += Math.atan2(h.im, h.re);
     }
 
     response.magnitude[freqIndex] = linearMagnitudeToDb(magnitudeLinear);

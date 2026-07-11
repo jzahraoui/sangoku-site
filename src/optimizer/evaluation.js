@@ -40,6 +40,19 @@ export function calculateOptimizationScore(optimizer, response, theoreticalMax) 
 }
 
 export function calculateOptimizationScoreDetails(optimizer, response, theoreticalMax) {
+  if (optimizer.config.optimization.objective === 'target-match') {
+    if (!optimizer.targetMagnitude) {
+      throw new Error(
+        'target-match objective requires a target curve (prepareMeasurements resamples optimization.targetCurve onto the grid)',
+      );
+    }
+    const score = optimizer._scorer.calculateTargetMatchScore(
+      response,
+      optimizer.targetMagnitude,
+    );
+    return { score, qualityScore: score };
+  }
+
   if (optimizer.config.optimization.objective === 'pre-eq') {
     const score = optimizer._scorer.calculatePreEqScore(response, theoreticalMax);
     return { score, qualityScore: score };
@@ -74,6 +87,26 @@ export function calculateOptimizationScoreDetails(optimizer, response, theoretic
  */
 const DELAY_PENALTY_DEAD_ZONE = 0.5;
 const DELAY_PENALTY_MAX_POINTS = 0.5;
+
+// Filter-effort regularizer: each per-sub biquad is charged proportionally to
+// its |gain|, boosts twice as much as cuts (they consume driver headroom and
+// ring longer). Kept well below the score deltas of acoustically meaningful
+// solutions — it breaks ties toward the cheaper DSP, it does not fight real
+// improvements. The Lot 0 prototype showed the failure mode this prevents:
+// unregularized solutions parked +6 dB boosts on low-weight band edges.
+const FILTER_EFFORT_POINTS_PER_DB = 0.05;
+const FILTER_EFFORT_BOOST_MULTIPLIER = 2;
+
+function calculateFilterEffortPenalty(param) {
+  const filters = param.filters ?? [];
+  let penalty = 0;
+  for (const filter of filters) {
+    const magnitude = Math.abs(filter.gain);
+    const boostFactor = filter.gain > 0 ? FILTER_EFFORT_BOOST_MULTIPLIER : 1;
+    penalty += magnitude * boostFactor * FILTER_EFFORT_POINTS_PER_DB;
+  }
+  return penalty;
+}
 
 function calculateDelayPenalty(optimizer, param) {
   const maxDelay = Math.max(
@@ -116,7 +149,10 @@ export function evaluateParameters(
     theoreticalMax,
   );
 
-  response.score = scoreDetails.score - calculateDelayPenalty(optimizer, param);
+  response.score =
+    scoreDetails.score -
+    calculateDelayPenalty(optimizer, param) -
+    calculateFilterEffortPenalty(param);
   response.qualityScore = scoreDetails.qualityScore;
   if (scoreDetails.efficiencyRatio != null) {
     response.efficiencyRatio = scoreDetails.efficiencyRatio;

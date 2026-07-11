@@ -151,7 +151,13 @@ describe('GeneticAlgorithm', () => {
     );
 
     expect(population).toEqual([
-      { delay: 0, gain: 0, polarity: 1, allPass: { frequency: 0, q: 0, enabled: false } },
+      {
+        delay: 0,
+        gain: 0,
+        polarity: 1,
+        allPass: { frequency: 0, q: 0, enabled: false },
+        filters: [],
+      },
     ]);
   });
 

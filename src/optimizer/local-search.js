@@ -154,6 +154,10 @@ function cloneSearchParam(param) {
       q: param.allPass.q,
       enabled: param.allPass.enabled,
     },
+    // Per-sub filters are not perturbed by the local search (the joint solver
+    // owns them), but they must survive the clone or a refinement pass would
+    // silently strip them from the solution.
+    filters: (param.filters ?? []).map(filter => ({ ...filter })),
   };
 }
 

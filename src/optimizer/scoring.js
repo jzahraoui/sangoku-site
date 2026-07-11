@@ -10,6 +10,15 @@ const GROUP_DELAY_PER_BIN_CAP = 9;
 const PRE_EQ_GROUP_DELAY_WEIGHT = 2;
 const MEDIAN_MAX_SAMPLES = 192;
 
+// Target-match score — tuning. Being below the target is what the downstream
+// chain cannot fix (boosting a shortfall costs headroom, boosting a
+// cancellation is futile), so it is charged 4× the same deviation above the
+// target. The base keeps typical scores positive so guards expressed as
+// "score improves" behave like the other objectives.
+const TARGET_MATCH_BASE = 100;
+const TARGET_BELOW_WEIGHT = 4;
+const TARGET_MATCH_GROUP_DELAY_WEIGHT = 2;
+
 /**
  * Scorer — Frequency response quality metrics
  *
@@ -248,6 +257,55 @@ class Scorer {
       dipVsTheoPenalty * 3 -
       nullPenalty * 3 -
       groupDelayPenalty * PRE_EQ_GROUP_DELAY_WEIGHT
+    );
+  }
+
+  // =========================================================
+  // Target-match score — public entry point
+  // =========================================================
+
+  /**
+   * Score for the joint (alignment + per-sub filters) optimization: weighted
+   * asymmetric deviation of the combined response from the TARGET CURVE,
+   * plus the group-delay guard. Unlike the other objectives there is no
+   * theoretical-max reference: the target is the goal, at its anchored
+   * absolute level (no free offset — giving up level is a real error).
+   *
+   * @param {Object} response - Combined frequency response
+   * @param {ArrayLike<number>} targetMagnitude - Target curve (dB) on the
+   *   same frequency grid as the response
+   * @returns {number} Score (higher is better, TARGET_MATCH_BASE = perfect
+   *   match with flat group delay)
+   */
+  calculateTargetMatchScore(response, targetMagnitude) {
+    const { freqs, magnitude } = response;
+    const len = freqs.length;
+    if (len === 0) return 0;
+    if (targetMagnitude.length !== len) {
+      throw new Error('Target curve must be on the same grid as the response');
+    }
+
+    let weightSum = 0;
+    let cost = 0;
+    for (let i = 0; i < len; i++) {
+      const w = this.frequencyWeights[i];
+      const deviation = magnitude[i] - targetMagnitude[i];
+      weightSum += w;
+      cost += (deviation < 0 ? TARGET_BELOW_WEIGHT : 1) * deviation * deviation * w;
+    }
+    const asymmetricError = weightSum > 0 ? cost / weightSum : 0;
+
+    const groupDelayPenalty = this._calculateGroupDelayExcessPenalty(
+      freqs,
+      response.phase,
+      weightSum,
+      len,
+    );
+
+    return (
+      TARGET_MATCH_BASE -
+      asymmetricError -
+      groupDelayPenalty * TARGET_MATCH_GROUP_DELAY_WEIGHT
     );
   }
 

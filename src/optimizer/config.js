@@ -52,6 +52,10 @@ export const EMPTY_CONFIG = Object.freeze({
     q: 0,
     enabled: false,
   }),
+  // Per-sub peaking biquads ({ frequency, gain, q }), applied on top of
+  // delay/polarity/gain. Empty by default: the historical pipeline never
+  // sets them; the joint (target-match) solver does.
+  filters: Object.freeze([]),
 });
 
 export function normalizeConfig(config = {}) {
@@ -122,6 +126,7 @@ export function normalizeParam(param = {}) {
       q: readNumber(allPass.q, EMPTY_CONFIG.allPass.q, 'allPass.q'),
       enabled,
     },
+    filters: normalizeParamFilters(source.filters),
   };
 
   if (
@@ -132,6 +137,28 @@ export function normalizeParam(param = {}) {
   }
 
   return normalized;
+}
+
+function normalizeParamFilters(filters) {
+  if (filters == null) return [];
+  if (!Array.isArray(filters)) {
+    throw new TypeError('param filters must be an array');
+  }
+
+  return filters.map((filter, index) => {
+    const label = `filters[${index}]`;
+    const { frequency, gain, q } = filter ?? {};
+    if (!Number.isFinite(frequency) || frequency <= 0) {
+      throw new Error(`${label}.frequency must be a positive finite number`);
+    }
+    if (!Number.isFinite(gain)) {
+      throw new TypeError(`${label}.gain must be a finite number`);
+    }
+    if (!Number.isFinite(q) || q <= 0) {
+      throw new Error(`${label}.q must be a positive finite number`);
+    }
+    return { frequency, gain, q };
+  });
 }
 
 export function cloneParam(param = {}) {
@@ -157,10 +184,21 @@ export function validateOptimizerConfig(config) {
   validateBounds(config.allPass.frequency, 'all-pass frequency');
   validateBounds(config.allPass.q, 'all-pass q');
 
-  const { objective, theoreticalWeight, globalRefinement, multiStart } =
+  const { objective, theoreticalWeight, globalRefinement, multiStart, targetCurve } =
     config.optimization;
-  if (!['balanced', 'max-theoretical', 'pre-eq'].includes(objective)) {
+  if (!['balanced', 'max-theoretical', 'pre-eq', 'target-match'].includes(objective)) {
     throw new Error('Invalid optimization objective');
+  }
+  if (objective === 'target-match') {
+    if (
+      !targetCurve?.freqs?.length ||
+      !targetCurve?.magnitude?.length ||
+      targetCurve.freqs.length !== targetCurve.magnitude.length
+    ) {
+      throw new Error(
+        'target-match objective requires optimization.targetCurve with matching freqs and magnitude arrays',
+      );
+    }
   }
   if (
     !Number.isFinite(theoreticalWeight) ||

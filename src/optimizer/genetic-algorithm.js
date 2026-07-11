@@ -145,6 +145,11 @@ class GeneticAlgorithm {
         q: readNumber(allPass.q, defaultQ, 'allPass.q'),
         enabled,
       },
+      // Per-sub filters are not part of the GA's search space, but individuals
+      // seeded from a solution that carries them must not lose them.
+      filters: Array.isArray(individual.filters)
+        ? individual.filters.map(filter => ({ ...filter }))
+        : [],
     };
   }
 
