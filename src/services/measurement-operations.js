@@ -543,8 +543,10 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     if (!filters) {
       throw new Error(`Invalid filter: ${filters}`);
     }
-    if (filters.length !== 22) {
-      log.debug(`Invalid filter length: ${filters.length} expected 22`);
+    // Partial banks are nominal (shared-EQ writes carry the free slots only);
+    // more entries than the REW bank is a real anomaly.
+    if (filters.length > 22) {
+      log.warn(`Invalid filter length: ${filters.length}, REW bank holds 22`);
     }
 
     const allFilters = await getFilters(rew, m);
@@ -560,9 +562,14 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       const index = filter.index;
       const found = currentFilters.find(f => f.index === index);
       if (!found) {
-        log.warn(
-          `Filter with index ${index} not found in current filters, make sure Generic EQ is selected`,
-        );
+        // Clearing ('None') a slot the measurement holds as non-auto is a
+        // no-op, not an anomaly: the empty bank of the auto-slot clearing
+        // pass legitimately spans the reserved slots.
+        if (filter.type !== 'None') {
+          log.warn(
+            `Filter with index ${index} not found in current filters, make sure Generic EQ is selected`,
+          );
+        }
         continue;
       }
       // set auto to false if type is all pass
