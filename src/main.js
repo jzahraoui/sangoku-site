@@ -1,6 +1,7 @@
 import apo2camilla from './apo2camilla.js';
 import { saveAs } from 'file-saver';
-import jsyaml from 'js-yaml';
+// js-yaml 5 dropped the default export (named exports only).
+import { dump as yamlDump } from 'js-yaml';
 import lm from './logs.js';
 import RewController from './rew-controler.js';
 
@@ -143,7 +144,7 @@ if (rewSettingsButton && rewSettingsDialog) {
 async function downloadConfig(config, channel) {
   try {
     // Convert config to YAML
-    const yamlContent = jsyaml.dump(config);
+    const yamlContent = yamlDump(config);
 
     // Create blob with YAML content
     const blob = new Blob([yamlContent], { type: 'text/yaml' });
