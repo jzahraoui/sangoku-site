@@ -41,14 +41,14 @@ test('preview sub: la projection LFE predicted suit le sub virtuel (ADR 003)', a
           projFlag: proj ? proj.isSubOperationResult : null,
           owned: vm.virtualSubwooferService.subwooferFor('1').projectionUuid,
           projUuid: proj?.uuid ?? null,
-          subsLike: vm.subsLikeMeasurements().map(m => m.title()),
+          subsCount: vm.measurements().filter(m => m.isSub()).length,
         };
       });
 
       assert.ok(rew.titles().includes('LFE predicted_P1'), `REW: ${rew.titles()}`);
       assert.equal(state.projFlag, true, 'flag transition manquant');
       assert.equal(state.owned, state.projUuid, 'uuid possédé ≠ uuid de la liste');
-      assert.ok(state.subsLike.includes('LFE predicted_P1'), 'absent de subsLike');
+      assert.equal(state.subsCount, 2, 'les subs réels doivent rester au nombre de 2');
     });
 
     await t.test('second preview-sub remplace la projection', async () => {

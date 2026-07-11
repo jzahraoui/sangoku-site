@@ -1132,9 +1132,6 @@ class MeasurementViewModel {
       this.measurements().filter(item => item.isSub()),
     );
 
-    this.subsLikeMeasurements = ko.pureComputed(() =>
-      this.measurements().filter(item => item.isSub() || item.isSubOperationResult),
-    );
 
     this.validMeasurements = ko.pureComputed(() =>
       this.measurements().filter(item => item.isValid),

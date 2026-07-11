@@ -70,12 +70,14 @@ test('align sub: projection LFE predicted + Theo, equalize via la projection (AD
           owned: vm.virtualSubwooferService.subwooferFor(proj ? '1' : 'x').projectionUuid,
           projUuid: proj?.uuid ?? null,
           flag: proj?.isSubOperationResult ?? null,
-          subsLike: vm.subsLikeMeasurements().map(m => m.title()),
+          theoFlag: vm
+            .measurements()
+            .find(m => m.title() === 'LFE Max Sum Theo_P1')?.isSubOperationResult ?? null,
         };
       });
       assert.equal(state.owned, state.projUuid, 'uuid possédé ≠ liste');
       assert.equal(state.flag, true);
-      assert.ok(state.subsLike.includes('LFE Max Sum Theo_P1'), `Theo hors subsLike: ${state.subsLike}`);
+      assert.equal(state.theoFlag, true, 'Theo sans flag isSubOperationResult');
     });
 
     await t.test('equalize-sub passe par la projection', async () => {
