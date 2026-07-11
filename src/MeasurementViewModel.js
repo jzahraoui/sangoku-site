@@ -26,6 +26,11 @@ import {
 } from './services/import-session.js';
 import { createExportsService } from './services/exports.js';
 import {
+  DEFAULT_IR_WINDOW_CHOICE,
+  IR_WINDOW_PRESETS,
+  getIrWindowConfig,
+} from './measurement/working-settings.js';
+import {
   createAlignmentService,
   getTargetLevelAtFreq,
   setSameDelayToAll,
@@ -50,25 +55,8 @@ const store = new PersistentStore('myAppData');
 // Import/export orchestration lives in src/services/.
 const importSession = createImportSession({ log: lm });
 const exportsService = createExportsService({ log: lm });
-const DEFAULT_IR_WINDOW_CHOICE = 'Optimized MTW';
-const FALLBACK_IR_WINDOW_CHOICE = 'None';
 // ALIGN_OFFSET_TOLERANCE et quantize3dB vivent désormais dans
 // src/measurement/measurement-selection.js.
-const IR_WINDOW_PRESETS = {
-  None: {
-    leftWindowType: 'Rectangular',
-    rightWindowType: 'Rectangular',
-    addFDW: false,
-    addMTW: false,
-  },
-  'Optimized MTW': {
-    leftWindowType: 'Rectangular',
-    rightWindowType: 'Rectangular',
-    addFDW: false,
-    addMTW: true,
-    mtwTimesms: [9000, 3000, 450, 120, 30, 7.7, 2.6, 0.9, 0.4, 0.15],
-  },
-};
 
 /**
  * Creates a proxy that exposes the instance's Knockout observables as
@@ -1454,13 +1442,7 @@ class MeasurementViewModel {
   }
 
   getIrWindowConfig(presetName = this.selectedIrWindows()) {
-    const preset =
-      IR_WINDOW_PRESETS[presetName] ?? IR_WINDOW_PRESETS[FALLBACK_IR_WINDOW_CHOICE];
-
-    return {
-      ...preset,
-      ...(preset.mtwTimesms ? { mtwTimesms: [...preset.mtwTimesms] } : {}),
-    };
+    return getIrWindowConfig(presetName);
   }
 
   getRoomCurveConfig(presetName = this.selectedRoomCurve()) {
