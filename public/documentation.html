@@ -403,7 +403,8 @@
       </li>
       <li>
         Si vous avez plusieurs caissons, utilisez Align Sub pour aligner les subs entre
-        eux.
+        eux. Avec la case d'optimisation jointe, le meme passage calcule aussi des
+        filtres par sub (voir plus bas).
       </li>
       <li>Utilisez Equalize Sub pour calculer les filtres d'egalisation.</li>
       <li>Utilisez Preview Sub pour afficher la reponse previsionnelle resultante.</li>
@@ -422,12 +423,101 @@
     </p>
 
     <p>
-      La case Use all pass filters est reservee au mode multi-sub. Elle peut aider a
-      obtenir un meilleur alignement, mais elle rend aussi le calcul plus lourd.
-    </p>
-    <p>
       Avec un seul sub, concentrez-vous surtout sur Equalize Sub puis Preview Sub. Align
       Sub devient utile seulement a partir de plusieurs caissons.
+    </p>
+
+    <h3>Optimisation jointe : filtres par sub</h3>
+    <p>
+      Avec plusieurs caissons, la case "Optimisation jointe : filtres par sub (minutes)"
+      change ce que calcule Align Sub. Au lieu d'aligner d'abord les subs puis de copier
+      une meme EQ commune sur chacun, l'optimiseur joint cherche en meme temps les
+      delais, les polarites, les niveaux par sub et jusqu'a trois filtres par sub,
+      directement contre votre courbe cible — le meme principe qu'un projet MSO, mais
+      integre a RCH.
+    </p>
+    <p>
+      Pourquoi c'est important : une EQ commune appliquee a tous les subs ne peut pas
+      modifier la facon dont les subs interferent entre eux. Un filtre applique a un seul
+      sub peut supprimer une contribution destructive a la source, ce qui suit
+      generalement beaucoup mieux la cible dans la zone modale.
+    </p>
+    <ul>
+      <li>
+        La recherche prend quelques minutes ; un indicateur de progression a cote du
+        bouton affiche la phase en cours et le pourcentage.
+      </li>
+      <li>
+        Individual max boost et Overall max boost sont respectes par les filtres par sub,
+        exactement comme pour l'EQ commune.
+      </li>
+      <li>
+        Les ajustements de niveau par sub sont en attenuation seule : l'optimiseur
+        reequilibre les subs, il ne les gonfle jamais au-dela de leur capacite reelle.
+      </li>
+      <li>
+        Chaque execution repart d'un etat propre : filtres, inversions, delais et
+        ajustements appliques par une execution precedente sont d'abord remis a zero. Vos
+        propres reglages manuels de niveau sont conserves. Vous pouvez donc relancer
+        l'optimisation autant de fois que vous voulez.
+      </li>
+      <li>
+        Les filtres par sub sont ecrits dans les premiers emplacements de filtre de
+        chaque sub en filtres manuels (non Auto), pour que les etapes suivantes ne les
+        ecrasent jamais.
+      </li>
+    </ul>
+    <p>
+      Dans ce mode, "Utiliser des filtres all-pass (plus lent)" autorise l'optimiseur a
+      placer aussi un filtre all-pass par sub. Un all-pass tourne la phase localement
+      sans toucher au niveau : c'est le seul levier capable de transformer une
+      contribution destructive en contribution constructive au lieu de la couper. Il aide
+      quand un creux d'annulation resiste aux delais, polarites et filtres ; l'optimiseur
+      abandonne de lui-meme les all-pass qui ne rapportent rien. En cas de doute, lancez
+      l'optimisation une fois avec et une fois sans la case, puis comparez les courbes
+      predites.
+    </p>
+    <p>
+      Sans la case d'optimisation jointe, Align Sub garde son comportement historique :
+      alignement seul, la case all-pass aidant alors la recherche d'alignement quand elle
+      est cochee.
+    </p>
+
+    <h3>Courbes predite et theorique</h3>
+    <p>
+      RCH maintient un caisson virtuel par position d'ecoute. La mesure nommee
+      "LFE predicted_P1" est la somme predite de tous les subs avec leurs reglages
+      actuels, recalculee automatiquement apres chaque action sur les subs. Apres Align
+      Sub, une seconde mesure nommee "LFE Max Sum Theo_P1" montre le plafond theorique :
+      la somme que vous obtiendriez si chaque sub arrivait parfaitement en phase a la
+      position d'ecoute.
+    </p>
+    <p>
+      Comparer les deux courbes indique quelle part du maximum theorique l'alignement
+      actuel capture reellement. Une courbe predite proche de la reference Theo signifie
+      que le travail d'alignement est termine ; un ecart persistant et localise en
+      frequence signale generalement un creux d'interference a attaquer avec
+      l'optimisation jointe ou l'option all-pass.
+    </p>
+
+    <h3>Equalize Sub apres l'optimisation</h3>
+    <p>
+      Equalize Sub calcule l'EQ commune sur la somme predite et la distribue a chaque
+      sub. Les filtres par sub trouves par l'optimisation jointe, ainsi que les
+      all-pass, sont preserves : les filtres communs sont ranges dans les emplacements
+      restes libres sur tous les subs. C'est l'etape de finition recommandee quand les
+      filtres par sub ne suffisent pas a suivre la cible de pres.
+    </p>
+    <p>
+      L'etape peut etre relancee sans risque : chaque passage recalcule l'EQ depuis la
+      base de l'optimiseur au lieu de s'empiler sur le resultat precedent, donc deux
+      executions donnent le meme resultat. Elle fonctionne avec les modes d'egalisation
+      RCH et REW.
+    </p>
+    <p>
+      Le reglage "Gain min de filtre" est applique partout : les filtres calcules sous le
+      seuil sont ecartes pour que des corrections quasi nulles ne gaspillent pas
+      d'emplacements de filtre.
     </p>
 
     <h3>MSO</h3>

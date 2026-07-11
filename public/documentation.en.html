@@ -383,7 +383,11 @@
     <ol>
       <li>Adjust Additional Gain if you want to raise or lower the raw curve.</li>
       <li>Set Individual max boost and Overall max boost based on your safety margin.</li>
-      <li>If you have multiple subs, use Align Sub to align them with each other.</li>
+      <li>
+        If you have multiple subs, use Align Sub to align them with each other. With the
+        joint optimization checkbox, the same pass also computes per-sub filters (see
+        below).
+      </li>
       <li>Use Equalize Sub to compute EQ filters.</li>
       <li>Use Preview Sub to display the predicted resulting response.</li>
     </ol>
@@ -398,12 +402,94 @@
     </p>
 
     <p>
-      The Use all pass filters checkbox is intended for multi-sub mode only. It can help
-      achieve better alignment, but it also makes the calculation heavier.
-    </p>
-    <p>
       With a single subwoofer, focus mainly on Equalize Sub and Preview Sub. Align Sub
       only becomes useful once you have multiple subwoofers.
+    </p>
+
+    <h3>Joint optimization: per-sub filters</h3>
+    <p>
+      With several subwoofers, the "Joint optimization: per-sub filters (minutes)"
+      checkbox changes what Align Sub computes. Instead of aligning the subs first and
+      copying one shared EQ onto all of them afterwards, the joint optimizer searches
+      delays, polarities, per-sub level trims and up to three per-sub filters at the same
+      time, directly against your target curve — the same idea as an MSO project, but
+      integrated into RCH.
+    </p>
+    <p>
+      Why it matters: a shared EQ applied to every sub cannot change the way the subs
+      interfere with each other. A filter applied to one sub can remove a destructive
+      contribution at its source, which usually tracks the target much better in the
+      modal region.
+    </p>
+    <ul>
+      <li>
+        The search takes a few minutes; a progress indicator next to the button shows the
+        current phase and percentage.
+      </li>
+      <li>
+        Individual max boost and Overall max boost are honoured by the per-sub filters,
+        exactly like they are for the shared EQ.
+      </li>
+      <li>
+        Per-sub level trims are attenuation only: the optimizer rebalances the subs, it
+        never inflates them above their real capability.
+      </li>
+      <li>
+        Each run starts from a clean state: filters, inversions, delays and the trims
+        applied by a previous run are reset first. Your own manual level adjustments are
+        preserved. You can therefore re-run the optimization as many times as you want.
+      </li>
+      <li>
+        The per-sub filters are written into the first filter slots of each sub as manual
+        (non Auto) filters, so later steps never overwrite them.
+      </li>
+    </ul>
+    <p>
+      In this mode, "Use all pass filters (slower)" allows the optimizer to also place
+      one all-pass filter per sub. An all-pass rotates the phase locally without touching
+      the level: it is the only lever that can turn a destructive contribution into a
+      constructive one instead of muting it. It helps when a cancellation dip resists the
+      delay, polarity and filter levers; the optimizer automatically drops all-pass
+      filters that do not pay for themselves. If you are unsure, run the optimization
+      once with and once without the checkbox and compare the predicted curves.
+    </p>
+    <p>
+      Without the joint checkbox, Align Sub keeps its historical behavior: alignment
+      only, with the all-pass checkbox helping the alignment search when enabled.
+    </p>
+
+    <h3>Predicted and theoretical curves</h3>
+    <p>
+      RCH maintains a virtual subwoofer per listening position. The measurement named
+      "LFE predicted_P1" is the predicted sum of all subs with their current settings,
+      recomputed automatically after each subwoofer action. After Align Sub, a second
+      measurement named "LFE Max Sum Theo_P1" shows the theoretical ceiling: the sum you
+      would get if every sub arrived perfectly in phase at the listening position.
+    </p>
+    <p>
+      Comparing both curves tells you how much of the theoretical maximum the current
+      alignment actually captures. A predicted curve close to the Theo reference means
+      the alignment job is done; a persistent gap localized in frequency usually points
+      to an interference dip worth attacking with the joint optimization or the all-pass
+      option.
+    </p>
+
+    <h3>Equalize Sub after the optimization</h3>
+    <p>
+      Equalize Sub computes the shared EQ on the predicted sum and distributes it to
+      every sub. The per-sub filters found by the joint optimization, and the all-pass
+      filters, are preserved: the shared filters are packed into the remaining free
+      slots on every sub. This is the recommended finishing step when the per-sub
+      filters alone are not enough to track the target closely.
+    </p>
+    <p>
+      The step is safe to repeat: each pass recomputes the EQ from the optimizer
+      baseline instead of stacking on top of the previous result, so running it twice
+      gives the same answer. It works with both the RCH and the REW equalization modes.
+    </p>
+    <p>
+      The "Min filter gain" setting is enforced everywhere: computed filters below the
+      threshold are discarded so near-zero corrections do not waste filter slots.
     </p>
 
     <h3>MSO</h3>
