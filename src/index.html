@@ -93,7 +93,7 @@
       <label for="languageSelector" class="sr-only" data-i18n="language_label"
         >Language</label
       >
-      <select id="languageSelector" class="combo-box">
+      <select id="languageSelector" data-testid="language-selector" class="combo-box">
         <option value="en" data-i18n="language_option_en">English</option>
         <option value="fr" data-i18n="language_option_fr">French</option>
       </select>
@@ -178,6 +178,7 @@
                 type="file"
                 class="dropzone-input"
                 id="fileInputAvr"
+                data-testid="avr-file-input"
                 accept=".avr,.ady"
                 data-bind="event: { change: handleFileSelect }"
               />
@@ -845,6 +846,7 @@
 
             <button
               class="button"
+              data-testid="rew-connect"
               data-bind="
               click: buttoncheckREWButton,
               disable: isProcessing(),
@@ -910,11 +912,12 @@
               <!-- display REW informations -->
               <p>
                 <strong data-i18n="rew_version">REW Version:</strong>
-                <span data-bind="text: rewVersion()"></span>
+                <span data-testid="rew-version" data-bind="text: rewVersion()"></span>
               </p>
               <p>
                 <strong data-i18n="loaded_measurements">Loaded Measurements:</strong>
                 <span
+                  data-testid="measurement-count"
                   data-bind="text: measurements().length + ' / ' + maxMeasurements()"
                 ></span>
               </p>
@@ -1119,6 +1122,7 @@
             ></select>
             <button
               class="button"
+              data-testid="create-averages"
               data-bind="
               click: buttoncreatesAverages,
               disable: isProcessing(),
@@ -1135,6 +1139,7 @@
             <p data-i18n="alignment_note"></p>
             <button
               class="button"
+              data-testid="time-align"
               data-bind="
               click: buttonAlignPeaks,
               disable: isProcessing(),
@@ -1149,6 +1154,7 @@
             </button>
             <button
               class="button"
+              data-testid="align-spl"
               data-bind="
               click: buttonAlignSPL,
               disable: isProcessing(),
@@ -1330,6 +1336,7 @@
               <div>
                 <button
                   class="button"
+                  data-testid="align-sub"
                   data-bind="
                     click: buttonMultiSubOptimizer,
                     disable: isProcessing() || uniqueSubsMeasurements().length <= 1,
@@ -1344,6 +1351,7 @@
                 </button>
                 <button
                   class="button"
+                  data-testid="equalize-sub"
                   data-bind="
                     click: buttonEqualizeSub,
                     disable: isProcessing(),
@@ -1358,6 +1366,7 @@
                 </button>
                 <button
                   class="button"
+                  data-testid="preview-sub"
                   data-bind="
                     click: buttonproduceSubSum,
                     disable: isProcessing(),
@@ -1381,6 +1390,7 @@
 
                 <button
                   class="button"
+                  data-testid="mso-export"
                   data-bind="
                 click: buttonCreatesMsoExports,
                 disable: isProcessing(),
@@ -1410,6 +1420,7 @@
                       type="file"
                       class="dropzone-input"
                       id="fileInputMso"
+                      data-testid="mso-file-input"
                       accept=".txt"
                     />
                   </span>
@@ -1554,6 +1565,7 @@
             <div class="button-container">
               <button
                 class="button primary-button large-button"
+                data-testid="create-oca"
                 data-bind="
                 click: buttoncreateOCAButton,
                 disable: isProcessing(),
@@ -1569,6 +1581,7 @@
 
               <button
                 class="button primary-button large-button"
+                data-testid="create-settings"
                 data-bind="
                 click: buttoncreateSetting,
                 disable: isProcessing(),
@@ -1586,7 +1599,7 @@
         </section>
         <!-- Result Status -->
         <div id="status" data-bind="visible: hasStatus()" class="status-message success">
-          <p data-bind="text: status()" class="status-text"></p>
+          <p data-testid="status-message" data-bind="text: status()" class="status-text"></p>
         </div>
         <!-- Real-time Logs Container -->
         <div id="logs-container" class="logs-container">

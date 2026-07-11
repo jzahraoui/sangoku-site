@@ -219,3 +219,67 @@ Le mock est **avec état**, c'est indispensable : l'UI polle `GET /measurements`
 6. **`Aligned sum`** : fixture précalculée ou somme recalculée par le mock ?
 
 Aucun de ces points ne bloque la conception ; ils déterminent le niveau de fidélité du mock. Après arbitrage, le prompt 1.3 peut implémenter `test/e2e/support/rew-mock/` puis les parcours.
+
+---
+
+## 5. Arbitrages (2026-06-12, run de migration — décisions auto-tracées)
+
+Constat décisif apparu à l'implémentation : dans le parcours `.ady`, **c'est l'application
+elle-même qui pousse les données dans REW** (`POST /import/impulse-response-data`, une mesure
+par canal×position, sous `setProcessing(true)`). Le mock n'a donc pas besoin de fixtures FR
+pré-fabriquées pour le parcours principal : il **round-trippe** ce que l'app envoie. Cela
+remplace avantageusement les propositions 1 et 2 du § 4.
+
+| # Point § 4 | Décision | Justification |
+|---|---|---|
+| 1. Positions P01–P03 | **Abandonné (sans objet)** : les positions réelles viennent du fichier `.ady` de test, importées par l'app elle-même dans le mock. | Plus fidèle que des copies décalées de `FRavg` ; zéro synthèse. |
+| 2. IR synthétiques | **Abandonné (sans objet)** : les IR réelles du `.ady` sont round-trippées. Le mock calcule les réponses en fréquence servies (`…/frequency-response`) par FFT (mathjs, déjà dépendance) sur l'IR stockée, magnitude en dB + `splOffset`. | Le filet vise la parité UI, pas la précision REW ; la FFT du mock est documentée comme approximation de test. |
+| 3. Formes [SUPPOSÉ] | **Écho-mémoire accepté tel quel** : GET sert la dernière valeur POSTée, défauts plausibles sinon. Pas de capture REW live dans ce run (autonome). | Tout écart réel sera détecté plus tard contre REW live ; tracer ici toute correction. |
+| 4. Fichier `.ady` | **Fixture dérivée réduite** `test/e2e/fixtures/sample.ady`, générée depuis `work/Denon AVC-A1H_kef.4sub.3pos.ady` : canaux FL/C/FR/SW1/SW2, 3 positions, IR tronquées (peak vérifié inclus), flottants arrondis. Pas de donnée personnelle au-delà du modèle d'ampli. | 19 Mo → taille committable ; 15 mesures importées au lieu de 45 → parcours e2e plus rapide. |
+| 5. `parseREWFileAsAPI` | **Non utilisé** par le mock (le round-trip rend la conversion .txt→API inutile pour les parcours). Reste disponible si un scénario futur a besoin des fixtures `.txt`. | Moins de couplage e2e→test/auto-eq. |
+| 6. `Aligned sum` | **Somme recalculée par le mock** (addition échantillon par échantillon des IR stockées, après gain/délai/inversion de l'alignment-tool). | Cohérent avec le round-trip ; une fixture précalculée ne correspondrait pas aux données réduites. |
+
+Décisions d'implémentation complémentaires :
+
+- **Process synchrones par défaut** (§ 1.2.6) : les réponses de process ne contiennent pas
+  d'`ID <n>`, le client ne polle pas. Le protocole ID+polling n'est pas implémenté dans la
+  première version (à ajouter si un parcours teste les états « en cours »).
+- **Moyennage** (`Vector average` etc.) : moyenne échantillon par échantillon des IR stockées
+  (équivalent mathématique d'une vector average en domaine fréquentiel). Les variantes
+  RMS/dB sont servies par la même implémentation — approximation documentée, suffisante pour
+  la parité UI (titres, comptes, niveaux relatifs).
+- **Interception** : matcher par **port 4735** quel que soit l'hôte (`localhost` par défaut
+  de l'app, IP WSL en usage réel), via un prédicat d'URL et non un littéral.
+- **Harnais** : scripts `node --test` + lib `playwright` + `vite preview` (idiome des smoke
+  tests existants, aucune dépendance ajoutée).
+- **House curve** : pré-chargée dans l'état initial du mock (`/eq/house-curve` → nom de
+  fichier factice) pour que `targetCurve()` soit défini — prérequis de l'export `.oca`.
+
+---
+
+## 6. Implémenté (2026-06-12) — notes d'itération
+
+`test/e2e/support/rew-mock/` (store, handlers, dsp, index) + harnais
+(`test/e2e/support/harness.js`, `server.js`, bi-cible via `E2E_TARGET=knockout|vue`) +
+3 parcours dans `test/e2e/journeys/` (`npm run test:e2e`, fixtures
+`test/e2e/fixtures/sample.ady` — dérivé réduit 705 Ko — et `mso-equalizer-apo.txt`).
+Comportements REW découverts en itérant (à vérifier contre REW live avant le cutover,
+marqués [SUPPOSÉ→CONSTATÉ par l'app]) :
+
+1. **`Trim IR to windows` crée une nouvelle mesure** (l'app lit l'UUID via
+   `analyseApiResponse`) ; l'IR résultante couvre la fenêtre inclusivement
+   (`length = window × fs + 1`) et est zéro-paddée au-delà des données.
+2. **`Generate filters measurement` sert l'IR du filtre EQ** (≈ dirac pour un EQ
+   identité), pas un clone de la mesure — l'app vérifie `ir[0] === ±1` après trim.
+3. **Le banc de filtres d'une mesure fait 22 slots fixes** (`{index, type:'None',
+   enabled, isAuto}`) ; `POST /filters` fusionne par index (`{filters:[...]}`),
+   un GET initial vide fait échouer silencieusement `setFilters` (warnings
+   « Filter with index N not found »).
+4. **Verrou processing au connect** : l'app crée la mesure « Target » sous
+   `setProcessing(true)` juste après la connexion ; tout import de fichier pendant ce
+   laps est ignoré silencieusement (`readFile` early-return). Les parcours attendent la
+   réactivation des boutons avant d'importer.
+5. `…/impulse-response` doit honorer `samplerate` (rééchantillonnage) et
+   `normalised=true` (pic à ±1) pour la génération de filtres OCA.
+6. La grille FR du mock est linéaire (FFT) ; REW live sert des grilles log plus denses —
+   les assertions des parcours portent sur la forme, pas la densité.

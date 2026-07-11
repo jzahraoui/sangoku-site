@@ -1,0 +1,14 @@
+# Generated for the e2e MSO journey — Equalizer APO export shape produced by MSO.
+# MSO channel name = "SW1", Equalizer APO channel name = "L"
+# MSO channel name = "SW2", Equalizer APO channel name = "R"
+Channel: L
+Copy: L=1*L
+Preamp: -2.5 dB
+Delay: 3.5 ms
+Filter: ON PK Fc 40 Hz Gain -5.0 dB Q 4.000
+Filter: ON PK Fc 63 Hz Gain 3.0 dB Q 2.500
+Channel: R
+Copy: R=-1*R
+Preamp: 1.0 dB
+Delay: 0 ms
+Filter: ON PK Fc 50 Hz Gain -4.0 dB Q 5.000

@@ -21,6 +21,8 @@
     "test:smoke:browser": "node test/smoke/app-startup.browser.smoke.test.js",
     "test:smoke:slider": "node test/smoke/frequency-range-slider.browser.smoke.test.js",
     "test:smoke": "npm run build && npm run test:smoke:knockout && npm run test:smoke:browser && npm run test:smoke:slider",
+    "test:e2e": "npm run build && npm run test:e2e:only",
+    "test:e2e:only": "node --test --test-concurrency=1 --test-timeout=600000 \"test/e2e/journeys/*.e2e.test.js\"",
     "test:all": "node test/auto-eq/all-examples.test.js",
     "test:optimizer": "node --test test/auto-eq/newton-bfgs-optimizer.test.js",
     "test:vector-ops": "node --test test/auto-eq/vector-ops.test.js",
