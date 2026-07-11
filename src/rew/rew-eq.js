@@ -6,7 +6,7 @@
 import RewApi from './rew-api.js';
 
 class REWEQ {
-  static defaulEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
+  static defaultEqtSettings = { manufacturer: 'Generic', model: 'Generic' };
 
   constructor(client) {
     if (!client) throw new Error('Client is required');
@@ -14,10 +14,14 @@ class REWEQ {
       throw new TypeError('client must be an instance of RewApi');
     }
     this.client = client;
-    this.defaulEqtSettings = REWEQ.defaulEqtSettings;
+    this.defaultEqtSettings = REWEQ.defaultEqtSettings;
   }
 
-  async checkTargetCurve() {
+  /**
+   * Get the name of the house (target) curve file currently configured.
+   * @returns {Promise<string>} The target curve name without extension, or 'None'.
+   */
+  async getTargetCurveName() {
     const target = await this.getHouseCurve();
 
     const targetCurvePath = target?.message || target;
@@ -64,7 +68,7 @@ class REWEQ {
   async setDefaultEqualiser(equaliser) {
     // use default EQT settings if none provided
     if (!equaliser) {
-      equaliser = REWEQ.defaulEqtSettings;
+      equaliser = REWEQ.defaultEqtSettings;
     }
     return this.request('/eq/default-equaliser', 'POST', equaliser);
   }

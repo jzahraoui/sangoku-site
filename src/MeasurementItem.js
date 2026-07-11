@@ -441,7 +441,7 @@ class MeasurementItem {
     return ops.resetAll(this.rewMeasurements, this, {
       targetLevel,
       irWindowWidths: this.irWindowWidths(),
-      equaliserDefaults: this.rewEq.defaulEqtSettings,
+      equaliserDefaults: this.rewEq.defaultEqtSettings,
       session: this.sessionContext(),
     });
   }
@@ -483,11 +483,11 @@ class MeasurementItem {
   }
 
   async isdefaultEqualiser() {
-    return ops.isDefaultEqualiser(this.rewMeasurements, this, this.rewEq.defaulEqtSettings);
+    return ops.isDefaultEqualiser(this.rewMeasurements, this, this.rewEq.defaultEqtSettings);
   }
 
   async resetEqualiser() {
-    return ops.resetEqualiser(this.rewMeasurements, this, this.rewEq.defaulEqtSettings);
+    return ops.resetEqualiser(this.rewMeasurements, this, this.rewEq.defaultEqtSettings);
   }
 
   static arraysMatchWithTolerance(arr1, arr2, tolerance = 0.01) {
@@ -693,7 +693,7 @@ class MeasurementItem {
     return ops.getFreeXFilterIndex(
       this.rewMeasurements,
       this,
-      this.rewEq.defaulEqtSettings,
+      this.rewEq.defaultEqtSettings,
     );
   }
 

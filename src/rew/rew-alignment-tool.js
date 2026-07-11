@@ -306,9 +306,20 @@ class REWAlignmentTool {
       `/alignment-tool/aligned-frequency-response${query ? '?' + query : ''}`,
     );
 
+    const magnitudeArray = RewApi.decodeBase64ToFloat32(data.magnitude);
+
+    const freqs = this.client.rewMeasurements.generateFrequencyArray(
+      magnitudeArray.length,
+      data.startFreq,
+      data.freqStep,
+      data.ppo,
+    );
+
     return {
       ...data,
-      magnitude: RewApi.decodeBase64ToFloat32(data.magnitude),
+      freqs,
+      endFreq: freqs.at(-1) ?? 0,
+      magnitude: magnitudeArray,
       phase: data.phase ? RewApi.decodeBase64ToFloat32(data.phase) : null,
     };
   }
@@ -359,10 +370,6 @@ class REWAlignmentTool {
       'Align phase',
       REWAlignmentTool.normalizeFrequencyParameters(frequency),
     );
-  }
-
-  async alignPaseBatch(indexA, indexB, mode, frequency) {
-    return this.alignPhaseBatch(indexA, indexB, mode, frequency);
   }
 
   async alignIRsBatch(uuidA, uuidB, frequency) {

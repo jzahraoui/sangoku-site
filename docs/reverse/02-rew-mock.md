@@ -50,7 +50,7 @@ Toute écriture qui déclenche un traitement REW suit ce protocole, que le mock 
 | `/application/commands`, `/application/last-error`, `/application/errors(+/subscribe…)`, `/application/warnings(…)` | GET/POST | wrappers existants, non critiques pour les parcours e2e |
 
 **Séquence de connexion** (`initializeAPI` + `checkVersion`, déclenchée par le bouton Connect) :
-`GET /application/inhibit-graph-updates` → (POST si différent) → `GET /application/blocking` → (POST si différent) → `POST /eq/default-equaliser` (corps = settings EQT par défaut de `REWEQ.defaulEqtSettings`) → `POST /application/command` (Clear) → `GET /version` → `GET /measurements` puis **polling `GET /measurements` toutes les 1 s** (`pollingInterval` du ViewModel). Le mock doit tenir ce polling permanent.
+`GET /application/inhibit-graph-updates` → (POST si différent) → `GET /application/blocking` → (POST si différent) → `POST /eq/default-equaliser` (corps = settings EQT par défaut de `REWEQ.defaultEqtSettings`) → `POST /application/command` (Clear) → `GET /version` → `GET /measurements` puis **polling `GET /measurements` toutes les 1 s** (`pollingInterval` du ViewModel). Le mock doit tenir ce polling permanent.
 
 #### `/measurements` (collection) (`rew-measurements.js`)
 

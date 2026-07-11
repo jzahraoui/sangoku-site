@@ -362,7 +362,7 @@ test('Cavg REW API high-band parity regression', async t => {
   const measurementId = 1;
   await apiService.rewMeasurements.setEqualiser(
     measurementId,
-    apiService.rewEq.defaulEqtSettings,
+    apiService.rewEq.defaultEqtSettings,
   );
   await apiService.rewMeasurements.resetTargetSettings(measurementId);
   await apiService.rewMeasurements.resetRoomCurveSettings(measurementId);

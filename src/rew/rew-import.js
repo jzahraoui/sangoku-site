@@ -66,7 +66,7 @@ class REWImport {
     return this.request('/import/frequency-response');
   }
 
-  // code do not wait for the server to process the data !
+  // Note: fetchWithRetry handles blocking mode and polling for the result.
   async importFrequencyResponseData(data) {
     if (!data || typeof data !== 'object') {
       throw new Error('Data must be an object');
@@ -131,7 +131,7 @@ class REWImport {
     }
     // data.data should be Float32Array or base64 strings
     if (!(data.data instanceof Float32Array) && typeof data.data !== 'string') {
-      throw new TypeError('Magnitude must be a Float32Array or base64 string');
+      throw new TypeError('Data must be a Float32Array or base64 string');
     }
     const payload = { ...data };
     if (payload.data instanceof Float32Array) {

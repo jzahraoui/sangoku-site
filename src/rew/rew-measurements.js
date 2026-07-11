@@ -13,7 +13,7 @@ class REWMeasurements {
       throw new TypeError('client must be an instance of RewApi');
     }
     this.client = client;
-    this.measurementCommands = null;
+    this.measurementCommandsCache = new Map();
     this.arithmeticFunctions = null;
   }
 
@@ -214,9 +214,20 @@ class REWMeasurements {
       `/measurements/${id}/group-delay${query ? '?' + query : ''}`,
     );
 
+    const magnitudeArray = RewApi.decodeBase64ToFloat32(data.magnitude);
+
+    const freqs = this.generateFrequencyArray(
+      magnitudeArray.length,
+      data.startFreq,
+      data.freqStep,
+      data.ppo,
+    );
+
     return {
       ...data,
-      magnitude: RewApi.decodeBase64ToFloat32(data.magnitude),
+      freqs,
+      endFreq: freqs.at(-1) ?? 0,
+      magnitude: magnitudeArray,
     };
   }
 
@@ -261,8 +272,8 @@ class REWMeasurements {
    */
   async getFiltersImpulseResponse(id, options = {}) {
     const params = new URLSearchParams();
-    params.append('length', options.length);
-    params.append('samplerate', options.samplerate);
+    if (options.length !== undefined) params.append('length', options.length);
+    if (options.samplerate !== undefined) params.append('samplerate', options.samplerate);
 
     const query = params.toString();
     const data = await this.request(
@@ -331,9 +342,20 @@ class REWMeasurements {
       `/measurements/${id}/eq/group-delay${query ? '?' + query : ''}`,
     );
 
+    const magnitudeArray = RewApi.decodeBase64ToFloat32(data.magnitude);
+
+    const freqs = this.generateFrequencyArray(
+      magnitudeArray.length,
+      data.startFreq,
+      data.freqStep,
+      data.ppo,
+    );
+
     return {
       ...data,
-      magnitude: RewApi.decodeBase64ToFloat32(data.magnitude),
+      freqs,
+      endFreq: freqs.at(-1) ?? 0,
+      magnitude: magnitudeArray,
     };
   }
 
@@ -446,7 +468,7 @@ class REWMeasurements {
   }
   /**
    * Set the target level in dB SPL for the measurement at index id or with UUID id, index starts from 1
-   * PUT /target-level
+   * POST /target-level
    */
   async setTargetLevel(id, level) {
     if (typeof level !== 'number') {
@@ -594,10 +616,11 @@ class REWMeasurements {
    * @returns
    */
   async getMeasurementCommands(id) {
-    if (this.measurementCommands === null) {
-      this.measurementCommands = await this.request(`/measurements/${id}/commands`);
+    if (!this.measurementCommandsCache.has(id)) {
+      const commands = await this.request(`/measurements/${id}/commands`);
+      this.measurementCommandsCache.set(id, commands);
     }
-    return this.measurementCommands;
+    return this.measurementCommandsCache.get(id);
   }
 
   /**
@@ -772,7 +795,9 @@ class REWMeasurements {
    * Récupère les résultats RT60
    */
   async getRT60(id, octaveFrac = 1) {
-    return this.request(`/measurements/${id}/rt60?octaveFrac=${octaveFrac}`);
+    const params = new URLSearchParams();
+    params.append('octaveFrac', String(octaveFrac));
+    return this.request(`/measurements/${id}/rt60?${params.toString()}`);
   }
 
   async getRT60Settings(id) {

@@ -133,7 +133,7 @@ async function processMeasurement(api, file, basePath) {
   const measuredDataIndex = await getLastMeasurementUUID(api);
 
   // Configure measurement in REW
-  await api.rewMeasurements.setEqualiser(measuredDataIndex, api.rewEq.defaulEqtSettings);
+  await api.rewMeasurements.setEqualiser(measuredDataIndex, api.rewEq.defaultEqtSettings);
   await api.rewMeasurements.resetTargetSettings(measuredDataIndex);
   await api.rewMeasurements.resetRoomCurveSettings(measuredDataIndex);
   const measurementSampleRate = await getRewMeasurementSampleRate(api, measuredDataIndex);

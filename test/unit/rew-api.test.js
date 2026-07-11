@@ -367,6 +367,27 @@ describe('RewApi', () => {
       );
     });
 
+    it('accepts "There is no process" as completion for a fast/cleared process', async () => {
+      const api = new RewApi(baseUrl);
+      const requestSpy = vi
+        .spyOn(api, 'request')
+        .mockResolvedValueOnce({ message: 'Generate target measurement ID 9' })
+        .mockResolvedValueOnce({ message: 'There is no process' });
+
+      const result = await api.fetchWithRetry('/eq/command', 'POST', {
+        command: 'Generate target measurement',
+      });
+      // No retry storm: the result is returned after the single poll.
+      expect(result).toEqual({ message: 'There is no process' });
+      expect(requestSpy).toHaveBeenCalledTimes(2);
+      expect(requestSpy).toHaveBeenNthCalledWith(
+        2,
+        '/measurements/process-result',
+        'GET',
+        null,
+      );
+    });
+
     it('uses /alignment-tool/result for alignment-tool POSTs', async () => {
       const api = new RewApi(baseUrl);
       const requestSpy = vi

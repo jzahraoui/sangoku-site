@@ -186,6 +186,24 @@ const processMethods = {
       return;
     }
 
+    // REW clears a process as soon as it finishes: a fast/synchronous operation
+    // (e.g. "Generate target measurement") polled a beat too late answers
+    // "There is no process" instead of "<name> Completed". When we are waiting
+    // for completion, treat that as done — the caller validates the real outcome
+    // (created measurement, arithmetic result, …). Without this the poll retries
+    // to exhaustion and the operation spuriously fails.
+    if (caseInsensitiveIncludes(stringify(expectedProcess.message), 'completed')) {
+      const receivedAll =
+        typeof data === 'string'
+          ? data
+          : [data?.processName, data?.message, stringify(data)]
+              .filter(Boolean)
+              .join(' ');
+      if (caseInsensitiveIncludes(receivedAll, 'no process')) {
+        return;
+      }
+    }
+
     for (const fieldName of ['message', 'processName']) {
       const expected = expectedProcess[fieldName];
       if (!expected) continue;

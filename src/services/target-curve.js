@@ -90,7 +90,7 @@ function createTargetCurveService({
       : await session.rewEq.getDefaultTargetLevel();
     const newValue = targetLevel || DEFAULT_TARGET_LEVEL;
 
-    const currentTc = await session.rewEq.checkTargetCurve();
+    const currentTc = await session.rewEq.getTargetCurveName();
     if (currentTc === 'None') {
       log.warn('No target curve set in REW, please set a target curve first');
     }

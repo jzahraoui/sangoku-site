@@ -36,7 +36,7 @@ function createHarness({ measurements = [], tc = 'harman', level = 75 } = {}) {
     addMeasurementFromRewOperation: vi.fn(),
     rewMeasurements: { generateTargetMeasurement: vi.fn().mockResolvedValue({}) },
     rewEq: {
-      checkTargetCurve: vi.fn().mockResolvedValue(tc),
+      getTargetCurveName: vi.fn().mockResolvedValue(tc),
       getDefaultTargetLevel: vi.fn().mockResolvedValue(75),
       setDefaultTargetLevel: vi.fn().mockResolvedValue(undefined),
       generateTargetMeasurement: vi.fn().mockResolvedValue({}),

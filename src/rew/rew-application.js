@@ -109,8 +109,12 @@ const applicationMethods = {
    * Reconcile REW server state with the configured client state.
    * REW should be fully started before calling this; the API does not expose a
    * readiness probe.
+   * @param {object} [options] - Optional flags.
+   * @param {boolean} [options.setDefaultEq=true] - When true, force the default
+   *   equaliser to REWEQ.defaultEqtSettings. Set to false to preserve the
+   *   currently configured equaliser on the REW server.
    */
-  async initializeAPI() {
+  async initializeAPI({ setDefaultEq = true } = {}) {
     const inhibitGraph = await this.getInhibitGraphUpdates();
     if (inhibitGraph !== this.inhibitGraphUpdates) {
       await this.setInhibitGraphUpdates(this.inhibitGraphUpdates);
@@ -121,7 +125,9 @@ const applicationMethods = {
       await this.setBlocking(this.blocking);
     }
 
-    await this.rewEq.setDefaultEqualiser();
+    if (setDefaultEq) {
+      await this.rewEq.setDefaultEqualiser();
+    }
     await this.clearCommands();
   },
 

@@ -630,7 +630,7 @@ for (const file of measurementFiles) {
   console.log('\n🎚️  Configuration de la mesure pour Auto-EQ...');
   await apiService.rewMeasurements.setEqualiser(
     measuredDataIndex,
-    apiService.rewEq.defaulEqtSettings,
+    apiService.rewEq.defaultEqtSettings,
   );
 
   await apiService.rewMeasurements.resetTargetSettings(measuredDataIndex);
