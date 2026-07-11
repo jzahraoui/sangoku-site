@@ -722,6 +722,24 @@ structure d'interférence).
   « Gain » dans l'égaliseur REW Generic (testé sur REW réel : 400) — le trim
   passe par les offsets SPL.
 
+- **All-pass par sub dans le génome (expérimental, 2026-07-12)** :
+  `joint.allPassPerSub` ajoute `[enable, log₁₀ fc, log₁₀ Q]` au bloc
+  alignement de chaque sub non-référence (fc [10, 120] Hz, Q [0.2, 2],
+  activation si `enable > 0` — le génome neutre reste sans all-pass, un
+  all-pass n'étant jamais neutre en bande). Coût d'activation fixe 0.1 pt
+  (gé par le flag joint — scoring GA legacy intact) ; le coût temporel réel
+  est la garde de GD. Seul levier qui tourne la phase LOCALEMENT sans
+  toucher la magnitude : un cut mute le contributeur destructif, l'all-pass
+  peut le recruter. **Banc (3 seeds, budget prod, RMS médian vs cible
+  atteignable)** : data.bug 1.541 → **1.166 dB** (gain net, les 3 seeds) ;
+  data.bis 1.595 → 1.543 (neutre) ; data.test 1.472 → 1.592 (légère
+  régression — la phase alignement est MEILLEURE avec AP, mais la phase
+  filtres converge moins bien dans l'espace élargi, 45 vs 36 dims sur
+  4 subs). Verdict : utile quand la structure d'interférence résiduelle
+  résiste au trio delay/polarité/cuts (data.bug), coût de recherche sinon —
+  **désactivé par défaut**, candidat à une exposition via le checkbox
+  all-pass de l'app.
+
 Reste : Lot 4 (objectif multi-positions).
 
 ### Résultats finaux (efficiency ratio)

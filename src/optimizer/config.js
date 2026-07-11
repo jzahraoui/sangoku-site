@@ -61,6 +61,15 @@ export const DEFAULT_CONFIG = {
       // Safe against accumulation because the applying service re-normalizes
       // every sub's level to the align-SPL reference at each run's preamble.
       gain: { min: -12, max: 0 },
+      // EXPERIMENTAL — one 2nd-order all-pass per non-reference sub in the
+      // genome (MSO-style): the only lever that rotates the phase LOCALLY
+      // in frequency without touching the magnitude (a delay is linear-phase,
+      // a PK cut mutes the offender instead of recruiting it). The group
+      // delay it adds is priced by the temporal guard of the target-match
+      // objective. Disabled pending bench adoption.
+      allPassPerSub: false,
+      allPassFrequency: { min: 10, max: 120 },
+      allPassQ: { min: 0.2, max: 2 },
       populationSize: 80,
       alignmentGenerations: 800,
       generations: 2500,
@@ -137,6 +146,14 @@ export function normalizeConfig(config = {}) {
         gain: {
           ...DEFAULT_CONFIG.optimization.joint.gain,
           ...(joint.gain ?? {}),
+        },
+        allPassFrequency: {
+          ...DEFAULT_CONFIG.optimization.joint.allPassFrequency,
+          ...(joint.allPassFrequency ?? {}),
+        },
+        allPassQ: {
+          ...DEFAULT_CONFIG.optimization.joint.allPassQ,
+          ...(joint.allPassQ ?? {}),
         },
       },
     },
@@ -306,6 +323,14 @@ export function validateOptimizerConfig(config) {
   validateBounds(joint.gain, 'joint gain', false);
   if (joint.filterQ.min <= 0 || joint.filterFrequency.min <= 0) {
     throw new Error('joint filterQ and filterFrequency ranges must be positive');
+  }
+  if (typeof joint.allPassPerSub !== 'boolean') {
+    throw new Error('optimization joint.allPassPerSub must be a boolean');
+  }
+  validateBounds(joint.allPassFrequency, 'joint allPassFrequency', false);
+  validateBounds(joint.allPassQ, 'joint allPassQ', false);
+  if (joint.allPassFrequency.min <= 0 || joint.allPassQ.min <= 0) {
+    throw new Error('joint allPassFrequency and allPassQ ranges must be positive');
   }
   if (
     !Number.isInteger(joint.populationSize) ||

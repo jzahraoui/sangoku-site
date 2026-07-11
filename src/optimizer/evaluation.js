@@ -105,6 +105,7 @@ const FILTER_EFFORT_BOOST_MULTIPLIER = 2;
 const BOOST_KNEE_DB = 2;
 const BOOST_QUADRATIC_POINTS = 0.15;
 const OVERALL_BOOST_CAP_POINTS = 2;
+const ALL_PASS_EFFORT_POINTS = 0.1;
 
 export function calculateFilterEffortPenalty(optimizer, param) {
   const filters = param.filters ?? [];
@@ -112,6 +113,12 @@ export function calculateFilterEffortPenalty(optimizer, param) {
   // linear cost so a trim must earn its keep against alignment and cuts.
   // Positive gains are excluded by the joint bounds (attenuation-only).
   let penalty = Math.abs(Math.min(param.gain ?? 0, 0)) * FILTER_EFFORT_POINTS_PER_DB;
+  // Joint all-pass dimension only (the legacy GA search keeps its historical
+  // scoring): a flat activation cost so a "free" all-pass that improves
+  // nothing is dropped — its real temporal price is the group-delay guard.
+  if (param.allPass?.enabled && optimizer.config.optimization.joint?.allPassPerSub) {
+    penalty += ALL_PASS_EFFORT_POINTS;
+  }
   if (filters.length === 0) return penalty;
 
   for (const filter of filters) {

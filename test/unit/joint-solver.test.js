@@ -127,6 +127,43 @@ describe('joint genome layout', () => {
   });
 });
 
+describe('joint genome layout — all-pass par sub (expérimental)', () => {
+  it('adds [enable, fc, Q] to the alignment block of non-reference subs', () => {
+    const optimizer = makeJointOptimizer({ filtersPerSub: 1 });
+    optimizer.config.optimization.joint.allPassPerSub = true;
+    const layout = buildGenomeLayout(optimizer.config, 3);
+
+    // 2 non-reference subs × (3 alignment + 3 all-pass) dims
+    expect(layout.alignmentDims).toBe(12);
+    expect(layout.bounds.length).toBe(12 + 9);
+
+    const genome = new Float64Array(layout.bounds.length);
+    genome[3] = 0.5; // enable sub1 → actif
+    genome[4] = Math.log10(40); // fc
+    genome[5] = Math.log10(0.7); // Q
+    genome[9] = -0.2; // enable sub2 → inactif
+
+    const params = decodeGenome(layout, genome);
+    expect(params[1].allPass.enabled).toBe(true);
+    expect(params[1].allPass.frequency).toBeCloseTo(40, 6);
+    expect(params[1].allPass.q).toBeCloseTo(0.7, 6);
+    expect(params[2].allPass.enabled).toBe(false);
+    // Le sub de référence ne porte jamais d'all-pass.
+    expect(params[0].allPass.enabled).toBe(false);
+  });
+
+  it('keeps the neutral genome all-pass free', () => {
+    const optimizer = makeJointOptimizer({ filtersPerSub: 1 });
+    optimizer.config.optimization.joint.allPassPerSub = true;
+    const layout = buildGenomeLayout(optimizer.config, 2);
+
+    // Génome neutre = zéros sur le bloc alignement : enable 0 → désactivé.
+    const params = decodeGenome(layout, new Float64Array(layout.bounds.length));
+    expect(params[1].allPass.enabled).toBe(false);
+    expect(params[1]).toMatchObject({ delay: 0, polarity: 1, gain: 0 });
+  });
+});
+
 describe('optimizeSubwoofersJoint', () => {
   it('improves the target-match score and respects the search bounds', async () => {
     const optimizer = makeJointOptimizer({ filtersPerSub: 1 });

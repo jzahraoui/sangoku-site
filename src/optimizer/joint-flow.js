@@ -190,9 +190,13 @@ export async function runJointOptimization(optimizer, options = {}) {
 /**
  * Genome layout:
  *   subs 1..N-1 : [delay, polaritySign, gain]           (alignmentDims)
+ *                 (+ [apEnable, log10 apFc, log10 apQ] with allPassPerSub)
  *   subs 0..N-1 : filtersPerSub × [log10 fc, gain, log10 Q]
  * The reference sub keeps delay=0/polarity=1/gain=0 but gets filters like
- * every other sub (filters do not move the timing anchor).
+ * every other sub (filters do not move the timing anchor). The all-pass is
+ * an ALIGNMENT lever (phase-only): its dims live with the alignment block,
+ * searched by phases 1 and 3. apEnable > 0 activates it — the neutral
+ * genome (all zeros) therefore carries no all-pass.
  */
 export function buildGenomeLayout(config, subCount) {
   const joint = config.optimization.joint;
@@ -204,6 +208,13 @@ export function buildGenomeLayout(config, subCount) {
       [-1, 1],
       [joint.gain.min, joint.gain.max],
     );
+    if (joint.allPassPerSub) {
+      bounds.push(
+        [-1, 1],
+        [Math.log10(joint.allPassFrequency.min), Math.log10(joint.allPassFrequency.max)],
+        [Math.log10(joint.allPassQ.min), Math.log10(joint.allPassQ.max)],
+      );
+    }
   }
   const alignmentDims = bounds.length;
 
@@ -230,23 +241,33 @@ export function buildGenomeLayout(config, subCount) {
     alignmentDims,
     subCount,
     filtersPerSub: joint.filtersPerSub,
+    allPassPerSub: joint.allPassPerSub,
   };
 }
 
 export function decodeGenome(layout, genome) {
-  const { alignmentDims, subCount, filtersPerSub } = layout;
+  const { alignmentDims, subCount, filtersPerSub, allPassPerSub } = layout;
   const params = [];
   let index = 0;
 
   params.push({ ...cloneParam(EMPTY_CONFIG) });
   for (let k = 1; k < subCount; k++) {
-    params.push({
+    const param = {
       delay: genome[index++],
       polarity: genome[index++] >= 0 ? 1 : -1,
       gain: genome[index++],
       allPass: { frequency: 0, q: 0, enabled: false },
       filters: [],
-    });
+    };
+    if (allPassPerSub) {
+      const enabled = genome[index++] > 0;
+      const frequency = Math.pow(10, genome[index++]);
+      const q = Math.pow(10, genome[index++]);
+      if (enabled) {
+        param.allPass = { frequency, q, enabled: true };
+      }
+    }
+    params.push(param);
   }
 
   if (filtersPerSub > 0) {
