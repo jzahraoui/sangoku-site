@@ -931,6 +931,30 @@ function createSubOptimizationService({
       freqs: targetCurve.freqs,
       magnitude: targetCurve.magnitude,
     };
+    // The per-sub filters honour the app's boost settings, like the shared
+    // EQ always did: `maxBoostIndividualValue` bounds each filter's gain and
+    // `maxBoostOverallValue` caps the cumulative per-sub boost (soft
+    // constraint in the effort regularizer). Boosting is the wrong answer to
+    // an interference dip — the other subs are.
+    // createOptimizerConfig carries no joint block (the engine normalizes it
+    // in the constructor): start from the engine defaults before overriding.
+    const joint = {
+      ...structuredClone(MultiSubOptimizer.DEFAULT_CONFIG.optimization.joint),
+      ...(optimizerConfig.optimization.joint ?? {}),
+    };
+    const individualBoostCap = Number(config.maxBoostIndividualValue);
+    if (Number.isFinite(individualBoostCap)) {
+      joint.filterGain = {
+        ...joint.filterGain,
+        max: Math.min(joint.filterGain.max, individualBoostCap),
+      };
+    }
+    const overallBoostCap = Number(config.maxBoostOverallValue);
+    if (Number.isFinite(overallBoostCap)) {
+      joint.overallBoostCapDb = overallBoostCap;
+    }
+    optimizerConfig.optimization.joint = joint;
+
     // Test/e2e hook: lets the caller shrink the solver budget (population,
     // generations, filtersPerSub…) without exposing UI settings.
     if (config.jointOptimizerBudget) {

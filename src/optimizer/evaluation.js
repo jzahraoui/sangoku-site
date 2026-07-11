@@ -4,6 +4,7 @@ import {
   evaluateWithCache,
   hashEvaluation,
 } from './cache.js';
+import { peakMagApprox } from '../dsp/peakingMagnitude.js';
 import { calculateCombinedResponse, calculateResponseWithParams } from './response.js';
 
 export function calculateEfficiencyRatio(optimizer, actualResponse, theoreticalResponse) {
@@ -88,24 +89,73 @@ export function calculateOptimizationScoreDetails(optimizer, response, theoretic
 const DELAY_PENALTY_DEAD_ZONE = 0.5;
 const DELAY_PENALTY_MAX_POINTS = 0.5;
 
-// Filter-effort regularizer: each per-sub biquad is charged proportionally to
-// its |gain|, boosts twice as much as cuts (they consume driver headroom and
-// ring longer). Kept well below the score deltas of acoustically meaningful
-// solutions — it breaks ties toward the cheaper DSP, it does not fight real
-// improvements. The Lot 0 prototype showed the failure mode this prevents:
-// unregularized solutions parked +6 dB boosts on low-weight band edges.
+// Filter-effort regularizer. Cuts are cheap (they free headroom, and a
+// minimum-phase cut also shortens modal ringing). Boosts are the pathology
+// this guards against: filling an interference dip with +dB "works" in
+// magnitude but wastes driver excursion and rings — the solver must prefer
+// re-aligning the other subs (delay/polarity) or cutting the destructive
+// contributor. Hence:
+//  - cuts: linear, low;
+//  - boosts: linear ×2 PLUS a quadratic ramp beyond a small knee, so a big
+//    boost must beat a decisive score margin to survive;
+//  - cumulative per-sub boost above `joint.overallBoostCapDb` (the app's
+//    overall max-boost setting): strong quadratic penalty — soft constraint.
 const FILTER_EFFORT_POINTS_PER_DB = 0.05;
 const FILTER_EFFORT_BOOST_MULTIPLIER = 2;
+const BOOST_KNEE_DB = 2;
+const BOOST_QUADRATIC_POINTS = 0.15;
+const OVERALL_BOOST_CAP_POINTS = 2;
 
-export function calculateFilterEffortPenalty(param) {
+export function calculateFilterEffortPenalty(optimizer, param) {
   const filters = param.filters ?? [];
+  if (filters.length === 0) return 0;
+
   let penalty = 0;
   for (const filter of filters) {
     const magnitude = Math.abs(filter.gain);
-    const boostFactor = filter.gain > 0 ? FILTER_EFFORT_BOOST_MULTIPLIER : 1;
-    penalty += magnitude * boostFactor * FILTER_EFFORT_POINTS_PER_DB;
+    if (filter.gain > 0) {
+      penalty += magnitude * FILTER_EFFORT_BOOST_MULTIPLIER * FILTER_EFFORT_POINTS_PER_DB;
+      const overshoot = filter.gain - BOOST_KNEE_DB;
+      if (overshoot > 0) {
+        penalty += overshoot * overshoot * BOOST_QUADRATIC_POINTS;
+      }
+    } else {
+      penalty += magnitude * FILTER_EFFORT_POINTS_PER_DB;
+    }
   }
+
+  const capDb = optimizer.config.optimization.joint?.overallBoostCapDb;
+  if (Number.isFinite(capDb)) {
+    const cumulativeOvershoot = estimateMaxCumulativeBoostDb(filters) - capDb;
+    if (cumulativeOvershoot > 0) {
+      penalty += cumulativeOvershoot * cumulativeOvershoot * OVERALL_BOOST_CAP_POINTS;
+    }
+  }
+
   return penalty;
+}
+
+/**
+ * Estimated maximum of the sub's cumulative filter boost: the summed dB
+ * response of all filters, probed at each filter's center frequency (the
+ * cumulative maximum sits at or near one of them). Uses the fast peaking
+ * approximation (~0.3 dB) — this feeds a soft constraint, not a report.
+ */
+function estimateMaxCumulativeBoostDb(filters) {
+  let maxCumulative = 0;
+  for (const probe of filters) {
+    let cumulative = 0;
+    for (const filter of filters) {
+      cumulative += peakMagApprox(
+        filter.frequency,
+        filter.q,
+        filter.gain,
+        probe.frequency,
+      );
+    }
+    if (cumulative > maxCumulative) maxCumulative = cumulative;
+  }
+  return maxCumulative;
 }
 
 export function calculateDelayPenalty(optimizer, param) {
@@ -152,7 +202,7 @@ export function evaluateParameters(
   response.score =
     scoreDetails.score -
     calculateDelayPenalty(optimizer, param) -
-    calculateFilterEffortPenalty(param);
+    calculateFilterEffortPenalty(optimizer, param);
   response.qualityScore = scoreDetails.qualityScore;
   if (scoreDetails.efficiencyRatio != null) {
     response.efficiencyRatio = scoreDetails.efficiencyRatio;

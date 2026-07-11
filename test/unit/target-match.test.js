@@ -197,7 +197,7 @@ describe('target-match objective', () => {
     expect(cancelled.score).toBeLessThan(result.score - 100);
   });
 
-  it('charges the filter-effort regularizer, boosts twice as much as cuts', () => {
+  it('charges boosts superlinearly and caps the cumulative per-sub boost', () => {
     const sub1 = makeSub('SW1', 'uuid-1');
     const sub2 = makeSub('SW2', 'uuid-2');
     const optimizer = new MultiSubOptimizer(
@@ -214,23 +214,36 @@ describe('target-match objective', () => {
     const prepared = optimizer.prepareMeasurements();
     prepared[0].param = MultiSubOptimizer.EMPTY_CONFIG;
 
-    // A filter far above the band is acoustically neutral on the grid: the
+    // Filters far above the band are acoustically neutral on the grid: the
     // only score difference is the effort regularizer itself.
-    const farAway = gain => ({
+    const farAway = (...gains) => ({
       ...MultiSubOptimizer.EMPTY_CONFIG,
-      filters: [{ frequency: 20000, gain, q: 8 }],
+      filters: gains.map(gain => ({ frequency: 20000, gain, q: 8 })),
     });
 
     prepared[1].param = MultiSubOptimizer.EMPTY_CONFIG;
     const neutral = optimizer.evaluateParameters(prepared[1], prepared[0], null);
-    prepared[1].param = farAway(-6);
-    const cut = optimizer.evaluateParameters(prepared[1], prepared[0], null);
-    prepared[1].param = farAway(6);
-    const boost = optimizer.evaluateParameters(prepared[1], prepared[0], null);
+    const costOf = param => {
+      prepared[1].param = param;
+      return (
+        neutral.score - optimizer.evaluateParameters(prepared[1], prepared[0], null).score
+      );
+    };
 
-    const cutCost = neutral.score - cut.score;
-    const boostCost = neutral.score - boost.score;
-    expect(cutCost).toBeGreaterThan(0);
-    expect(boostCost).toBeCloseTo(2 * cutCost, 3);
+    const cut2 = costOf(farAway(-2));
+    const boost2 = costOf(farAway(2));
+    const boost6 = costOf(farAway(6));
+    // Boosting costs more than cutting, and superlinearly beyond the knee:
+    // filling an interference dip with +dB must lose against re-aligning the
+    // other subs or cutting the destructive contributor.
+    expect(cut2).toBeGreaterThan(0);
+    expect(boost2).toBeCloseTo(2 * cut2, 3);
+    expect(boost6).toBeGreaterThan(5 * boost2);
+
+    // Cumulative per-sub boost above the overall cap (default 3 dB) is
+    // charged even when each individual filter respects its own bound:
+    // two stacked +2 dB boosts cost far more than twice one +2 dB boost.
+    const stacked = costOf(farAway(2, 2));
+    expect(stacked).toBeGreaterThan(2 * boost2 + 1);
   });
 });

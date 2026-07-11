@@ -97,7 +97,35 @@ export async function runJointOptimization(optimizer, options = {}) {
     });
   }
 
-  const winner = phase2 && phase2.bestCost <= phase1.bestCost ? phase2 : phase1;
+  // --- Phase 3 : re-alignment polish. Once the filters exist, the optimal
+  // delays/polarities may differ from the phase-1 alignment (the filters
+  // changed each sub's phase). Freezing the filter dimensions at the winner
+  // and re-running the small alignment-only search gives the "use the other
+  // subs first" lever a second chance against solutions where the filter
+  // phase found easy (boost-shaped) minima.
+  let phase3 = null;
+  if (phase2 && !phase2.cancelled) {
+    const winnerSoFar = phase2.bestCost <= phase1.bestCost ? phase2 : phase1;
+    const realignBounds = layout.bounds.map((range, dim) =>
+      dim < layout.alignmentDims ? range : [winnerSoFar.best[dim], winnerSoFar.best[dim]],
+    );
+    phase3 = await runDifferentialEvolution({
+      bounds: realignBounds,
+      cost,
+      seeds: [winnerSoFar.best],
+      populationSize: joint.populationSize,
+      generations: joint.alignmentGenerations,
+      patience: joint.patience,
+      random,
+      shouldCancel,
+      onGeneration: progress =>
+        reportProgress(optimizer, onProgress, 'realign', progress, joint),
+    });
+  }
+
+  const winner = [phase1, phase2, phase3]
+    .filter(Boolean)
+    .reduce((best, candidate) => (candidate.bestCost <= best.bestCost ? candidate : best));
   const bestParams = decodeGenome(layout, winner.best);
 
   for (let subIndex = 0; subIndex < preparedSubs.length; subIndex++) {
@@ -110,7 +138,8 @@ export async function runJointOptimization(optimizer, options = {}) {
 
   const bestSum = buildScoredSum(optimizer, preparedSubs);
   const executionTimeMs = performance.now() - start;
-  const cancelled = phase1.cancelled || (phase2?.cancelled ?? false);
+  const cancelled =
+    phase1.cancelled || (phase2?.cancelled ?? false) || (phase3?.cancelled ?? false);
 
   const optimizationReport = {
     objective: 'target-match',
@@ -126,6 +155,9 @@ export async function runJointOptimization(optimizer, options = {}) {
       },
       filters: phase2
         ? { generations: phase2.generationsRun, score: -phase2.bestCost }
+        : null,
+      realign: phase3
+        ? { generations: phase3.generationsRun, score: -phase3.bestCost }
         : null,
     },
   };
@@ -261,7 +293,7 @@ function scoreParams(optimizer, preparedSubs, params) {
     let score = calculateOptimizationScoreDetails(optimizer, response, null).score;
     for (let subIndex = 0; subIndex < preparedSubs.length; subIndex++) {
       score -= calculateDelayPenalty(optimizer, params[subIndex]);
-      score -= calculateFilterEffortPenalty(params[subIndex]);
+      score -= calculateFilterEffortPenalty(optimizer, params[subIndex]);
     }
     return score;
   } finally {
@@ -300,7 +332,8 @@ function calculateTargetRms(optimizer, response) {
 }
 
 function reportProgress(optimizer, onProgress, phase, progress, joint) {
-  const phaseBudget = phase === 'alignment' ? joint.alignmentGenerations : joint.generations;
+  const phaseBudget =
+    phase === 'filters' ? joint.generations : joint.alignmentGenerations;
   onProgress?.({
     phase,
     generation: progress.generation,

@@ -47,6 +47,10 @@ export const DEFAULT_CONFIG = {
     joint: {
       filtersPerSub: 3,
       filterGain: { min: -12, max: 6 },
+      // Soft cap on the CUMULATIVE per-sub filter boost (the app wires its
+      // overall max-boost setting here). Boosting is the wrong tool against
+      // interference dips — the other subs are; see the effort regularizer.
+      overallBoostCapDb: 3,
       filterQ: { min: 0.3, max: 8 },
       // Center-frequency window, intersected with the optimization band.
       filterFrequency: { min: 15, max: 250 },
@@ -293,6 +297,9 @@ export function validateOptimizerConfig(config) {
     throw new Error('optimization joint.filtersPerSub must be an integer in [0, 10]');
   }
   validateBounds(joint.filterGain, 'joint filterGain', false);
+  if (!Number.isFinite(joint.overallBoostCapDb) || joint.overallBoostCapDb < 0) {
+    throw new Error('joint overallBoostCapDb must be a non-negative number');
+  }
   validateBounds(joint.filterQ, 'joint filterQ', false);
   validateBounds(joint.filterFrequency, 'joint filterFrequency', false);
   validateBounds(joint.gain, 'joint gain', false);

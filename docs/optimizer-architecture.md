@@ -688,6 +688,16 @@ structure d'interférence).
   préservés, contenu pré-t=0 conservé — sinon REW tronque la partie
   acausale).
 
+- **Anti-boost (constat utilisateur : « l'algo booste les modes au lieu
+  d'utiliser les autres subs »)** : tarification superlinéaire des boosts
+  (rampe quadratique au-delà de 2 dB) + cap souple sur le boost cumulé par
+  sub (`joint.overallBoostCapDb`, câblé sur `maxBoostOverallValue` de l'app ;
+  `maxBoostIndividualValue` borne chaque filtre) + **phase 3 « realign »**
+  (alignement re-optimisé avec les filtres gelés au vainqueur). Résultat :
+  solutions dominées par des cuts aux fréquences modales, boosts résiduels
+  ≤ cap, et sur data.test un RMS meilleur (2.93 → 2.67 dB) avec des délais
+  courts et des polarités normales.
+
 Reste : Lot 4 (objectif multi-positions).
 
 ### Résultats finaux (efficiency ratio)

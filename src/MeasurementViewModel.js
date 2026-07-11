@@ -1130,7 +1130,9 @@ class MeasurementViewModel {
               (progress.generation / Math.max(progress.generations, 1)) * 100,
             );
             const phaseLabel =
-              progress.phase === 'alignment' ? 'Alignment' : 'Filters';
+              { alignment: 'Alignment', filters: 'Filters', realign: 'Re-align' }[
+                progress.phase
+              ] ?? progress.phase;
             this.subOptimizerProgress(`${phaseLabel} ${percent}%`);
           },
         });
