@@ -159,7 +159,7 @@ export function validateOptimizerConfig(config) {
 
   const { objective, theoreticalWeight, globalRefinement, multiStart } =
     config.optimization;
-  if (!['balanced', 'max-theoretical'].includes(objective)) {
+  if (!['balanced', 'max-theoretical', 'pre-eq'].includes(objective)) {
     throw new Error('Invalid optimization objective');
   }
   if (

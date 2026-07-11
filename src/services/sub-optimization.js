@@ -640,7 +640,15 @@ function createSubOptimizationService({
         q: { min: 0.1, max: 0.5, step: 0.1 },
       },
       optimization: {
-        objective: 'balanced',
+        // 'pre-eq': the sub sum is EQ'd toward the target curve afterwards,
+        // so the optimizer maximizes what EQ cannot fix — level vs the
+        // coherent sum (headroom), no cancellation nulls, no group-delay
+        // trailing — and ignores peaks/smoothness, which a later EQ cut
+        // corrects for free (including the time-domain ringing of
+        // minimum-phase room modes). Measured vs 'balanced': equal or better
+        // efficiency on every fixture, equal or better group-delay excess,
+        // identical run time.
+        objective: 'pre-eq',
         globalRefinement: {
           enabled: true,
           passes: 4,

@@ -1,5 +1,15 @@
 import Polar from '../Polar.js';
 
+// Pre-EQ score — temporal guard tuning. Excess group delay below one period
+// at the affected frequency is masked by the room's own modal decay; beyond
+// it, the quadratic ramp charges the score. The per-bin cap keeps unwrap
+// artifacts and band-edge anomalies (10-16 Hz, low weights) from dominating,
+// and the weight scales the term against efficiency (0-200 after its ×2).
+const GROUP_DELAY_ALLOWANCE_CYCLES = 1;
+const GROUP_DELAY_PER_BIN_CAP = 9;
+const PRE_EQ_GROUP_DELAY_WEIGHT = 2;
+const MEDIAN_MAX_SAMPLES = 192;
+
 /**
  * Scorer — Frequency response quality metrics
  *
@@ -182,6 +192,66 @@ class Scorer {
   }
 
   // =========================================================
+  // Pre-EQ score — public entry point
+  // =========================================================
+
+  /**
+   * Quality score for a response that will be EQ'd toward a target curve
+   * afterwards ('pre-eq' objective).
+   *
+   * Downstream EQ corrects peaks (a cut is free and, for minimum-phase room
+   * modes, also shortens their time-domain ringing), broad bumps and overall
+   * tilt — so unlike the balanced score, peaks and smoothness are NOT
+   * penalized here. What EQ cannot fix is what this score targets:
+   *  1. Overall level below the coherent sum (efficiency): every dB lost is
+   *     a dB of boost/headroom needed later to reach the target.
+   *  2. Localized shortfalls vs the theoretical envelope (dips-vs-theo) and
+   *     narrow phase-cancellation nulls: boosting a cancellation does not
+   *     fill it.
+   *  3. Group-delay excess (bass that trails in time): energy arriving late
+   *     at some frequencies cannot be re-aligned by magnitude EQ.
+   *
+   * @param {Object} response - Combined frequency response
+   * @param {Object} theoreticalMax - Theoretical maximum response (phase=0)
+   * @returns {number} Score (higher is better)
+   */
+  calculatePreEqScore(response, theoreticalMax) {
+    const { freqs, magnitude } = response;
+    const len = freqs.length;
+    if (len === 0) return 0;
+
+    const efficiency = this._calculateEfficiencyScore(
+      magnitude,
+      theoreticalMax.magnitude,
+      len,
+    );
+
+    let levelWeightSum = 0;
+    for (let i = 0; i < len; i++) levelWeightSum += this.frequencyWeights[i];
+
+    const dipVsTheoPenalty = this._calculateDipVsTheoPenalty(
+      magnitude,
+      theoreticalMax.magnitude,
+      levelWeightSum,
+      len,
+    );
+    const nullPenalty = this._calculateNullPenalty(freqs, magnitude, levelWeightSum, len);
+    const groupDelayPenalty = this._calculateGroupDelayExcessPenalty(
+      freqs,
+      response.phase,
+      levelWeightSum,
+      len,
+    );
+
+    return (
+      efficiency * 2 -
+      dipVsTheoPenalty * 3 -
+      nullPenalty * 3 -
+      groupDelayPenalty * PRE_EQ_GROUP_DELAY_WEIGHT
+    );
+  }
+
+  // =========================================================
   // Quality score — private sub-components
   // =========================================================
 
@@ -283,6 +353,103 @@ class Scorer {
     const depthFactor = Math.pow(localDip / 6, 1.5);
 
     return depthFactor * qFactor * this.frequencyWeights[i];
+  }
+
+  /**
+   * Penalizes LOCALIZED shortfalls below the theoretical envelope. The
+   * uniform part of the shortfall (the weighted-median gap to theo) is pure
+   * efficiency loss, already counted by the efficiency term; what is
+   * penalized here is a bin falling more than 3 dB deeper than that typical
+   * gap — a hole in the achievable curve that EQ boost cannot fill cheaply.
+   * Same functional form as the balanced dip penalty (pow 1.8 over a 3 dB
+   * allowance) so the two scores stay comparable in magnitude.
+   */
+  _calculateDipVsTheoPenalty(magnitude, theoMagnitude, levelWeightSum, len) {
+    const shortfalls = new Float64Array(len);
+    for (let i = 0; i < len; i++) {
+      shortfalls[i] = theoMagnitude[i] - magnitude[i];
+    }
+    const medianShortfall = this._weightedMedian(shortfalls, len);
+
+    let dipPenalty = 0;
+    for (let i = 0; i < len; i++) {
+      const excess = shortfalls[i] - medianShortfall;
+      if (excess > 3) {
+        dipPenalty += Math.pow(excess - 3, 1.8) * this.frequencyWeights[i];
+      }
+    }
+    return dipPenalty / levelWeightSum;
+  }
+
+  /**
+   * Penalizes group-delay excess of the combined response — "bass trailing
+   * in time". The group delay is derived from the unwrapped phase; the
+   * weighted-median group delay (bulk arrival time) is free, and each bin is
+   * charged for its excess beyond GROUP_DELAY_ALLOWANCE_CYCLES periods at
+   * that frequency (below ~1 period the smear is masked by the room's own
+   * modal decay). Quadratic ramp with a per-bin cap so a single unwrap
+   * artifact or band-edge anomaly cannot dominate the score.
+   */
+  _calculateGroupDelayExcessPenalty(freqs, phase, levelWeightSum, len) {
+    if (!phase || phase.length !== len || len < 3) return 0;
+
+    const tau = this._groupDelaySeconds(freqs, phase, len);
+    const medianTau = this._weightedMedian(tau, len);
+
+    let penalty = 0;
+    for (let i = 0; i < len; i++) {
+      const excessCycles = Math.abs(tau[i] - medianTau) * freqs[i];
+      if (excessCycles <= GROUP_DELAY_ALLOWANCE_CYCLES) continue;
+      const overshoot = excessCycles - GROUP_DELAY_ALLOWANCE_CYCLES;
+      penalty +=
+        Math.min(overshoot * overshoot, GROUP_DELAY_PER_BIN_CAP) *
+        this.frequencyWeights[i];
+    }
+    return penalty / levelWeightSum;
+  }
+
+  /** Group delay (seconds) via central difference on the unwrapped phase. */
+  _groupDelaySeconds(freqs, phase, len) {
+    const unwrapped = new Float64Array(len);
+    unwrapped[0] = phase[0];
+    let offset = 0;
+    for (let i = 1; i < len; i++) {
+      const delta = phase[i] - phase[i - 1];
+      if (delta > 180) offset -= 360;
+      else if (delta < -180) offset += 360;
+      unwrapped[i] = phase[i] + offset;
+    }
+
+    const tau = new Float64Array(len);
+    for (let i = 0; i < len; i++) {
+      const lo = i === 0 ? 0 : i - 1;
+      const hi = i === len - 1 ? len - 1 : i + 1;
+      tau[i] = -(unwrapped[hi] - unwrapped[lo]) / (freqs[hi] - freqs[lo]) / 360;
+    }
+    return tau;
+  }
+
+  /**
+   * Weighted median of `values` using the scorer's frequency weights.
+   * Subsampled (stride) to bound the per-evaluation sort cost: the median is
+   * robust and the inputs (shortfall, group delay) vary smoothly on the
+   * log-frequency grid, so ~MEDIAN_MAX_SAMPLES points estimate it well.
+   */
+  _weightedMedian(values, len) {
+    const stride = Math.max(1, Math.ceil(len / MEDIAN_MAX_SAMPLES));
+    const indices = [];
+    for (let i = 0; i < len; i += stride) indices.push(i);
+    indices.sort((a, b) => values[a] - values[b]);
+
+    let total = 0;
+    for (const i of indices) total += this.frequencyWeights[i];
+
+    let acc = 0;
+    for (const i of indices) {
+      acc += this.frequencyWeights[i];
+      if (acc >= total / 2) return values[i];
+    }
+    return values[indices.at(-1)];
   }
 
   _calculateSmoothnessPenalty(freqs, magnitude, levelWeightSum, len) {

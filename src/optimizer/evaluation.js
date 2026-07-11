@@ -40,6 +40,11 @@ export function calculateOptimizationScore(optimizer, response, theoreticalMax) 
 }
 
 export function calculateOptimizationScoreDetails(optimizer, response, theoreticalMax) {
+  if (optimizer.config.optimization.objective === 'pre-eq') {
+    const score = optimizer._scorer.calculatePreEqScore(response, theoreticalMax);
+    return { score, qualityScore: score };
+  }
+
   const qualityScore = optimizer.calculateQualityScore(response, theoreticalMax);
   if (optimizer.config.optimization.objective === 'balanced') {
     return { score: qualityScore, qualityScore };

@@ -159,7 +159,41 @@ sans all-pass). Le passage au max absolu a corrigé ce problème.
 
 ## 4. Le scoring psychoacoustique
 
-### Formule du qualityScore
+### Les trois objectifs
+
+| Objectif              | Score                                                        | Usage                                                                 |
+| --------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `balanced`            | `qualityScore` (ci-dessous)                                  | Historique ; réponse « belle » en soi                                  |
+| `max-theoretical`     | `quality×(1−w) + cappedEff×w`                                | Priorité au niveau ; sert aussi d'heuristique de placement (w=0.6)     |
+| **`pre-eq`** (prod)   | `eff×2 − dipsVsTheo×3 − nulls×3 − excèsGD×2`                 | La somme sera égalisée ensuite vers la cible                           |
+
+**`pre-eq`** est l'objectif de production (`createOptimizerConfig`) : la somme
+des subs passe ensuite dans l'auto-EQ vers la courbe cible, donc l'optimiseur
+maximise ce que l'EQ ne peut pas corriger et ignore ce qu'elle corrige
+gratuitement :
+
+- **Pas de pénalité peaks/smoothness** : un cut d'EQ est gratuit et, pour une
+  résonance minimum-phase, réduit aussi la traîne temporelle.
+- **`dipsVsTheo`** : creux *localisés* sous l'enveloppe théorique (écart à la
+  médiane pondérée du shortfall, franchise 3 dB, pow 1.8). La part uniforme du
+  shortfall est déjà comptée par l'efficiency.
+- **Garde temporelle (`excèsGD`)** : group delay dérivé de la phase déroulée,
+  facturé au-delà de 1 période d'excès vs la médiane de bande (rampe
+  quadratique, cap 9/bin contre les artefacts de déroulage et le bord de bande
+  10-16 Hz). Empêche de « payer en traînage » un gain de réponse en fréquence
+  (all-pass notamment).
+- Les médianes pondérées sont sous-échantillonnées (192 pts) : temps
+  d'exécution identique à `balanced`.
+
+> ⚠️ Un objectif dominé par l'efficiency (dont `pre-eq` et `max-theoretical`
+> w≥0.9) **égare la phase séquentielle greedy en mode all-pass** (effondrement
+> mesuré à ~66 % d'efficiency) : les pénalités de forme servaient de
+> régularisateur au placement. C'est pourquoi la phase séquentielle score
+> toujours avec l'heuristique w=0.6 (voir §5), quel que soit l'objectif
+> `balanced`/`pre-eq` configuré — l'objectif configuré pilote le raffinement
+> et la sélection.
+
+### Formule du qualityScore (objectif `balanced`)
 
 ```
 qualityScore = efficiency × 2
@@ -586,6 +620,21 @@ comparer des scores per-sub avec des scores globaux.
    stepFactor 5 : +60-150 % de temps pour ±0.03 pt) ; Qmax all-pass 2.0
    (gains faibles, temps ×1.6-1.9) ; w=0.75 (dégrade data.bug) ; w=0.9
    (instable).
+
+### Session 6 — Objectif pre-eq et garde temporelle (2026-07-11)
+
+1. **Mesure préalable** : les solutions optimisées ne traînent pas plus que la
+   baseline (excès moyen de group delay en baisse partout) — l'efficiency et
+   la compacité temporelle sont alliées (le max phase=0 est la version la plus
+   compacte de la somme).
+2. **Objectif `pre-eq`** (voir §4) adopté par la prod : efficiency + creux
+   non-corrigeables + garde de group delay ; peaks/smoothness laissés à l'EQ
+   aval. Mesuré vs `balanced` : efficiency égale ou supérieure partout
+   (AP : +1.3 à +1.6 pt), data.bug AP passe de 54.8 % à 46.8 % de bins au-delà
+   d'1 cycle d'excès de GD, temps identiques.
+3. **Piège découvert** : `pre-eq` appliqué à la phase séquentielle s'effondre
+   en mode all-pass (~66 %) — l'heuristique de placement w=0.6 est conservée
+   pour tous les objectifs.
 
 ### Résultats finaux (efficiency ratio)
 

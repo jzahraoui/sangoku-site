@@ -116,3 +116,77 @@ describe('Scorer psychoacoustic invariants', () => {
     expect(cappedPenalty).toBeCloseTo(1.25, 5);
   });
 });
+
+describe('Scorer pre-EQ score', () => {
+  function linSpace(start, step, count) {
+    return Array.from({ length: count }, (_, i) => start + i * step);
+  }
+
+  it('ignores peaks: a peaky response scores like a flat one at equal efficiency', () => {
+    const freqs = linSpace(30, 5, 9);
+    const scorer = scorerWithUnitWeights(freqs.length);
+    const theo = { ...response(freqs, freqs.map(() => 80)), phase: new Float32Array(freqs.length) };
+    const flat = { ...response(freqs, freqs.map(() => 77)), phase: new Float32Array(freqs.length) };
+    // Same magnitudes except one +8dB peak: balanced penalizes it, pre-eq
+    // must not (EQ cuts it for free) — the peak even raises efficiency.
+    const peaky = {
+      ...response(freqs, freqs.map((f, i) => (i === 4 ? 85 : 77))),
+      phase: new Float32Array(freqs.length),
+    };
+
+    expect(scorer.calculatePreEqScore(peaky, theo)).toBeGreaterThanOrEqual(
+      scorer.calculatePreEqScore(flat, theo),
+    );
+  });
+
+  it('penalizes a localized hole below theo but not a uniform shortfall', () => {
+    const freqs = linSpace(30, 5, 9);
+    const scorer = scorerWithUnitWeights(freqs.length);
+    const theo = { ...response(freqs, freqs.map(() => 80)), phase: new Float32Array(freqs.length) };
+    const uniform = new Float32Array(freqs.length).fill(74);
+    const holed = Float32Array.from(uniform);
+    holed[4] = 60; // 14dB below the typical 6dB shortfall
+
+    const uniformPenalty = scorer._calculateDipVsTheoPenalty(
+      uniform, theo.magnitude, freqs.length, freqs.length,
+    );
+    const holedPenalty = scorer._calculateDipVsTheoPenalty(
+      holed, theo.magnitude, freqs.length, freqs.length,
+    );
+
+    expect(uniformPenalty).toBe(0);
+    expect(holedPenalty).toBeGreaterThan(0);
+  });
+
+  it('charges group-delay excess beyond one period but not a pure bulk delay', () => {
+    const count = 48;
+    const freqs = linSpace(20, 2.5, count);
+    const scorer = scorerWithUnitWeights(count);
+
+    // Pure delay: phase = -360 * f * tau (linear phase, wrapped) — constant
+    // group delay, zero excess.
+    const tau = 0.01;
+    const pureDelayPhase = Float32Array.from(
+      freqs.map(f => ((-360 * f * tau + 180) % 360 + 360) % 360 - 180),
+    );
+    // Same delay plus a strong local phase rotation around 60Hz (several
+    // periods of extra group delay over a narrow band).
+    const trailingPhase = Float32Array.from(
+      freqs.map(f => {
+        const local = Math.exp(-Math.pow((f - 60) / 4, 2)) * -4000;
+        const deg = -360 * f * tau + local;
+        return ((deg + 180) % 360 + 360) % 360 - 180;
+      }),
+    );
+
+    const pureDelayPenalty = scorer._calculateGroupDelayExcessPenalty(
+      freqs, pureDelayPhase, count, count,
+    );
+    const trailingPenalty = scorer._calculateGroupDelayExcessPenalty(
+      freqs, trailingPhase, count, count,
+    );
+
+    expect(pureDelayPenalty).toBeCloseTo(0, 5);
+    expect(trailingPenalty).toBeGreaterThan(0);
+  });
+});

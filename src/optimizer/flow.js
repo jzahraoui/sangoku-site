@@ -104,9 +104,14 @@ export function findOptimalParameters(optimizer, preparedSubs) {
   // SEQUENTIAL_HEURISTIC_WEIGHT); the configured objective is restored before
   // global refinement, whose guard optimizes the real objective. When the
   // caller already asked for 'max-theoretical', its own weight is kept.
+  // 'pre-eq' also uses the heuristic for placement: its efficiency-dominated
+  // landscape misleads the greedy phase when all-pass filters are in the
+  // search space (measured collapse to ~66% efficiency, same pathology as
+  // max-theoretical w=0.9) — the heuristic's quality component acts as the
+  // regularizer there, and pre-eq drives the refinement and final selection.
   const configuredObjective = optimizer.config.optimization.objective;
   const configuredWeight = optimizer.config.optimization.theoreticalWeight;
-  if (configuredObjective === 'balanced') {
+  if (configuredObjective === 'balanced' || configuredObjective === 'pre-eq') {
     optimizer.config.optimization.objective = 'max-theoretical';
     optimizer.config.optimization.theoreticalWeight = SEQUENTIAL_HEURISTIC_WEIGHT;
   }
