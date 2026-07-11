@@ -1,10 +1,12 @@
-// Default log10 bounds for the frequency range slider: 10 Hz .. 20 kHz.
-const DEFAULT_MIN_LOG = 1;
-const DEFAULT_MAX_LOG = Math.log10(20000);
-// Fallback precision (in decimal places of log10(freq)) used when the input
-// `step` attribute is missing or has no fractional part. 4 decimals keep the
-// round-trip drift below ~0.025% which is well under `roundFrequency` snap.
-const DEFAULT_LOG_DECIMALS = 4;
+// The log10 ↔ frequency maths live in measurement/frequency-log-scale.js
+// ([MOTEUR], unit-tested) — this widget only owns the DOM/pointer handling.
+import {
+  DEFAULT_MAX_LOG,
+  DEFAULT_MIN_LOG,
+  createFrequencyLogScale,
+  getDecimalPlaces,
+  readNumber,
+} from './measurement/frequency-log-scale.js';
 
 export default class FrequencyRangeSlider {
   constructor({ minInput, maxInput, lowerFrequencyBound, upperFrequencyBound }) {
@@ -29,9 +31,13 @@ export default class FrequencyRangeSlider {
     this.maxInput = maxInput;
     this.lowerFrequencyBound = lowerFrequencyBound;
     this.upperFrequencyBound = upperFrequencyBound;
-    this.minLog = this.readNumber(this.minInput.min, DEFAULT_MIN_LOG);
-    this.maxLog = this.readNumber(this.minInput.max, DEFAULT_MAX_LOG);
-    this.decimalPlaces = this.getDecimalPlaces(this.minInput.step);
+    this.scale = createFrequencyLogScale({
+      minLog: readNumber(this.minInput.min, DEFAULT_MIN_LOG),
+      maxLog: readNumber(this.minInput.max, DEFAULT_MAX_LOG),
+      decimalPlaces: getDecimalPlaces(this.minInput.step),
+    });
+    this.minLog = this.scale.minLog;
+    this.maxLog = this.scale.maxLog;
     // Cache the styled container instead of querying the DOM on every input.
     this.container = this.minInput.closest('.dual-range-input');
     // Re-entrancy counter (not a boolean) so subscribers triggered after
@@ -402,14 +408,10 @@ export default class FrequencyRangeSlider {
   }
 
   syncInputs() {
-    const lowerFrequency = this.roundFrequency(
-      this.clampFrequency(this.lowerFrequencyBound()),
+    const { lower: orderedLower, upper: orderedUpper } = this.scale.normalizeBounds(
+      this.lowerFrequencyBound(),
+      this.upperFrequencyBound(),
     );
-    const upperFrequency = this.roundFrequency(
-      this.clampFrequency(this.upperFrequencyBound()),
-    );
-    const orderedLower = Math.min(lowerFrequency, upperFrequency);
-    const orderedUpper = Math.max(lowerFrequency, upperFrequency);
     const lowerLog = this.logFromFrequency(orderedLower);
     const upperLog = this.logFromFrequency(orderedUpper);
 
@@ -427,63 +429,34 @@ export default class FrequencyRangeSlider {
       return;
     }
 
-    const range = this.maxLog - this.minLog || 1;
-    const lowerPercent = ((lowerLog - this.minLog) / range) * 100;
-    const upperPercent = ((upperLog - this.minLog) / range) * 100;
+    const lowerPercent = this.scale.percentForLog(lowerLog);
+    const upperPercent = this.scale.percentForLog(upperLog);
 
     this.container.style.setProperty('--dual-range-lower-percent', `${lowerPercent}%`);
     this.container.style.setProperty('--dual-range-upper-percent', `${upperPercent}%`);
   }
 
   frequencyFromInput(input) {
-    const logValue = this.clampLog(this.readNumber(input.value, this.minLog));
-    return this.roundFrequency(10 ** logValue);
+    return this.scale.frequencyFromLog(readNumber(input.value, this.minLog));
   }
 
   logFromFrequency(frequency) {
-    return this.clampLog(Math.log10(this.clampFrequency(frequency)));
+    return this.scale.logFromFrequency(frequency);
   }
 
   clampFrequency(frequency) {
-    const minFrequency = 10 ** this.minLog;
-    const maxFrequency = 10 ** this.maxLog;
-    const numeric = Number.isFinite(frequency)
-      ? frequency
-      : this.readNumber(frequency, minFrequency);
-    return Math.min(Math.max(numeric, minFrequency), maxFrequency);
+    return this.scale.clampFrequency(frequency);
   }
 
   clampLog(logValue) {
-    return Math.min(Math.max(logValue, this.minLog), this.maxLog);
+    return this.scale.clampLog(logValue);
   }
 
   formatLogValue(logValue) {
-    return this.clampLog(logValue).toFixed(this.decimalPlaces);
+    return this.scale.formatLog(logValue);
   }
 
-  // Progressive snap: 1 Hz steps below 1 kHz, 100 Hz up to 10 kHz, then 1 kHz.
   roundFrequency(frequency) {
-    let step = 1;
-
-    if (frequency > 10000) {
-      step = 1000;
-    } else if (frequency > 1000) {
-      step = 100;
-    }
-
-    return Math.round(frequency / step) * step;
-  }
-
-  getDecimalPlaces(value) {
-    const [, fraction = ''] = String(value).split('.');
-    return fraction.length || DEFAULT_LOG_DECIMALS;
-  }
-
-  readNumber(value, fallback) {
-    if (typeof value === 'number') {
-      return Number.isFinite(value) ? value : fallback;
-    }
-    const number = Number.parseFloat(value);
-    return Number.isFinite(number) ? number : fallback;
+    return this.scale.roundFrequency(frequency);
   }
 }
