@@ -737,8 +737,11 @@ structure d'interférence).
   filtres converge moins bien dans l'espace élargi, 45 vs 36 dims sur
   4 subs). Verdict : utile quand la structure d'interférence résiduelle
   résiste au trio delay/polarité/cuts (data.bug), coût de recherche sinon —
-  **désactivé par défaut**, candidat à une exposition via le checkbox
-  all-pass de l'app.
+  **désactivé par défaut** côté moteur, exposé dans l'app par le checkbox
+  all-pass (ré-activé en mode joint : il pilote `joint.allPassPerSub`, la
+  recherche all-pass du GA legacy restant off sur ce chemin). L'all-pass
+  trouvé est appliqué au slot 20 non-auto (convention historique, couverte
+  par la réservation de l'EQ partagée).
 
 Reste : Lot 4 (objectif multi-positions).
 

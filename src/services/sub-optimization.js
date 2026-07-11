@@ -1091,6 +1091,12 @@ function createSubOptimizationService({
     if (Number.isFinite(overallBoostCap)) {
       joint.overallBoostCapDb = overallBoostCap;
     }
+    // The app's all-pass checkbox drives the joint all-pass dimension: one
+    // phase-only all-pass per non-reference sub in the genome (the legacy GA
+    // all-pass search above stays off in joint mode). Bench: clear win where
+    // the residual interference structure resists delay/polarity/cuts,
+    // search-cost neutral-to-negative otherwise — user's call per room.
+    joint.allPassPerSub = config.useAllPassFiltersForSubs === true;
     optimizerConfig.optimization.joint = joint;
 
     // Test/e2e hook: lets the caller shrink the solver budget (population,

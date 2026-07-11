@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import MultiSubOptimizer from '../../src/multi-sub-optimizer.js';
 import {
   MAXIMISED_SUM_TITLE,
   createSubOptimizationService,
@@ -854,7 +855,7 @@ describe('multiSubOptimizer joint route (target-match)', () => {
     });
   }
 
-  function createJointHarness() {
+  function createJointHarness(configOverrides = {}) {
     const sub1 = jointSub('sw1', syntheticFrequencyResponse());
     const sub2 = jointSub('sw2', syntheticFrequencyResponse({ delayMs: 2 }));
     const harness = createHarness({
@@ -869,6 +870,7 @@ describe('multiSubOptimizer joint route (target-match)', () => {
           generations: 8,
           patience: 20,
         },
+        ...configOverrides,
       },
     });
     harness.session.addMeasurementFromRewOperation.mockImplementation(
@@ -927,6 +929,21 @@ describe('multiSubOptimizer joint route (target-match)', () => {
     // Legacy surface (no virtual subwoofers): the maximised sum and its Theo
     // reference are imported into REW.
     expect(session.addMeasurementFromRewOperation).toHaveBeenCalledTimes(2);
+  });
+
+  it('wires the all-pass checkbox to the joint allPassPerSub dimension', async () => {
+    const spy = vi.spyOn(MultiSubOptimizer.prototype, 'optimizeSubwoofersJoint');
+    try {
+      const { service } = createJointHarness({ useAllPassFiltersForSubs: true });
+      await service.multiSubOptimizer({ lowFrequency: 20, highFrequency: 150 });
+      expect(spy.mock.instances[0].config.optimization.joint.allPassPerSub).toBe(true);
+
+      const { service: without } = createJointHarness();
+      await without.multiSubOptimizer({ lowFrequency: 20, highFrequency: 150 });
+      expect(spy.mock.instances[1].config.optimization.joint.allPassPerSub).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('keeps the legacy path when the joint toggle is off', async () => {
