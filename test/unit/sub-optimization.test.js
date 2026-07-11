@@ -730,8 +730,20 @@ describe('multiSubOptimizer joint route (target-match)', () => {
 
   it('runs the joint solver and applies per-sub settings including PK filters', async () => {
     const { service, session, sub1, sub2 } = createJointHarness();
+    // A leftover trim from a previous joint run must be reverted — and ONLY
+    // it: the user's manual +/- level adjustments live in the same SPL
+    // offset and must survive, hence the exact-amount bookkeeping.
+    sub2.jointGainDb = -4;
 
     await service.multiSubOptimizer({ lowFrequency: 20, highFrequency: 150 });
+
+    expect(sub2.addSPLOffsetDB).toHaveBeenCalledWith(4);
+    expect(sub2.addSPLOffsetDB.mock.invocationCallOrder[0]).toBeLessThan(
+      sub2.getFrequencyResponse.mock.invocationCallOrder[0],
+    );
+    // Bookkeeping refreshed: either cleared (no new trim) or set to the new
+    // trim — never left at the stale value.
+    expect(sub2.jointGainDb).not.toBe(-4);
 
     // Target curve anchored on the first sub, like equalize-sub anchors REW.
     expect(sub1.setTargetLevel).toHaveBeenCalledWith(75);

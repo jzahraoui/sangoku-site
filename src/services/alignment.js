@@ -281,6 +281,9 @@ function createAlignmentService({
         alignSPLOffsetdB: alignOffset,
         splOffsetdB: cleanFloat32Value(measurement.initialSplOffsetdB + alignOffset, 2),
       });
+      // The absolute re-anchor absorbs any pending joint gain trim: clear its
+      // bookkeeping so the optimizer's next preamble does not revert it twice.
+      measurement.jointGainDb = 0;
       log.info(
         `\nAdjust ${title} SPL levels to ${targetLevel.toFixed(1)}dB` +
           `(center: ${centerFrequency}Hz, ${octaves} octaves, ${lowCutoff}Hz - ${highCutoff}Hz)` +

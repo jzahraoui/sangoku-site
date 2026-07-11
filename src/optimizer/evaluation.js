@@ -108,9 +108,12 @@ const OVERALL_BOOST_CAP_POINTS = 2;
 
 export function calculateFilterEffortPenalty(optimizer, param) {
   const filters = param.filters ?? [];
-  if (filters.length === 0) return 0;
+  // The broadband gain trim is DSP effort too (headroom given away): a light
+  // linear cost so a trim must earn its keep against alignment and cuts.
+  // Positive gains are excluded by the joint bounds (attenuation-only).
+  let penalty = Math.abs(Math.min(param.gain ?? 0, 0)) * FILTER_EFFORT_POINTS_PER_DB;
+  if (filters.length === 0) return penalty;
 
-  let penalty = 0;
   for (const filter of filters) {
     const magnitude = Math.abs(filter.gain);
     if (filter.gain > 0) {

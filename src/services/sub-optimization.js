@@ -675,6 +675,11 @@ function createSubOptimizationService({
     await applySubPolarity(subMeasurement, sub.param.polarity);
     await mops.addIROffsetSeconds(subMeasurement, sub.param.delay);
     await mops.addSPLOffsetDB(subMeasurement, sub.param.gain);
+    if (sub.param.gain) {
+      // Bookkeep the optimizer's own trim so the next run's preamble can
+      // revert exactly this contribution without touching manual settings.
+      subMeasurement.jointGainDb = sub.param.gain;
+    }
     await mops.copySplOffsetDeltadBToOther(subMeasurement);
     await applySubAllPassFilter(subMeasurement, sub.param.allPass);
     await applySubIndividualFilters(subMeasurement, sub.param.filters);
@@ -741,6 +746,28 @@ function createSubOptimizationService({
   }
 
   /**
+   * Reverts the gain trims the PREVIOUS joint run applied (recorded as
+   * jointGainDb on each measurement) — and only those: the user's manual
+   * +/- level adjustments and the align-SPL reference are untouched. This
+   * targeted bookkeeping is what makes the per-sub gain dimension safe
+   * across iterations without crushing user settings. Align SPL clears the
+   * bookkeeping itself (its absolute re-anchor absorbs any pending trim).
+   */
+  async function revertPreviousJointGains(subsMeasurements) {
+    for (const measurement of subsMeasurements) {
+      const appliedGain = Number(unwrap(measurement.jointGainDb)) || 0;
+      if (appliedGain === 0) continue;
+
+      log.info(
+        `Reverting previous joint gain of ${appliedGain.toFixed(2)} dB on ${labelOf(measurement)}`,
+      );
+      await mops.addSPLOffsetDB(measurement, -appliedGain);
+      await mops.copySplOffsetDeltadBToOther(measurement);
+      measurement.jointGainDb = 0;
+    }
+  }
+
+  /**
    * Shared preamble of the legacy and joint optimizers: guards, delay
    * equalisation, delay-budget measurement, previous-results cleanup, per-sub
    * clean state and frequency-response capture. Returns null when the
@@ -797,6 +824,8 @@ function createSubOptimizationService({
       await mops.resetFilters(measurement);
       await mops.setInverted(measurement, false);
     }
+
+    await revertPreviousJointGains(subsMeasurements);
 
     const alignmentGapsSeconds = await measureAlignmentGaps(
       subsMeasurements,

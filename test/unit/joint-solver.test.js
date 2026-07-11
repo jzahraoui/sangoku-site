@@ -144,7 +144,9 @@ describe('optimizeSubwoofersJoint', () => {
       expect(sub.param.delay).toBeGreaterThanOrEqual(-0.005);
       expect(sub.param.delay).toBeLessThanOrEqual(0.005);
       expect(sub.param.gain).toBeGreaterThanOrEqual(-12);
-      expect(sub.param.gain).toBeLessThanOrEqual(3);
+      // Attenuation-only: a positive trim would cheat above the theoretical
+      // ceiling the target is clamped to.
+      expect(sub.param.gain).toBeLessThanOrEqual(0);
       for (const filter of sub.param.filters) {
         expect(filter.frequency).toBeGreaterThanOrEqual(20);
         expect(filter.frequency).toBeLessThanOrEqual(200);

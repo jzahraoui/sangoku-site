@@ -39,6 +39,7 @@ const PLAIN_FIELDS = [
   'isSubOperationResult',
   'parentAttr',
   'initialSplOffsetdB',
+  'jointGainDb',
 ];
 
 // Fields mirrored as KO observables by the MeasurementItem adapter (and as
@@ -92,6 +93,10 @@ class MeasurementRecord {
     this.isSubOperationResult = item.isSubOperationResult || false;
     this.parentAttr = item.parentAttr || null;
     this.shiftDelay = item.shiftDelay || Infinity;
+    // Gain trim applied by the joint sub optimizer (its own contribution to
+    // the SPL offset): the next run's preamble reverts exactly this amount,
+    // leaving the user's manual +/- level adjustments untouched.
+    this.jointGainDb = item.jointGainDb || 0;
 
     // store value on object creation and make it immuable
     this.initialSplOffsetdB = cleanFloat32Value(
@@ -187,6 +192,7 @@ class MeasurementRecord {
       isSubOperationResult: this.isSubOperationResult,
       parentAttr: this.parentAttr,
       shiftDelay: this.shiftDelay,
+      jointGainDb: this.jointGainDb,
     };
   }
 

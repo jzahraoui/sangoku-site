@@ -711,6 +711,17 @@ structure d'interférence).
   perturbations focalisées (±5 % des bornes) du vainqueur. Banc : RMS 1.58 /
   1.63 / 1.78 dB, realign +1.2 à +3.6 points.
 
+- **Base saine et gains en atténuation seule** : le préambule re-normalise
+  les niveaux des subs à la référence align-SPL (`adjustSubwooferSPLLevels`,
+  cible@40 Hz − 20·log₁₀(N)) en plus des filtres/inversions/délais — les
+  vestiges du run précédent sont effacés par reconstruction, pas par
+  soustraction. Ceci rend la dimension gain réactivable sans comptabilité :
+  `joint.gain` [−12, 0] (atténuation seule — un trim positif tricherait
+  au-dessus du plafond théorique du clamp), coût d'effort 0.05 pt/dB. Banc :
+  RMS 1.44/1.76/1.48 dB, trims parcimonieux (−0.3 à −2 dB). Pas de type
+  « Gain » dans l'égaliseur REW Generic (testé sur REW réel : 400) — le trim
+  passe par les offsets SPL.
+
 Reste : Lot 4 (objectif multi-positions).
 
 ### Résultats finaux (efficiency ratio)
