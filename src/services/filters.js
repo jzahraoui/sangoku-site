@@ -9,6 +9,9 @@
  * - `config`: accessor object — selectedEqualizationMode (r).
  */
 
+import { createPhaseMatchCalculator } from '../autoeq/phase-match-calculator.js';
+import { getIrWindowConfig } from '../measurement/working-settings.js';
+
 const noopLog = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
 
 const unwrap = value => (typeof value === 'function' ? value() : value);
@@ -51,6 +54,9 @@ function createFiltersService({
   irWindowWidthsFor = () => undefined,
   boundsFor = () => undefined,
   boostsFor = () => undefined,
+  // RCH (phase-match) context for the operations path: accessor over the
+  // AutoEQ settings (the RCH panel values — observables or plain values).
+  autoEqConfig = () => null,
   setTargetLevelFromMeasurement = () => {},
   getOtherPositionMeasurements = () => [],
   // One-speaker preview. Default calls the item's own method (KO path);
@@ -78,11 +84,20 @@ function createFiltersService({
       irWindowWidths: irWindowWidthsFor(m),
       bounds: boundsFor(),
       boosts: boostsFor(),
+      smoothingMethod: workingSettingsConfig(m)?.smoothingMethod,
+      optimizedMtwWindows: () => getIrWindowConfig('Optimized MTW'),
       setTargetLevelFromMeasurement: () => setTargetLevelFromMeasurement(m),
       otherTargets: () => getOtherPositionMeasurements(m),
-      createCalculator: () => {
-        throw new Error('phase-match calculator (rch mode) is not wired on the operations path');
-      },
+      createCalculator: (sampleRate, freqStart, freqEnd, options = {}) =>
+        createPhaseMatchCalculator({
+          sampleRate,
+          freqStart,
+          freqEnd,
+          autoEqConfig: autoEqConfig(),
+          individualMaxBoostDb:
+            options.individualMaxBoostDb ?? boostsFor()?.individual,
+          overallMaxBoostDb: options.overallMaxBoostDb ?? boostsFor()?.overall,
+        }),
     };
   }
 
@@ -92,7 +107,8 @@ function createFiltersService({
       return isRch ? item.createPhaseMatchFilter() : item.createStandardFilter();
     }
     if (isRch) {
-      throw new Error('rch (phase-match) filter mode is not wired on the operations path');
+      // Parity with item.createPhaseMatchFilter(useWorkingSettings=true, copyToOther=false).
+      return operations.createFilter(rew(), item, buildFilterContext(item), 'phase', true, false);
     }
     // Parity with item.createStandardFilter(useWorkingSettings=true, copyToOther=true).
     return operations.createFilter(

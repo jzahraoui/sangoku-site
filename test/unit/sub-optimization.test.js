@@ -599,3 +599,73 @@ describe('createOptimizerConfig — écarts mesurés (LFE predicted filtrée)', 
     expect(optimizerConfig.delay.max).toBeCloseTo(0.01 - 0.006, 4);
   });
 });
+
+describe('equalizeSub rch sur le chemin operations (ADR 002)', () => {
+  it('route vers operations.runPhaseMatchFilter avec un contexte calculateur', async () => {
+    const operations = {
+      setTargetLevel: vi.fn().mockResolvedValue(true),
+      applyWorkingSettings: vi.fn().mockResolvedValue(true),
+      resetTargetSettings: vi.fn().mockResolvedValue(true),
+      detectFallOff: vi.fn().mockResolvedValue({ lowHz: 25, highHz: 150 }),
+      checkFilterGain: vi.fn().mockResolvedValue(true),
+      runPhaseMatchFilter: vi.fn().mockResolvedValue(true),
+    };
+    const session = { rewMeasurements: { id: 'rew' } };
+    const autoEqFixture = {
+      numFilters: 20,
+      maxCutDb: 15,
+      flatnessTarget: 0.3,
+      numOptimizationPasses: 20,
+      gainSignLockThreshold: 0.5,
+      notchExclusionThreshold: 6,
+      minFilterGain: 0.4,
+      enableBeatRewOptimization: true,
+      enableCandidatePlacement: true,
+      enableReduceRepair: true,
+      enableCriticalBandRefinement: true,
+      enableRefinement: false,
+      refinementIterations: 100,
+      varyQAbove200Hz: false,
+      allowNarrowFiltersBelow200Hz: true,
+      allowBoosts: true,
+    };
+    const service = createSubOptimizationService({
+      session,
+      businessTools: {},
+      operations,
+      autoEqConfig: () => autoEqFixture,
+      config: {
+        mainTargetLevel: 75,
+        selectedEqualizationMode: 'rch',
+        lowerFrequencyBoundSub: 10,
+        upperFrequencyBoundSub: 500,
+        maxBoostIndividualValue: 6,
+        maxBoostOverallValue: 3,
+        jsonAvrData: { avr: { minDistAccuracy: 0.0001 } },
+      },
+      lists: {
+        uniqueSubsMeasurements: () => [],
+        predictedLfeMeasurements: () => [],
+        selectedPredictedLfeMeasurement: () => null,
+      },
+    });
+    const record = { uuid: 'proj', title: 'LFE predicted_P1' };
+
+    await service.equalizeSub(record);
+
+    expect(operations.runPhaseMatchFilter).toHaveBeenCalledTimes(1);
+    const [rew, m, ctx, start, end, options] =
+      operations.runPhaseMatchFilter.mock.calls[0];
+    expect(rew).toBe(session.rewMeasurements);
+    expect(m).toBe(record);
+    expect(start).toBe(25);
+    expect(end).toBe(150);
+    expect(options).toEqual({
+      individualMaxBoostDb: 6,
+      overallMaxBoostDb: 3,
+    });
+    const calculator = ctx.createCalculator(48000, start, end, options);
+    expect(typeof calculator.calculate).toBe('function');
+    expect(calculator.overallMaxBoostDb).toBe(3);
+  });
+});

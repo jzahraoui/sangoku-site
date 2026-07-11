@@ -3,7 +3,7 @@ import 'decimal.js';
 import ko from 'knockout';
 import BusinessTools from './BusinessTools.js';
 import lm from './logs.js';
-import { AutoEQCalculator } from './autoeq/AutoEQCalculator.js';
+import { createPhaseMatchCalculator } from './autoeq/phase-match-calculator.js';
 import {
   arraysMatchWithTolerance,
   binarySearchLowerBound,
@@ -520,37 +520,15 @@ class MeasurementItem {
   }
 
   createPhaseMatchCalculator(sampleRate, freqStart, freqEnd, options = {}) {
-    const cfg = this.parentViewModel.autoEqConfig;
-    const individualMaxBoostDb = +(
-      options.individualMaxBoostDb ?? this.parentViewModel.individualMaxBoostValue()
-    );
-    const overallMaxBoostDb = +(
-      options.overallMaxBoostDb ?? this.parentViewModel.overallBoostValue()
-    );
-
-    return new AutoEQCalculator({
+    return createPhaseMatchCalculator({
       sampleRate,
-      numFilters: +cfg.numFilters(),
-      matchRangeStart: freqStart,
-      matchRangeEnd: freqEnd,
-      individualMaxBoostDb,
-      overallMaxBoostDb,
-      maxCutDb: +cfg.maxCutDb(),
-      flatnessTarget: +cfg.flatnessTarget(),
-      enableRefinement: cfg.enableRefinement(),
-      numOptimizationPasses: +cfg.numOptimizationPasses(),
-      gainSignLockThreshold: +cfg.gainSignLockThreshold(),
-      notchExclusionThreshold: +cfg.notchExclusionThreshold(),
-      minFilterGain: +cfg.minFilterGain(),
-      enableBeatRewOptimization: cfg.enableBeatRewOptimization(),
-      enableCandidatePlacement: cfg.enableCandidatePlacement(),
-      enableReduceRepair: cfg.enableReduceRepair(),
-      enableCriticalBandRefinement: cfg.enableCriticalBandRefinement(),
-      refinementIterations: +cfg.refinementIterations(),
-      varyQAbove200Hz: cfg.varyQAbove200Hz(),
-      allowNarrowFiltersBelow200Hz: cfg.allowNarrowFiltersBelow200Hz(),
-      allowBoosts: cfg.allowBoosts(),
-      onLog: () => {},
+      freqStart,
+      freqEnd,
+      autoEqConfig: this.parentViewModel.autoEqConfig,
+      individualMaxBoostDb:
+        options.individualMaxBoostDb ?? this.parentViewModel.individualMaxBoostValue(),
+      overallMaxBoostDb:
+        options.overallMaxBoostDb ?? this.parentViewModel.overallBoostValue(),
     });
   }
 

@@ -1,4 +1,5 @@
 import MultiSubOptimizer from '../multi-sub-optimizer.js';
+import { createPhaseMatchCalculator } from '../autoeq/phase-match-calculator.js';
 import {
   cleanFloat32Value,
   metersToSeconds,
@@ -48,6 +49,10 @@ function buildMeasurementApi({
   workingSettingsConfig = () => undefined,
   irWindowWidthsFor = () => undefined,
   speedOfSound = () => 343,
+  // RCH (phase-match) context for the operations path: accessor over the
+  // AutoEQ settings (the RCH panel values) and the default boosts.
+  autoEqConfig = () => null,
+  defaultBoosts = () => ({}),
 }) {
   if (!operations) {
     return {
@@ -104,10 +109,29 @@ function buildMeasurementApi({
     setcumulativeIRShiftSeconds: (m, value) =>
       operations.setcumulativeIRShiftSeconds(rew(), m, value),
     detectFallOff: (m, threshold) => operations.detectFallOff(rew(), m, { threshold }),
-    // 'rch' phase-match mode is not on the operations path (selectedEqualizationMode='rew').
-    runPhaseMatchFilter: () => {
-      throw new Error('rch phase-match is not wired on the operations path yet');
-    },
+    runPhaseMatchFilter: (m, start, end, options = {}) =>
+      operations.runPhaseMatchFilter(
+        rew(),
+        m,
+        {
+          session: sessionContext,
+          smoothingMethod: workingSettingsConfig()?.smoothingMethod,
+          createCalculator: (sampleRate, freqStart, freqEnd, calcOptions = {}) =>
+            createPhaseMatchCalculator({
+              sampleRate,
+              freqStart,
+              freqEnd,
+              autoEqConfig: autoEqConfig(),
+              individualMaxBoostDb:
+                calcOptions.individualMaxBoostDb ?? defaultBoosts()?.individual,
+              overallMaxBoostDb:
+                calcOptions.overallMaxBoostDb ?? defaultBoosts()?.overall,
+            }),
+        },
+        start,
+        end,
+        options,
+      ),
     checkFilterGain: m => operations.checkFilterGain(rew(), m),
     setFilters: (m, filters, overwrite) =>
       operations.setFilters(rew(), m, filters, {
@@ -151,6 +175,7 @@ function createSubOptimizationService({
   // behaviour is preserved (test surface).
   virtualSubwoofers = null,
   getOtherPositionMeasurements,
+  autoEqConfig = () => null,
   workingSettingsConfig,
   irWindowWidthsFor,
   speedOfSound,
@@ -163,6 +188,11 @@ function createSubOptimizationService({
     workingSettingsConfig,
     irWindowWidthsFor,
     speedOfSound,
+    autoEqConfig,
+    defaultBoosts: () => ({
+      individual: config.maxBoostIndividualValue,
+      overall: config.maxBoostOverallValue,
+    }),
   });
 
   async function applySubPolarity(subMeasurement, polarity) {
