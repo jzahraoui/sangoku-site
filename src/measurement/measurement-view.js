@@ -1,4 +1,6 @@
 import {
+  AVERAGE_SUFFIX,
+  RESULT_PREFIX,
   DEFAULT_LFE_PREDICTED,
   UNKNOWN_GROUP_NAME,
   channelDetailsFor,
@@ -22,8 +24,7 @@ import {
 // Mirror of BusinessTools.RESULT_PREFIX / AVERAGE_SUFFIX (kept here to avoid
 // importing the Knockout-coupled BusinessTools into a moteur module — same
 // mirroring precedent as DEFAULT_LFE_PREDICTED in measurement-info.js).
-const RESULT_PREFIX = 'final ';
-const AVERAGE_SUFFIX = 'avg';
+
 
 const titleOf = record =>
   typeof record?.title === 'function' ? record.title() : record?.title;

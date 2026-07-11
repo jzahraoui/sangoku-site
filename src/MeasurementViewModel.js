@@ -4,7 +4,6 @@ import PersistentStore from './PersistentStore.js';
 import BusinessTools from './BusinessTools.js';
 import translations from './translations.js';
 import AdyTools from './ady-tools.js';
-import MultiSubOptimizer from './multi-sub-optimizer.js';
 import AvrCaracteristics from './avr-caracteristics.js';
 import ko from 'knockout';
 import { saveAs } from 'file-saver';
@@ -1139,20 +1138,6 @@ class MeasurementViewModel {
       }
     };
 
-    // TODO implement interface action to copy parameters to all positions
-    this.copyParametersToAllPosition = async () => {
-      if (this.isProcessing()) return;
-      try {
-        await this.setProcessing(true);
-        lm.info('Copy started');
-        await this.copyMeasurementCommonAttributes();
-        this.handleSuccess('Copy succeful');
-      } catch (error) {
-        this.handleError(`Copy failed: ${error.message}`, error);
-      } finally {
-        await this.setProcessing(false);
-      }
-    };
 
     // Computed for filtered measurements
     this.subsMeasurements = ko.pureComputed(() =>
@@ -1692,9 +1677,6 @@ class MeasurementViewModel {
     return this.subOptimizationService.sendToREW(optimizedSubsSum, maximisedSumTitle);
   }
 
-  async copyMeasurementCommonAttributes() {
-    return this.filtersService.copyMeasurementCommonAttributes(this.uniqueMeasurements());
-  }
 
   updateTranslations(language) {
     this.translations(translations[language]);
@@ -1790,92 +1772,6 @@ class MeasurementViewModel {
     return this.rewSession.analyseApiResponse(commandResult);
   }
 
-  //TODO: remove old findAligment when sure new one works fine
-  async findAligmentNew(
-    channelA,
-    channelB,
-    frequency,
-    maxSearchRange = 2,
-    createSum = false,
-    sumTitle = null,
-    minSearchRange = -0.5,
-  ) {
-    if (createSum && !sumTitle) {
-      throw new Error('sumTitle is required when createSum is true');
-    }
-    if (!this.jsonAvrData()?.avr) {
-      throw new Error('Please load AVR data first');
-    }
-
-    try {
-      // Use a standard octave range (1 octave = factor of 2)
-      const octaveRange = 1; // Number of octaves to span in each direction
-      // one octave below frequency
-      const lowFrequency = Math.max(frequency / Math.pow(2, octaveRange), 20);
-
-      // one octave above frequency
-      const highFrequency = Math.min(frequency * Math.pow(2, octaveRange), 500);
-
-      const optimizerConfig = {
-        frequency: {
-          min: lowFrequency, // Hz
-          max: highFrequency, // Hz
-        },
-        gain: {
-          min: 0, // dB
-          max: 0, // dB
-          step: 0.1, // dB
-        },
-        delay: {
-          min: -maxSearchRange / 1000,
-          max: -minSearchRange / 1000,
-          step: this.jsonAvrData().avr.minDistAccuracy || 0.00001, // 0.01ms
-        },
-        allPass: {
-          enabled: false,
-          frequency: {
-            min: 10, // Hz
-            max: 500, // Hz
-            step: 10, // Hz
-          },
-          q: {
-            min: 0.1,
-            max: 0.5,
-            step: 0.1,
-          },
-        },
-      };
-
-      const channelAFrequencyResponse = await channelA.getFrequencyResponse();
-      channelAFrequencyResponse.measurement = channelA.uuid;
-      channelAFrequencyResponse.name = channelA.displayMeasurementTitle();
-      const channelBFrequencyResponse = await channelB.getFrequencyResponse();
-      channelBFrequencyResponse.measurement = channelB.uuid;
-      channelBFrequencyResponse.name = channelB.displayMeasurementTitle();
-
-      const frequencyResponses = [channelAFrequencyResponse, channelBFrequencyResponse];
-
-      const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, lm);
-      const optimizerResults = optimizer.optimizeSubwoofers();
-
-      const optimizedResults = optimizerResults.optimizedSubs[0].param;
-      if (!optimizedResults) {
-        throw new Error('No results found');
-      }
-
-      const isBInverted = optimizedResults.polarity === -1;
-      const shiftDelay = -optimizedResults.delay;
-
-      if (createSum) {
-        const bestSumFullRange = optimizer.getFinalSubSum();
-        await this.sendToREW(bestSumFullRange, sumTitle + 'N');
-      }
-
-      return { shiftDelay, isBInverted };
-    } catch (error) {
-      throw new Error(`Alignment tool failed: ${error.message}`, { cause: error });
-    }
-  }
 
   // Persistence — logic in services/persistence.js.
   restore() {

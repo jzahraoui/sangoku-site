@@ -19,6 +19,13 @@ import {
   validatePhaseMatchRange,
 } from './measurement/filter-slots.js';
 import {
+  MODEL_DISTANCE_CRITICAL_LIMIT,
+  MODEL_DISTANCE_LIMIT,
+} from './measurement/measurement-export.js';
+import {
+  AVR_MAX_GAIN,
+  DEFAULT_LFE_PREDICTED,
+  UNKNOWN_GROUP_NAME,
   channelDetailsFor,
   channelNameFromTitle,
   distanceInUnit,
@@ -42,12 +49,12 @@ import {
 const ops = createMeasurementOperations({ log: lm });
 
 class MeasurementItem {
-  static AVR_MAX_GAIN = 12;
-  static MODEL_DISTANCE_LIMIT = 6;
-  static MODEL_DISTANCE_CRITICAL_LIMIT = 7.35;
-  static DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
+  static AVR_MAX_GAIN = AVR_MAX_GAIN;
+  static MODEL_DISTANCE_LIMIT = MODEL_DISTANCE_LIMIT;
+  static MODEL_DISTANCE_CRITICAL_LIMIT = MODEL_DISTANCE_CRITICAL_LIMIT;
+  static DEFAULT_LFE_PREDICTED = DEFAULT_LFE_PREDICTED;
   static DEFAULT_CROSSOVER_VALUE = 80;
-  static UNKNOWN_GROUP_NAME = 'UNKNOWN';
+  static UNKNOWN_GROUP_NAME = UNKNOWN_GROUP_NAME;
   static DEFAULT_TARGET_LEVEL = 75;
 
   static measurementType = { SPEAKERS: 0, SUB: 1, FILTER: 2, AVERAGE: 3 };

@@ -17,6 +17,10 @@
  */
 
 import {
+  LPF_REVERTED_SUFFIX,
+  RESULT_PREFIX,
+} from '../measurement/measurement-info.js';
+import {
   splForAvrOf,
   splOffsetDeltadB,
 } from '../measurement/measurement-export.js';
@@ -27,8 +31,7 @@ import {
 
 const unwrap = value => (typeof value === 'function' ? value() : value);
 
-const LPF_REVERTED_SUFFIX = ' w/o LPF'; // mirror BusinessTools.LPF_REVERTED_SUFFIX
-const RESULT_PREFIX = 'final '; // mirror BusinessTools.RESULT_PREFIX
+
 
 function createBusinessTools({
   operations,

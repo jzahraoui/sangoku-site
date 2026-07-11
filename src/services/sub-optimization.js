@@ -355,7 +355,8 @@ function createSubOptimizationService({
       log.debug(`Syncing LFE ${labelOf(predictedLfe)} to selected LFE settings`);
     }
 
-    // TODO each related subwoofer measurement should follow the same settings as predicted LFE (applyTimeOffsetToSubs)
+    // Legacy-path limitation only: with the virtual-subwoofer bridge,
+    // produceAligned carries the alignment to the other positions' real subs.
   }
 
   // --- Sub equalization ----------------------------------------------------

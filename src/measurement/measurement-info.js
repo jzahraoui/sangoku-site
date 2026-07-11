@@ -11,6 +11,11 @@ import { CHANNEL_TYPES } from '../audyssey.js';
 const UNKNOWN_GROUP_NAME = 'UNKNOWN';
 const AVR_MAX_GAIN = 12;
 const DEFAULT_LFE_PREDICTED = 'LFE predicted_P';
+// Title affixes of the derived measurements (single source — the
+// BusinessTools / measurement-view copies re-export these).
+const RESULT_PREFIX = 'final ';
+const AVERAGE_SUFFIX = 'avg';
+const LPF_REVERTED_SUFFIX = ' w/o LPF';
 const SUB_GROUP_NAME = 'Subwoofer';
 const FEET_PER_METER = 3.28084;
 
@@ -84,6 +89,9 @@ function predictedLfeTitle(position) {
 }
 
 export {
+  AVERAGE_SUFFIX,
+  LPF_REVERTED_SUFFIX,
+  RESULT_PREFIX,
   AVR_MAX_GAIN,
   DEFAULT_LFE_PREDICTED,
   FEET_PER_METER,

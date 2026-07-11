@@ -1,4 +1,9 @@
 import lm from './logs.js';
+import {
+  AVERAGE_SUFFIX,
+  LPF_REVERTED_SUFFIX,
+  RESULT_PREFIX,
+} from './measurement/measurement-info.js';
 import { createMeasurementOperations } from './services/measurement-operations.js';
 import { createBusinessTools } from './services/business-tools.js';
 import { createAveragingProcessor } from './services/averaging.js';
@@ -14,9 +19,9 @@ import { createMsoImporter } from './services/mso-import.js';
  * the session/context providers from the viewmodel and delegates.
  */
 class BusinessTools {
-  static LPF_REVERTED_SUFFIX = ' w/o LPF';
-  static RESULT_PREFIX = 'final ';
-  static AVERAGE_SUFFIX = 'avg';
+  static LPF_REVERTED_SUFFIX = LPF_REVERTED_SUFFIX;
+  static RESULT_PREFIX = RESULT_PREFIX;
+  static AVERAGE_SUFFIX = AVERAGE_SUFFIX;
 
   constructor(parentViewModel) {
     if (!parentViewModel) {
