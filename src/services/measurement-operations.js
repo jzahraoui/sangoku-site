@@ -421,17 +421,6 @@ async function setAssociatedFilter(m, filter, session) {
   return true;
 }
 
-async function setAssociatedFilterUuid(m, filterUuid, session) {
-  if (!filterUuid) {
-    return true;
-  }
-  const item = session.findMeasurementByUuid(filterUuid);
-  if (!item) {
-    throw new Error(`filter do not exists: ${filterUuid}`);
-  }
-  await setAssociatedFilter(m, item, session);
-}
-
 async function producePredictedMeasurement(rew, m, session) {
   if (m.isFilter) {
     throw new Error(`action can not be done on a Filter: ${labelOf(m)}`);
@@ -849,49 +838,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     return filter;
   }
 
-  async function getAssociatedFilterItem(rew, m, session) {
-    const existingFilter = unwrap(m.associatedFilterItem);
-    if (existingFilter) {
-      const currentFingerprint = filtersFingerprint(await getFilters(rew, m));
-      if (m.associatedFilterFingerprint === currentFingerprint) {
-        return existingFilter;
-      }
-      log.info(
-        `${labelOf(m)}: filters changed in REW since the associated filter was generated — regenerating`,
-      );
-      return createUserFilter(rew, m, session);
-    }
-
-    log.warn(`Associated filter not found: ${labelOf(m)}, creating a new one`);
-    return createUserFilter(rew, m, session);
-  }
-
-  async function createUserFilter(rew, m, session) {
-    if (m.isFilter) {
-      throw new Error(`Already a Filter: ${labelOf(m)}`);
-    }
-    await deleteAssociatedFilter(m, session);
-
-    const filterResponse = await generateFilterMeasurement(rew, m, session);
-
-    await setAssociatedFilter(m, filterResponse, session);
-    return filterResponse;
-  }
-
-  async function producePredictedMeasurementWithAssociatedFilter(rew, m, session) {
-    if (m.isFilter) {
-      throw new Error(`action can not be done on a Filter: ${labelOf(m)}`);
-    }
-
-    const filter = await getAssociatedFilterItem(rew, m, session);
-
-    const predictedResult = await arithmeticConvolution(rew, m, filter, session);
-
-    setTitle(rew, predictedResult, `predicted ${unwrap(m.title)}`);
-
-    return predictedResult;
-  }
-
   // --- Reset / filter-creation sequences ----------------------------------------
 
   async function resetAll(
@@ -1238,12 +1184,10 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     createExcessPhaseCopy,
     createFilter,
     createMinimumPhaseCopy,
-    createUserFilter,
     defaultSmoothing,
     deleteAssociatedFilter,
     detectFallOff,
     generateFilterMeasurement,
-    getAssociatedFilterItem,
     getBandwidth,
     getEqualiser,
     getFilterImpulseResponse,
@@ -1256,7 +1200,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     getTargetResponse,
     isDefaultEqualiser,
     producePredictedMeasurement,
-    producePredictedMeasurementWithAssociatedFilter,
     removeWorkingSettings,
     resetAll,
     resetcumulativeIRShiftSeconds,
@@ -1273,7 +1216,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     runPhaseMatchFilter,
     setAllFiltersAuto,
     setAssociatedFilter,
-    setAssociatedFilterUuid,
     setcumulativeIRShiftSeconds,
     setFilters,
     setInverted,

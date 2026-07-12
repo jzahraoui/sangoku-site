@@ -701,28 +701,12 @@ class MeasurementItem {
     });
   }
 
-  async getAssociatedFilterItem() {
-    return ops.getAssociatedFilterItem(this.rewMeasurements, this, this.sessionContext());
-  }
-
   async setAssociatedFilter(filter) {
     return ops.setAssociatedFilter(this, filter, this.sessionContext());
   }
 
-  async setAssociatedFilterUuid(filterUuid) {
-    return ops.setAssociatedFilterUuid(this, filterUuid, this.sessionContext());
-  }
-
   async deleteAssociatedFilter() {
     return ops.deleteAssociatedFilter(this, this.sessionContext());
-  }
-
-  async producePredictedMeasurementWithAssociatedFilter() {
-    return ops.producePredictedMeasurementWithAssociatedFilter(
-      this.rewMeasurements,
-      this,
-      this.sessionContext(),
-    );
   }
 
   async producePredictedMeasurement() {
@@ -731,10 +715,6 @@ class MeasurementItem {
       this,
       this.sessionContext(),
     );
-  }
-
-  async createUserFilter() {
-    return ops.createUserFilter(this.rewMeasurements, this, this.sessionContext());
   }
 
   // Snapshot of the viewmodel settings consumed by working-settings operations.

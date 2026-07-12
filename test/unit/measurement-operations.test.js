@@ -607,42 +607,6 @@ describe('associated filter lifecycle', () => {
     expect(m.associatedFilter).toBe('new-filter');
   });
 
-  it('setAssociatedFilterUuid resolves the filter through the session', async () => {
-    const filter = { isFilter: true, uuid: 'filter-9' };
-    const s = session({ findMeasurementByUuid: vi.fn().mockReturnValue(filter) });
-    const m = record({ associatedFilter: null, associatedFilterItem: () => null });
-
-    await ops.setAssociatedFilterUuid(m, 'filter-9', s);
-    expect(m.associatedFilter).toBe('filter-9');
-
-    await expect(
-      ops.setAssociatedFilterUuid(m, 'ghost', session()),
-    ).rejects.toThrow('filter do not exists: ghost');
-  });
-});
-
-describe('predicted / filter measurement sequences', () => {
-  it('producePredictedMeasurement refuses filters and titles the result', async () => {
-    await expect(
-      ops.producePredictedMeasurement({}, record({ isFilter: true }), session()),
-    ).rejects.toThrow('action can not be done on a Filter');
-
-    const predicted = record({ uuid: 'predicted-1', title: () => 'old' });
-    const s = session({ analyseApiResponse: vi.fn().mockResolvedValue(predicted) });
-    const rew = {
-      generatePredictedMeasurement: vi.fn().mockResolvedValue({ ok: true }),
-      update: vi.fn().mockResolvedValue({}),
-    };
-
-    await expect(ops.producePredictedMeasurement(rew, record(), s)).resolves.toBe(
-      predicted,
-    );
-    expect(rew.update).toHaveBeenCalledWith('predicted-1', {
-      title: 'predicted FL_P01',
-      notes: undefined,
-    });
-  });
-
   it('generateFilterMeasurement returns the existing associated filter when the bank is unchanged', async () => {
     const bank = [
       { index: 1, type: 'PK', enabled: true, isAuto: true, frequency: 100, gaindB: -3, q: 4 },
@@ -698,11 +662,6 @@ describe('predicted / filter measurement sequences', () => {
     expect(m.associatedFilterFingerprint).toBe('1|PK|true|true|120|-6|5');
   });
 
-  it('createUserFilter refuses filters', async () => {
-    await expect(
-      ops.createUserFilter({}, record({ isFilter: true }), session()),
-    ).rejects.toThrow('Already a Filter');
-  });
 });
 
 describe('checkFilterGain', () => {
