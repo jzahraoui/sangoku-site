@@ -268,11 +268,36 @@ describe('adjustSubwooferSPLLevels', () => {
   });
 });
 
-describe('alignPeaks', () => {
-  it('zeroes speaker peaks then gives all subs the first sub delay', async () => {
+/** IR synthétique : burst large bande démarrant à startSample (48 kHz). */
+function alignmentBurst(startSample) {
+  const out = new Float64Array(2048);
+  for (let i = startSample; i < out.length; i++) {
+    const t = (i - startSample) / 48000;
+    out[i] = Math.sin(2 * Math.PI * 3000 * t) * Math.exp(-t * 3000);
+  }
+  return out;
+}
+
+describe('alignArrivals', () => {
+  it('zeroes speaker arrivals (excess phase) then gives all subs the first sub delay', async () => {
     const { service } = createHarness();
-    const speaker = { setZeroAtIrPeak: vi.fn().mockResolvedValue(true) };
+    // burst à l'échantillon 480 + startTime 2 ms → arrivée absolue ≈ 12 ms
+    const speaker = {
+      getImpulseResponseInfo: vi.fn().mockResolvedValue({
+        data: alignmentBurst(480),
+        sampleRate: 48000,
+        startTime: 0.002,
+      }),
+      addIROffsetSeconds: vi.fn().mockResolvedValue(true),
+      setZeroAtIrPeak: vi.fn().mockResolvedValue(true),
+    };
     const subA = {
+      getImpulseResponseInfo: vi.fn().mockResolvedValue({
+        data: alignmentBurst(96),
+        sampleRate: 48000,
+        startTime: 0,
+      }),
+      addIROffsetSeconds: vi.fn().mockResolvedValue(true),
       setZeroAtIrPeak: vi.fn().mockResolvedValue(true),
       cumulativeIRShiftSeconds: () => 0.001,
       setcumulativeIRShiftSeconds: vi.fn(),
@@ -282,17 +307,43 @@ describe('alignPeaks', () => {
       setcumulativeIRShiftSeconds: vi.fn(),
     };
 
-    await service.alignPeaks([speaker], [subA, subB]);
+    await service.alignArrivals([speaker], [subA, subB]);
+
+    expect(speaker.addIROffsetSeconds).toHaveBeenCalledOnce();
+    expect(speaker.addIROffsetSeconds.mock.calls[0][0]).toBeCloseTo(
+      0.002 + 480 / 48000,
+      4,
+    );
+    expect(speaker.setZeroAtIrPeak).not.toHaveBeenCalled();
+    expect(subA.addIROffsetSeconds).toHaveBeenCalledOnce();
+    expect(subB.setcumulativeIRShiftSeconds).toHaveBeenCalledWith(0.001);
+  });
+
+  it('falls back to the IR peak when the impulse response is unavailable', async () => {
+    const { service } = createHarness();
+    const speaker = {
+      displayMeasurementTitle: () => '1: FL',
+      getImpulseResponseInfo: vi.fn().mockRejectedValue(new Error('404')),
+      addIROffsetSeconds: vi.fn(),
+      setZeroAtIrPeak: vi.fn().mockResolvedValue(true),
+    };
+
+    await service.alignArrivals([speaker], []);
 
     expect(speaker.setZeroAtIrPeak).toHaveBeenCalledOnce();
-    expect(subA.setZeroAtIrPeak).toHaveBeenCalledOnce();
-    expect(subB.setcumulativeIRShiftSeconds).toHaveBeenCalledWith(0.001);
+    expect(speaker.addIROffsetSeconds).not.toHaveBeenCalled();
   });
 });
 
 describe('operations bridge (flat records, no methods)', () => {
-  it('routes alignPeaks writes to the operations functions', async () => {
+  it('routes alignArrivals writes to the operations functions', async () => {
     const operations = {
+      getImpulseResponseInfo: vi.fn().mockResolvedValue({
+        data: alignmentBurst(480),
+        sampleRate: 48000,
+        startTime: 0,
+      }),
+      addIROffsetSeconds: vi.fn().mockResolvedValue(true),
       setZeroAtIrPeak: vi.fn().mockResolvedValue(true),
       setcumulativeIRShiftSeconds: vi.fn().mockResolvedValue(true),
     };
@@ -310,10 +361,23 @@ describe('operations bridge (flat records, no methods)', () => {
     const subA = { uuid: 'SW1', cumulativeIRShiftSeconds: 0.001 };
     const subB = { uuid: 'SW2', cumulativeIRShiftSeconds: 0 };
 
-    await service.alignPeaks([speaker], [subA, subB]);
+    await service.alignArrivals([speaker], [subA, subB]);
 
-    expect(operations.setZeroAtIrPeak).toHaveBeenCalledWith(session.rewMeasurements, speaker);
-    expect(operations.setZeroAtIrPeak).toHaveBeenCalledWith(session.rewMeasurements, subA);
+    expect(operations.getImpulseResponseInfo).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      speaker,
+    );
+    expect(operations.addIROffsetSeconds).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      speaker,
+      expect.closeTo(480 / 48000, 4),
+    );
+    expect(operations.addIROffsetSeconds).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      subA,
+      expect.closeTo(480 / 48000, 4),
+    );
+    expect(operations.setZeroAtIrPeak).not.toHaveBeenCalled();
     expect(operations.setcumulativeIRShiftSeconds).toHaveBeenCalledWith(
       session.rewMeasurements,
       subB,

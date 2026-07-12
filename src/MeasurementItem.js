@@ -582,6 +582,10 @@ class MeasurementItem {
     return ops.addIROffsetSeconds(this.rewMeasurements, this, amountToAdd);
   }
 
+  async getImpulseResponseInfo() {
+    return ops.getImpulseResponseInfo(this.rewMeasurements, this);
+  }
+
   async setZeroAtIrPeak() {
     return ops.setZeroAtIrPeak(this.rewMeasurements, this);
   }

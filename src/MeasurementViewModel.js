@@ -716,9 +716,9 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
-        lm.info('Align peaks...');
+        lm.info('Time align (excess-phase arrivals)...');
 
-        await this.alignmentService.alignPeaks(
+        await this.alignmentService.alignArrivals(
           this.uniqueSpeakersMeasurements(),
           this.uniqueSubsMeasurements(),
         );
@@ -726,7 +726,7 @@ class MeasurementViewModel {
         // The sub delays changed: recompute the owned projections (ADR 003).
         await this.virtualSubwooferService.refreshProjected({ force: true });
 
-        this.handleSuccess('Align peaks successful');
+        this.handleSuccess('Time align successful');
       } catch (error) {
         this.handleError(`Time align failed: ${error.message}`, error);
       } finally {

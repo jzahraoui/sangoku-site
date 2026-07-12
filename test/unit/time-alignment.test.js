@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeHybridAlignmentOffsets,
   crossCorrelationLag,
+  excessPhaseArrivalSeconds,
   hilbertEnvelope,
   spectralCentroid,
 } from '../../src/dsp/time-alignment.js';
@@ -94,6 +95,40 @@ describe('crossCorrelationLag', () => {
     });
     expect(lag).toBeGreaterThanOrEqual(85);
     expect(lag).toBeLessThanOrEqual(105);
+  });
+});
+
+describe('excessPhaseArrivalSeconds', () => {
+  it('recovers the arrival of a clean burst', () => {
+    const arrival = excessPhaseArrivalSeconds(burst(8192, 800), {
+      sampleRate: SAMPLE_RATE,
+    });
+    expect(arrival * SAMPLE_RATE).toBeCloseTo(800, -1);
+  });
+
+  it('tracks a known shift of the same impulse response', () => {
+    const a = excessPhaseArrivalSeconds(burst(8192, 700), { sampleRate: SAMPLE_RATE });
+    const b = excessPhaseArrivalSeconds(burst(8192, 1050), { sampleRate: SAMPLE_RATE });
+    expect((b - a) * SAMPLE_RATE).toBeCloseTo(350, 0);
+  });
+
+  it('caps the analysed length without changing the result', () => {
+    const ir = burst(16384, 800);
+    const full = excessPhaseArrivalSeconds(ir, { sampleRate: SAMPLE_RATE });
+    const capped = excessPhaseArrivalSeconds(ir, {
+      sampleRate: SAMPLE_RATE,
+      maxSamples: 4096,
+    });
+    expect(Math.abs(full - capped) * SAMPLE_RATE).toBeLessThan(1);
+  });
+
+  it('validates its inputs', () => {
+    expect(() => excessPhaseArrivalSeconds([], { sampleRate: SAMPLE_RATE })).toThrow(
+      TypeError,
+    );
+    expect(() => excessPhaseArrivalSeconds(burst(64, 10), { sampleRate: -1 })).toThrow(
+      RangeError,
+    );
   });
 });
 

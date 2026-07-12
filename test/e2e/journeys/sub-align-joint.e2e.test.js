@@ -26,7 +26,7 @@ test('align sub joint : filtres PK par sub + projection, cible target-match', as
     await page.getByTestId('create-averages').click();
     await waitForStatus(page, 'Average calculations completed successfully', 180000);
     await page.getByTestId('time-align').click();
-    await waitForStatus(page, 'Align peaks successful', 180000);
+    await waitForStatus(page, 'Time align successful', 180000);
     await page.getByTestId('align-spl').click();
     await waitForStatus(page, 'SPL alignment successful', 240000);
 

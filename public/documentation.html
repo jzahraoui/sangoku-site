@@ -330,6 +330,14 @@
       temporelle. Cette etape doit etre faite avant les reglages fins de niveau et avant
       le travail sur les raccords enceintes-caisson.
     </p>
+    <p>
+      Le point de reference n'est plus le pic de l'impulsion mais le temps d'arrivee de
+      l'onde, estime par la phase en exces (la methode « Estimate IR delay » de REW) :
+      le pic peut tomber sur une reflexion plus forte que le son direct et fausser la
+      distance de plusieurs metres, la ou l'arrivee reste stable. Les distances
+      obtenues sont donc plus proches des distances physiques ; en cas d'impulsion
+      indisponible, RCH revient a l'ancien alignement sur le pic (signale dans les logs).
+    </p>
 
     <img src="img/doc/rch-time-align-button.png" alt="Bouton Time Align" />
 

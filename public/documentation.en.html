@@ -319,6 +319,14 @@
       alignment. This should be done before fine level adjustments and before working on
       speaker-to-subwoofer integration.
     </p>
+    <p>
+      The time reference is no longer the impulse peak but the arrival time of the
+      wavefront, estimated through the excess phase (REW's "Estimate IR delay" method):
+      the peak can land on a reflection stronger than the direct sound and skew the
+      distance by several meters, whereas the arrival stays stable. The resulting
+      distances are therefore closer to the physical ones; when no impulse response is
+      available, RCH falls back to the previous peak alignment (reported in the logs).
+    </p>
     <img src="img/doc/rch-time-align-button.png" alt="Time Align button" />
 
     <h3>Step 6. Load the target curve, then run Align SPL</h3>

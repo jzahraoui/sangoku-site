@@ -81,14 +81,17 @@ test('basic workflow: connect, import .ady, average, align, export OCA', async t
 
     await t.test('time align', async () => {
       await page.getByTestId('time-align').click();
-      await waitForStatus(page, 'Align peaks successful', 180000);
+      await waitForStatus(page, 'Time align successful', 180000);
 
-      // Semantic outcome: every speaker IR peak sits at t=0 in the mock store.
+      // Semantic outcome: t=0 sits on the excess-phase arrival, so each
+      // speaker IR peak lands within a couple of ms of zero (the residual is
+      // the peak-vs-wavefront gap, µs-range on clean IRs) where the raw
+      // imports started tens of ms away.
       for (const record of rew.store.measurements.values()) {
         assert.ok(
-          Math.abs(record.timeOfIRPeakSeconds) < 1e-6 ||
+          Math.abs(record.timeOfIRPeakSeconds) < 2e-3 ||
             record.title.startsWith('SW'),
-          `IR peak of ${record.title} not at zero: ${record.timeOfIRPeakSeconds}`,
+          `IR peak of ${record.title} far from zero: ${record.timeOfIRPeakSeconds}`,
         );
       }
     });

@@ -119,6 +119,78 @@ export function crossCorrelationLag(spectrumA, spectrumB, options = {}) {
 }
 
 /**
+ * Temps d'arrivée d'une IR par la phase en excès (méthode « Estimate IR
+ * delay » de REW) : lag de corrélation entre l'IR et sa contrepartie à phase
+ * minimale (cepstre du log-module, quefrences positives doublées). Insensible
+ * aux pics accrochés sur une réflexion dominante — mesuré sur le corpus ADY
+ * (barmatic/TML P3 : pic à 27.2 ms sur une réflexion, arrivée réelle 9.2 ms
+ * retrouvée) — et identique au pic sur les canaux sains.
+ *
+ * Le temps renvoyé est relatif au premier échantillon de l'IR fournie
+ * (ajouter le startTime de la mesure pour un temps absolu).
+ *
+ * @param {ArrayLike<number>} impulseResponse
+ * @param {Object} params
+ * @param {number} params.sampleRate - Taux d'échantillonnage (Hz)
+ * @param {number} [params.maxSamples=65536] - Longueur d'analyse maximale :
+ *   l'arrivée est dans le premier front d'énergie, inutile (et coûteux l'IR
+ *   étant longue) d'analyser toute la queue
+ * @returns {number} Temps d'arrivée en secondes (fractionnaire)
+ * @throws {TypeError|RangeError} Entrées invalides.
+ */
+export function excessPhaseArrivalSeconds(impulseResponse, { sampleRate, maxSamples = 65536 } = {}) {
+  if (!impulseResponse?.length) {
+    throw new TypeError('excessPhaseArrivalSeconds needs a non-empty impulse response');
+  }
+  if (!Number.isFinite(sampleRate) || sampleRate <= 0) {
+    throw new RangeError(`Invalid sampleRate: ${sampleRate}`);
+  }
+  const length = Math.min(impulseResponse.length, maxSamples);
+  const size = nextPowerOfTwo(length * 2);
+
+  const { re, im } = forwardRealFft(
+    length === impulseResponse.length
+      ? impulseResponse
+      : Array.prototype.slice.call(impulseResponse, 0, length),
+    size,
+  );
+
+  // log|H| avec plancher à −200 dB du max (bins quasi nuls du zéro-padding)
+  const magnitude = new Float64Array(size);
+  let maxMagnitude = Number.MIN_VALUE;
+  for (let i = 0; i < size; i++) {
+    magnitude[i] = Math.hypot(re[i], im[i]);
+    if (magnitude[i] > maxMagnitude) maxMagnitude = magnitude[i];
+  }
+  const floor = maxMagnitude * 1e-10;
+  const logRe = new Float64Array(size);
+  const logIm = new Float64Array(size);
+  for (let i = 0; i < size; i++) logRe[i] = Math.log(Math.max(magnitude[i], floor));
+
+  // Cepstre réel → fenêtre de phase minimale → spectre à phase minimale
+  fftInPlace(logRe, logIm, true);
+  for (let i = 1; i < size / 2; i++) {
+    logRe[i] *= 2;
+    logIm[i] *= 2;
+  }
+  for (let i = size / 2 + 1; i < size; i++) {
+    logRe[i] = 0;
+    logIm[i] = 0;
+  }
+  fftInPlace(logRe, logIm);
+  const minPhase = { re: new Float64Array(size), im: new Float64Array(size) };
+  for (let i = 0; i < size; i++) {
+    const gain = Math.exp(logRe[i]);
+    minPhase.re[i] = gain * Math.cos(logIm[i]);
+    minPhase.im[i] = gain * Math.sin(logIm[i]);
+  }
+
+  // Le lag IR ↔ phase minimale est le retard en excès = temps d'arrivée
+  const lagSamples = crossCorrelationLag({ re, im }, minPhase);
+  return lagSamples / sampleRate;
+}
+
+/**
  * Décalages d'alignement hybride d'un groupe d'IR, relatifs à la première
  * (référence, décalage 0) — même convention que « Cross corr align » de REW.
  *

@@ -1,4 +1,5 @@
 import { FrequencyResponseAnalyzer } from '../analysis/index.js';
+import { excessPhaseArrivalSeconds } from '../dsp/time-alignment.js';
 import { cleanFloat32Value } from '../measurement/measurement-calculations.js';
 import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
 
@@ -99,6 +100,8 @@ function buildMeasurementApi({
   if (!operations) {
     return {
       setZeroAtIrPeak: m => m.setZeroAtIrPeak(),
+      getImpulseResponseInfo: m => m.getImpulseResponseInfo(),
+      addIROffsetSeconds: (m, value) => m.addIROffsetSeconds(value),
       setcumulativeIRShiftSeconds: (m, value) => m.setcumulativeIRShiftSeconds(value),
       removeWorkingSettings: m => m.removeWorkingSettings(),
       applyWorkingSettings: m => m.applyWorkingSettings(),
@@ -121,6 +124,8 @@ function buildMeasurementApi({
   };
   return {
     setZeroAtIrPeak: m => operations.setZeroAtIrPeak(rew(), m),
+    getImpulseResponseInfo: m => operations.getImpulseResponseInfo(rew(), m),
+    addIROffsetSeconds: (m, value) => operations.addIROffsetSeconds(rew(), m, value),
     setcumulativeIRShiftSeconds: (m, value) =>
       operations.setcumulativeIRShiftSeconds(rew(), m, value),
     removeWorkingSettings: m =>
@@ -310,15 +315,49 @@ function createAlignmentService({
     }
   }
 
-  /** Align every speaker on its IR peak, then give all subs the same delay. */
-  async function alignPeaks(speakerMeasurements, subMeasurements) {
-    for (const measurement of speakerMeasurements) {
+  /**
+   * Place t=0 sur le temps d'arrivée estimé par la phase en excès
+   * (dsp/time-alignment.js) plutôt que sur le pic de l'IR : le pic peut
+   * s'accrocher sur une réflexion plus forte que le son direct (mesuré sur le
+   * corpus ADY : +19 ms → +6.5 m de distance AVR sur un canal). Repli sur le
+   * pic si l'IR est indisponible.
+   */
+  async function setZeroAtArrival(measurement) {
+    try {
+      const { data, sampleRate, startTime } = await mops.getImpulseResponseInfo(measurement);
+      const arrivalSeconds =
+        startTime + excessPhaseArrivalSeconds(data, { sampleRate });
+      // Trace les arrivées nettement avant le pic : son direct devançant une
+      // réflexion dominante (choix voulu), ou fuite directe d'une enceinte
+      // Atmos à réflexion plafond (à vérifier par l'utilisateur — pour ces
+      // enceintes la distance doit suivre le rebond, qui domine normalement).
+      const peakSeconds = unwrap(measurement.timeOfIRPeakSeconds);
+      if (Number.isFinite(peakSeconds) && peakSeconds - arrivalSeconds > 0.002) {
+        log.info(
+          `${labelOf(measurement)}: arrival ${(arrivalSeconds * 1000).toFixed(2)}ms ` +
+            `kept, IR peak ${(peakSeconds * 1000).toFixed(2)}ms ` +
+            `(+${((peakSeconds - arrivalSeconds) * 1000).toFixed(1)}ms later)`,
+        );
+      }
+      await mops.addIROffsetSeconds(measurement, arrivalSeconds);
+    } catch (error) {
+      log.warn(
+        `${labelOf(measurement)}: excess-phase arrival unavailable ` +
+          `(${error.message}), falling back to the IR peak`,
+      );
       await mops.setZeroAtIrPeak(measurement);
+    }
+  }
+
+  /** Align every speaker on its estimated arrival, then give all subs the same delay. */
+  async function alignArrivals(speakerMeasurements, subMeasurements) {
+    for (const measurement of speakerMeasurements) {
+      await setZeroAtArrival(measurement);
     }
 
     if (subMeasurements.length > 0) {
       const sub = subMeasurements[0];
-      await mops.setZeroAtIrPeak(sub);
+      await setZeroAtArrival(sub);
       await setSameDelayToAllVia(subMeasurements);
     }
   }
@@ -507,7 +546,7 @@ function createAlignmentService({
 
   return {
     adjustSubwooferSPLLevels,
-    alignPeaks,
+    alignArrivals,
     alignSPL,
     analyzeSubwooferSPLAlignment,
     autoAdjustInversion,
