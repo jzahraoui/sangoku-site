@@ -743,40 +743,6 @@ textarea {
   align-items: center;
 }
 
-.equalization-mode-selector {
-  display: grid;
-  gap: var(--spacing-sm);
-  margin: var(--spacing-md) 0;
-  padding: var(--spacing-md);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--border-radius);
-  background-color: var(--surface-bg-elevated);
-}
-
-.equalization-mode-selector legend {
-  padding: 0 var(--spacing-xs);
-  font-weight: 600;
-  font-size: var(--font-size-sm);
-}
-
-.equalization-mode-options {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-md);
-  align-items: center;
-}
-
-.equalization-mode-options label {
-  display: inline-flex;
-  gap: var(--spacing-xs);
-  align-items: center;
-  cursor: pointer;
-}
-
-.equalization-mode-options input {
-  margin: 0;
-}
-
 /* AutoEQ settings section inside the RCH settings dialog */
 .autoeq-settings {
   margin-top: var(--spacing-md);

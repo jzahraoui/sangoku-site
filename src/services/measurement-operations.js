@@ -6,7 +6,6 @@ import {
 } from '../measurement/measurement-calculations.js';
 import {
   buildPhaseMatchFilters,
-  countFiltersSlotsAvailable,
   createEmptyFilters,
   validatePhaseMatchRange,
 } from '../measurement/filter-slots.js';
@@ -384,7 +383,20 @@ async function arithmeticInvertAPhase(
 
 // --- Associated-filter lifecycle (session owns the measurement list) -----------
 
+/**
+ * Empreinte stable du bank de filtres (index/type/état/paramètres). Sert à
+ * détecter que les filtres ont changé hors de l'application — par exemple
+ * régénérés dans l'interface de REW — pour invalider le filtre associé mis en
+ * cache et le régénérer sur le bank courant.
+ */
+function filtersFingerprint(filters) {
+  return filters
+    .map(f => `${f.index}|${f.type}|${f.enabled}|${f.isAuto}|${f.frequency}|${f.gaindB}|${f.q}`)
+    .join(';');
+}
+
 async function deleteAssociatedFilter(m, session) {
+  m.associatedFilterFingerprint = null;
   if (m.associatedFilter === null) {
     return true;
   }
@@ -803,9 +815,20 @@ function createMeasurementOperations({ log = noopLog } = {}) {
   // --- Filter measurement / predicted measurement sequences --------------------
 
   async function generateFilterMeasurement(rew, m, session) {
+    // Fraîcheur : les filtres font foi tels qu'ils sont DANS REW, quelle que
+    // soit leur origine (calcul RCH ou génération directe dans l'interface
+    // REW). Si le bank a changé depuis la création du filtre associé, le
+    // cache est invalidé et le filtre régénéré sur le bank courant.
+    const currentFingerprint = filtersFingerprint(await getFilters(rew, m));
     const existingFilter = unwrap(m.associatedFilterItem);
-    if (existingFilter) {
+    if (existingFilter && m.associatedFilterFingerprint === currentFingerprint) {
       return existingFilter;
+    }
+    if (existingFilter) {
+      log.info(
+        `${labelOf(m)}: filters changed in REW since the associated filter was generated — regenerating`,
+      );
+      await deleteAssociatedFilter(m, session);
     }
 
     const response = await rew.generateFiltersMeasurement(m.uuid);
@@ -822,13 +845,21 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     const cxText = crossover ? `X@${crossover}Hz` : 'FB';
     await setTitle(rew, filter, `Filter ${unwrap(m.title)} ${cxText}`);
     await setAssociatedFilter(m, filter, session);
+    m.associatedFilterFingerprint = currentFingerprint;
     return filter;
   }
 
   async function getAssociatedFilterItem(rew, m, session) {
     const existingFilter = unwrap(m.associatedFilterItem);
     if (existingFilter) {
-      return existingFilter;
+      const currentFingerprint = filtersFingerprint(await getFilters(rew, m));
+      if (m.associatedFilterFingerprint === currentFingerprint) {
+        return existingFilter;
+      }
+      log.info(
+        `${labelOf(m)}: filters changed in REW since the associated filter was generated — regenerating`,
+      );
+      return createUserFilter(rew, m, session);
     }
 
     log.warn(`Associated filter not found: ${labelOf(m)}, creating a new one`);
@@ -1124,60 +1155,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     });
   }
 
-  async function runStandardFilter(rew, m, ctx, customStartFrequency, customEndFrequency) {
-    const customInterPassFrequency = 120;
-    const interPassEndFrequency = customInterPassFrequency * 2;
-    const interPassStartFrequency = customInterPassFrequency / 2;
-
-    const invalidation = {
-      invalidateAssociatedFilter: () => deleteAssociatedFilter(m, ctx.session),
-    };
-
-    // if range is too narrow, the optimization can fail
-    const firstPassRange = interPassEndFrequency - customStartFrequency;
-
-    if (firstPassRange > 40) {
-      // must be set seaparatly to be taken into account
-      await ctx.rewEq.setMatchTargetSettings({
-        endFrequency: interPassEndFrequency,
-      });
-      await ctx.rewEq.setMatchTargetSettings({
-        startFrequency: customStartFrequency,
-        individualMaxBoostdB: 0,
-        overallMaxBoostdB: 0,
-        flatnessTargetdB: 1,
-        allowNarrowFiltersBelow200Hz: false,
-        varyQAbove200Hz: false,
-        allowLowShelf: false,
-        allowHighShelf: false,
-      });
-
-      await rew.matchTarget(m.uuid);
-
-      // set filters auto to off to prevent overwriting by the second pass
-      await setAllFiltersAuto(rew, m, false, invalidation);
-    }
-    const filters = await getFilters(rew, m);
-    const availableSlots = countFiltersSlotsAvailable(filters);
-    if (availableSlots < 2) {
-      throw new Error(
-        `Not enough filter slots available for ${labelOf(m)}. Please remove some filters.`,
-      );
-    }
-
-    await ctx.rewEq.setMatchTargetSettings({
-      startFrequency: interPassStartFrequency,
-      endFrequency: customEndFrequency,
-      individualMaxBoostdB: ctx.boosts.individual,
-      overallMaxBoostdB: ctx.boosts.overall,
-    });
-
-    await rew.matchTarget(m.uuid);
-
-    // retore filters auto to on for next iteration
-    await setAllFiltersAuto(rew, m, true, invalidation);
-  }
-
   async function createFilter(rew, m, ctx, type, useWorkingSettings, copyToOther) {
     if (m.isFilter) {
       throw new Error(`Operation not permitted on a filter ${labelOf(m)}`);
@@ -1213,9 +1190,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
         await removeWorkingSettings(rew, m, ctx.irWindowWidths);
       }
 
-      if (type === 'standard') {
-        await runStandardFilter(rew, m, ctx, customStartFrequency, customEndFrequency);
-      } else if (type === 'phase') {
+      if (type === 'phase') {
         await runPhaseMatchFilter(rew, m, ctx, customStartFrequency, customEndFrequency);
       } else if (type === 'fir') {
         await runFirFilter(rew, m, ctx, customStartFrequency, customEndFrequency);
@@ -1296,7 +1271,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     restoreWorkingSettings,
     runFirFilter,
     runPhaseMatchFilter,
-    runStandardFilter,
     setAllFiltersAuto,
     setAssociatedFilter,
     setAssociatedFilterUuid,

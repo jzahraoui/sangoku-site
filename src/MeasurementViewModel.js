@@ -223,14 +223,9 @@ class MeasurementViewModel {
 
     // Filter observables
     this.selectedMeasurementsFilter = ko.observable(true);
-    this.selectedEqualizationMode = ko.observable('rew');
-
-    this.selectedEqualizationTooltip = ko.pureComputed(() => {
-      if (this.selectedEqualizationMode() === 'rch') {
-        return this.translations().create_rch_speaker_filter_tooltip;
-      }
-      return this.translations().create_speaker_filter_tooltip;
-    });
+    this.createSpeakerFilterTooltip = ko.pureComputed(
+      () => this.translations().create_rch_speaker_filter_tooltip,
+    );
 
     // Available filter options
     this.selectedMeasurements = [
@@ -891,16 +886,6 @@ class MeasurementViewModel {
       }
     };
 
-    this.buttongeneratesFilters = async () => {
-      this.selectedEqualizationMode('rew');
-      await this.buttongeneratesSelectedFilters();
-    };
-
-    this.buttongeneratesRchFilters = async () => {
-      this.selectedEqualizationMode('rch');
-      await this.buttongeneratesSelectedFilters();
-    };
-
     this.buttonInvertAll = async () => {
       if (this.isProcessing()) return;
       try {
@@ -1013,7 +998,6 @@ class MeasurementViewModel {
             selectedRoomCurve: this.selectedRoomCurve(),
             individualMaxBoostValue: this.individualMaxBoostValue(),
             overallBoostValue: this.overallBoostValue(),
-            selectedEqualizationMode: this.selectedEqualizationMode(),
             numberOfSubwoofers: this.uniqueSubsMeasurements().length,
             revertLfeFrequency: subWithFreq?.revertLfeFrequency,
             maxBoostIndividualValue: this.maxBoostIndividualValue(),
@@ -1386,7 +1370,6 @@ class MeasurementViewModel {
       },
       config: observableProxy(this, [
         'mainTargetLevel',
-        'selectedEqualizationMode',
         'lowerFrequencyBoundSub',
         'upperFrequencyBoundSub',
         'maxBoostIndividualValue',
@@ -1415,7 +1398,6 @@ class MeasurementViewModel {
     });
 
     this.filtersService = createFiltersService({
-      config: observableProxy(this, ['selectedEqualizationMode']),
       log: lm,
     });
 

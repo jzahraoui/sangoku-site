@@ -10,7 +10,6 @@ function speaker(channel, overrides = {}) {
     channelName: () => channel,
     displayMeasurementTitle: () => `1: ${channel}`,
     createPhaseMatchFilter: vi.fn().mockResolvedValue(undefined),
-    createStandardFilter: vi.fn().mockResolvedValue(undefined),
     previewMeasurement: vi.fn().mockResolvedValue(true),
     toggleInversion: vi.fn().mockResolvedValue(true),
     copyAllToOther: vi.fn().mockResolvedValue(true),
@@ -18,8 +17,8 @@ function speaker(channel, overrides = {}) {
   };
 }
 
-function service(mode = 'rch') {
-  return createFiltersService({ config: { selectedEqualizationMode: mode } });
+function service() {
+  return createFiltersService({});
 }
 
 describe('selectMeasurementsForBulkApply', () => {
@@ -71,26 +70,21 @@ describe('selectMeasurementsForBulkApply', () => {
 });
 
 describe('createSpeakerFilterForSelectedMode', () => {
-  it('routes to the phase-match or standard filter by mode', async () => {
-    const rchSpeaker = speaker('FL');
-    await service('rch').createSpeakerFilterForSelectedMode(rchSpeaker);
-    expect(rchSpeaker.createPhaseMatchFilter).toHaveBeenCalledOnce();
-    expect(rchSpeaker.createStandardFilter).not.toHaveBeenCalled();
-
-    const rewSpeaker = speaker('FL');
-    await service('rew').createSpeakerFilterForSelectedMode(rewSpeaker);
-    expect(rewSpeaker.createStandardFilter).toHaveBeenCalledOnce();
+  it('creates the RCH phase-match filter (single calculation path)', async () => {
+    const item = speaker('FL');
+    await service().createSpeakerFilterForSelectedMode(item);
+    expect(item.createPhaseMatchFilter).toHaveBeenCalledOnce();
   });
 });
 
 describe('generateSelectedFilters', () => {
-  it('generates every speaker filter and returns the mode label', async () => {
+  it('generates every speaker filter and returns the RCH label', async () => {
     const speakers = [speaker('FL'), speaker('FR')];
 
-    await expect(service('rew').generateSelectedFilters(speakers)).resolves.toBe('REW');
+    await expect(service().generateSelectedFilters(speakers)).resolves.toBe('RCH');
 
     for (const item of speakers) {
-      expect(item.createStandardFilter).toHaveBeenCalledOnce();
+      expect(item.createPhaseMatchFilter).toHaveBeenCalledOnce();
     }
   });
 });
@@ -153,7 +147,6 @@ describe('mode rch sur le chemin operations (ADR 002)', () => {
     const operations = { createFilter: vi.fn().mockResolvedValue(true) };
     const session = { rewMeasurements: { id: 'rew' } };
     const service = createFiltersService({
-      config: { selectedEqualizationMode: 'rch' },
       operations,
       session,
       boostsFor: () => ({ individual: 6, overall: 3 }),

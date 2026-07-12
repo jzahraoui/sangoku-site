@@ -6,7 +6,6 @@
  * error channel, DOM icon toggles) stay in the viewmodel.
  *
  * Construction dependencies:
- * - `config`: accessor object — selectedEqualizationMode (r).
  */
 
 import { createPhaseMatchCalculator } from '../autoeq/phase-match-calculator.js';
@@ -43,7 +42,6 @@ function selectMeasurementsForBulkApply({
 }
 
 function createFiltersService({
-  config,
   // operations path (ADR 002): route filter creation to createMeasurementOperations over
   // the flat records. When `operations` is absent the item methods are used
   // (Knockout path — unchanged), so the viewmodel + filters-service.test stay green.
@@ -102,28 +100,16 @@ function createFiltersService({
   }
 
   function createSpeakerFilterForSelectedMode(item) {
-    const isRch = config.selectedEqualizationMode === 'rch';
     if (!operations) {
-      return isRch ? item.createPhaseMatchFilter() : item.createStandardFilter();
+      return item.createPhaseMatchFilter();
     }
-    if (isRch) {
-      // Parity with item.createPhaseMatchFilter(useWorkingSettings=true, copyToOther=false).
-      return operations.createFilter(rew(), item, buildFilterContext(item), 'phase', true, false);
-    }
-    // Parity with item.createStandardFilter(useWorkingSettings=true, copyToOther=true).
-    return operations.createFilter(
-      rew(),
-      item,
-      buildFilterContext(item),
-      'standard',
-      true,
-      true,
-    );
+    // Parity with item.createPhaseMatchFilter(useWorkingSettings=true, copyToOther=false).
+    return operations.createFilter(rew(), item, buildFilterContext(item), 'phase', true, false);
   }
 
   /** Generate the filter of every speaker with the selected equalization mode. */
   async function generateSelectedFilters(speakerMeasurements) {
-    const filterModeLabel = config.selectedEqualizationMode === 'rch' ? 'RCH' : 'REW';
+    const filterModeLabel = 'RCH';
 
     for (const item of speakerMeasurements) {
       // display progression in the status

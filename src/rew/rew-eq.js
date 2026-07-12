@@ -143,6 +143,9 @@ class REWEQ {
     return this.executeCommand('Generate target measurement');
   }
 
+  // Les méthodes match-target ne sont plus utilisées par l'application (le
+  // calcul de filtres passe par le mode RCH interne) ; elles restent pour les
+  // tests de parité live (test/auto-eq/rew/rew-api*).
   async getMatchTargetSettings() {
     return this.request('/eq/match-target-settings');
   }

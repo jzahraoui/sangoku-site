@@ -240,20 +240,6 @@ class MeasurementItem {
         !this.isChannelDetected(),
     );
 
-    this.buttonCreateFilter = async () => {
-      if (parentViewModel.isProcessing()) return;
-      try {
-        await parentViewModel.setProcessing(true);
-
-        await this.createStandardFilter();
-        return true;
-      } catch (error) {
-        parentViewModel.handleError(`Filter creation failed: ${error.message}`, error);
-        return false;
-      } finally {
-        await parentViewModel.setProcessing(false);
-      }
-    };
 
     this.buttonCreateRchFilter = async () => {
       if (parentViewModel.isProcessing()) return;
@@ -782,7 +768,6 @@ class MeasurementItem {
     const pv = this.parentViewModel;
     return {
       session: this.sessionContext(),
-      rewEq: this.rewEq,
       workingConfig: this.workingSettingsConfig(),
       irWindowWidths: this.irWindowWidths(),
       smoothingMethod: pv.selectedSmoothingMethod(),
@@ -835,26 +820,12 @@ class MeasurementItem {
     );
   }
 
-  async _runStandardFilter(customStartFrequency, customEndFrequency) {
-    return ops.runStandardFilter(
-      this.rewMeasurements,
-      this,
-      this.filterCreationContext(),
-      customStartFrequency,
-      customEndFrequency,
-    );
-  }
-
   async createPhaseMatchFilter(useWorkingSettings = true, copyFiltersToOther = false) {
     return this.createFilter('phase', useWorkingSettings, copyFiltersToOther);
   }
 
   countFiltersSlotsAvailable(filters) {
     return countFiltersSlotsAvailable(filters);
-  }
-
-  async createStandardFilter(useWorkingSettings = true, copyFiltersToOther = true) {
-    return this.createFilter('standard', useWorkingSettings, copyFiltersToOther);
   }
 
   async setAllFiltersAuto(requiredState = true) {

@@ -44,7 +44,6 @@ class RewStore {
       'default-target-level': 75,
       'house-curve': String.raw`C:\curves\e2e Target.txt`,
       'house-curve-log-interpolation': true,
-      'match-target-settings': null,
       'default-target-settings': null,
       'default-room-curve-settings': null,
     };

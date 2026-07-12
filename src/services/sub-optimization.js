@@ -23,7 +23,7 @@ import { setSameDelayToAll } from './alignment.js';
  * - `session`: the RewSession instance.
  * - `businessTools`: bridges { produceAligned, createsSum }.
  * - `config`: accessor object over the app settings — mainTargetLevel,
- *   selectedEqualizationMode, lowerFrequencyBoundSub, upperFrequencyBoundSub,
+ *   lowerFrequencyBoundSub, upperFrequencyBoundSub,
  *   maxBoostIndividualValue, maxBoostOverallValue, useAllPassFiltersForSubs,
  *   distanceLeftBeforeError, avrData.
  * - `lists`: thunks — uniqueSubsMeasurements(), predictedLfeMeasurements(),
@@ -416,29 +416,13 @@ function createSubOptimizationService({
     }
 
     log.info(
-      `Creating ${config.selectedEqualizationMode.toUpperCase()} EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`,
+      `Creating RCH EQ filters for sub sumation ${customStartFrequency}Hz - ${customEndFrequency}Hz`,
     );
 
-    if (config.selectedEqualizationMode === 'rch') {
-      await mops.runPhaseMatchFilter(subMeasurement, customStartFrequency, customEndFrequency, {
-        individualMaxBoostDb: config.maxBoostIndividualValue,
-        overallMaxBoostDb: config.maxBoostOverallValue,
-      });
-    } else {
-      await session.rewEq.setMatchTargetSettings({
-        startFrequency: customStartFrequency,
-        endFrequency: customEndFrequency,
-        individualMaxBoostdB: config.maxBoostIndividualValue,
-        overallMaxBoostdB: config.maxBoostOverallValue,
-        flatnessTargetdB: 1,
-        allowNarrowFiltersBelow200Hz: false,
-        varyQAbove200Hz: false,
-        allowLowShelf: false,
-        allowHighShelf: false,
-      });
-
-      await session.rewMeasurements.matchTarget(subMeasurement.uuid);
-    }
+    await mops.runPhaseMatchFilter(subMeasurement, customStartFrequency, customEndFrequency, {
+      individualMaxBoostDb: config.maxBoostIndividualValue,
+      overallMaxBoostDb: config.maxBoostOverallValue,
+    });
 
     await mops.checkFilterGain(subMeasurement);
 
@@ -1057,7 +1041,7 @@ function createSubOptimizationService({
     { onProgress = null } = {},
   ) {
     // The target curve (house curve at the configured target level) anchors
-    // the absolute goal, exactly like equalize-sub anchors REW's matchTarget.
+    // the absolute goal, exactly like equalize-sub anchors its RCH calculation.
     const targetSource = subsMeasurements[0];
     await mops.setTargetLevel(targetSource, config.mainTargetLevel);
     await mops.resetTargetSettings(targetSource);

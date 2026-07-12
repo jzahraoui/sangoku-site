@@ -50,7 +50,6 @@ function createHarness({
     findMeasurementByUuid: vi.fn(uuid => measurements.find(m => m.uuid === uuid)),
     addMeasurementFromRewOperation: vi.fn(),
     rewImport: { importFrequencyResponseData: vi.fn().mockResolvedValue({}) },
-    rewEq: { setMatchTargetSettings: vi.fn().mockResolvedValue(undefined) },
     rewMeasurements: { matchTarget: vi.fn().mockResolvedValue(undefined) },
   };
   const businessTools = {
@@ -64,7 +63,6 @@ function createHarness({
     autoEqConfig,
     config: {
       mainTargetLevel: 75,
-      selectedEqualizationMode: 'rch',
       lowerFrequencyBoundSub: 10,
       upperFrequencyBoundSub: 500,
       maxBoostIndividualValue: 6,
@@ -163,21 +161,6 @@ describe('equalizeSub', () => {
     expect(sub.checkFilterGain).toHaveBeenCalledOnce();
   });
 
-  it('drives REW matchTarget in rew mode', async () => {
-    const sub = fakeSub('sw1');
-    const { service, session } = createHarness({
-      subs: [sub],
-      config: { selectedEqualizationMode: 'rew' },
-    });
-
-    await service.equalizeSub(sub);
-
-    expect(session.rewEq.setMatchTargetSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ startFrequency: 25, endFrequency: 150 }),
-    );
-    expect(session.rewMeasurements.matchTarget).toHaveBeenCalledWith('sw1');
-    expect(sub._runPhaseMatchFilter).not.toHaveBeenCalled();
-  });
 });
 
 describe('equalizeSubs routing', () => {
@@ -789,7 +772,6 @@ describe('equalizeSub rch sur le chemin operations (ADR 002)', () => {
       autoEqConfig: () => autoEqFixture,
       config: {
         mainTargetLevel: 75,
-        selectedEqualizationMode: 'rch',
         lowerFrequencyBoundSub: 10,
         upperFrequencyBoundSub: 500,
         maxBoostIndividualValue: 6,

@@ -598,33 +598,6 @@
                   </label>
                 </div>
 
-                <fieldset class="equalization-mode-selector">
-                  <legend data-i18n="equalization_mode">Equalization mode</legend>
-                  <div class="equalization-mode-options">
-                    <label>
-                      <input
-                        type="radio"
-                        name="equalizationMode"
-                        value="rew"
-                        data-bind="
-                          checked: selectedEqualizationMode,
-                          event: { change: function() { $root.saveMeasurements(); } }"
-                      />
-                      <span>REW</span>
-                    </label>
-                    <label>
-                      <input
-                        type="radio"
-                        name="equalizationMode"
-                        value="rch"
-                        data-bind="
-                          checked: selectedEqualizationMode,
-                          event: { change: function() { $root.saveMeasurements(); } }"
-                      />
-                      <span>RCH</span>
-                    </label>
-                  </div>
-                </fieldset>
 
                 <details class="autoeq-settings">
                   <summary data-i18n="autoeq_settings">AutoEQ Settings</summary>
@@ -1951,7 +1924,7 @@
                           click: buttongeneratesSelectedFilters,
                           disable: isProcessing(),
                           css: { disabled: isProcessing, loading: isProcessing  },
-                          attr: { 'data-tooltip': selectedEqualizationTooltip() }"
+                          attr: { 'data-tooltip': createSpeakerFilterTooltip() }"
                       >
                         <i class="fa fa-sliders" aria-hidden="true"></i>
                       </button>
@@ -2082,7 +2055,7 @@
                       disable: $parent.isProcessing(),
                       css: { disabled: $parent.isProcessing },
                       visible: !isSub() && isValid,
-                      attr: { 'data-tooltip': $parent.selectedEqualizationTooltip() }"
+                      attr: { 'data-tooltip': $parent.createSpeakerFilterTooltip() }"
                     >
                       <i class="fa fa-sliders" aria-hidden="true"></i>
                     </button>

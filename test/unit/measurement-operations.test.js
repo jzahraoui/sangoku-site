@@ -643,11 +643,59 @@ describe('predicted / filter measurement sequences', () => {
     });
   });
 
-  it('generateFilterMeasurement returns the existing associated filter', async () => {
+  it('generateFilterMeasurement returns the existing associated filter when the bank is unchanged', async () => {
+    const bank = [
+      { index: 1, type: 'PK', enabled: true, isAuto: true, frequency: 100, gaindB: -3, q: 4 },
+    ];
+    const rew = {
+      getFilters: vi.fn().mockResolvedValue(bank),
+      generateFiltersMeasurement: vi.fn(),
+    };
     const existing = { uuid: 'filter-1' };
     const m = record({ associatedFilterItem: () => existing });
+    m.associatedFilterFingerprint = '1|PK|true|true|100|-3|4';
 
-    await expect(ops.generateFilterMeasurement({}, m, session())).resolves.toBe(existing);
+    await expect(ops.generateFilterMeasurement(rew, m, session())).resolves.toBe(existing);
+    expect(rew.generateFiltersMeasurement).not.toHaveBeenCalled();
+  });
+
+  it('generateFilterMeasurement regenerates when the filters changed in REW', async () => {
+    // Les filtres font foi tels qu'ils sont dans REW (ex. régénérés dans son
+    // interface) : un bank différent de l'empreinte invalide le cache.
+    const bank = [
+      { index: 1, type: 'PK', enabled: true, isAuto: true, frequency: 120, gaindB: -6, q: 5 },
+    ];
+    const generated = record({
+      uuid: 'filter-2',
+      title: () => undefined,
+      splOffsetdB: 0,
+      alignSPLOffsetdB: 0,
+      update: vi.fn(),
+    });
+    const rew = {
+      getFilters: vi.fn().mockResolvedValue(bank),
+      generateFiltersMeasurement: vi.fn().mockResolvedValue({ uuid: 'filter-2' }),
+      setSPLOffsetDB: vi.fn().mockResolvedValue(true),
+      update: vi.fn().mockResolvedValue(true),
+    };
+    const existing = { uuid: 'filter-1' };
+    const m = record({
+      associatedFilterItem: () => existing,
+      title: () => '1: FL',
+      splresidual: 0,
+      crossover: () => null,
+    });
+    m.associatedFilter = 'filter-1';
+    m.associatedFilterFingerprint = '1|PK|true|true|100|-3|4'; // ancien bank
+
+    const sess = session();
+    sess.analyseApiResponse = vi.fn().mockResolvedValue(generated);
+    sess.removeMeasurementUuid = vi.fn().mockResolvedValue(true);
+
+    await expect(ops.generateFilterMeasurement(rew, m, sess)).resolves.toBe(generated);
+    expect(sess.removeMeasurementUuid).toHaveBeenCalledWith('filter-1');
+    expect(rew.generateFiltersMeasurement).toHaveBeenCalledOnce();
+    expect(m.associatedFilterFingerprint).toBe('1|PK|true|true|120|-6|5');
   });
 
   it('createUserFilter refuses filters', async () => {
@@ -877,7 +925,6 @@ describe('runPhaseMatchFilter', () => {
 describe('createFilter', () => {
   const ctx = overrides => ({
     session: session(),
-    rewEq: { setMatchTargetSettings: vi.fn() },
     workingConfig: {
       smoothingMethod: '1/6',
       roomCurveSettings: { addRoomCurve: false },
@@ -896,11 +943,11 @@ describe('createFilter', () => {
 
   it('refuses filters and subs', async () => {
     await expect(
-      ops.createFilter({}, record({ isFilter: true }), ctx(), 'standard', true, false),
+      ops.createFilter({}, record({ isFilter: true }), ctx(), 'phase', true, false),
     ).rejects.toThrow('Operation not permitted on a filter');
 
     await expect(
-      ops.createFilter({}, record({ isSub: () => true }), ctx(), 'standard', true, false),
+      ops.createFilter({}, record({ isSub: () => true }), ctx(), 'phase', true, false),
     ).rejects.toThrow('Operation not permitted on a sub');
   });
 

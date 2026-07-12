@@ -844,6 +844,8 @@ class REWMeasurements {
     return this.executeEQCommand(id, 'Calculate target level');
   }
 
+  // Plus utilisé par l'application (calcul RCH interne) — conservé pour les
+  // tests de parité live (test/auto-eq/rew/rew-api*).
   async matchTarget(id) {
     return this.executeEQCommand(id, 'Match target');
   }

@@ -30,7 +30,6 @@ function createHarness({ stored = null, settings: initial = {}, items = [] } = {
     ocaFileFormat: 'odd',
     avrIpAddress: '',
     inhibitGraphUpdates: true,
-    selectedEqualizationMode: 'rch',
     selectedRoomCurve: 'None',
     mainTargetLevel: 75,
     SubsFrequencyBands: null,
@@ -123,7 +122,6 @@ describe('restore', () => {
       individualMaxBoostValue: '6',
       mainTargetLevel: 72,
       selectedRoomCurve: 'not-a-choice',
-      selectedSpeakerFilterMode: 'rch', // legacy key
       autoEqConfig: { numFilters: 12 },
       SubsFrequencyBands: { lowFrequency: 20, highFrequency: 150 },
       inhibitGraphUpdates: false,
@@ -142,8 +140,6 @@ describe('restore', () => {
     expect(values.mainTargetLevel).toBe(72);
     // invalid room curve choice is ignored
     expect(values.selectedRoomCurve).toBe('None');
-    // legacy equalization-mode key is honoured
-    expect(values.selectedEqualizationMode).toBe('rch');
     expect(values.inhibitGraphUpdates).toBe(false);
     expect(autoEq.apply).toHaveBeenCalledWith({ numFilters: 12 });
     expect(values.SubsFrequencyBands).toEqual({ lowFrequency: 20, highFrequency: 150 });
@@ -177,7 +173,6 @@ describe('resetApplicationState', () => {
     expect(values.jsonAvrData).toBeNull();
     expect(values.targetCurve).toBe('');
     expect(values.selectedLfeFrequency).toBe(250);
-    expect(values.selectedEqualizationMode).toBe('rew');
     expect(values.SubsFrequencyBands).toBeNull();
   });
 });

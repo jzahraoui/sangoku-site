@@ -55,7 +55,6 @@ function createPersistenceService({
       ocaFileFormat: settings.get('ocaFileFormat'),
       avrIpAddress: settings.get('avrIpAddress'),
       inhibitGraphUpdates: settings.get('inhibitGraphUpdates'),
-      selectedEqualizationMode: settings.get('selectedEqualizationMode'),
       selectedRoomCurve: settings.get('selectedRoomCurve'),
       measurementsByGroup: crossovers.toJSON(),
       mainTargetLevel: settings.get('mainTargetLevel'),
@@ -117,7 +116,6 @@ function createPersistenceService({
     data.avrIpAddress && settings.set('avrIpAddress', data.avrIpAddress);
     data.inhibitGraphUpdates !== undefined &&
       settings.set('inhibitGraphUpdates', data.inhibitGraphUpdates);
-    restoreEqualizationMode(data);
     restoreRoomCurveChoice(data);
     data.mainTargetLevel && settings.set('mainTargetLevel', data.mainTargetLevel);
     if (data.autoEqConfig) {
@@ -125,15 +123,6 @@ function createPersistenceService({
     }
     data.SubsFrequencyBands &&
       settings.set('SubsFrequencyBands', data.SubsFrequencyBands);
-  }
-
-  function restoreEqualizationMode(data) {
-    // selectedSpeakerFilterMode: legacy key of older saves
-    const selectedEqualizationMode =
-      data.selectedEqualizationMode || data.selectedSpeakerFilterMode;
-    if (selectedEqualizationMode) {
-      settings.set('selectedEqualizationMode', selectedEqualizationMode);
-    }
   }
 
   function restoreRoomCurveChoice(data) {
@@ -163,7 +152,6 @@ function createPersistenceService({
     settings.set('selectedLfeFrequency', 250);
     settings.set('selectedAverageMethod', '');
     settings.set('selectedMeasurementsFilter', true);
-    settings.set('selectedEqualizationMode', 'rew');
     settings.set('selectedRoomCurve', RoomCurvesSettings.DEFAULT_CHOICE);
     settings.set('SubsFrequencyBands', null);
   }

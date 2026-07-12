@@ -81,7 +81,6 @@ test('align sub: projection LFE predicted + Theo, equalize via la projection (AD
     });
 
     await t.test('equalize-sub passe par la projection', async () => {
-      await page.evaluate(() => globalThis.viewModel.selectedEqualizationMode('rew'));
       await page.getByTestId('equalize-sub').click();
       await page.waitForFunction(() => !globalThis.viewModel.isProcessing(), {
         timeout: 240000,

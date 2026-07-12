@@ -233,22 +233,6 @@ function handleMeasurementEqCommand(store, record, body) {
       record.targetLevel = roundFloat(store.levelAround(record, 1000, 3), 2);
       return ok;
     }
-    case 'Match target':
-      // The mock does not compute EQ; REW-mode parity is asserted on
-      // workflow outputs, not on filter values.
-      record.filters = record.filters.length
-        ? record.filters
-        : [
-            {
-              index: 1,
-              type: 'PK',
-              enabled: true,
-              frequency: 100,
-              gain: -3,
-              q: 4,
-            },
-          ];
-      return ok;
     case 'Generate predicted measurement':
       return cloneAsResult(store, record, `${record.title} predicted`);
     case 'Generate filters measurement': {

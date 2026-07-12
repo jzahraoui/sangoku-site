@@ -157,7 +157,7 @@ function createExportsService({ log = noopLog } = {}) {
     textData += `Room Curve:               ${settings.selectedRoomCurve}\n`;
     textData += `Individual Max Boost:     ${settings.individualMaxBoostValue} dB\n`;
     textData += `Overall Max Boost:        ${settings.overallBoostValue} dB\n`;
-    textData += `Equalization Mode:        ${settings.selectedEqualizationMode.toUpperCase()}\n\n`;
+    textData += `\n`;
 
     // Subwoofer settings section
     textData += `SUBWOOFER SETTINGS\n`;

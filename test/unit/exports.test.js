@@ -120,7 +120,6 @@ describe('generateSettingsReport', () => {
     selectedRoomCurve: 'None',
     individualMaxBoostValue: 3,
     overallBoostValue: 0,
-    selectedEqualizationMode: 'rch',
     numberOfSubwoofers: 1,
     revertLfeFrequency: 0,
     maxBoostIndividualValue: 6,
@@ -165,7 +164,6 @@ describe('generateSettingsReport', () => {
 
     const text = await blob.text();
     expect(text).toContain('Loaded File:       session.ady');
-    expect(text).toContain('Equalization Mode:        RCH');
     expect(text).toContain('Revert LFE Filter Freq:   None');
     expect(text).toContain('Align Frequency:          80 Hz');
     expect(text).toContain('| 1: FL_P01              | FL            |     3.42 |');

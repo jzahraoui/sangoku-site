@@ -82,7 +82,7 @@ Toute écriture qui déclenche un traitement REW suit ce protocole, que le mock 
 | `…/target-level` | GET, POST | niveau cible (dB) |
 | `…/target-settings` | GET, PUT, POST | settings cible |
 | `…/command` | POST `{command, parameters, resultUrl?}` | commandes par mesure utilisées : `Save`, `Smooth`, `Mic in box correction`, `Merge cal data to IR`, `Generate waterfall`, `Generate spectrogram` (+ variantes equalised), `Estimate IR delay`, `Offset t=0`, `Add SPL offset`, `Invert`, `Invert phase`, `Trim IR to windows`, `Minimum phase version`, `Generate minimum phase` |
-| `…/eq/command` | POST `{command, parameters?, resultUrl?}` | commandes EQ : `Calculate target level`, `Match target`, `Optimise gains`, `Optimise gains and Qs`, `Generate predicted measurement`, `Generate filters measurement`, `Generate target measurement` |
+| `…/eq/command` | POST `{command, parameters?, resultUrl?}` | commandes EQ : `Calculate target level`, `Optimise gains`, `Optimise gains and Qs`, `Generate predicted measurement`, `Generate filters measurement`, `Generate target measurement` |
 | `…/commands` | GET | liste des commandes disponibles |
 
 #### `/eq/*` (`rew-eq.js`)
@@ -283,3 +283,7 @@ marqués [SUPPOSÉ→CONSTATÉ par l'app]) :
    `normalised=true` (pic à ±1) pour la génération de filtres OCA.
 6. La grille FR du mock est linéaire (FFT) ; REW live sert des grilles log plus denses —
    les assertions des parcours portent sur la forme, pas la densité.
+
+> Mise à jour 2026-07-12 : le stub `Match target` a été retiré — le calcul de
+> filtres applicatif passe exclusivement par le mode RCH (interne). Le client
+> REST bas niveau `matchTarget` subsiste pour les tests de parité live.
