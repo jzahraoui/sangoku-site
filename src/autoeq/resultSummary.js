@@ -4,6 +4,7 @@ export function buildCalculationResult({
   finalMSE,
   elapsed,
   quality,
+  report = null,
 }) {
   const improvement = initialMSE > 0 ? ((initialMSE - finalMSE) / initialMSE) * 100 : 0;
 
@@ -14,6 +15,7 @@ export function buildCalculationResult({
     improvement,
     elapsed,
     quality,
+    report,
   };
 }
 

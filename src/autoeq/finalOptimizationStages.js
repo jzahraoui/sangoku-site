@@ -32,17 +32,33 @@ export async function runFinalOptimizationStages({
     config.equalizerGainStep ?? 0.5,
     config.flatnessTarget * 0.5,
   );
-  removeWeakFilters(filters, removeThreshold);
 
-  await runAllIfNeeded(filters, spanAnalyzer, finalOptimizer, calculationContext, {
-    equalizerAdapter,
-    maxIter: options.maxIter ?? 500,
-    logOverride: onLog,
-    runAllOptions: {
-      useDecimated: true,
-      ...(options.runAllOptions ?? {}),
-    },
-  });
+  // Boucle nettoyage + réoptimisation (parité REW C0417G.m1780A) : chaque passe
+  // retire les filtres faibles puis réoptimise ; on s'arrête quand une passe
+  // n'a plus rien retiré de significatif, dans la limite de
+  // numOptimizationPasses. Avec 1 passe : comportement historique.
+  const maxCleanupPasses = Math.max(1, Math.round(config.numOptimizationPasses ?? 1));
+  for (let pass = 0; pass < maxCleanupPasses; pass++) {
+    checkCancellation();
+    const removal = removeWeakFilters(filters, removeThreshold);
+    if (pass > 0 && (removal.removedCount === 0 || removal.maxRemovedGain <= 0.1)) {
+      break;
+    }
+    if (pass > 0) {
+      onLog(
+        `  Nettoyage passe ${pass + 1}: ${removal.removedCount} filtre(s) faible(s) retiré(s)`,
+      );
+    }
+    await runAllIfNeeded(filters, spanAnalyzer, finalOptimizer, calculationContext, {
+      equalizerAdapter,
+      maxIter: options.maxIter ?? 500,
+      logOverride: onLog,
+      runAllOptions: {
+        useDecimated: true,
+        ...(options.runAllOptions ?? {}),
+      },
+    });
+  }
 
   onLog('\n--- Phase 4: Élagage post-optimisation ---');
   await pruneCounterproductiveFilters({

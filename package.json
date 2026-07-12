@@ -79,6 +79,7 @@
     "test:frequency-grid": "node --test test/auto-eq/frequency-grid.test.js",
     "test:optimization-state": "node --test test/auto-eq/optimization-state.test.js",
     "test:grid-context": "node --test test/auto-eq/grid-calculation-context.test.js",
+    "test:run-report": "node --test test/auto-eq/run-report.test.js",
     "test:optimizer-decoding": "node --test test/auto-eq/optimizer-decoding.test.js",
     "test:biquad-coefficients": "node --test test/auto-eq/biquad-coefficients.test.js",
     "test:biquad-response": "node --test test/auto-eq/biquad-response.test.js",

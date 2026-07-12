@@ -64,7 +64,7 @@ export const DEFAULT_CONFIG = {
   matchRangeEnd: customEndFrequency,
   individualMaxBoostDb: individualMaxBoostdB,
   overallMaxBoostDb: overallMaxBoostdB,
-  maxBoostFreq: 30, // REW n'a pas cette limite
+  maxBoostFreq: 50, // Protection ampli/enceintes (FR-032), aligné sur le défaut UI
   flatnessTarget: flatnessTargetdB,
 
   // Limites de gain - REW utilise jusqu'à -15.2 dB (exemple3)

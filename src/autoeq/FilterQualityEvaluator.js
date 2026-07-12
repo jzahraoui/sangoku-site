@@ -164,6 +164,41 @@ export class FilterQualityEvaluator {
   }
 
   /**
+   * Per-filter PASS/WARN/FAIL verdicts (spec FR-008a/FR-008b/FR-017).
+   *
+   * Bands and absolute safety thresholds:
+   *   fc < 300 Hz : WARN above Q=8, FAIL above Q=10
+   *   fc ≥ 300 Hz : WARN above Q=10, FAIL above Q=12
+   *   boost above 3 kHz : WARN (position-dependent, poorly reproducible)
+   *
+   * @param {Array<{fc:number, Q:number, gain:number}>} filters
+   * @returns {Array<{fc, Q, gain, verdict: 'PASS'|'WARN'|'FAIL', warnings: string[]}>}
+   */
+  buildFilterVerdicts(filters) {
+    return filters.map(filter => {
+      const warnings = [];
+      let verdict = 'PASS';
+      const { warnQ, failQ } =
+        filter.fc < 300 ? { warnQ: 8, failQ: 10 } : { warnQ: 10, failQ: 12 };
+
+      if (filter.Q > failQ) {
+        verdict = 'FAIL';
+        warnings.push(`Q=${filter.Q.toFixed(2)} > ${failQ} (plafond de sécurité)`);
+      } else if (filter.Q > warnQ) {
+        verdict = 'WARN';
+        warnings.push(`Q=${filter.Q.toFixed(2)} > ${warnQ} (risque de ringing)`);
+      }
+
+      if (filter.gain > 0 && filter.fc > 3000) {
+        if (verdict === 'PASS') verdict = 'WARN';
+        warnings.push('boost au-dessus de 3 kHz (dépendant de la position)');
+      }
+
+      return { fc: filter.fc, Q: filter.Q, gain: filter.gain, verdict, warnings };
+    });
+  }
+
+  /**
    * Summed Q-risk penalty across all filters.
    * Exposed so placement code can use it without re-evaluating a full grid.
    *

@@ -29,6 +29,12 @@ import { applyFiltersToFilterSet } from './filterSetAdapter.js';
 import { removeFinalDeadFilters } from './filterCleanup.js';
 import { createFilterOptimizerConfig } from './optimizerConfig.js';
 import { createInitialMetrics } from './initialMetrics.js';
+import { runAllIfNeeded } from './optimizerRunner.js';
+import {
+  buildRunReport,
+  computeMaxCombinedBoostDb,
+  logRunReport,
+} from './runReport.js';
 
 /**
  * Calculateur automatique de filtres d'égalisation
@@ -173,6 +179,19 @@ export class AutoEQCalculator {
         checkCancellation: () => this._checkCancellation(),
       });
 
+      // Raffinement final optionnel : un dernier passage gain+Q+fc sur la
+      // grille PLEINE (non décimée), borné par refinementIterations. Le
+      // résultat n'est appliqué que si le MSE pleine grille s'améliore.
+      if (this.enableRefinement && filters.length > 0) {
+        this.onLog('\n--- Raffinement final (pleine grille) ---');
+        await runAllIfNeeded(filters, spanAnalyzer, finalOptimizer, calculationContext, {
+          equalizerAdapter: this.equalizerAdapter,
+          maxIter: this.refinementIterations,
+          logOverride: this.onLog,
+          runAllOptions: { useDecimated: false },
+        });
+      }
+
       // Post-optimization cleanup
       removeFinalDeadFilters(filters, {
         equalizerAdapter: this.equalizerAdapter,
@@ -192,6 +211,20 @@ export class AutoEQCalculator {
         calculationContext,
       );
 
+      const report = buildRunReport({
+        filters,
+        beforeQuality: this.qualityEvaluator.evaluate([], calculationContext),
+        afterQuality: this.lastQualityReport,
+        filterVerdicts: this.qualityEvaluator.buildFilterVerdicts(filters),
+        maxCombinedBoostDb: computeMaxCombinedBoostDb(
+          filters,
+          calculationContext,
+          this.sampleRate,
+        ),
+        overallMaxBoostDb: this.overallMaxBoostDb,
+        maxAllowedOvershoot: this.maxAllowedOvershoot,
+      });
+
       applyFiltersToFilterSet(this.filterSet, filters, {
         equalizerAdapter: this.equalizerAdapter,
         matchRangeStart: this.matchRangeStart,
@@ -204,10 +237,12 @@ export class AutoEQCalculator {
         finalMSE,
         elapsed: performance.now() - startTime,
         quality: this.lastQualityReport,
+        report,
       });
 
       this.onProgress(100, 'Terminé');
       logCalculationResult(result, this.onLog);
+      logRunReport(report, this.onLog);
 
       return result;
     } finally {
