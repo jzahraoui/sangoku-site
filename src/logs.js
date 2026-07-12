@@ -18,6 +18,13 @@ class LogService {
     this.level = 'INFO';
     this.autoScroll = true;
     this.listeners = new Set();
+
+    // Les méthodes de log sont fréquemment passées en callback (onLog,
+    // sélection conditionnelle) : les lier à l'instance rend leur détachement
+    // inoffensif (`const f = log.info; f(msg)` fonctionne).
+    for (const method of ['addLog', 'info', 'warn', 'error', 'debug', 'success', 'log']) {
+      this[method] = this[method].bind(this);
+    }
   }
 
   /** Register a change listener; returns an unsubscribe function. */

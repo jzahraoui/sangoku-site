@@ -60,4 +60,26 @@ describe('LogService (agnostic)', () => {
     service.success('done');
     expect(service.formatLogsText()).toMatch(/\] \[SUCCESS\] done$/);
   });
+
+  it('detached log methods stay bound to the instance', () => {
+    // Régression : `const f = log.info; f(msg)` plantait en production
+    // (« Cannot read properties of undefined (reading 'addLog') ») quand une
+    // méthode était sélectionnée conditionnellement puis appelée détachée.
+    const service = new LogService();
+    const { info, warn, error, debug, success, log } = service;
+    info('a');
+    warn('b');
+    error('c');
+    debug('d');
+    success('e');
+    log('f');
+    expect(service.getEntries().map(entry => entry.level)).toEqual([
+      'info',
+      'warn',
+      'error',
+      'debug',
+      'success',
+      'info',
+    ]);
+  });
 });
