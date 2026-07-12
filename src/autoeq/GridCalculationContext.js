@@ -5,8 +5,9 @@
  * measured and target frequency responses.
  *
  * Responsibilities:
- *   - Validate that measured and target share the same grid
- *   - Slice both arrays to the requested [matchRangeStart, matchRangeEnd]
+ *   - Slice the measured response to the requested [matchRangeStart, matchRangeEnd]
+ *   - Resample the target onto the measured grid (nearest frequency) — REW can
+ *     return measured and target responses with different startFreq values
  *   - Build fast nearest-neighbour accessor functions
  *   - Estimate the points-per-octave density of the grid
  *   - Sanity-check the resulting context before computation starts
@@ -32,12 +33,6 @@ export class GridCalculationContext {
       'measuredSPL',
     );
     const target = GridCalculationContext._normalizeResponse(targetCurve, 'targetCurve');
-
-    /*
-    Both getFrequencyResponse and getTargetResponse use ppo=96 but REW returns them with different startFreq values, producing grids of different length/values. GridCalculationContext._sliceToRange does index-based slicing of both arrays — it assumes identical grids.
-    The fix: change _sliceToRange to do frequency-based (nearest-neighbor) lookup for the target instead of index-based slicing, and remove the _assertCompatibleGrids guard. Behavior is identical when grids match; when they differ the target is correctly resampled onto the measured grid.
-    */
-    // GridCalculationContext._assertCompatibleGrids(measured, target);
 
     const { freqs, measuredMagnitude, targetMagnitude } =
       GridCalculationContext._sliceToRange(measured, target, config);
@@ -95,18 +90,6 @@ export class GridCalculationContext {
     return { freqs, magnitude };
   }
 
-  static _assertCompatibleGrids(measured, target) {
-    if (measured.freqs.length !== target.freqs.length) {
-      throw new RangeError('Measured and target responses must share the same grid');
-    }
-    for (let i = 0; i < measured.freqs.length; i++) {
-      const tolerance = Math.max(1e-3, measured.freqs[i] * 1e-6);
-      if (Math.abs(measured.freqs[i] - target.freqs[i]) > tolerance) {
-        throw new RangeError('Measured and target responses must share the same grid');
-      }
-    }
-  }
-
   static _sliceToRange(measured, target, config) {
     const { matchRangeStart, matchRangeEnd } = config;
     const startIndex = binarySearchLowerBound(measured.freqs, matchRangeStart);
@@ -117,10 +100,19 @@ export class GridCalculationContext {
       throw new RangeError('No raw response points available in the requested range');
     }
 
+    const freqs = measured.freqs.slice(startIndex, endIndex + 1);
+    // The target grid may not match the measured grid (different startFreq from
+    // REW): resample it by nearest frequency instead of reusing measured indexes.
+    const targetMagnitude = new Float64Array(freqs.length);
+    for (let i = 0; i < freqs.length; i++) {
+      targetMagnitude[i] =
+        target.magnitude[GridCalculationContext._findNearestIndex(target.freqs, freqs[i])];
+    }
+
     return {
-      freqs: measured.freqs.slice(startIndex, endIndex + 1),
+      freqs,
       measuredMagnitude: measured.magnitude.slice(startIndex, endIndex + 1),
-      targetMagnitude: target.magnitude.slice(startIndex, endIndex + 1),
+      targetMagnitude,
     };
   }
 

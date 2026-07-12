@@ -41,16 +41,41 @@ test('P = nG + nQ + nF when optimizeFc=true', () => {
   assert.equal(state.P, 9);
 });
 
-test('gain bounds: cut filter (gain < -2) has gainUpperBound = 0', () => {
+test('gain bounds: cut filter (gain < -threshold) has gainUpperBound = 0', () => {
   const filters = [{ fc: 500, Q: 2, gain: -4 }];
   const state = buildOptimizationState({ ...defaultParams, filters });
   assert.equal(state.gainUpperBounds[0], 0);
 });
 
-test('gain bounds: boost filter (gain > 2) has gainLowerBound = 0', () => {
+test('gain bounds: boost filter (gain > threshold) has gainLowerBound = 0', () => {
   const filters = [{ fc: 500, Q: 2, gain: 4 }];
   const state = buildOptimizationState({ ...defaultParams, filters });
   assert.equal(state.gainLowerBounds[0], 0);
+});
+
+test('gain sign lock uses gainSignLockThreshold (REW parity: 0.5 default)', () => {
+  // |gain| = 1 is above the 0.5 default → sign locked
+  const locked = buildOptimizationState({
+    ...defaultParams,
+    filters: [
+      { fc: 500, Q: 2, gain: -1 },
+      { fc: 800, Q: 2, gain: 1 },
+    ],
+  });
+  assert.equal(locked.gainUpperBounds[0], 0);
+  assert.equal(locked.gainLowerBounds[1], 0);
+
+  // Same gains with a higher threshold → sign free
+  const free = buildOptimizationState({
+    ...defaultParams,
+    gainSignLockThreshold: 2,
+    filters: [
+      { fc: 500, Q: 2, gain: -1 },
+      { fc: 800, Q: 2, gain: 1 },
+    ],
+  });
+  assert.equal(free.gainUpperBounds[0], defaultParams.maxBoostDb);
+  assert.equal(free.gainLowerBounds[1], -defaultParams.maxCutDb);
 });
 
 test('frequency bounds capped at endFreq * 0.98', () => {

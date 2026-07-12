@@ -20,6 +20,7 @@ import { getOptimizedQBounds } from './filterParameterBounds.js';
  * @param {number}  params.maxBoostDb
  * @param {number}  params.maxQ
  * @param {boolean} params.varyQAbove200Hz
+ * @param {number}  params.gainSignLockThreshold - |gain| above which the sign is locked
  * @returns {state}
  */
 export function buildOptimizationState({
@@ -32,11 +33,13 @@ export function buildOptimizationState({
   maxBoostDb,
   maxQ,
   varyQAbove200Hz,
+  gainSignLockThreshold = 0.5,
 }) {
   const { gainLowerBounds, gainUpperBounds } = _buildGainBounds(
     filters,
     maxCutDb,
     maxBoostDb,
+    gainSignLockThreshold,
   );
   const { qLowerBounds, qUpperBounds } = _buildQBounds(
     filters,
@@ -90,16 +93,16 @@ export function buildOptimizationState({
   };
 }
 
-function _buildGainBounds(filters, maxCutDb, maxBoostDb) {
+function _buildGainBounds(filters, maxCutDb, maxBoostDb, gainSignLockThreshold) {
   const gainLowerBounds = new Float64Array(filters.length);
   const gainUpperBounds = new Float64Array(filters.length);
 
   for (let i = 0; i < filters.length; i++) {
     gainLowerBounds[i] = -maxCutDb;
     gainUpperBounds[i] = maxBoostDb;
-    if (filters[i].gain < -2) {
+    if (filters[i].gain < -gainSignLockThreshold) {
       gainUpperBounds[i] = 0;
-    } else if (filters[i].gain > 2) {
+    } else if (filters[i].gain > gainSignLockThreshold) {
       gainLowerBounds[i] = 0;
     }
   }

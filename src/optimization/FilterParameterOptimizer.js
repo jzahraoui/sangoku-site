@@ -45,6 +45,7 @@ export class FilterParameterOptimizer {
     this.maxCutDb = config.maxCutDb ?? 12;
     this.varyQAbove200Hz = config.varyQAbove200Hz ?? false;
     this.allowNarrowFiltersBelow200Hz = config.allowNarrowFiltersBelow200Hz ?? true;
+    this.gainSignLockThreshold = config.gainSignLockThreshold ?? 0.5;
     this.maxQ = config.maxQ ?? 10;
 
     this._freqs = null;
@@ -265,6 +266,7 @@ export class FilterParameterOptimizer {
       maxBoostDb: this.maxBoostDb,
       maxQ: this.maxQ,
       varyQAbove200Hz: this.varyQAbove200Hz,
+      gainSignLockThreshold: this.gainSignLockThreshold,
     });
 
     const decode = createOptimizationDecoder({
