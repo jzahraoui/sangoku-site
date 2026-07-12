@@ -508,7 +508,7 @@
     <p>
       The step is safe to repeat: each pass recomputes the EQ from the optimizer
       baseline instead of stacking on top of the previous result, so running it twice
-      gives the same answer. It works with both the RCH and the REW equalization modes.
+      gives the same answer.
     </p>
     <p>
       The "Min filter gain" setting is enforced everywhere: computed filters below the
@@ -591,6 +591,16 @@
       If you have just used Find Sub Alignment, verify the LPF for LFE field before
       creating the OCA file. RCH may have raised it automatically to stay consistent with
       the selected speaker crossover.
+    </p>
+
+    <p>
+      OCA file generation is now fully internal: RCH reads the filters present in REW
+      (including any you regenerated or adjusted directly in its interface) and
+      computes the impulse response in your AVR's format by itself. The export is
+      faster and no longer creates temporary measurements in REW. Supported filter
+      types are PK and all-pass; if another active type is present on a channel (for
+      example a shelf added manually in REW), the export stops with a message naming
+      the slot: disable or replace that filter before retrying.
     </p>
 
     <img src="img/doc/finalization-box.png" alt="Finalization area" />

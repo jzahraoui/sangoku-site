@@ -534,8 +534,7 @@
     <p>
       L'etape peut etre relancee sans risque : chaque passage recalcule l'EQ depuis la
       base de l'optimiseur au lieu de s'empiler sur le resultat precedent, donc deux
-      executions donnent le meme resultat. Elle fonctionne avec les modes d'egalisation
-      RCH et REW.
+      executions donnent le meme resultat.
     </p>
     <p>
       Le reglage "Gain min de filtre" est applique partout : les filtres calcules sous le
@@ -622,6 +621,17 @@
       Si vous venez d'utiliser Find Sub Alignment, verifiez le champ LPF for LFE avant de
       creer le fichier OCA. RCH peut l'avoir releve automatiquement pour rester coherent
       avec la coupure de l'enceinte de reference.
+    </p>
+
+    <p>
+      La generation du fichier OCA est desormais entierement interne : RCH lit les
+      filtres presents dans REW (y compris ceux que vous auriez regeneres ou ajustes
+      directement dans son interface) et calcule lui-meme la reponse impulsionnelle au
+      format de votre AVR. L'export est plus rapide et ne cree plus de mesures
+      temporaires dans REW. Les types de filtres pris en charge sont les filtres PK et
+      les all-pass ; si un autre type actif est present sur un canal (par exemple un
+      shelf ajoute a la main dans REW), l'export s'arrete avec un message indiquant
+      l'emplacement concerne : desactivez ou remplacez ce filtre avant de relancer.
     </p>
 
     <img src="img/doc/finalization-box.png" alt="Zone de finalisation" />

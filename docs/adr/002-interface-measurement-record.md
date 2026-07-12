@@ -61,3 +61,14 @@ class MeasurementRecord {
   remplaçant progressivement le mock de `measurement-view-model.test.js`.
 - Pendant la transition, double écriture record→observables via l'adaptateur ; le retrait
   des observables se fait au portage Vue de chaque écran.
+
+---
+
+**Amendement (2026-07-12)** : le champ `associatedFilterUuid` a été retiré du
+contrat. Il portait le cache du « filtre associé » (mesure REW représentant le
+bank d'un canal), hérité d'un mode predicted-par-convolution abandonné puis du
+chemin d'export OCA historique. L'export OCA calcule désormais l'IR des filtres
+en interne (`src/dsp/impulseResponse.js` + `src/measurement/rew-filter-bank.js`)
+en lisant le bank REW à chaque export : plus de cache, plus d'invalidation
+(`invalidateAssociatedFilter` retiré de `setFilters`/`setSingleFilter` et de
+tous les services). Les sauvegardes anciennes portant ce champ sont ignorées.
