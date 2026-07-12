@@ -1,0 +1,105 @@
+{
+  "source": "Denon AVC-A1H_kef.4sub.3pos.ady",
+  "rewVersion": "5.40 Beta 128 API 0.9.5",
+  "generatedAt": "2026-07-12T16:20:17.948Z",
+  "channels": {
+    "FL": {
+      "bank": [
+        {
+          "index": 1,
+          "type": "PK",
+          "enabled": true,
+          "isAuto": true,
+          "frequency": 62.5,
+          "q": 4.5,
+          "gaindB": -6.2
+        },
+        {
+          "index": 2,
+          "type": "PK",
+          "enabled": true,
+          "isAuto": true,
+          "frequency": 118,
+          "q": 7.5,
+          "gaindB": 6
+        },
+        {
+          "index": 3,
+          "type": "PK",
+          "enabled": true,
+          "isAuto": true,
+          "frequency": 476,
+          "q": 1.9,
+          "gaindB": 4.1
+        },
+        {
+          "index": 4,
+          "type": "PK",
+          "enabled": true,
+          "isAuto": true,
+          "frequency": 1503,
+          "q": 3.2,
+          "gaindB": -3.7
+        },
+        {
+          "index": 5,
+          "type": "PK",
+          "enabled": true,
+          "isAuto": true,
+          "frequency": 5883,
+          "q": 5.3,
+          "gaindB": 2.4
+        }
+      ],
+      "crossover": 80,
+      "speakerType": "S",
+      "distance": 3.4,
+      "trim": -2.5,
+      "filterSpec": {
+        "samples": 16321,
+        "taps": 1024,
+        "frequency": 48000
+      }
+    },
+    "SW1": {
+      "bank": [
+        {
+          "index": 1,
+          "type": "PK",
+          "enabled": true,
+          "isAuto": false,
+          "frequency": 45.5,
+          "q": 5,
+          "gaindB": -4
+        },
+        {
+          "index": 2,
+          "type": "PK",
+          "enabled": true,
+          "isAuto": false,
+          "frequency": 63,
+          "q": 8,
+          "gaindB": -8.5
+        },
+        {
+          "index": 20,
+          "type": "All pass",
+          "enabled": true,
+          "isAuto": false,
+          "frequency": 60,
+          "q": 0.7
+        }
+      ],
+      "crossover": 0,
+      "speakerType": "E",
+      "distance": 2.1,
+      "trim": 1.5,
+      "filterSpec": {
+        "samples": 16055,
+        "taps": 704,
+        "frequency": 48000
+      }
+    }
+  },
+  "note": "Golden du chemin OCA actuel (via REW). La génération interne (DSP) devra reproduire les tableaux `filter` de kef-fl-sw1.oca.json sur ces mêmes banks."
+}
