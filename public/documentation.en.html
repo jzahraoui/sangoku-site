@@ -598,9 +598,12 @@
       (including any you regenerated or adjusted directly in its interface) and
       computes the impulse response in your AVR's format by itself. The export is
       faster and no longer creates temporary measurements in REW. Supported filter
-      types are PK and all-pass; if another active type is present on a channel (for
-      example a shelf added manually in REW), the export stops with a message naming
-      the slot: disable or replace that filter before retrying.
+      types are PK, all-pass, low/high pass (LP, HP, LP1, HP1), notch, the low/high
+      shelves (LS, HS, LS 6dB, LS 12dB, HS 6dB, HS 12dB) and modal filters — each
+      reproduces REW's output exactly. If another active type is present on a channel
+      (for example a crossover-style Low pass/High pass on slots 21/22), the export
+      stops with a message naming the slot: disable or replace that filter before
+      retrying.
     </p>
 
     <img src="img/doc/finalization-box.png" alt="Finalization area" />

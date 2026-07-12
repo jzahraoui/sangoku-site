@@ -85,7 +85,7 @@
     "test:optimizer-decoding": "node --test test/auto-eq/optimizer-decoding.test.js",
     "test:biquad-coefficients": "node --test test/auto-eq/biquad-coefficients.test.js",
     "test:all-pass": "node --test test/auto-eq/all-pass-biquad.test.js",
-    "test:oca-internal": "node --test test/auto-eq/oca-internal-generation.test.js",
+    "test:oca-internal": "node --test test/auto-eq/oca-internal-generation.test.js test/auto-eq/oca-filter-types.test.js",
     "test:biquad-response": "node --test test/auto-eq/biquad-response.test.js",
     "test:peaking-magnitude": "node --test test/auto-eq/peaking-magnitude.test.js",
     "test:peaking-profiles": "node --test test/auto-eq/peaking-profiles.test.js",

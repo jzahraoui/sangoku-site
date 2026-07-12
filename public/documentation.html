@@ -628,10 +628,13 @@
       filtres presents dans REW (y compris ceux que vous auriez regeneres ou ajustes
       directement dans son interface) et calcule lui-meme la reponse impulsionnelle au
       format de votre AVR. L'export est plus rapide et ne cree plus de mesures
-      temporaires dans REW. Les types de filtres pris en charge sont les filtres PK et
-      les all-pass ; si un autre type actif est present sur un canal (par exemple un
-      shelf ajoute a la main dans REW), l'export s'arrete avec un message indiquant
-      l'emplacement concerne : desactivez ou remplacez ce filtre avant de relancer.
+      temporaires dans REW. Les types de filtres pris en charge sont les PK, les
+      all-pass, les passe-bas/passe-haut (LP, HP, LP1, HP1), les notch, les shelves
+      (LS, HS, LS 6dB, LS 12dB, HS 6dB, HS 12dB) et les filtres modaux — chacun
+      reproduit exactement la sortie de REW. Si un autre type actif est present sur
+      un canal (par exemple un Low pass/High pass de type crossover sur les
+      emplacements 21/22), l'export s'arrete avec un message indiquant l'emplacement
+      concerne : desactivez ou remplacez ce filtre avant de relancer.
     </p>
 
     <img src="img/doc/finalization-box.png" alt="Zone de finalisation" />
