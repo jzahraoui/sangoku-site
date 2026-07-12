@@ -20,6 +20,7 @@ import { getOptimizedQBounds } from './filterParameterBounds.js';
  * @param {number}  params.maxBoostDb
  * @param {number}  params.maxQ
  * @param {boolean} params.varyQAbove200Hz
+ * @param {boolean} params.allowNarrowFiltersBelow200Hz - Modal-narrow cuts below 200 Hz
  * @param {number}  params.gainSignLockThreshold - |gain| above which the sign is locked
  * @returns {state}
  */
@@ -33,6 +34,7 @@ export function buildOptimizationState({
   maxBoostDb,
   maxQ,
   varyQAbove200Hz,
+  allowNarrowFiltersBelow200Hz = true,
   gainSignLockThreshold = 0.5,
 }) {
   const { gainLowerBounds, gainUpperBounds } = _buildGainBounds(
@@ -46,6 +48,7 @@ export function buildOptimizationState({
     optimizeQ,
     maxQ,
     varyQAbove200Hz,
+    allowNarrowFiltersBelow200Hz,
   );
   const { frequencyLowerBounds, frequencyUpperBounds } = _buildFrequencyBounds(
     filters,
@@ -110,7 +113,13 @@ function _buildGainBounds(filters, maxCutDb, maxBoostDb, gainSignLockThreshold) 
   return { gainLowerBounds, gainUpperBounds };
 }
 
-function _buildQBounds(filters, optimizeQ, maxQ, varyQAbove200Hz) {
+function _buildQBounds(
+  filters,
+  optimizeQ,
+  maxQ,
+  varyQAbove200Hz,
+  allowNarrowFiltersBelow200Hz,
+) {
   const qLowerBounds = new Float64Array(filters.length);
   const qUpperBounds = new Float64Array(filters.length);
 
@@ -124,6 +133,7 @@ function _buildQBounds(filters, optimizeQ, maxQ, varyQAbove200Hz) {
       gain: filters[i].gain,
       baseMaxQ: maxQ,
       varyQAbove200Hz,
+      allowNarrowFiltersBelow200Hz,
     });
     qLowerBounds[i] = bounds.lo;
     qUpperBounds[i] = bounds.hi;

@@ -266,6 +266,7 @@ export class FilterParameterOptimizer {
       maxBoostDb: this.maxBoostDb,
       maxQ: this.maxQ,
       varyQAbove200Hz: this.varyQAbove200Hz,
+      allowNarrowFiltersBelow200Hz: this.allowNarrowFiltersBelow200Hz,
       gainSignLockThreshold: this.gainSignLockThreshold,
     });
 
@@ -275,6 +276,7 @@ export class FilterParameterOptimizer {
       optimizeFc,
       maxQ: this.maxQ,
       varyQAbove200Hz: this.varyQAbove200Hz,
+      allowNarrowFiltersBelow200Hz: this.allowNarrowFiltersBelow200Hz,
     });
 
     decode(state.initT);

@@ -112,7 +112,10 @@ export class SpanCandidateFinder {
 
   _createSpanState(startFreq, startResidual) {
     return {
-      inSpan: startResidual > 0 || this.allowBoosts,
+      // REW never starts the scan inside a below-target (boost) span: tracking
+      // only begins on a positive residual or after a zero crossing
+      // (C0417G.run with UA.m3730() = false).
+      inSpan: startResidual > 0,
       spanStart: startFreq,
       peakVal: startResidual,
       peakFreq: startFreq,

@@ -15,6 +15,7 @@ import { getOptimizedQBounds } from './filterParameterBounds.js';
  * @param {boolean} params.optimizeFc
  * @param {number}  params.maxQ
  * @param {boolean} params.varyQAbove200Hz
+ * @param {boolean} [params.allowNarrowFiltersBelow200Hz=true]
  * @returns {(t: number[]) => void}
  */
 export function createOptimizationDecoder({
@@ -23,6 +24,7 @@ export function createOptimizationDecoder({
   optimizeFc,
   maxQ,
   varyQAbove200Hz,
+  allowNarrowFiltersBelow200Hz = true,
 }) {
   return t => {
     if (optimizeFc) {
@@ -50,6 +52,7 @@ export function createOptimizationDecoder({
           gain: state.workingFilters[i].gain,
           baseMaxQ: maxQ,
           varyQAbove200Hz,
+          allowNarrowFiltersBelow200Hz,
         });
         state.workingFilters[i].Q = cosInverse(t[state.nG + i], bounds.lo, bounds.hi);
       }

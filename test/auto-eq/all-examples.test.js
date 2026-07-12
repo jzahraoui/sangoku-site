@@ -325,6 +325,32 @@ if (withREW.length > 0) {
   );
 }
 
+// ============================================================================
+// ASSERTIONS NORMATIVES (spec.md)
+// ============================================================================
+// SC-008 : overshoots ≤ 2× REW sur chaque exemple.
+// SC-010 : RMS 40-3k ≤ 1.5× REW sur chaque exemple.
+const violations = [];
+for (const r of results) {
+  if (r.rewOvershoots !== null && r.ourOvershoots > 2 * r.rewOvershoots) {
+    violations.push(
+      `SC-008 ${r.name}: overshoots ${r.ourOvershoots} > 2× REW (${r.rewOvershoots})`,
+    );
+  }
+  if (r.rewRMS_mid !== null && r.ourRMS_mid > 1.5 * r.rewRMS_mid) {
+    violations.push(
+      `SC-010 ${r.name}: RMS mid ${r.ourRMS_mid.toFixed(2)} > 1.5× REW (${r.rewRMS_mid.toFixed(2)})`,
+    );
+  }
+}
+
 console.log(`\n${'═'.repeat(80)}`);
-console.log('✅ Tous les tests terminés');
+if (violations.length > 0) {
+  for (const v of violations) {
+    console.log(`❌ ${v}`);
+  }
+  console.log(`${'═'.repeat(80)}`);
+  process.exit(1);
+}
+console.log('✅ Tous les tests terminés (SC-008 et SC-010 respectés)');
 console.log(`${'═'.repeat(80)}`);
