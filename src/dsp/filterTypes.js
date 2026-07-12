@@ -7,4 +7,5 @@
 export const FILTER_TYPES = Object.freeze({
   NONE: 'NONE',
   PEAKING: 'PEAKING',
+  ALL_PASS: 'ALL_PASS',
 });

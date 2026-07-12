@@ -9,6 +9,7 @@
 import { validateNumber } from '../core/validators.js';
 import { FILTER_TYPES } from './filterTypes.js';
 import {
+  computeAllPassCoefficients,
   computePeakingCoefficients,
   createUnityCoefficients,
 } from './biquadCoefficients.js';
@@ -83,6 +84,22 @@ export class BiquadFilter {
   }
 
   /**
+   * Configure un filtre all-pass du second ordre (|H| = 1, rotation de phase
+   * de −360° avec −180° à fc). Réalisation DSP du all-pass de l'optimiseur
+   * de subs (slot 20/21 côté REW).
+   * @param {number} fc - Fréquence centrale (Hz)
+   * @param {number} Q - Facteur de qualité
+   * @throws {TypeError|RangeError} Si les paramètres sont invalides
+   */
+  setAllPass(fc, Q) {
+    this.fc = validateNumber(fc, 'fc', 1, this.sampleRate * 0.4999);
+    this.Q = validateNumber(Q, 'Q', 0.1, 100);
+    this.gain = 0;
+    this.filterType = FILTER_TYPES.ALL_PASS;
+    this.calcBiquad();
+  }
+
+  /**
    * Calcule les coefficients biquad
    */
   calcBiquad() {
@@ -93,19 +110,31 @@ export class BiquadFilter {
         return;
       }
 
-      if (this.filterType !== FILTER_TYPES.PEAKING) {
+      if (this.filterType === FILTER_TYPES.ALL_PASS) {
+        // Pas de coefficients p1..p5 : la phase d'un all-pass se dérive de la
+        // réponse complexe (voir getPhase).
+        this.resetToUnity();
+        Object.assign(
+          this,
+          computeAllPassCoefficients({
+            fc: this.fc,
+            Q: this.Q,
+            sampleRate: this.sampleRate,
+          }),
+        );
+      } else if (this.filterType === FILTER_TYPES.PEAKING) {
+        Object.assign(
+          this,
+          computePeakingCoefficients({
+            fc: this.fc,
+            Q: this.Q,
+            gain: this.gain,
+            sampleRate: this.sampleRate,
+          }),
+        );
+      } else {
         throw new TypeError(`Unsupported filter type: ${this.filterType}`);
       }
-
-      Object.assign(
-        this,
-        computePeakingCoefficients({
-          fc: this.fc,
-          Q: this.Q,
-          gain: this.gain,
-          sampleRate: this.sampleRate,
-        }),
-      );
 
       this.calcDone = true;
       this.calcRate = this.sampleRate;
@@ -215,6 +244,11 @@ export class BiquadFilter {
       this.calcBiquad();
     }
 
+    if (this.filterType === FILTER_TYPES.ALL_PASS) {
+      const { re, im } = getComplexResponseFromCoefficients(this, freq, this.sampleRate);
+      return Math.atan2(im, re) * (180 / Math.PI);
+    }
+
     return getPhaseFromCoefficients(this, freq, this.sampleRate);
   }
 
@@ -265,6 +299,7 @@ export class BiquadFilter {
     if (this.filterType === FILTER_TYPES.PEAKING) {
       return Math.abs(this.gain) < 0.01;
     }
+    // Un all-pass modifie la phase même à gain nul.
     return false;
   }
 

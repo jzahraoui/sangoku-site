@@ -119,3 +119,59 @@ export function computePeakingCoefficients({ fc, Q, gain, sampleRate }) {
 
   return coeffs;
 }
+
+/**
+ * Computes second-order all-pass biquad coefficients (RBJ Audio EQ Cookbook).
+ *
+ * |H(f)| = 1 at every frequency; the phase rotates by −360° across the band,
+ * passing −180° at fc, with a transition sharpness set by Q. Used to realise
+ * the sub-optimizer all-pass (REW slot 20/21) in the internal DSP layer.
+ *
+ * Note: unlike the peaking path, no p1..p5 phase fast-path coefficients are
+ * produced — the phase of an all-pass is derived from the complex response.
+ *
+ * @param {Object} params
+ * @param {number} params.fc - Centre frequency in Hz (phase = −180°)
+ * @param {number} params.Q - Quality factor (transition sharpness)
+ * @param {number} params.sampleRate - Sample rate in Hz
+ * @returns {Object} Biquad coefficients { a0..a2, b0..b2 }
+ * @throws {RangeError} If fc >= Nyquist, Q is too low, or coefficients are non-finite.
+ */
+export function computeAllPassCoefficients({ fc, Q, sampleRate }) {
+  const omega = ((Math.PI * 2) / sampleRate) * fc;
+
+  if (omega >= Math.PI) {
+    throw new RangeError(
+      `Frequency ${fc} Hz exceeds Nyquist limit (${sampleRate / 2} Hz)`,
+    );
+  }
+
+  if (Q < 0.01) {
+    throw new RangeError(`Q value ${Q} is too low (min 0.01)`);
+  }
+
+  const cs = Math.cos(omega);
+  const sn = Math.sin(omega);
+  const alpha = sn / (2 * Q);
+
+  if (!Number.isFinite(alpha) || alpha === 0) {
+    throw new RangeError(`Invalid alpha value: ${alpha}`);
+  }
+
+  const coeffs = {
+    a0: 1 + alpha,
+    a1: -2 * cs,
+    a2: 1 - alpha,
+    b0: 1 - alpha,
+    b1: -2 * cs,
+    b2: 1 + alpha,
+  };
+
+  for (const [key, val] of Object.entries(coeffs)) {
+    if (!Number.isFinite(val)) {
+      throw new RangeError(`Non-finite coefficient detected: ${key}=${val}`);
+    }
+  }
+
+  return coeffs;
+}

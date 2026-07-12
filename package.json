@@ -84,6 +84,7 @@
     "test:reference-compensation": "node --test test/auto-eq/reference-compensation.test.js",
     "test:optimizer-decoding": "node --test test/auto-eq/optimizer-decoding.test.js",
     "test:biquad-coefficients": "node --test test/auto-eq/biquad-coefficients.test.js",
+    "test:all-pass": "node --test test/auto-eq/all-pass-biquad.test.js",
     "test:biquad-response": "node --test test/auto-eq/biquad-response.test.js",
     "test:peaking-magnitude": "node --test test/auto-eq/peaking-magnitude.test.js",
     "test:peaking-profiles": "node --test test/auto-eq/peaking-profiles.test.js",
