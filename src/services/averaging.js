@@ -1,4 +1,5 @@
 import { UNKNOWN_GROUP_NAME } from '../measurement/measurement-info.js';
+import { computeHybridAlignmentOffsets } from '../dsp/time-alignment.js';
 import { assertAveragingConsistency, quantize3dB } from '../measurement/measurement-selection.js';
 import {
   AVERAGE_SUFFIX,
@@ -90,7 +91,49 @@ function measurementsToDelete(uuids, deleteOriginal) {
  * removeMeasurements, removeMeasurementUuid) and `operations`
  * (createMeasurementOperations instance).
  */
-function createAveragingProcessor({ session, operations }) {
+function createAveragingProcessor({ session, operations, log = null }) {
+  /**
+   * Align the group's positions with the internal hybrid strategy (envelope
+   * cross-correlation + constrained raw cross-correlation — see
+   * src/dsp/time-alignment.js) instead of REW's "Cross corr align", whose
+   * cycle-skip failures were measured on the ADY corpus. Falls back to no
+   * alignment (with a warning) when an impulse response is unavailable or
+   * the sample rates differ.
+   */
+  async function alignPositions(code, items) {
+    if (items.some(item => item.haveImpulseResponse === false)) {
+      log?.warn(
+        `${code}: missing impulse response, averaging without time alignment`,
+      );
+      return;
+    }
+
+    const infos = [];
+    for (const item of items) {
+      infos.push(await operations.getImpulseResponseInfo(session.rewMeasurements, item));
+    }
+    if (new Set(infos.map(info => info.sampleRate)).size > 1) {
+      log?.warn(`${code}: mixed sample rates, averaging without time alignment`);
+      return;
+    }
+
+    const offsets = computeHybridAlignmentOffsets(
+      infos.map(info => info.data),
+      {
+        sampleRate: infos[0].sampleRate,
+        startTimes: infos.map(info => info.startTime),
+      },
+    );
+    for (let i = 1; i < items.length; i++) {
+      await operations.addIROffsetSeconds(session.rewMeasurements, items[i], offsets[i]);
+    }
+    log?.info(
+      `${code}: positions aligned (offsets ms: ${offsets
+        .map(offset => (offset * 1000).toFixed(2))
+        .join(', ')})`,
+    );
+  }
+
   async function processCodeGroup(code, group, avgMethod, deleteOriginal) {
     // exclude previous results, predictions and out-of-range peaks
     const usableItems = group.items.filter(
@@ -104,7 +147,7 @@ function createAveragingProcessor({ session, operations }) {
     }
 
     const uuids = usableItems.map(item => item.uuid);
-    await session.rewMeasurements.crossCorrAlign(uuids);
+    await alignPositions(code, usableItems);
 
     const vectorAverage = await session.analyseApiResponse(
       await session.rewMeasurements.processMeasurements(avgMethod, uuids),

@@ -64,24 +64,45 @@ describe('createAverages', () => {
 describe('createAveragingProcessor (records)', () => {
   const record = (uuid, title, IRPeakValue = 0.5) => ({ uuid, title, IRPeakValue });
 
-  function harness() {
+  /** IR synthétique : burst large bande démarrant à startSample (48 kHz). */
+  function burstIR(startSample) {
+    const out = new Float64Array(512);
+    for (let i = startSample; i < out.length; i++) {
+      const t = (i - startSample) / 48000;
+      out[i] = Math.sin(2 * Math.PI * 3000 * t) * Math.exp(-t * 3000);
+    }
+    return out;
+  }
+
+  function harness({ irByUuid = {}, sampleRateByUuid = {} } = {}) {
     const created = record('avg-uuid', 'created');
     const session = {
       rewMeasurements: {
-        crossCorrAlign: vi.fn().mockResolvedValue(true),
         processMeasurements: vi.fn().mockResolvedValue({ ok: true }),
       },
       analyseApiResponse: vi.fn().mockResolvedValue(created),
       removeMeasurements: vi.fn().mockResolvedValue(true),
       removeMeasurementUuid: vi.fn().mockResolvedValue(true),
     };
-    const operations = { setTitle: vi.fn().mockResolvedValue(true) };
+    const operations = {
+      setTitle: vi.fn().mockResolvedValue(true),
+      getImpulseResponseInfo: vi.fn(async (rew, m) => ({
+        data: irByUuid[m.uuid] ?? burstIR(50),
+        sampleRate: sampleRateByUuid[m.uuid] ?? 48000,
+        startTime: 0,
+      })),
+      addIROffsetSeconds: vi.fn().mockResolvedValue(true),
+    };
     const { processGroupedResponses } = createAveragingProcessor({ session, operations });
     return { session, operations, created, processGroupedResponses };
   }
 
   it('averages each usable channel group, renames via operations, deletes originals', async () => {
-    const { session, operations, created, processGroupedResponses } = harness();
+    // fl2 arrive 100 échantillons après fl1 → l'alignement interne doit
+    // appliquer ≈ +100/48000 s à fl2 avant le moyennage REW.
+    const { session, operations, created, processGroupedResponses } = harness({
+      irByUuid: { fl1: burstIR(50), fl2: burstIR(150), c1: burstIR(60), c2: burstIR(60) },
+    });
     const fl1 = record('fl1', 'FL_P01');
     const fl2 = record('fl2', 'FL_P02');
     const c1 = record('c1', 'C_P01');
@@ -95,7 +116,12 @@ describe('createAveragingProcessor (records)', () => {
       true,
     );
 
-    expect(session.rewMeasurements.crossCorrAlign).toHaveBeenCalledWith(['fl1', 'fl2']);
+    // Alignement interne : offset ≈ 100 échantillons appliqué à fl2, ≈ 0 à c2
+    const offsetCalls = operations.addIROffsetSeconds.mock.calls;
+    expect(offsetCalls.map(call => call[1].uuid)).toEqual(['fl2', 'c2']);
+    expect(offsetCalls[0][2] * 48000).toBeCloseTo(100, 0);
+    expect(Math.abs(offsetCalls[1][2] * 48000)).toBeLessThan(1);
+
     expect(session.rewMeasurements.processMeasurements).toHaveBeenCalledWith(
       'Vector average',
       ['fl1', 'fl2'],
@@ -112,6 +138,50 @@ describe('createAveragingProcessor (records)', () => {
       'c1',
       'c2',
     ]);
+  });
+
+  it('averages without alignment when an impulse response is missing', async () => {
+    const { session, operations, processGroupedResponses } = harness();
+    const grouped = {
+      FL: {
+        items: [
+          { ...record('fl1', 'FL_P01'), haveImpulseResponse: false },
+          record('fl2', 'FL_P02'),
+        ],
+        count: 2,
+      },
+      C: { items: [record('c1', 'C_P01'), record('c2', 'C_P02')], count: 2 },
+    };
+
+    await expect(processGroupedResponses(grouped, 'Vector average', 'none')).resolves.toBe(
+      true,
+    );
+    // FL non aligné (IR manquante) mais moyenné quand même ; C aligné.
+    expect(operations.getImpulseResponseInfo.mock.calls.map(c => c[1].uuid)).toEqual([
+      'c1',
+      'c2',
+    ]);
+    expect(session.rewMeasurements.processMeasurements).toHaveBeenCalledWith(
+      'Vector average',
+      ['fl1', 'fl2'],
+    );
+  });
+
+  it('averages without alignment on mixed sample rates', async () => {
+    const { session, operations, processGroupedResponses } = harness({
+      sampleRateByUuid: { fl1: 48000, fl2: 44100, c1: 48000, c2: 48000 },
+    });
+    const grouped = {
+      FL: { items: [record('fl1', 'FL_P01'), record('fl2', 'FL_P02')], count: 2 },
+      C: { items: [record('c1', 'C_P01'), record('c2', 'C_P02')], count: 2 },
+    };
+
+    await expect(processGroupedResponses(grouped, 'Vector average', 'none')).resolves.toBe(
+      true,
+    );
+    // FL : rates mélangés → aucun offset appliqué ; C : aligné normalement.
+    expect(operations.addIROffsetSeconds.mock.calls.map(c => c[1].uuid)).toEqual(['c2']);
+    expect(session.rewMeasurements.processMeasurements).toHaveBeenCalledTimes(2);
   });
 
   it('excludes existing averages/predictions and rejects groups below 2 usable', async () => {

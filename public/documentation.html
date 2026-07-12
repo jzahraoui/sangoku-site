@@ -309,6 +309,14 @@
       la meme sur tout le projet pour que les comparaisons restent coherentes.
     </p>
     <p>
+      Avant chaque moyenne, RCH aligne desormais lui-meme les positions dans le temps
+      (correlation d'enveloppes pour degrossir, puis correlation fine contrainte), a la
+      place du Cross corr align de REW qui pouvait se decaler d'un cycle entier sur
+      certaines mesures. Les decalages appliques sont indiques dans les logs. Cet
+      alignement ameliore la coherence entre positions, en particulier pour le Vector
+      average et les subwoofers.
+    </p>
+    <p>
       Pour le calcul des filtres, preferez <strong>RMS + phase avg.</strong> : cette
       methode preserve le niveau a toutes les frequences. Le Vector average reste
       precieux pour l'alignement temporel et pour juger la coherence entre positions,

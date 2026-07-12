@@ -169,6 +169,24 @@ async function getImpulseResponse(
   return reponseBody.data;
 }
 
+/**
+ * Variante de getImpulseResponse exposant le référentiel temporel complet
+ * (startTime, sampleRate) avec les échantillons — nécessaire à l'alignement
+ * temporel interne. Par défaut : IR brute (ni fenêtrée ni normalisée).
+ */
+async function getImpulseResponseInfo(
+  rew,
+  m,
+  { unit = 'percent', windowed = false, normalised = false } = {},
+) {
+  const body = await rew.getImpulseResponse(m.uuid, { unit, windowed, normalised });
+  return {
+    data: body.data,
+    sampleRate: body.sampleRate,
+    startTime: body.startTime ?? 0,
+  };
+}
+
 async function getFilterImpulseResponse(rew, m, { freq, sampleCount } = {}) {
   if (!freq || !sampleCount) {
     throw new Error(`Invalid frequency or sample count for ${labelOf(m)}`);
@@ -1076,6 +1094,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     getFreeXFilterIndex,
     getFrequencyResponse,
     getImpulseResponse,
+    getImpulseResponseInfo,
     getPredictedImpulseResponse,
     getTargetLevel,
     getTargetResponse,

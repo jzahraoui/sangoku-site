@@ -298,6 +298,14 @@
       consistent throughout the project so your comparisons stay meaningful.
     </p>
     <p>
+      Before each average, RCH now time-aligns the positions itself (envelope
+      cross-correlation for the coarse estimate, then a constrained fine
+      cross-correlation), replacing REW's Cross corr align which could slip by a full
+      cycle on some measurements. The applied offsets are reported in the logs. This
+      alignment improves the coherence between positions, especially for the Vector
+      average and for subwoofers.
+    </p>
+    <p>
       For filter calculation, prefer <strong>RMS + phase avg.</strong>: this method
       preserves the level at all frequencies. Vector average remains valuable for time
       alignment and for judging the coherence between positions, but it underestimates

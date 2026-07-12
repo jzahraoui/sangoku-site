@@ -69,7 +69,7 @@ class BusinessTools {
       findAligment: (...args) => parentViewModel.findAligment(...args),
       log: lm,
     });
-    this.averaging = createAveragingProcessor({ session, operations });
+    this.averaging = createAveragingProcessor({ session, operations, log: lm });
     this.msoImporter = createMsoImporter({ session, operations });
   }
 
