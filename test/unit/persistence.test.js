@@ -96,6 +96,33 @@ describe('saveMeasurements', () => {
     expect(data.autoEqConfig).toEqual({ numFilters: 20 });
     expect(data.selectedRoomCurve).toBe('None');
   });
+
+  it('strips the ADY impulse data from the persisted avrFileContent', () => {
+    // Régression prod 1.2.55 : une sauvegarde pendant l'import voyait encore
+    // detectedChannels[].responseData (~15 Mo) → quota localStorage dépassé.
+    const jsonAvrData = {
+      targetModelName: 'AVC-A1H',
+      detectedChannels: [
+        { commandId: 'FL', responseData: { 0: [0.1, 0.2], 1: [0.3, 0.4] } },
+        { commandId: 'SW1', responseData: { 0: [0.5] } },
+      ],
+    };
+    const { service, store } = createHarness({ settings: { jsonAvrData } });
+
+    service.saveMeasurements();
+
+    const saved = store.save.mock.calls[0][0].avrFileContent;
+    expect(saved.targetModelName).toBe('AVC-A1H');
+    expect(saved.detectedChannels.map(channel => channel.commandId)).toEqual([
+      'FL',
+      'SW1',
+    ]);
+    expect(saved.detectedChannels.every(channel =>
+      Object.keys(channel.responseData).length === 0,
+    )).toBe(true);
+    // L'objet en mémoire n'est pas muté : l'import en cours garde ses données.
+    expect(jsonAvrData.detectedChannels[0].responseData[0]).toEqual([0.1, 0.2]);
+  });
 });
 
 describe('restore', () => {

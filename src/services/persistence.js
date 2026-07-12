@@ -19,6 +19,27 @@ import RoomCurvesSettings from '../room-curve-settings.js';
  * - `applyPolling(shouldPoll)`: start/stop the REW session polling.
  */
 
+/**
+ * Le contrat ADR 002 exclut les données de signal de la persistance : les
+ * impulsions du fichier ADY (`detectedChannels[].responseData`) sont vidées
+ * après import, mais une sauvegarde déclenchée PENDANT l'import les voit
+ * encore et dépasse le quota localStorage (~15 Mo pour 45 mesures — observé
+ * en production 1.2.55). Les retirer au point de sauvegarde rend l'ordre des
+ * opérations indifférent.
+ */
+function stripSignalData(avrFileContent) {
+  if (!avrFileContent?.detectedChannels) {
+    return avrFileContent;
+  }
+  return {
+    ...avrFileContent,
+    detectedChannels: avrFileContent.detectedChannels.map(channel => ({
+      ...channel,
+      responseData: {},
+    })),
+  };
+}
+
 function createPersistenceService({
   store,
   settings,
@@ -40,7 +61,7 @@ function createPersistenceService({
       selectedAverageMethod: settings.get('selectedAverageMethod'),
       maxBoostIndividualValue: settings.get('maxBoostIndividualValue'),
       maxBoostOverallValue: settings.get('maxBoostOverallValue'),
-      avrFileContent: settings.get('jsonAvrData'),
+      avrFileContent: stripSignalData(settings.get('jsonAvrData')),
       loadedFileName: settings.get('loadedFileName'),
       isPolling: settings.get('isPolling'),
       selectedSmoothingMethod: settings.get('selectedSmoothingMethod'),
