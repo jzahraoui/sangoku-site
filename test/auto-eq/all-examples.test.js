@@ -68,6 +68,18 @@ const examples = [
   },
 ];
 
+// Drapeaux qualité des défauts UI (MeasurementViewModel.autoEqConfig).
+// Boosts et plage restent ceux de la référence REW (voir second passage).
+const PROD_UI_OVERRIDES = {
+  maxCutDb: 15,
+  flatnessTarget: 0.3,
+  numOptimizationPasses: 20,
+  enableBeatRewOptimization: true,
+  enableCandidatePlacement: true,
+  enableReduceRepair: true,
+  enableCriticalBandRefinement: true,
+};
+
 const results = [];
 
 // ============================================================================
@@ -211,6 +223,32 @@ for (const example of examples) {
     );
   }
 
+  // Second passage: drapeaux qualité de l'UI de production (Beat REW +
+  // candidate placement). Plage et limites de boost gardées identiques à la
+  // référence REW (6/6 dB, 20-20000 Hz) pour comparer à référence égale.
+  console.log(`\n   ⚙️ Calcul Auto-EQ (config UI production)...`);
+  const uiCalculator = new AutoEQCalculator(
+    createConfig(PROD_UI_OVERRIDES, { silent: true }),
+  );
+  const uiStartTime = Date.now();
+  await uiCalculator.calculate(measuredResponse, targetResponse);
+  const uiElapsed = Date.now() - uiStartTime;
+
+  const uiEqualizedData = measuredData.map(point => {
+    const filterResponse = uiCalculator.filterSet.getCumulativeComplexResponse(
+      point.freq,
+    );
+    return { freq: point.freq, spl: point.spl + filterResponse.magnitudeDB };
+  });
+  const uiRMS = calculateRMSError(uiEqualizedData, targetSampler, 20, 20000);
+  const uiRMS_mid = calculateRMSError(uiEqualizedData, targetSampler, 40, 3000);
+  const uiOvershoots = countOvershoots(uiEqualizedData, targetSampler, 40, 3000);
+  console.log(
+    `   📈 Config UI: ${uiRMS.toFixed(2)} dB RMS (full), ${uiRMS_mid.toFixed(
+      2,
+    )} dB RMS (40-3k), ${uiOvershoots} overshoots (${uiElapsed}ms)`,
+  );
+
   // Sauvegarder les résultats
   results.push({
     name: example.name,
@@ -225,6 +263,11 @@ for (const example of examples) {
     ourOvershoots,
     ourFiltersCount: activeFilters.length,
     elapsed,
+    uiRMS,
+    uiRMS_mid,
+    uiOvershoots,
+    uiFiltersCount: uiCalculator.filterSet.getActiveFilters().length,
+    uiElapsed,
   });
 }
 
@@ -325,22 +368,53 @@ if (withREW.length > 0) {
   );
 }
 
+// Tableau config UI de production
+console.log(`\n📊 Config UI production (Beat REW + candidate placement):`);
+console.log(
+  '┌─────────────────────┬───────────┬───────────┬───────────┬────────────────────┐',
+);
+console.log(
+  '│ Exemple             │ REW mid   │ UI mid    │ UI full   │ Overshoots UI/REW  │',
+);
+console.log(
+  '├─────────────────────┼───────────┼───────────┼───────────┼────────────────────┤',
+);
+for (const r of results) {
+  const rew = r.rewRMS_mid ? r.rewRMS_mid.toFixed(2).padStart(7) : '   N/A ';
+  const uiMid = r.uiRMS_mid.toFixed(2).padStart(7);
+  const uiFull = r.uiRMS.toFixed(2).padStart(7);
+  const os = `${r.uiOvershoots} / ${r.rewOvershoots ?? 'N/A'}`.padStart(16);
+  console.log(
+    `│ ${r.name.padEnd(19)} │ ${rew} │ ${uiMid} │ ${uiFull} │ ${os}   │`,
+  );
+}
+console.log(
+  '└─────────────────────┴───────────┴───────────┴───────────┴────────────────────┘',
+);
+
 // ============================================================================
 // ASSERTIONS NORMATIVES (spec.md)
 // ============================================================================
 // SC-008 : overshoots ≤ 2× REW sur chaque exemple.
 // SC-010 : RMS 40-3k ≤ 1.5× REW sur chaque exemple.
+// Appliquées aux deux configurations (golden baseline et UI production).
 const violations = [];
 for (const r of results) {
-  if (r.rewOvershoots !== null && r.ourOvershoots > 2 * r.rewOvershoots) {
-    violations.push(
-      `SC-008 ${r.name}: overshoots ${r.ourOvershoots} > 2× REW (${r.rewOvershoots})`,
-    );
-  }
-  if (r.rewRMS_mid !== null && r.ourRMS_mid > 1.5 * r.rewRMS_mid) {
-    violations.push(
-      `SC-010 ${r.name}: RMS mid ${r.ourRMS_mid.toFixed(2)} > 1.5× REW (${r.rewRMS_mid.toFixed(2)})`,
-    );
+  const runs = [
+    { label: '', overshoots: r.ourOvershoots, rmsMid: r.ourRMS_mid },
+    { label: ' (config UI)', overshoots: r.uiOvershoots, rmsMid: r.uiRMS_mid },
+  ];
+  for (const run of runs) {
+    if (r.rewOvershoots !== null && run.overshoots > 2 * r.rewOvershoots) {
+      violations.push(
+        `SC-008 ${r.name}${run.label}: overshoots ${run.overshoots} > 2× REW (${r.rewOvershoots})`,
+      );
+    }
+    if (r.rewRMS_mid !== null && run.rmsMid > 1.5 * r.rewRMS_mid) {
+      violations.push(
+        `SC-010 ${r.name}${run.label}: RMS mid ${run.rmsMid.toFixed(2)} > 1.5× REW (${r.rewRMS_mid.toFixed(2)})`,
+      );
+    }
   }
 }
 
