@@ -26,8 +26,7 @@ import {
  * fields read through `unwrap` (KO observables today, plain record fields
  * after ADR 002) and `update(partial)` for state write-back.
  *
- * Simple writes pass `invalidateAssociatedFilter` where a filter write must
- * drop the associated filter. Sequences receive instead a `session`
+ * Sequences receive a `session`
  * object — the parts of the viewmodel that own the measurement list until the
  * rew-session service exists:
  *   { analyseApiResponse, removeMeasurements, removeMeasurementUuid,
@@ -111,7 +110,7 @@ async function getFilters(rew, m) {
   return measurementFilters;
 }
 
-async function setSingleFilter(rew, m, filter, { invalidateAssociatedFilter } = {}) {
+async function setSingleFilter(rew, m, filter) {
   if (!filter) {
     throw new Error(`Invalid filter: ${filter}`);
   }
@@ -127,7 +126,6 @@ async function setSingleFilter(rew, m, filter, { invalidateAssociatedFilter } = 
 
   await rew.setFilters(m.uuid, filter);
 
-  await invalidateAssociatedFilter?.();
   return true;
 }
 
@@ -381,46 +379,6 @@ async function arithmeticInvertAPhase(
   return session.analyseApiResponse(apiResponse);
 }
 
-// --- Associated-filter lifecycle (session owns the measurement list) -----------
-
-/**
- * Empreinte stable du bank de filtres (index/type/état/paramètres). Sert à
- * détecter que les filtres ont changé hors de l'application — par exemple
- * régénérés dans l'interface de REW — pour invalider le filtre associé mis en
- * cache et le régénérer sur le bank courant.
- */
-function filtersFingerprint(filters) {
-  return filters
-    .map(f => `${f.index}|${f.type}|${f.enabled}|${f.isAuto}|${f.frequency}|${f.gaindB}|${f.q}`)
-    .join(';');
-}
-
-async function deleteAssociatedFilter(m, session) {
-  m.associatedFilterFingerprint = null;
-  if (m.associatedFilter === null) {
-    return true;
-  }
-  if (unwrap(m.associatedFilterItem)) {
-    await session.removeMeasurementUuid(m.associatedFilter);
-    m.associatedFilter = null;
-    return true;
-  }
-  return false;
-}
-
-async function setAssociatedFilter(m, filter, session) {
-  if (!filter.isFilter) {
-    throw new Error(`Invalid filter: ${filter}`);
-  }
-  // check if the filter is already associated
-  if (m.associatedFilter === filter.uuid) {
-    return true;
-  }
-  await deleteAssociatedFilter(m, session);
-  m.associatedFilter = filter.uuid;
-  return true;
-}
-
 async function producePredictedMeasurement(rew, m, session) {
   if (m.isFilter) {
     throw new Error(`action can not be done on a Filter: ${labelOf(m)}`);
@@ -544,7 +502,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     rew,
     m,
     filters,
-    { overwrite = true, invalidateAssociatedFilter } = {},
+    { overwrite = true } = {},
   ) {
     if (!filters) {
       throw new Error(`Invalid filter: ${filters}`);
@@ -591,7 +549,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       return true;
     }
 
-    await invalidateAssociatedFilter?.();
     log.debug(`${labelOf(m)}: Setting ${filtersCleaned.length} filters`);
     return rew.postFilters(m.uuid, {
       filters: filtersCleaned,
@@ -599,7 +556,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
   }
 
   async function resetFilters(rew, m, session = {}) {
-    await session.invalidateAssociatedFilter?.();
     return setFilters(rew, m, createEmptyFilters(), session);
   }
 
@@ -757,16 +713,13 @@ function createMeasurementOperations({ log = noopLog } = {}) {
 
   // --- Copies towards the other positions of the same channel ------------------
 
-  async function copyFiltersToOther(rew, m, targets, session) {
+  async function copyFiltersToOther(rew, m, targets) {
     if (!targets.length) return;
 
     log.info(`Copying filters to other positions of ${labelOf(m)}...`);
     const measurementFilters = await getFilters(rew, m);
     for (const otherItem of targets) {
-      await setFilters(rew, otherItem, measurementFilters, {
-        invalidateAssociatedFilter: () => deleteAssociatedFilter(otherItem, session),
-      });
-      otherItem.associatedFilter = m.associatedFilter;
+      await setFilters(rew, otherItem, measurementFilters);
     }
   }
 
@@ -804,22 +757,10 @@ function createMeasurementOperations({ log = noopLog } = {}) {
   // --- Filter measurement / predicted measurement sequences --------------------
 
   async function generateFilterMeasurement(rew, m, session) {
-    // Fraîcheur : les filtres font foi tels qu'ils sont DANS REW, quelle que
-    // soit leur origine (calcul RCH ou génération directe dans l'interface
-    // REW). Si le bank a changé depuis la création du filtre associé, le
-    // cache est invalidé et le filtre régénéré sur le bank courant.
-    const currentFingerprint = filtersFingerprint(await getFilters(rew, m));
-    const existingFilter = unwrap(m.associatedFilterItem);
-    if (existingFilter && m.associatedFilterFingerprint === currentFingerprint) {
-      return existingFilter;
-    }
-    if (existingFilter) {
-      log.info(
-        `${labelOf(m)}: filters changed in REW since the associated filter was generated — regenerating`,
-      );
-      await deleteAssociatedFilter(m, session);
-    }
-
+    // Génère la mesure-filtre du bank courant (REW « Generate filters
+    // measurement »). Plus de cache : l'export OCA calcule désormais l'IR en
+    // interne, et le seul appelant restant (revert LFE, business-tools) gère
+    // la mesure comme un objet temporaire.
     const response = await rew.generateFiltersMeasurement(m.uuid);
     const filter = await session.analyseApiResponse(response);
     filter.isFilter = true;
@@ -833,8 +774,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     const crossover = unwrap(m.crossover);
     const cxText = crossover ? `X@${crossover}Hz` : 'FB';
     await setTitle(rew, filter, `Filter ${unwrap(m.title)} ${cxText}`);
-    await setAssociatedFilter(m, filter, session);
-    m.associatedFilterFingerprint = currentFingerprint;
     return filter;
   }
 
@@ -843,11 +782,8 @@ function createMeasurementOperations({ log = noopLog } = {}) {
   async function resetAll(
     rew,
     m,
-    { targetLevel = DEFAULT_TARGET_LEVEL, irWindowWidths, equaliserDefaults, session },
+    { targetLevel = DEFAULT_TARGET_LEVEL, irWindowWidths, equaliserDefaults },
   ) {
-    const invalidation = {
-      invalidateAssociatedFilter: () => deleteAssociatedFilter(m, session),
-    };
     try {
       await resetSmoothing(rew, m);
       await resetIrWindows(rew, m, irWindowWidths);
@@ -856,8 +792,8 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       await resetEqualiser(rew, m, equaliserDefaults);
       await resetcumulativeIRShiftSeconds(rew, m);
       await setInverted(rew, m, false);
-      await setTargetLevel(rew, m, targetLevel, invalidation);
-      await resetFilters(rew, m, invalidation);
+      await setTargetLevel(rew, m, targetLevel);
+      await resetFilters(rew, m);
     } catch (error) {
       throw new Error(`Failed to reset for response ${labelOf(m)}: ${error.message}`, {
         cause: error,
@@ -872,51 +808,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
    * smoothing, predicted measurement, amplitude correction, IR windows,
    * phase correction, then convolution of phase and amplitude corrections.
    */
-  async function runFirFilter(rew, m, ctx, customStartFrequency, customEndFrequency) {
-    const toBeDeleted = [];
-
-    // TODO: use inversed measurement for amplitude filter creation
-    const preview = await producePredictedMeasurement(rew, m, ctx.session);
-    toBeDeleted.push(preview);
-
-    const amplitudeCorrection = await generateFilterMeasurement(rew, m, ctx.session);
-
-    await setZeroAtIrPeak(rew, preview);
-    await resetSmoothing(rew, preview);
-    await setIrWindows(rew, preview, ctx.optimizedMtwWindows());
-
-    const excessPhase = await createExcessPhaseCopy(rew, preview);
-    toBeDeleted.push(excessPhase);
-
-    await resetSmoothing(rew, excessPhase);
-
-    const phaseCorrection = await arithmeticInvertAPhase(
-      rew,
-      excessPhase,
-      m,
-      ctx.session,
-      customStartFrequency,
-      customEndFrequency,
-    );
-    toBeDeleted.push(phaseCorrection);
-
-    const finalFIR = await arithmeticConvolution(
-      rew,
-      phaseCorrection,
-      amplitudeCorrection,
-      ctx.session,
-    );
-
-    const crossover = unwrap(m.crossover);
-    const cxText = crossover ? `X@${crossover}Hz` : 'FB';
-    await setTitle(rew, finalFIR, `Filter ${unwrap(m.title)} ${cxText}`);
-
-    finalFIR.isFilter = true;
-
-    await setAssociatedFilter(m, finalFIR, ctx.session);
-    await ctx.session.removeMeasurements(toBeDeleted);
-  }
-
   /**
    * Mesure le profil de référentiel D(f) = brute − courbe de travail (moyennes
    * par octave interpolées) quand une fenêtre MTW/FDW est active : bascule
@@ -1095,10 +986,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       ? buildPhaseMatchFilters(activeFilters, reservedIndices)
       : createEmptyFilters().filter(slot => !reserved.has(slot.index));
 
-    await setFilters(rew, m, filters, {
-      overwrite: false,
-      invalidateAssociatedFilter: () => deleteAssociatedFilter(m, ctx.session),
-    });
+    await setFilters(rew, m, filters, { overwrite: false });
   }
 
   async function createFilter(rew, m, ctx, type, useWorkingSettings, copyToOther) {
@@ -1117,12 +1005,8 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       await ctx.setTargetLevelFromMeasurement();
     }
 
-    const invalidation = {
-      invalidateAssociatedFilter: () => deleteAssociatedFilter(m, ctx.session),
-    };
-
     // must have only lower band filter to be able to use the high pass filter
-    await resetFilters(rew, m, invalidation);
+    await resetFilters(rew, m);
     await resetTargetSettings(rew, m);
     const fallOff = await detectFallOff(rew, m, { threshold: -6 });
 
@@ -1138,8 +1022,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
 
       if (type === 'phase') {
         await runPhaseMatchFilter(rew, m, ctx, customStartFrequency, customEndFrequency);
-      } else if (type === 'fir') {
-        await runFirFilter(rew, m, ctx, customStartFrequency, customEndFrequency);
       } else {
         throw new Error(`Unknown filter type: ${type}`);
       }
@@ -1185,7 +1067,6 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     createFilter,
     createMinimumPhaseCopy,
     defaultSmoothing,
-    deleteAssociatedFilter,
     detectFallOff,
     generateFilterMeasurement,
     getBandwidth,
@@ -1212,10 +1093,8 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     resolveSampleRate,
     responseCopy,
     restoreWorkingSettings,
-    runFirFilter,
     runPhaseMatchFilter,
     setAllFiltersAuto,
-    setAssociatedFilter,
     setcumulativeIRShiftSeconds,
     setFilters,
     setInverted,

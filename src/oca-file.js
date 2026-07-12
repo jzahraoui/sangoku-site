@@ -1,5 +1,7 @@
 import { CHANNEL_TYPES } from './audyssey.js';
 import ampAssignType from './amp-type.js';
+import { buildBiquadCascadeFromRewBank } from './measurement/rew-filter-bank.js';
+import { computeNormalizedBankImpulseResponse } from './dsp/impulseResponse.js';
 
 export default class OCAFileGenerator {
   static GAIN_ADJUSTMENT_EXP = -0.44999998807907104;
@@ -95,17 +97,28 @@ export default class OCAFileGenerator {
         throw new Error('rensponses must contains extended values');
       }
 
-      let itemFilter;
       try {
-        itemFilter = await item.generateFilterMeasurement();
         const filterCaracteristics = item.isSub()
           ? this.avrFileContent.avr.multEQSpecs.subFilter
           : this.avrFileContent.avr.multEQSpecs.speakerFilter;
 
-        const filter = await this.computeFilterGeneration(
-          itemFilter,
+        // Génération interne : les filtres présents dans REW (GET filters)
+        // font foi ; l'IR de la cascade de biquads est calculée directement au
+        // taux AVR — équivalence au bit près avec l'ancien chemin REW
+        // (generateFilterMeasurement → fenêtres → trim → getImpulseResponse),
+        // vérifiée contre test/fixtures/oca (test:oca-internal).
+        const bank = await item.getFilters();
+        const cascade = buildBiquadCascadeFromRewBank(
+          bank,
+          filterCaracteristics.frequency
+        );
+        const impulseResponse = computeNormalizedBankImpulseResponse(
+          cascade,
+          filterCaracteristics.samples
+        );
+        const filter = this.transformIR(
+          Float32Array.from(impulseResponse),
           filterCaracteristics.samples,
-          filterCaracteristics.frequency,
           item.inverted()
         );
 
@@ -125,8 +138,6 @@ export default class OCAFileGenerator {
         });
       } catch (error) {
         throw new Error(`Creates filters failed: ${error.message}`, { cause: error });
-      } finally {
-        await itemFilter.delete();
       }
     }
     return channels;
@@ -201,55 +212,6 @@ export default class OCAFileGenerator {
       !this.avrFileContent.avr.hasExtendedFreq
     ) {
       throw new Error('180Hz crossover is not supported by your AVR');
-    }
-  }
-
-  async computeFilterGeneration(filterItem, sampleCount, freq, invert) {
-    if (!filterItem.isFilter) {
-      throw new Error(`${filterItem.displayMeasurementTitle()} is not a filter`);
-    }
-    if (!filterItem.haveImpulseResponse) return;
-    if (!Number.isFinite(sampleCount)) {
-      throw new TypeError(`Invalid sample count: ${sampleCount}`);
-    }
-    if (!Number.isFinite(freq)) {
-      throw new TypeError(`Invalid frequency: ${freq}`);
-    }
-
-    await filterItem.setIrWindows({
-      leftWindowType: 'Rectangular',
-      rightWindowType: 'Rectangular',
-      leftWindowWidthms: 0,
-      rightWindowWidthms: ((sampleCount - 1) * 1000) / freq,
-      refTimems: 0,
-      addFDW: false,
-      addMTW: false,
-    });
-
-    // makes sure the filter was not inverted by user
-    await filterItem.setInverted(false);
-
-    const trimmedFilter = await filterItem.trimIRToWindows();
-    try {
-      const filterImpulseResponse = await trimmedFilter.getImpulseResponse(
-        freq,
-        'percent',
-        true,
-        true
-      );
-
-      // first value must be 1
-      if (filterImpulseResponse[0] <= 0.9) {
-        throw new Error(
-          `Unexpected impulse response start value: ${
-            filterImpulseResponse[0]
-          } for ${filterItem.displayMeasurementTitle()}`
-        );
-      }
-
-      return this.transformIR(filterImpulseResponse, sampleCount, invert);
-    } finally {
-      await trimmedFilter.delete();
     }
   }
 

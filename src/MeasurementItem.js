@@ -158,9 +158,6 @@ class MeasurementItem {
       return position;
     });
 
-    this.associatedFilterItem = ko.computed(() =>
-      this.parentViewModel.findMeasurementByUuid(this.associatedFilter),
-    );
     this.measurementIndex = ko.computed(
       () => this.parentViewModel.measurements().indexOf(this) + 1,
     );
@@ -473,10 +470,6 @@ class MeasurementItem {
     return ops.setTargetSettings(this.rewMeasurements, this, targetSettings);
   }
 
-  async generateFilterMeasurement() {
-    return ops.generateFilterMeasurement(this.rewMeasurements, this, this.sessionContext());
-  }
-
   async getImpulseResponse(freq, unit = 'percent', windowed = true, normalised = true) {
     return ops.getImpulseResponse(this.rewMeasurements, this, {
       freq,
@@ -616,14 +609,11 @@ class MeasurementItem {
   async setFilters(filters, overwrite = true) {
     return ops.setFilters(this.rewMeasurements, this, filters, {
       overwrite,
-      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
     });
   }
 
   async setSingleFilter(filter) {
-    return ops.setSingleFilter(this.rewMeasurements, this, filter, {
-      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
-    });
+    return ops.setSingleFilter(this.rewMeasurements, this, filter);
   }
 
   async getFreeXFilterIndex() {
@@ -690,23 +680,11 @@ class MeasurementItem {
   }
 
   async setTargetLevel(level) {
-    return ops.setTargetLevel(this.rewMeasurements, this, level, {
-      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
-    });
+    return ops.setTargetLevel(this.rewMeasurements, this, level);
   }
 
   async resetFilters() {
-    return ops.resetFilters(this.rewMeasurements, this, {
-      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
-    });
-  }
-
-  async setAssociatedFilter(filter) {
-    return ops.setAssociatedFilter(this, filter, this.sessionContext());
-  }
-
-  async deleteAssociatedFilter() {
-    return ops.deleteAssociatedFilter(this, this.sessionContext());
+    return ops.resetFilters(this.rewMeasurements, this);
   }
 
   async producePredictedMeasurement() {
@@ -767,17 +745,6 @@ class MeasurementItem {
     };
   }
 
-  // !!! WARNING !!! set IR oversampling to None in the Analysis settings
-  async _runFirFilter(customStartFrequency, customEndFrequency) {
-    return ops.runFirFilter(
-      this.rewMeasurements,
-      this,
-      this.filterCreationContext(),
-      customStartFrequency,
-      customEndFrequency,
-    );
-  }
-
   async createFilter(type, useWorkingSettings, copyFiltersToOther) {
     return ops.createFilter(
       this.rewMeasurements,
@@ -809,9 +776,7 @@ class MeasurementItem {
   }
 
   async setAllFiltersAuto(requiredState = true) {
-    return ops.setAllFiltersAuto(this.rewMeasurements, this, requiredState, {
-      invalidateAssociatedFilter: () => this.deleteAssociatedFilter(),
-    });
+    return ops.setAllFiltersAuto(this.rewMeasurements, this, requiredState);
   }
 
   async createMinimumPhaseCopy() {
@@ -854,7 +819,6 @@ class MeasurementItem {
       initialSplOffsetdB: this.initialSplOffsetdB,
       isFilter: this.isFilter,
       haveImpulseResponse: this.haveImpulseResponse,
-      associatedFilter: this.associatedFilter,
       IRPeakValue: this.IRPeakValue,
       isSubOperationResult: this.isSubOperationResult,
       parentAttr: this.parentAttr,

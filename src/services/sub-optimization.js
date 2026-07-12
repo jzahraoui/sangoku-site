@@ -92,23 +92,16 @@ function buildMeasurementApi({
     removeMeasurementUuid: uuid => session.removeMeasurementUuid(uuid),
     findMeasurementByUuid: uuid => session.findMeasurementByUuid(uuid),
   };
-  const invalidate = m => async () => {
-    if (m.associatedFilter == null) return;
-    if (session.findMeasurementByUuid(m.associatedFilter)) {
-      await session.removeMeasurementUuid(m.associatedFilter);
-      m.associatedFilter = null;
-    }
-  };
 
   return {
     setInverted: (m, inverted) => operations.setInverted(rew(), m, inverted),
     setSingleFilter: (m, filter) =>
-      operations.setSingleFilter(rew(), m, filter, { invalidateAssociatedFilter: invalidate(m) }),
+      operations.setSingleFilter(rew(), m, filter),
     resetFilters: m =>
-      operations.resetFilters(rew(), m, { invalidateAssociatedFilter: invalidate(m) }),
+      operations.resetFilters(rew(), m),
     applyWorkingSettings: m => operations.applyWorkingSettings(rew(), m, workingSettingsConfig()),
     setTargetLevel: (m, level) =>
-      operations.setTargetLevel(rew(), m, level, { invalidateAssociatedFilter: invalidate(m) }),
+      operations.setTargetLevel(rew(), m, level),
     resetTargetSettings: m => operations.resetTargetSettings(rew(), m),
     removeWorkingSettings: m => operations.removeWorkingSettings(rew(), m, irWindowWidthsFor(m)),
     getFrequencyResponse: m => operations.getFrequencyResponse(rew(), m, {}),
@@ -144,7 +137,6 @@ function buildMeasurementApi({
     setFilters: (m, filters, overwrite) =>
       operations.setFilters(rew(), m, filters, {
         overwrite,
-        invalidateAssociatedFilter: invalidate(m),
       }),
     copyFiltersToOther: m =>
       operations.copyFiltersToOther(rew(), m, getOtherPositionMeasurements(m), sessionContext),

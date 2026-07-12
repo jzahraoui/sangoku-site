@@ -33,7 +33,6 @@ const PLAIN_FIELDS = [
   'timeOfIRStartSeconds',
   'haveImpulseResponse',
   'isFilter',
-  'associatedFilter',
   'IRPeakValue',
   'revertLfeFrequency',
   'isSubOperationResult',
@@ -87,7 +86,6 @@ class MeasurementRecord {
     this.isFilter = item.isFilter || false;
 
     // application state (non-REW)
-    this.associatedFilter = item.associatedFilter;
     this.IRPeakValue = item.IRPeakValue || 0;
     this.revertLfeFrequency = item.revertLfeFrequency || 0;
     this.isSubOperationResult = item.isSubOperationResult || false;
@@ -186,7 +184,6 @@ class MeasurementRecord {
       initialSplOffsetdB: this.initialSplOffsetdB,
       isFilter: this.isFilter,
       haveImpulseResponse: this.haveImpulseResponse,
-      associatedFilter: this.associatedFilter,
       IRPeakValue: this.IRPeakValue,
       revertLfeFrequency: this.revertLfeFrequency,
       isSubOperationResult: this.isSubOperationResult,

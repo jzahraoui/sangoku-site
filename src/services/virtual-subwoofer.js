@@ -76,13 +76,6 @@ function buildMeasurementApi({
   }
 
   const rew = () => session.rewMeasurements;
-  const invalidate = m => async () => {
-    if (m.associatedFilter == null) return;
-    if (session.findMeasurementByUuid(m.associatedFilter)) {
-      await session.removeMeasurementUuid(m.associatedFilter);
-      m.associatedFilter = null;
-    }
-  };
   return {
     predictedFrequencyResponse,
     removeWorkingSettings: m =>
@@ -95,11 +88,10 @@ function buildMeasurementApi({
     addIROffsetSeconds: (m, seconds) => operations.addIROffsetSeconds(rew(), m, seconds),
     setInverted: (m, inverted) => operations.setInverted(rew(), m, inverted),
     resetFilters: m =>
-      operations.resetFilters(rew(), m, { invalidateAssociatedFilter: invalidate(m) }),
+      operations.resetFilters(rew(), m),
     setFilters: (m, filters, overwrite) =>
       operations.setFilters(rew(), m, filters, {
         overwrite,
-        invalidateAssociatedFilter: invalidate(m),
       }),
   };
 }

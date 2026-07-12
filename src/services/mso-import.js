@@ -16,15 +16,6 @@ const unwrap = value => (typeof value === 'function' ? value() : value);
 function createMsoImporter({ operations, session }) {
   const rew = () => session.rewMeasurements;
 
-  // Same associated-filter invalidation the KO item wired into setFilters.
-  const invalidateAssociatedFilter = measurement => async () => {
-    if (measurement.associatedFilter == null) return;
-    if (session.findMeasurementByUuid(measurement.associatedFilter)) {
-      await session.removeMeasurementUuid(measurement.associatedFilter);
-      measurement.associatedFilter = null;
-    }
-  };
-
   async function importFilterInREW(REWconfigs, subResponses) {
     for (const { filters, channel, invert, gain, delay } of REWconfigs) {
       const foundItem = Object.values(subResponses).find(item =>
@@ -34,9 +25,7 @@ function createMsoImporter({ operations, session }) {
         throw new Error(`Cannot find measurement name matching ${channel}`);
       }
 
-      await operations.setFilters(rew(), foundItem, filters, {
-        invalidateAssociatedFilter: invalidateAssociatedFilter(foundItem),
-      });
+      await operations.setFilters(rew(), foundItem, filters);
 
       if (invert === -1) {
         await operations.setInverted(rew(), foundItem, true);

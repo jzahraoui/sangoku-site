@@ -11,15 +11,10 @@ function harness() {
     findMeasurementByUuid: vi.fn(),
     removeMeasurement: vi.fn().mockResolvedValue(true),
   };
-  const filterRecord = { uuid: 'flt', title: 'Filter FL', isFilter: true, haveImpulseResponse: true };
-  const trimmedRecord = { uuid: 'trim', title: 'trimmed', isFilter: true, haveImpulseResponse: true };
   const operations = {
-    generateFilterMeasurement: vi.fn().mockResolvedValue(filterRecord),
-    trimIRToWindows: vi.fn().mockResolvedValue(trimmedRecord),
-    getImpulseResponse: vi.fn().mockResolvedValue(new Float32Array([1, 0.5])),
-    setIrWindows: vi.fn().mockResolvedValue(true),
-    setInverted: vi.fn().mockResolvedValue(true),
-    toggleInversion: vi.fn().mockResolvedValue(true),
+    getFilters: vi.fn().mockResolvedValue([
+      { index: 1, type: 'PK', enabled: true, frequency: 100, q: 4, gaindB: -3 },
+    ]),
   };
 
   const record = {
@@ -45,7 +40,7 @@ function harness() {
     derived,
     speedOfSound: 343,
   });
-  return { adapter, operations, session, filterRecord, trimmedRecord };
+  return { adapter, operations, session };
 }
 
 describe('createOcaMeasurement', () => {
@@ -64,40 +59,13 @@ describe('createOcaMeasurement', () => {
     expect(adapter.displayMeasurementTitle()).toBe('1: FL_P01');
   });
 
-  it('generates a filter and drives the trim → impulse-response chain', async () => {
-    const { adapter, operations, session, filterRecord, trimmedRecord } = harness();
+  it('exposes the REW filter bank for the internal OCA generation', async () => {
+    const { adapter, operations, session } = harness();
 
-    const filter = await adapter.generateFilterMeasurement();
-    expect(operations.generateFilterMeasurement).toHaveBeenCalledWith(
+    await adapter.getFilters();
+    expect(operations.getFilters).toHaveBeenCalledWith(
       session.rewMeasurements,
-      expect.objectContaining({ uuid: 'fl1', crossover: 80, splresidual: 0 }),
-      expect.any(Object),
+      expect.objectContaining({ uuid: 'fl1' }),
     );
-    expect(filter.isFilter).toBe(true);
-
-    await filter.setIrWindows({ leftWindowWidthms: 0 });
-    expect(operations.setIrWindows).toHaveBeenCalledWith(
-      session.rewMeasurements,
-      filterRecord,
-      { leftWindowWidthms: 0 },
-    );
-
-    const trimmed = await filter.trimIRToWindows();
-    expect(operations.trimIRToWindows).toHaveBeenCalledWith(
-      session.rewMeasurements,
-      filterRecord,
-      expect.any(Object),
-    );
-
-    const ir = await trimmed.getImpulseResponse(80);
-    expect(operations.getImpulseResponse).toHaveBeenCalledWith(
-      session.rewMeasurements,
-      trimmedRecord,
-      { freq: 80, unit: 'percent', windowed: true, normalised: true },
-    );
-    expect(ir[0]).toBe(1);
-
-    await trimmed.delete();
-    expect(session.removeMeasurement).toHaveBeenCalledWith(trimmedRecord);
   });
 });

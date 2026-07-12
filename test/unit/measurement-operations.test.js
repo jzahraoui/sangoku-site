@@ -214,7 +214,7 @@ describe('target level', () => {
   });
 
   it('writes the level then resets filters', async () => {
-    const session = { invalidateAssociatedFilter: vi.fn() };
+    const session = {};
     const rew = {
       getTargetLevel: vi.fn().mockResolvedValue(75),
       setTargetLevel: vi.fn().mockResolvedValue({}),
@@ -225,7 +225,6 @@ describe('target level', () => {
     await expect(ops.setTargetLevel(rew, record(), 70, session)).resolves.toBe(false);
 
     expect(rew.setTargetLevel).toHaveBeenCalledWith('uuid-1', 70);
-    expect(session.invalidateAssociatedFilter).toHaveBeenCalled();
   });
 });
 
@@ -251,21 +250,19 @@ describe('filters', () => {
     await expect(ops.setFilters(rew, record(), bank)).resolves.toBe(false);
   });
 
-  it('setFilters posts only changed filters and invalidates the associated filter', async () => {
+  it('setFilters posts only changed filters', async () => {
     const current = createEmptyFilters();
     const wanted = createEmptyFilters();
     wanted[0] = { index: 1, type: 'PK', enabled: true, isAuto: true, gaindB: -3 };
-    const invalidateAssociatedFilter = vi.fn();
     const rew = {
       getFilters: vi.fn().mockResolvedValue(current),
       postFilters: vi.fn().mockResolvedValue('posted'),
     };
 
     await expect(
-      ops.setFilters(rew, record(), wanted, { invalidateAssociatedFilter }),
+      ops.setFilters(rew, record(), wanted),
     ).resolves.toBe('posted');
 
-    expect(invalidateAssociatedFilter).toHaveBeenCalledOnce();
     expect(rew.postFilters).toHaveBeenCalledWith('uuid-1', {
       filters: [wanted[0]],
     });
@@ -290,8 +287,7 @@ describe('filters', () => {
     ).rejects.toThrow('Filter with index 99 not found');
   });
 
-  it('setSingleFilter writes a changed filter and invalidates', async () => {
-    const invalidateAssociatedFilter = vi.fn();
+  it('setSingleFilter writes a changed filter', async () => {
     const rew = {
       getFilters: vi.fn().mockResolvedValue(createEmptyFilters()),
       setFilters: vi.fn().mockResolvedValue({}),
@@ -299,11 +295,10 @@ describe('filters', () => {
     const filter = { index: 1, type: 'PK', enabled: true, isAuto: true, gaindB: -2 };
 
     await expect(
-      ops.setSingleFilter(rew, record(), filter, { invalidateAssociatedFilter }),
+      ops.setSingleFilter(rew, record(), filter),
     ).resolves.toBe(true);
 
     expect(rew.setFilters).toHaveBeenCalledWith('uuid-1', filter);
-    expect(invalidateAssociatedFilter).toHaveBeenCalledOnce();
   });
 
   it('getFreeXFilterIndex returns the first manual slot with no filter', async () => {
@@ -566,69 +561,8 @@ describe('SPL offset sequence', () => {
   });
 });
 
-describe('associated filter lifecycle', () => {
-  it('deleteAssociatedFilter removes the linked measurement and clears the uuid', async () => {
-    const s = session();
-    const m = record({
-      associatedFilter: 'filter-1',
-      associatedFilterItem: () => ({ uuid: 'filter-1' }),
-    });
-
-    await expect(ops.deleteAssociatedFilter(m, s)).resolves.toBe(true);
-
-    expect(s.removeMeasurementUuid).toHaveBeenCalledWith('filter-1');
-    expect(m.associatedFilter).toBeNull();
-  });
-
-  it('deleteAssociatedFilter is a no-op without association', async () => {
-    const s = session();
-
-    await expect(
-      ops.deleteAssociatedFilter(record({ associatedFilter: null }), s),
-    ).resolves.toBe(true);
-    expect(s.removeMeasurementUuid).not.toHaveBeenCalled();
-  });
-
-  it('setAssociatedFilter rejects non-filters and replaces the previous one', async () => {
-    const s = session();
-    const m = record({
-      associatedFilter: 'old-filter',
-      associatedFilterItem: () => ({ uuid: 'old-filter' }),
-    });
-
-    await expect(ops.setAssociatedFilter(m, { isFilter: false }, s)).rejects.toThrow(
-      'Invalid filter',
-    );
-
-    await expect(
-      ops.setAssociatedFilter(m, { isFilter: true, uuid: 'new-filter' }, s),
-    ).resolves.toBe(true);
-    expect(s.removeMeasurementUuid).toHaveBeenCalledWith('old-filter');
-    expect(m.associatedFilter).toBe('new-filter');
-  });
-
-  it('generateFilterMeasurement returns the existing associated filter when the bank is unchanged', async () => {
-    const bank = [
-      { index: 1, type: 'PK', enabled: true, isAuto: true, frequency: 100, gaindB: -3, q: 4 },
-    ];
-    const rew = {
-      getFilters: vi.fn().mockResolvedValue(bank),
-      generateFiltersMeasurement: vi.fn(),
-    };
-    const existing = { uuid: 'filter-1' };
-    const m = record({ associatedFilterItem: () => existing });
-    m.associatedFilterFingerprint = '1|PK|true|true|100|-3|4';
-
-    await expect(ops.generateFilterMeasurement(rew, m, session())).resolves.toBe(existing);
-    expect(rew.generateFiltersMeasurement).not.toHaveBeenCalled();
-  });
-
-  it('generateFilterMeasurement regenerates when the filters changed in REW', async () => {
-    // Les filtres font foi tels qu'ils sont dans REW (ex. régénérés dans son
-    // interface) : un bank différent de l'empreinte invalide le cache.
-    const bank = [
-      { index: 1, type: 'PK', enabled: true, isAuto: true, frequency: 120, gaindB: -6, q: 5 },
-    ];
+describe('filter measurement generation', () => {
+  it('generateFilterMeasurement génère toujours depuis le bank courant (pas de cache)', async () => {
     const generated = record({
       uuid: 'filter-2',
       title: () => undefined,
@@ -637,29 +571,20 @@ describe('associated filter lifecycle', () => {
       update: vi.fn(),
     });
     const rew = {
-      getFilters: vi.fn().mockResolvedValue(bank),
       generateFiltersMeasurement: vi.fn().mockResolvedValue({ uuid: 'filter-2' }),
       setSPLOffsetDB: vi.fn().mockResolvedValue(true),
       update: vi.fn().mockResolvedValue(true),
     };
-    const existing = { uuid: 'filter-1' };
     const m = record({
-      associatedFilterItem: () => existing,
       title: () => '1: FL',
       splresidual: 0,
       crossover: () => null,
     });
-    m.associatedFilter = 'filter-1';
-    m.associatedFilterFingerprint = '1|PK|true|true|100|-3|4'; // ancien bank
-
     const sess = session();
     sess.analyseApiResponse = vi.fn().mockResolvedValue(generated);
-    sess.removeMeasurementUuid = vi.fn().mockResolvedValue(true);
 
     await expect(ops.generateFilterMeasurement(rew, m, sess)).resolves.toBe(generated);
-    expect(sess.removeMeasurementUuid).toHaveBeenCalledWith('filter-1');
     expect(rew.generateFiltersMeasurement).toHaveBeenCalledOnce();
-    expect(m.associatedFilterFingerprint).toBe('1|PK|true|true|120|-6|5');
   });
 
 });

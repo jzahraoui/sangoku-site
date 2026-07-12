@@ -34,7 +34,6 @@ describe('createMsoImporter.importFilterInREW', () => {
       session.rewMeasurements,
       sw1,
       ['f1'],
-      expect.objectContaining({ invalidateAssociatedFilter: expect.any(Function) }),
     );
     expect(operations.setInverted).toHaveBeenCalledWith(session.rewMeasurements, sw1, false);
     expect(operations.setInverted).toHaveBeenCalledWith(session.rewMeasurements, sw2, true);

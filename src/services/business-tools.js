@@ -64,13 +64,6 @@ function createBusinessTools({
     removeMeasurementUuid: uuid => session.removeMeasurementUuid(uuid),
     findMeasurementByUuid: uuid => session.findMeasurementByUuid(uuid),
   };
-  const invalidateAssociatedFilter = m => async () => {
-    if (m.associatedFilter == null) return;
-    if (session.findMeasurementByUuid(m.associatedFilter)) {
-      await session.removeMeasurementUuid(m.associatedFilter);
-      m.associatedFilter = null;
-    }
-  };
 
   /**
    * Sum a list of measurements into a single predicted response (parity with
@@ -146,18 +139,14 @@ function createBusinessTools({
       { index: 22, type: 'None', enabled: true, isAuto: false },
     );
 
-    await operations.setFilters(rew(), measurement, lowPassFilterSet, {
-      invalidateAssociatedFilter: invalidateAssociatedFilter(measurement),
-    });
+    await operations.setFilters(rew(), measurement, lowPassFilterSet);
 
     // ops.generateFilterMeasurement reads MeasurementItem-derived fields
-    // (splresidual/crossover/associatedFilterItem); supply them for the record.
+    // (splresidual/crossover); supply them for the record.
     const filterSource = {
       uuid: measurement.uuid,
       title: measurement.title,
       splOffsetdB: measurement.splOffsetdB,
-      associatedFilter: measurement.associatedFilter ?? null,
-      associatedFilterItem: null,
       splresidual: splOffsetDeltadB(measurement) - splForAvrOf(measurement),
       crossover: 0, // subs have no crossover
     };
@@ -167,9 +156,7 @@ function createBusinessTools({
       sessionContext,
     );
 
-    await operations.setFilters(rew(), measurement, originalFilters, {
-      invalidateAssociatedFilter: invalidateAssociatedFilter(measurement),
-    });
+    await operations.setFilters(rew(), measurement, originalFilters);
 
     return filter;
   }
@@ -220,9 +207,7 @@ function createBusinessTools({
       await operations.setTitle(rew(), division, newTitle);
       await operations.setInverted(rew(), division, originalState.inverted);
       await operations.setcumulativeIRShiftSeconds(rew(), division, originalState.delay);
-      await operations.setFilters(rew(), division, originalState.filters, {
-        invalidateAssociatedFilter: invalidateAssociatedFilter(division),
-      });
+      await operations.setFilters(rew(), division, originalState.filters);
       division.revertLfeFrequency = freq;
 
       resultsUuids.push(division.uuid);
@@ -301,7 +286,6 @@ function createBusinessTools({
           shape: 'L-R',
           slopedBPerOctave: 24,
         },
-        { invalidateAssociatedFilter: invalidateAssociatedFilter(sub) },
       );
       await operations.setSingleFilter(
         rew(),
@@ -315,7 +299,6 @@ function createBusinessTools({
           shape: 'BU',
           slopedBPerOctave: 12,
         },
-        { invalidateAssociatedFilter: invalidateAssociatedFilter(speaker) },
       );
 
       const PredictedLfeFiltered = await operations.producePredictedMeasurement(
@@ -335,13 +318,11 @@ function createBusinessTools({
         rew(),
         sub,
         { index: subIndex, type: 'None', enabled: true, isAuto: false },
-        { invalidateAssociatedFilter: invalidateAssociatedFilter(sub) },
       );
       await operations.setSingleFilter(
         rew(),
         speaker,
         { index: speakerIndex, type: 'None', enabled: true, isAuto: false },
-        { invalidateAssociatedFilter: invalidateAssociatedFilter(speaker) },
       );
     }
   }

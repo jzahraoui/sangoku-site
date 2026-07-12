@@ -219,15 +219,6 @@ class RewSession {
     const apiUuids = new Set(apiItems.map(item => item.uuid));
     const currentUuids = new Set(currentMeasurements.map(item => item.uuid));
     const previousOrder = currentMeasurements.map(item => item.uuid).join('|');
-    let hasOrphanedFilterChanges = false;
-
-    for (const item of currentMeasurements) {
-      if (item.associatedFilter && !apiUuids.has(item.associatedFilter)) {
-        item.associatedFilter = null;
-        hasOrphanedFilterChanges = true;
-        this.log.debug(`Removing filter: ${labelOf(item)}`);
-      }
-    }
 
     const deletedMeasurements = currentMeasurements.filter(
       item => !apiUuids.has(item.uuid),
@@ -252,7 +243,7 @@ class RewSession {
     // their subscriptions synchronously and reach into a `otherPositionMeasurements`
     // computed that still includes a measurement we are about to drop, producing
     // REW API calls against UUIDs that no longer exist (404).
-    if (hasOrderChanges || hasOrphanedFilterChanges || hasDeletedMeasurements) {
+    if (hasOrderChanges || hasDeletedMeasurements) {
       this.measurements.set(mergedMeasurements);
     }
 
@@ -441,8 +432,6 @@ class RewSession {
     }
 
     await this.removeMeasurementUuid(item.uuid);
-    // remove associatedFilter
-    await this.removeMeasurementUuid(item.associatedFilter);
 
     this.log.debug(`measurement ${labelOf(item)} removed`);
 

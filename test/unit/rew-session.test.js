@@ -6,7 +6,6 @@ class FakeMeasurement {
   constructor(item) {
     this.uuid = item.uuid;
     this.title = item.title;
-    this.associatedFilter = item.associatedFilter ?? null;
     this.disposed = false;
     // arrow: the service reads it through `unwrap`, detached from the
     // instance (like a KO computed on the real MeasurementItem)
@@ -89,19 +88,14 @@ describe('RewSession.mergeMeasurements', () => {
     expect(first.title).toBe('Front Left updated');
   });
 
-  it('removes deleted measurements and clears orphaned associated filters', () => {
-    const source = new FakeMeasurement({
-      uuid: 'source',
-      title: 'Source',
-      associatedFilter: 'filter',
-    });
+  it('removes deleted measurements', () => {
+    const source = new FakeMeasurement({ uuid: 'source', title: 'Source' });
     const filter = new FakeMeasurement({ uuid: 'filter', title: 'Filter' });
     const { session, list } = createHarness({ initial: [source, filter] });
 
     session.mergeMeasurements(apiData({ uuid: 'source', title: 'Source' }));
 
     expect(list()).toEqual([source]);
-    expect(source.associatedFilter).toBeNull();
     expect(filter.disposed).toBe(true);
   });
 
