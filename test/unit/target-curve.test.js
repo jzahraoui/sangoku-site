@@ -12,12 +12,22 @@ function measurement(title, extras = {}) {
   };
 }
 
-function createHarness({ measurements = [], tc = 'harman', level = 75 } = {}) {
+function createHarness({
+  measurements = [],
+  tc = 'harman',
+  level = 75,
+  roomCurve = '',
+} = {}) {
   const state = {
     _tc: tc,
     _level: level,
+    _roomCurve: roomCurve,
+    // Miroir du computed tcName du viewmodel : house curve 'None' → '' ;
+    // fallback 'flat' quand ni house curve ni room curve.
     get tcName() {
-      return `${this._tc} ${this._level}dB`;
+      const curve = this._tc === 'None' ? '' : this._tc;
+      const name = [curve, this._roomCurve].filter(Boolean).join(' - ') || 'flat';
+      return `${name} ${this._level}dB`;
     },
     set targetCurve(value) {
       this._tc = value;
@@ -47,13 +57,20 @@ function createHarness({ measurements = [], tc = 'harman', level = 75 } = {}) {
     validMeasurements: vi.fn(() => measurements),
     predictedLfeMeasurements: vi.fn(() => []),
   };
+  const log = {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
   const service = createTargetCurveService({
     session,
     state,
     lists,
     isMeasurement: value => typeof value === 'object' && value !== null,
+    log,
   });
-  return { service, session, state, lists };
+  return { service, session, state, lists, log };
 }
 
 describe('updateTargetCurve', () => {
@@ -207,5 +224,55 @@ describe('setTargetLevelFromMeasurement', () => {
 
     expect(lists.firstMeasurement).toHaveBeenCalled();
     expect(first.getTargetLevel).toHaveBeenCalled();
+  });
+
+  it('warns only when the effective target is flat (no house curve, no room curve)', async () => {
+    const first = measurement('FL_P01');
+    const flatTarget = measurement('Target flat 75dB');
+    const { service, session, log } = createHarness({
+      measurements: [first, flatTarget],
+      tc: 'None',
+    });
+    session.rewEq.getTargetCurveName.mockResolvedValue('None');
+
+    await service.setTargetLevelFromMeasurement(first);
+
+    expect(log.warn).toHaveBeenCalledWith(
+      'No target curve set in REW, please set a target curve first',
+    );
+  });
+
+  it('stays silent without a house curve when a room curve shapes the target', async () => {
+    // Cas du log de prod 1.2.55 : house curve REW absente mais room curve
+    // harman active — la cible n'est pas plate, avertir serait du bruit.
+    const first = measurement('FL_P01');
+    const target = measurement('Target harman 75dB');
+    const { service, session, log } = createHarness({
+      measurements: [first, target],
+      tc: 'None',
+      roomCurve: 'harman',
+    });
+    session.rewEq.getTargetCurveName.mockResolvedValue('None');
+
+    await service.setTargetLevelFromMeasurement(first);
+
+    expect(log.warn).not.toHaveBeenCalled();
+  });
+
+  it('logs a clear debug on an empty session instead of a warning', async () => {
+    const { service, session, log } = createHarness({ measurements: [] });
+    session.addMeasurementFromRewOperation.mockResolvedValue(
+      measurement('generated'),
+    );
+
+    await service.setTargetLevelFromMeasurement(null);
+
+    expect(session.rewEq.getDefaultTargetLevel).toHaveBeenCalled();
+    expect(log.warn).not.toHaveBeenCalledWith(
+      'No measurements available to set target level from',
+    );
+    expect(log.debug).toHaveBeenCalledWith(
+      'No measurements yet: taking the REW default target level',
+    );
   });
 });

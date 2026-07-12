@@ -94,23 +94,29 @@ function createTargetCurveService({
     if (!measurement || !isMeasurement(measurement)) {
       // use first measurement as default
       measurement = lists.firstMeasurement();
-      if (!measurement) {
-        log.warn('No measurements available to set target level from');
-      }
     }
-    log.debug(`Setting target level from measurement: ${unwrap(measurement?.title)}`);
+    if (measurement) {
+      log.debug(`Setting target level from measurement: ${unwrap(measurement.title)}`);
+    } else {
+      log.debug('No measurements yet: taking the REW default target level');
+    }
     const targetLevel = measurement
       ? await measurementOps.getTargetLevel(measurement)
       : await session.rewEq.getDefaultTargetLevel();
     const newValue = targetLevel || DEFAULT_TARGET_LEVEL;
 
     const currentTc = await session.rewEq.getTargetCurveName();
-    if (currentTc === 'None') {
-      log.warn('No target curve set in REW, please set a target curve first');
-    }
 
     const previousTcName = state.tcName;
     state.targetCurve = currentTc;
+
+    // N'avertir que si la cible EFFECTIVE est plate : sans house curve REW et
+    // sans room curve RCH, tcName retombe sur « flat … » — l'utilisateur a
+    // probablement oublié de charger sa cible. Une room curve active rend le
+    // house-curve REW facultatif : avertir serait du bruit.
+    if (currentTc === 'None' && state.tcName.startsWith('flat')) {
+      log.warn('No target curve set in REW, please set a target curve first');
+    }
 
     // check if target curve or target level changed, if not, skip
     // tcName after setting targetCurve has the new curve name + old level
