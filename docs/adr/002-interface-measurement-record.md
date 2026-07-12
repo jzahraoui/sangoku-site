@@ -72,3 +72,28 @@ en interne (`src/dsp/impulseResponse.js` + `src/measurement/rew-filter-bank.js`)
 en lisant le bank REW à chaque export : plus de cache, plus d'invalidation
 (`invalidateAssociatedFilter` retiré de `setFilters`/`setSingleFilter` et de
 tous les services). Les sauvegardes anciennes portant ce champ sont ignorées.
+
+---
+
+**Amendement (2026-07-12) — accès aux données de signal (impulsions)** :
+
+- **Le record ne stocke jamais de données de signal** (impulsions,
+  réponses en fréquence) — uniquement l'identité, l'état REW scalaire et
+  l'état applicatif. Deux raisons mesurées : la fraîcheur n'est pas
+  garantissable (les opérations RCH — Offset t=0, inversion, SPL — et les
+  actions faites directement dans l'interface REW transforment l'impulsion
+  après l'import ; une copie stockée serait silencieusement fausse), et la
+  persistance `localStorage` n'a pas le quota (≈15 Mo d'impulsions pour un
+  système 8 positions).
+- **Contrat : l'impulsion courante s'obtient en la demandant** —
+  `operations.getImpulseResponseInfo(rew, record)` renvoie
+  `{ data, sampleRate, startTime }` frais au moment du calcul. C'est le
+  pattern de tous les calculs internes (export OCA, alignement du moyennage,
+  Time align) : lire au moment de l'opération, jamais d'état intermédiaire.
+- **Tout cache futur, s'il devient nécessaire, vit dans la couche
+  operations** (point de passage unique des écritures, seul endroit où
+  l'invalidation est garantissable — `addIROffsetSeconds`, `setInverted`,
+  `setFilters`, `addSPLOffsetDB`… touchent l'uuid → l'entrée saute), jamais
+  dans le record ni l'adaptateur. Décision du 2026-07-12 : pas de cache tant
+  qu'aucun profil ne montre de relectures répétées dans une même opération ;
+  pour tout calcul audio-critique, on relit.
