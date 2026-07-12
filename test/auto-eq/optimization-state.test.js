@@ -78,6 +78,19 @@ test('gain sign lock uses gainSignLockThreshold (REW parity: 0.5 default)', () =
   assert.equal(free.gainLowerBounds[1], -defaultParams.maxCutDb);
 });
 
+test('maxBoostFreq: filters below the protection frequency are cut-only', () => {
+  const state = buildOptimizationState({
+    ...defaultParams,
+    maxBoostFreq: 50,
+    filters: [
+      { fc: 35, Q: 2, gain: 0.2 }, // below 50 Hz → boost forbidden
+      { fc: 80, Q: 2, gain: 0.2 }, // above → default bounds
+    ],
+  });
+  assert.equal(state.gainUpperBounds[0], 0);
+  assert.equal(state.gainUpperBounds[1], defaultParams.maxBoostDb);
+});
+
 test('frequency bounds capped at endFreq * 0.98', () => {
   const filters = [{ fc: 15000, Q: 2, gain: -2 }];
   const state = buildOptimizationState({ ...defaultParams, filters, optimizeFc: true });

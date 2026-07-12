@@ -126,6 +126,7 @@ async function reduceAndRepairFilters({
       );
       reduceTargetOvershoot(trialFilters, calculationContext, {
         sampleRate: config.sampleRate,
+        threshold: config.maxAllowedOvershoot,
         onLog,
         silent: true,
       });
@@ -178,6 +179,7 @@ function screenReduceRepairCandidates(
     );
     reduceTargetOvershoot(trialFilters, calculationContext, {
       sampleRate: config.sampleRate,
+      threshold: config.maxAllowedOvershoot,
       onLog,
       silent: true,
     });

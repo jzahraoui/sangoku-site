@@ -132,3 +132,34 @@ test('penalizeTargetOvershoot increases or maintains MSE vs no-penalty', () => {
     `penalty should increase MSE: ${msePenalty} vs ${mseNoPenalty}`,
   );
 });
+
+test('overshootPenaltyWeight scales the soft overshoot penalty', () => {
+  const grid = makeGrid(5);
+  // Residuals well above target so the corrected response overshoots (> 1 dB)
+  const deltas = new Float32Array(grid.n).fill(5);
+  const filters = [{ fc: 800, Q: 2, gain: -1 }];
+
+  const computeWithWeight = overshootPenaltyWeight => {
+    const arrays = makeArrays();
+    prepareProfileCoefficients({ filters, sampleRate: 48000, arrays });
+    return computeFilteredMSE({
+      n: grid.n,
+      numActive: 1,
+      deltas,
+      weights: grid.weights,
+      sth: grid.sth,
+      sth2: grid.sth2,
+      arrays,
+      boostPenaltyThresholdDb: 6,
+      penalizeTargetOvershoot: true,
+      overshootPenaltyWeight,
+    });
+  };
+
+  const mseZero = computeWithWeight(0);
+  const mseDefault = computeWithWeight(0.3);
+  const mseHeavy = computeWithWeight(3);
+
+  assert.ok(mseDefault > mseZero, `weight 0.3 must add penalty: ${mseDefault} vs ${mseZero}`);
+  assert.ok(mseHeavy > mseDefault, `weight 3 must add more: ${mseHeavy} vs ${mseDefault}`);
+});

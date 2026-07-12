@@ -24,6 +24,12 @@ function createPhaseMatchCalculator({
     throw new Error('autoEqConfig is required to build the phase-match calculator');
   }
   const cfg = field => unwrap(autoEqConfig[field]);
+  // Optional numeric fields: absent from older configs — let AutoEQConfig
+  // apply its documented default instead of failing on NaN.
+  const optionalNum = field => {
+    const value = cfg(field);
+    return value == null || value === '' ? undefined : +value;
+  };
 
   return new AutoEQCalculator({
     sampleRate,
@@ -34,6 +40,9 @@ function createPhaseMatchCalculator({
     overallMaxBoostDb: +overallMaxBoostDb,
     maxCutDb: +cfg('maxCutDb'),
     flatnessTarget: +cfg('flatnessTarget'),
+    maxBoostFreq: optionalNum('maxBoostFreq'),
+    overshootPenaltyWeight: optionalNum('overshootPenaltyWeight'),
+    maxAllowedOvershoot: optionalNum('maxAllowedOvershoot'),
     enableRefinement: cfg('enableRefinement'),
     numOptimizationPasses: +cfg('numOptimizationPasses'),
     gainSignLockThreshold: +cfg('gainSignLockThreshold'),

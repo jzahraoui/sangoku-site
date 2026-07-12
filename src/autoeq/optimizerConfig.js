@@ -22,5 +22,7 @@ export function createFilterOptimizerConfig(config, equalizerAdapter) {
     varyQAbove200Hz: config.varyQAbove200Hz,
     allowNarrowFiltersBelow200Hz: config.allowNarrowFiltersBelow200Hz,
     gainSignLockThreshold: config.gainSignLockThreshold,
+    maxBoostFreq: config.maxBoostFreq,
+    overshootPenaltyWeight: config.overshootPenaltyWeight,
   };
 }

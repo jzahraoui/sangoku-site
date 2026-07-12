@@ -8,7 +8,7 @@
  *
  * MSE formula:
  *   f3 = (delta + filtersdB) * w          ← weighted residual
- *   if targetOver > 1: f3 += (targetOver−1)*w*0.3  ← soft overshoot penalty
+ *   if targetOver > 1: f3 += (targetOver−1)*w*overshootPenaltyWeight  ← soft overshoot penalty
  *   if filtersdB > boostPenaltyThresholdDb: f3 += 10*(filtersdB−boostPenaltyThresholdDb)  ← hard boost cap
  *   return Σ(f3²) / count
  */
@@ -87,6 +87,7 @@ export function computeBaseMSE({ n, deltas, weights }) {
  * @param {{ aC3, aSum, bC3, bSum, c2: Float64Array }} p.arrays
  * @param {number}  p.boostPenaltyThresholdDb
  * @param {boolean} p.penalizeTargetOvershoot
+ * @param {number}  [p.overshootPenaltyWeight=0.3]
  * @returns {number}
  */
 export function computeFilteredMSE({
@@ -99,6 +100,7 @@ export function computeFilteredMSE({
   arrays,
   boostPenaltyThresholdDb,
   penalizeTargetOvershoot,
+  overshootPenaltyWeight = 0.3,
 }) {
   const { aC3, aSum, bC3, bSum, c2 } = arrays;
   let sum = 0;
@@ -115,7 +117,7 @@ export function computeFilteredMSE({
     let f3 = (deltas[i] + fdb) * weights[i];
     if (penalizeTargetOvershoot) {
       const targetOver = deltas[i] + fdb;
-      if (targetOver > 1) f3 += (targetOver - 1) * weights[i] * 0.3;
+      if (targetOver > 1) f3 += (targetOver - 1) * weights[i] * overshootPenaltyWeight;
     }
     const boostOvershoot = fdb - boostPenaltyThresholdDb;
     if (boostOvershoot > 0) f3 += 10 * boostOvershoot;

@@ -20,6 +20,7 @@ export class SpanCandidateFinder {
     this.allowBoosts = config.allowBoosts;
     this.individualMaxBoostDb = config.individualMaxBoostDb;
     this.flatnessTarget = config.flatnessTarget;
+    this.maxBoostFreq = config.maxBoostFreq ?? 0;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -83,6 +84,8 @@ export class SpanCandidateFinder {
    */
   _isValidSpanCandidate(spanStart, spanEnd, peakFreq, peakVal, sumDelta, filters) {
     if (!this.allowBoosts && peakVal < 0) return false;
+    // Cut-only protection region: no boost span below maxBoostFreq.
+    if (peakVal < 0 && peakFreq < this.maxBoostFreq) return false;
     if (peakVal < -this.individualMaxBoostDb) return false;
     if (!this._isSpanSignificant(spanStart, spanEnd, peakVal, sumDelta)) return false;
     return !this._hasConflictingFilter(filters, spanStart, spanEnd, peakFreq, peakVal);

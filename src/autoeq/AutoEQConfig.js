@@ -64,6 +64,26 @@ export function createAutoEQConfig(config = {}) {
     6,
   );
 
+  // Protection ampli/enceintes (spec FR-032) : aucun boost sous cette
+  // fréquence. 0 (défaut) ou toute valeur ≤ matchRangeStart = inactif.
+  const maxBoostFreq = validateNumber(config.maxBoostFreq, 'maxBoostFreq', 0, 500, 0);
+  // Poids de la pénalité douce d'overshoot dans le MSE (au-delà de +1 dB).
+  const overshootPenaltyWeight = validateNumber(
+    config.overshootPenaltyWeight,
+    'overshootPenaltyWeight',
+    0,
+    10,
+    0.3,
+  );
+  // Seuil de la passe de réduction post-optimisation des overshoots (dB).
+  const maxAllowedOvershoot = validateNumber(
+    config.maxAllowedOvershoot,
+    'maxAllowedOvershoot',
+    0.1,
+    6,
+    1.5,
+  );
+
   const equalizerFreqStep =
     config.equalizerFreqStep == null
       ? null
@@ -270,6 +290,9 @@ export function createAutoEQConfig(config = {}) {
     maxCutDb,
     flatnessTarget,
     notchExclusionThreshold,
+    maxBoostFreq,
+    overshootPenaltyWeight,
+    maxAllowedOvershoot,
     equalizerFreqStep,
     equalizerGainStep,
     equalizerQStep,

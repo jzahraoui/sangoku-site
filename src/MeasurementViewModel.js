@@ -131,6 +131,9 @@ class MeasurementViewModel {
       varyQAbove200Hz: ko.observable(false),
       allowNarrowFiltersBelow200Hz: ko.observable(true),
       allowBoosts: ko.observable(true),
+      maxBoostFreq: ko.observable(0),
+      overshootPenaltyWeight: ko.observable(0.3),
+      maxAllowedOvershoot: ko.observable(1.5),
     };
     this.isPolling = ko.observable(false);
     // Add translation support
@@ -1813,6 +1816,9 @@ class MeasurementViewModel {
     this.autoEqConfig.varyQAbove200Hz(false);
     this.autoEqConfig.allowNarrowFiltersBelow200Hz(true);
     this.autoEqConfig.allowBoosts(true);
+    this.autoEqConfig.maxBoostFreq(0);
+    this.autoEqConfig.overshootPenaltyWeight(0.3);
+    this.autoEqConfig.maxAllowedOvershoot(1.5);
   }
 }
 

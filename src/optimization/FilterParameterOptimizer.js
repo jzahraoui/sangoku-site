@@ -46,6 +46,8 @@ export class FilterParameterOptimizer {
     this.varyQAbove200Hz = config.varyQAbove200Hz ?? false;
     this.allowNarrowFiltersBelow200Hz = config.allowNarrowFiltersBelow200Hz ?? true;
     this.gainSignLockThreshold = config.gainSignLockThreshold ?? 0.5;
+    this.maxBoostFreq = config.maxBoostFreq ?? 0;
+    this.overshootPenaltyWeight = config.overshootPenaltyWeight ?? 0.3;
     this.maxQ = config.maxQ ?? 10;
 
     this._freqs = null;
@@ -205,6 +207,7 @@ export class FilterParameterOptimizer {
       arrays,
       boostPenaltyThresholdDb: this.boostPenaltyThresholdDb,
       penalizeTargetOvershoot,
+      overshootPenaltyWeight: this.overshootPenaltyWeight,
     });
   }
 
@@ -268,6 +271,7 @@ export class FilterParameterOptimizer {
       varyQAbove200Hz: this.varyQAbove200Hz,
       allowNarrowFiltersBelow200Hz: this.allowNarrowFiltersBelow200Hz,
       gainSignLockThreshold: this.gainSignLockThreshold,
+      maxBoostFreq: this.maxBoostFreq,
     });
 
     const decode = createOptimizationDecoder({

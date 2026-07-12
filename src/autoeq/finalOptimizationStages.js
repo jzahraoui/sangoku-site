@@ -63,6 +63,7 @@ export async function runFinalOptimizationStages({
 
   reduceTargetOvershoot(filters, calculationContext, {
     sampleRate: config.sampleRate,
+    threshold: config.maxAllowedOvershoot,
     onLog,
   });
 

@@ -19,6 +19,9 @@ const plainConfig = {
   varyQAbove200Hz: false,
   allowNarrowFiltersBelow200Hz: true,
   allowBoosts: true,
+  maxBoostFreq: 50,
+  overshootPenaltyWeight: 0.3,
+  maxAllowedOvershoot: 1.5,
 };
 // Same values wrapped as Knockout-style observables (functions).
 const observableConfig = Object.fromEntries(
@@ -52,6 +55,39 @@ describe('createPhaseMatchCalculator', () => {
     expect(calculator.maxCutDb).toBe(15);
     expect(calculator.individualMaxBoostDb).toBe(6);
     expect(calculator.overallMaxBoostDb).toBe(3);
+  });
+
+  it('maps the filter-control fields (maxBoostFreq, overshoot penalties)', () => {
+    const calculator = createPhaseMatchCalculator({
+      sampleRate: 48000,
+      freqStart: 20,
+      freqEnd: 200,
+      autoEqConfig: plainConfig,
+      individualMaxBoostDb: 6,
+      overallMaxBoostDb: 3,
+    });
+    expect(calculator.maxBoostFreq).toBe(50);
+    expect(calculator.overshootPenaltyWeight).toBe(0.3);
+    expect(calculator.maxAllowedOvershoot).toBe(1.5);
+  });
+
+  it('falls back to engine defaults when optional filter-control fields are absent', () => {
+    const legacyConfig = { ...plainConfig };
+    delete legacyConfig.maxBoostFreq;
+    delete legacyConfig.overshootPenaltyWeight;
+    delete legacyConfig.maxAllowedOvershoot;
+
+    const calculator = createPhaseMatchCalculator({
+      sampleRate: 48000,
+      freqStart: 20,
+      freqEnd: 200,
+      autoEqConfig: legacyConfig,
+      individualMaxBoostDb: 6,
+      overallMaxBoostDb: 3,
+    });
+    expect(calculator.maxBoostFreq).toBe(0);
+    expect(calculator.overshootPenaltyWeight).toBe(0.3);
+    expect(calculator.maxAllowedOvershoot).toBe(1.5);
   });
 
   it('requires the autoEqConfig accessor', () => {

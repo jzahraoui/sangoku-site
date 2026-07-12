@@ -12,6 +12,9 @@ test('createFilterOptimizerConfig maps AutoEQ config to FilterParameterOptimizer
     individualMaxBoostDb: 5,
     varyQAbove200Hz: true,
     allowNarrowFiltersBelow200Hz: false,
+    gainSignLockThreshold: 0.5,
+    maxBoostFreq: 50,
+    overshootPenaltyWeight: 0.3,
   };
 
   const equalizerAdapter = {
@@ -33,5 +36,8 @@ test('createFilterOptimizerConfig maps AutoEQ config to FilterParameterOptimizer
     maxQ: 10,
     varyQAbove200Hz: true,
     allowNarrowFiltersBelow200Hz: false,
+    gainSignLockThreshold: 0.5,
+    maxBoostFreq: 50,
+    overshootPenaltyWeight: 0.3,
   });
 });

@@ -22,6 +22,7 @@ import { getOptimizedQBounds } from './filterParameterBounds.js';
  * @param {boolean} params.varyQAbove200Hz
  * @param {boolean} params.allowNarrowFiltersBelow200Hz - Modal-narrow cuts below 200 Hz
  * @param {number}  params.gainSignLockThreshold - |gain| above which the sign is locked
+ * @param {number}  params.maxBoostFreq - No boost allowed below this frequency (0 = off)
  * @returns {state}
  */
 export function buildOptimizationState({
@@ -36,12 +37,14 @@ export function buildOptimizationState({
   varyQAbove200Hz,
   allowNarrowFiltersBelow200Hz = true,
   gainSignLockThreshold = 0.5,
+  maxBoostFreq = 0,
 }) {
   const { gainLowerBounds, gainUpperBounds } = _buildGainBounds(
     filters,
     maxCutDb,
     maxBoostDb,
     gainSignLockThreshold,
+    maxBoostFreq,
   );
   const { qLowerBounds, qUpperBounds } = _buildQBounds(
     filters,
@@ -96,14 +99,23 @@ export function buildOptimizationState({
   };
 }
 
-function _buildGainBounds(filters, maxCutDb, maxBoostDb, gainSignLockThreshold) {
+function _buildGainBounds(
+  filters,
+  maxCutDb,
+  maxBoostDb,
+  gainSignLockThreshold,
+  maxBoostFreq,
+) {
   const gainLowerBounds = new Float64Array(filters.length);
   const gainUpperBounds = new Float64Array(filters.length);
 
   for (let i = 0; i < filters.length; i++) {
     gainLowerBounds[i] = -maxCutDb;
     gainUpperBounds[i] = maxBoostDb;
-    if (filters[i].gain < -gainSignLockThreshold) {
+    if (filters[i].fc < maxBoostFreq) {
+      // Amplifier/speaker protection: cut-only region below maxBoostFreq.
+      gainUpperBounds[i] = 0;
+    } else if (filters[i].gain < -gainSignLockThreshold) {
       gainUpperBounds[i] = 0;
     } else if (filters[i].gain > gainSignLockThreshold) {
       gainLowerBounds[i] = 0;
