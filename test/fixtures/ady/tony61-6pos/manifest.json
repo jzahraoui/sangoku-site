@@ -1,0 +1,17 @@
+{
+  "source": "tony61_Atmos 5.1.ady",
+  "title": "Atmos 5.1",
+  "model": "Marantz AV8805",
+  "rewVersion": "5.40 Beta 128 API 0.9.5",
+  "generatedAt": "2026-07-12T12:22:37.276Z",
+  "channels": {
+    "FL": {
+      "positions": 6,
+      "rolloffHz": 658
+    },
+    "SLA": {
+      "positions": 6,
+      "rolloffHz": 811
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "source": "prociprince_Denon_AVC-X3700H_23-03-2025_16-14-20.ady",
+  "title": "Denon_AVC-X3700H_23-03-2025_16-14-20",
+  "model": "Denon AVC-X3700H",
+  "rewVersion": "5.40 Beta 128 API 0.9.5",
+  "generatedAt": "2026-07-12T12:21:42.551Z",
+  "channels": {
+    "FL": {
+      "positions": 8,
+      "rolloffHz": 20000
+    },
+    "C": {
+      "positions": 8,
+      "rolloffHz": 20000
+    },
+    "SBR": {
+      "positions": 8,
+      "rolloffHz": 20000
+    }
+  }
+}

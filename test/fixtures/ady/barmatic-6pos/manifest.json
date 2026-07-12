@@ -1,0 +1,17 @@
+{
+  "source": "barmatic_Denon_AVC-X3800H_23-07-2025_15-11-20.ady",
+  "title": "Denon_AVC-X3800H_23-07-2025_15-11-20",
+  "model": "Denon AVC-X3800H",
+  "rewVersion": "5.40 Beta 128 API 0.9.5",
+  "generatedAt": "2026-07-12T12:23:08.677Z",
+  "channels": {
+    "FL": {
+      "positions": 6,
+      "rolloffHz": 20000
+    },
+    "C": {
+      "positions": 6,
+      "rolloffHz": 20000
+    }
+  }
+}

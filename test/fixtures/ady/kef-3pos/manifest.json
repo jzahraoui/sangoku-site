@@ -1,0 +1,12 @@
+{
+  "source": "Denon AVC-A1H_kef.4sub.3pos.ady",
+  "title": "kef.4sub.3pos",
+  "model": "Denon AVC-A1H",
+  "rewVersion": "5.40 Beta 128 API 0.9.5",
+  "generatedAt": "2026-07-12T11:58:00.000Z",
+  "channels": {
+    "FL": { "positions": 3, "rolloffHz": 20000 },
+    "C": { "positions": 3, "rolloffHz": 20000 },
+    "SBR": { "positions": 3, "rolloffHz": 20000 }
+  }
+}
