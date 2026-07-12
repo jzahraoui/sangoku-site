@@ -81,6 +81,7 @@
     "test:grid-context": "node --test test/auto-eq/grid-calculation-context.test.js",
     "test:run-report": "node --test test/auto-eq/run-report.test.js",
     "test:ady-fixtures": "node --test test/auto-eq/ady-fixtures.test.js",
+    "test:reference-compensation": "node --test test/auto-eq/reference-compensation.test.js",
     "test:optimizer-decoding": "node --test test/auto-eq/optimizer-decoding.test.js",
     "test:biquad-coefficients": "node --test test/auto-eq/biquad-coefficients.test.js",
     "test:biquad-response": "node --test test/auto-eq/biquad-response.test.js",

@@ -10,6 +10,11 @@ import {
   createEmptyFilters,
   validatePhaseMatchRange,
 } from '../measurement/filter-slots.js';
+import {
+  applyTargetProfile,
+  computeReferenceProfile,
+  meanProfileOffset,
+} from '../measurement/reference-compensation.js';
 
 /**
  * Simple REW wrappers extracted from MeasurementItem
@@ -935,6 +940,45 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     await ctx.session.removeMeasurements(toBeDeleted);
   }
 
+  /**
+   * Mesure le profil de référentiel D(f) = brute − courbe de travail (moyennes
+   * par octave interpolées) quand une fenêtre MTW/FDW est active : bascule
+   * temporairement les fenêtres en pleine longueur, relit la réponse, puis
+   * restaure les fenêtres verbatim. Soustraire ce profil à la cible équivaut
+   * à « fenêtrer la cible » : le référentiel devient cohérent bande par bande
+   * (BF intactes où D≈0, médiums dosés juste, pente de la cible transmise en
+   * HF) sans réintroduire les détails que le fenêtrage retire volontairement.
+   * Retourne null (aucune compensation) si aucune fenêtre n'est active ou si
+   * la lecture échoue — la création de filtre ne doit jamais échouer pour ça.
+   */
+  async function measurePhaseMatchReferenceProfile(rew, m, ctx, workingResponse) {
+    let windows;
+    try {
+      windows = await rew.getIRWindows(m.uuid);
+    } catch {
+      return null; // pas de réponse impulsionnelle → pas de fenêtrage possible
+    }
+    if (!windows || (!windows.addMTW && !windows.addFDW)) {
+      return null;
+    }
+
+    try {
+      await rew.setIRWindows(m.uuid, { ...windows, addMTW: false, addFDW: false });
+      const rawResponse = await getFrequencyResponse(rew, m, {
+        smoothing: ctx.smoothingMethod,
+        ppo: 96,
+      });
+      return computeReferenceProfile(rawResponse, workingResponse);
+    } catch (error) {
+      log.warn(
+        `${labelOf(m)}: mesure de l'écart de référentiel impossible (${error.message}) — pas de compensation`,
+      );
+      return null;
+    } finally {
+      await rew.setIRWindows(m.uuid, windows);
+    }
+  }
+
   async function runPhaseMatchFilter(
     rew,
     m,
@@ -956,7 +1000,42 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       ppo: 96,
     });
 
-    const targetFreqResponse = await getTargetResponse(rew, m, { ppo: 96 });
+    // Compensation de référentiel D(f) (plan qualité audio, phase 1) : les
+    // filtres calculés sur une courbe fenêtrée (MTW/FDW) sont appliqués à la
+    // mesure brute — sans recalage, le predicted s'écarte de la cible de
+    // l'énergie que le fenêtrage retire (mesuré : +1.3 à +2.4 dB sur
+    // 300-3000 Hz pour un front large bande). La cible passée au calculateur
+    // est abaissée du profil D(f) lissé — l'équivalent de « fenêtrer la
+    // cible » ; le target level global REW (Align SPL) reste intact.
+    const referenceProfile = await measurePhaseMatchReferenceProfile(
+      rew,
+      m,
+      ctx,
+      sourceFreqResponse,
+    );
+
+    let targetFreqResponse = await getTargetResponse(rew, m, { ppo: 96 });
+    if (referenceProfile) {
+      targetFreqResponse = applyTargetProfile(targetFreqResponse, referenceProfile);
+      const meanOffset = meanProfileOffset(
+        referenceProfile,
+        customStartFrequency,
+        customEndFrequency,
+      );
+      const message =
+        `[createPhaseMatchFilter] référentiel: courbe de travail en moyenne ` +
+        `${meanOffset.toFixed(2)} dB sous la brute sur ` +
+        `${Math.round(customStartFrequency)}-${Math.round(customEndFrequency)} Hz — cible recalée du profil D(f)`;
+      if (meanOffset > 2.5) {
+        log.warn(
+          `${message}. Écart élevé : vérifiez la méthode de moyenne ` +
+            `(RMS + phase avg. recommandé pour l'EQ) et le fenêtrage.`,
+        );
+      } else {
+        log.info(message);
+      }
+    }
+
     const calculator = ctx.createCalculator(
       sampleRate,
       customStartFrequency,
