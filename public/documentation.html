@@ -280,6 +280,16 @@
       boost et la plage de frequence. Ces reglages determinent la facon dont RCH et REW
       prepareront les calculs suivants.
     </p>
+    <p>
+      Le fenetrage <strong>Optimized MTW</strong> isole le son direct et les resonances :
+      ideal pour choisir <em>quoi</em> corriger. Il abaisse toutefois la courbe de 1 a
+      2 dB au-dessus de 300 Hz ; RCH mesure et compense desormais automatiquement ce
+      decalage au moment du calcul, bande par bande — le dosage des filtres reste ainsi
+      juste, et la pente de votre courbe cible est bien transmise au resultat (l'offset
+      applique figure dans les logs). Si vous preferez une courbe detaillee dans les
+      basses et lisse dans les aigus <em>sans</em> modification de niveau, le lissage
+      variable est l'alternative recommandee.
+    </p>
 
     <img src="img/doc/speaker-tools-gains-filters.png" alt="Reglages de Speaker Tools" />
 
@@ -297,6 +307,13 @@
       RCH propose trois methodes de moyenne : Vector average, RMS + phase avg. et dB +
       phase avg. Si vous n'avez pas encore de preference, choisissez une methode et gardez
       la meme sur tout le projet pour que les comparaisons restent coherentes.
+    </p>
+    <p>
+      Pour le calcul des filtres, preferez <strong>RMS + phase avg.</strong> : cette
+      methode preserve le niveau a toutes les frequences. Le Vector average reste
+      precieux pour l'alignement temporel et pour juger la coherence entre positions,
+      mais il sous-estime le niveau de la mesure (de -1 a -2 dB avec 3 positions,
+      jusqu'a -5 dB avec 8 positions) : des filtres calcules dessus seront sous-doses.
     </p>
 
     <h3>Etape 5. Aligner les enceintes dans le temps</h3>

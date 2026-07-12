@@ -268,6 +268,16 @@
       frequency range. These settings determine how RCH and REW will prepare the next
       calculations.
     </p>
+    <p>
+      The <strong>Optimized MTW</strong> windowing isolates the direct sound and the
+      room resonances: ideal for choosing <em>what</em> to correct. It does however
+      lower the curve by 1 to 2 dB above 300 Hz; RCH now measures and compensates this
+      offset automatically at calculation time, band by band — filter gains stay
+      correctly dosed and the slope of your target curve is properly carried into the
+      result (the applied offset is shown in the logs). If you prefer a curve that is
+      detailed in the bass and smooth in the highs <em>without</em> any level change,
+      variable smoothing is the recommended alternative.
+    </p>
 
     <img src="img/doc/speaker-tools-gains-filters.png" alt="Speaker Tools settings" />
 
@@ -286,6 +296,13 @@
       RCH offers three averaging methods: Vector average, RMS + phase avg., and dB + phase
       avg. If you do not already have a clear preference, pick one method and keep it
       consistent throughout the project so your comparisons stay meaningful.
+    </p>
+    <p>
+      For filter calculation, prefer <strong>RMS + phase avg.</strong>: this method
+      preserves the level at all frequencies. Vector average remains valuable for time
+      alignment and for judging the coherence between positions, but it underestimates
+      the measurement level (by -1 to -2 dB with 3 positions, up to -5 dB with 8
+      positions): filters computed on it will be under-dosed.
     </p>
 
     <h3>Step 5. Align speakers in time</h3>
