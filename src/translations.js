@@ -180,7 +180,7 @@ const translations = {
     find_sub_alignment_tooltip:
       'Find the optimal alignment between the subwoofer and the selected speaker',
     find_best_crossover_tooltip:
-      'Test every crossover and select the one with the lowest average required shift for the group',
+      'Test every crossover and select the one with the lowest average absolute required shift for the group',
     find_best_crossover_all_tooltip:
       'Find the best crossover for every speaker group',
     auto_adjust_inversion_tooltip:
@@ -402,7 +402,7 @@ const translations = {
     find_sub_alignment_tooltip:
       'Trouver l’alignement optimal entre le caisson et l’enceinte sélectionnée',
     find_best_crossover_tooltip:
-      'Tester chaque crossover et sélectionner celui qui minimise la moyenne des required shift du groupe',
+      'Tester chaque crossover et sélectionner celui qui minimise la moyenne des required shift en valeur absolue du groupe',
     find_best_crossover_all_tooltip:
       'Trouver le meilleur crossover pour chaque groupe d’enceintes',
     auto_adjust_inversion_tooltip:

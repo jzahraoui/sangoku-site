@@ -570,7 +570,7 @@ function createAlignmentService({
    * candidats et mesure le required shift à chacun (crossoverRequiredShiftSweep,
    * IR lues une fois). Le crossover retenu minimise la **moyenne des
    * |required shift|** des membres, en prenant le **shift borné** `delayMs`
-   * (identique à checkAlignment / l'UI, recherche ±1 ms) — pas le pic libre
+   * (identique à checkAlignment / l'UI, fenêtre ±T/4) — pas le pic libre
    * `requiredDelayMs`, sujet aux sauts de cycle. Un membre hors bornes vaut
    * Infinity (comme le « Delay too large » de checkAlignment) → candidat écarté.
    *
@@ -618,7 +618,7 @@ function createAlignmentService({
 
     // Agrégation par candidat : moyenne des |required shift| sur les membres, en
     // utilisant la MÊME valeur que checkAlignment / l'UI — le `delayMs` **borné**
-    // (recherche ±1 ms) et non le pic libre `requiredDelayMs` (sujet aux sauts de
+    // (fenêtre ±T/4) et non le pic libre `requiredDelayMs` (sujet aux sauts de
     // cycle, REGLES-METIER §2). Un membre hors bornes (`withinBounds === false`,
     // = le « Delay too large » qui met checkAlignment à Infinity) rend la moyenne
     // non finie → candidat écarté.

@@ -7,8 +7,9 @@
   décontaminée actuelle (moteur + services agnostiques, ADR 002).
 - **Date** : 2026-06-12
 - **Contexte** : migration de la couche de présentation de Knockout vers un framework moderne,
-  en préservant intégralement le moteur de calcul (cf. `CLAUDE.md`,
-  `docs/reverse/00-classification.md`). Les décisions ouvertes D-01 à D-07 de CLAUDE.md
+  en préservant intégralement le moteur de calcul (cf. `CLAUDE.md`, frontière
+  moteur/UI ; la classification détaillée est une note de travail non versionnée).
+  Les décisions ouvertes D-01 à D-07 de CLAUDE.md
   doivent être fermées avant d'engager le travail pour que les lots de migration composent
   entre eux sans renégocier la frontière à chaque étape.
 
@@ -30,8 +31,7 @@ portage par rapport à React ou Svelte :
 | `bindingHandlers` custom | composant wrapper ou directive `v-…` |
 
 La table de correspondance complète (avec les nuances `value`→`v-model.lazy`,
-`textInput`→`v-model`) est dans CLAUDE.md (Annexe portage) et dans
-`work/prompts-claude-code-migration-rch.md` Annexe A.
+`textInput`→`v-model`) est dans CLAUDE.md (Annexe portage).
 
 **Alternatives écartées** :
 - *React* : modèle mental différent (immutabilité, re-render), réécriture des patterns
@@ -41,6 +41,11 @@ La table de correspondance complète (avec les nuances `value`→`v-model.lazy`,
 - *Rester sous Knockout* : bibliothèque en fin de vie, objectif du projet.
 
 ## Fermeture des décisions ouvertes de CLAUDE.md
+
+> **Non implémenté (mise à jour 2026-07-10)** : les décisions ci-dessous décrivent
+> la cible d'une future migration Vue. L'arbre actuel n'en applique aucune — entrée
+> Vite unique (`src/index.html` dans `vite.config.js`), pas de dépendance Vue/Pinia,
+> e2e mono-cible Knockout. À relire comme cadrage d'une prochaine tentative.
 
 ### D-01 — Coexistence Knockout / Vue : **deux entrées Vite** (option a)
 

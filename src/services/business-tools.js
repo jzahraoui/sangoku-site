@@ -421,7 +421,8 @@ function createBusinessTools({
    * candidat (cascade de biquads) — donc pas de régénération de filtres ni
    * d'aller-retour REW par crossover (perf). Aucune écriture REW, aucune mutation
    * (ni inversion, ni filtres). Même calcul que checkAlignment :
-   * `alignImpulseResponses(subFiltered, speakerFiltered, {frequency, ±1 ms})`.
+   * `alignImpulseResponses(subFiltered, speakerFiltered, {frequency, fenêtre ±T/4})`
+   * (via crossoverAlignmentWindowMs, source unique partagée).
    * La valeur de référence pour le classement est le **`delayMs` borné** (identique
    * à ce que checkAlignment / l'UI affiche) — PAS `requiredDelayMs`, le pic libre
    * non borné, sujet aux sauts de cycle (REGLES-METIER §2). `requiredDelayMs` est

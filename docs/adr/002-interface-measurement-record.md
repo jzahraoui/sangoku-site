@@ -27,9 +27,10 @@ class MeasurementRecord {
 }
 ```
 
-- **Les dérivations ne vivent PAS sur le record** : `channelName`, `distanceInMeters`,
-  `splForAvr`… sont des fonctions pures de `measurement-info.js` /
-  `measurement-calculations.js` prenant `(record, contexte AVR, liste)` en paramètres.
+- **Les dérivations ne vivent PAS sur le record** : `channelName`
+  (`measurement-info.js`), `splForAvr` (`measurement-info.js`), `distanceInMeters`
+  (`measurement-export.js`)… sont des fonctions pures de `src/measurement/` prenant
+  `(record, contexte AVR, liste)` en paramètres.
 - **L'orchestration ne vit PAS sur le record** : `src/services/measurement-operations.js`
   expose des fonctions `(rewServices, record, params)` qui appellent REW puis
   `record.update(...)`.

@@ -1,7 +1,7 @@
 # Multi-Sub Optimizer — Documentation Technique
 
 > **Date de rédaction** : 2026-07-04
-> **Module** : `src/optimizer/` (20 fichiers)
+> **Module** : `src/optimizer/` (22 fichiers)
 > **Point d'entrée public** : `MultiSubOptimizer` (`src/multi-sub-optimizer.js`)
 
 Cette documentation synthétise les enseignements acquis lors de plusieurs
@@ -24,6 +24,7 @@ de futures investigations.
 9. [Pièges et décisions de conception](#9-pièges-et-décisions-de-conception)
 10. [Tests](#10-tests)
 11. [Journal des corrections](#11-journal-des-corrections)
+12. [Budget de délai — fenêtre de distances AVR](#12-budget-de-délai--fenêtre-de-distances-avr)
 
 ---
 
@@ -43,9 +44,11 @@ src/optimizer/
 ├── coarse-search.js         # runClassicOptimization, findTopCoarseParams
 ├── genetic-algorithm.js     # GA : population, sélection, mutation, crossover
 ├── genetic-search.js        # runGeneticOptimization, runSingleGeneticRun
+├── differential-evolution.js # DE/rand/1/bin : solveur générique (flux joint)
 ├── local-search.js          # Hill climbing multi-échelle avec quantification
 ├── sub-search.js            # optimizeSingleSub, chooseBestSolution (seuil all-pass)
 ├── flow.js                  # findOptimalParameters (orchestration séquentielle)
+├── joint-flow.js            # Flux joint (target-match) : tous les subs ensemble
 ├── result.js                # refineOptimizedSubsGlobally, scoreOptimizedSubSum
 ├── report.js                # buildOptimizationReport, buildAllPassReport
 ├── report-metrics.js        # calculateReportMetrics, calculateImplementationCost
@@ -258,7 +261,7 @@ optimizeSubwoofers()
   │
   ├─ 5. BOUCLE SÉQUENTIELLE (pour chaque sub 1..N-1) :
   │   ├─ optimizeSingleSub(sub, previousValidSum, options)
-  │   │   ├─ Calculer theo = options.globalTheoreticalMax
+  │   │   ├─ Calculer theo = options.stepTheoreticalMax
   │   │   ├─ runGeneticOptimization OU runClassicOptimization
   │   │   ├─ chooseBestSolution (seuil all-pass)
   │   │   └─ Retourner finalResponse
@@ -333,7 +336,10 @@ fixes, puis passe au suivant. Plusieurs passes sont effectuées.
 
 **Fichier** : `result.js` → `refineOptimizedSubsGlobally()`
 
-### Configuration par défaut
+### Configuration de production
+
+La config posée par `createOptimizerConfig` (`src/services/sub-optimization.js`,
+objectif `pre-eq`) active le raffinement global :
 
 ```javascript
 globalRefinement: {
@@ -342,6 +348,11 @@ globalRefinement: {
   maxIterations: 30, // 30 itérations de local search par sub par passe
 }
 ```
+
+Le `DEFAULT_CONFIG` du **module** (`src/optimizer/config.js`) est plus
+conservateur — `objective: 'balanced'`, `globalRefinement: { enabled: false,
+passes: 1, maxIterations: 20 }` : c'est la couche services qui l'ajuste pour la
+production.
 
 ### Ordre de visite
 
@@ -513,7 +524,7 @@ la valeur brute utilisée par le scoring.
 # Tests d'intégration (15 tests : 9 synthétiques + 6 mesures réelles)
 npm run test:multi-sub-optimizer-all
 
-# Tests unitaires (53 tests)
+# Tests unitaires (56 tests)
 npx vitest run test/unit/scorer.test.js \
   test/unit/multi-sub-optimizer-general.test.js \
   test/unit/audio-selection.test.js \
@@ -756,7 +767,7 @@ Reste : Lot 4 (objectif multi-positions).
 L'efficacité **augmente** pendant l'optimisation sur tous les datasets.
 Temps : 542/913/214/266/457/710 ms (budgets 1200/2500 ms).
 
-## 6. Budget de délai — fenêtre de distances AVR
+## 12. Budget de délai — fenêtre de distances AVR
 
 Le paramètre `delay {min, max}` de la configuration (construit par
 `createOptimizerConfig`, `src/services/sub-optimization.js`) n'est pas

@@ -9,8 +9,8 @@
 Automatise le choix de la fréquence de coupure d'un groupe d'enceintes : on teste
 tous les crossovers candidats, on mesure le *required shift* à chacun (la même
 métrique que le bouton ⟳ `checkAlignment`) et on retient celui qui raccorde le
-mieux. À lire avec les règles métier `work/docs/REGLES-METIER.md` (§1-2-6) qui
-priment sur toute déduction du code.
+mieux. Les règles métier du domaine (scénario de référence, alignement temporel,
+polarité/inversions) priment sur toute déduction du code.
 
 ---
 

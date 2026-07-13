@@ -121,7 +121,7 @@ Les tableaux numériques (`magnitude`, `phase`, `data`) transitent en **base64 d
 | `test/auto-eq/samples-48ppo/`, `samples-96ppo/`, `samples-96ppo-alt/` | mesures moyennées **par canal** : `Cavg`, `FLavg`, `FRavg`, `LFE`, `SBL/SBRavg`, `SLA/SRAavg`, `TFL/TFRavg`… | **seed idéal d'une session multi-canaux complète** (post-averaging) : un store de mesures par canal pour les parcours time align / align SPL / sub optimize / preview / export |
 | `test/fixtures/frequency-response/` | `sw1.txt`, `sw1mp.txt`, `sw1mp-calculated.txt` (sub + versions minimum-phase) | réponses sub pour le parcours optimisation |
 | `test/fixtures/multi-sub-optimizer/data*.test.js` | modules JS de configurations multi-sub | paramètres de scénario MSO |
-| `work/Denon AVC-A1H_kef.4sub.3pos.ady` | session Audyssey réelle (4 subs, 3 positions) | fichier d'entrée du parcours « import .ady » — **hors dépôt de test** (répertoire `work/`), à copier dans `test/e2e/fixtures/` après validation (données personnelles ?) |
+| `.ady` réel (hors dépôt) | session Audyssey réelle (4 subs, 3 positions) | fichier d'entrée du parcours « import .ady » — **hors dépôt de test**, à copier dans `test/e2e/fixtures/` après validation (données personnelles ?) |
 
 **Convertisseurs déjà écrits — le gros du travail est fait :**
 
@@ -191,7 +191,7 @@ Le mock est **avec état**, c'est indispensable : l'UI polle `GET /measurements`
 | Workflow | Routes exercées | Fixtures | État |
 |---|---|---|---|
 | Connexion REW | `/application/*`, `/eq/default-equaliser`, `/version`, polling `/measurements` | aucune (synthétique) | ✅ couvert |
-| Import .ady / load AVR | aucune (local au navigateur) | `.ady` de `work/` | ✅ hors mock |
+| Import .ady / load AVR | aucune (local au navigateur) | `.ady` réel (hors dépôt) | ✅ hors mock |
 | Averaging multi-positions | `process-measurements` (`RMS/Vector average`), polling | P01–P03 synthétiques → `*avg` | ⚠️ positions à synthétiser |
 | Time Align | `process-measurements` (`Cross corr align`, `Time align`), `…/impulse-response`, `…/command` (`Offset t=0`, `Estimate IR delay`) | IR synthétiques | ⚠️ IR à synthétiser |
 | Align SPL + target | `/eq/house-curve`, `…/target-settings`, `…/target-level`, `process-measurements` (`Align SPL`) | `Target FRavg.txt` | ✅ couvert (formes settings [SUPPOSÉ]) |
@@ -214,7 +214,7 @@ Le mock est **avec état**, c'est indispensable : l'UI polle `GET /measurements`
 1. **Synthèse des positions P01–P03** (averaging) : OK pour des copies décalées de `FRavg` ? Alternative : exporter 3 vraies positions depuis REW une fois pour toutes (capture one-shot, tracée ici).
 2. **Synthèse d'IR minimales** (time align) : impulsions à délais connus, suffisant pour la parité UI ? Alternative : capture one-shot d'IR réelles.
 3. **Formes [SUPPOSÉ]** (`target-settings`, `room-curve-settings`, `equaliser`, `ir-windows`, `/eq/default-*`) : valider par une session de capture unique contre REW live (WSL : `WINDOWS_HOST` géré comme dans `test/unit/rew-api.test.js`), ou accepter l'écho-mémoire en l'état.
-4. **Fichier `.ady` d'exemple** : copie de `work/Denon AVC-A1H_kef.4sub.3pos.ady` vers `test/e2e/fixtures/` — contient-il des données personnelles à anonymiser ?
+4. **Fichier `.ady` d'exemple** : copie d'un `.ady` réel (hors dépôt) vers `test/e2e/fixtures/` — contient-il des données personnelles à anonymiser ?
 5. **Partage de `parseREWFileAsAPI`** : import direct depuis `test/auto-eq/test-config.js` ou extraction vers `test/support/` ?
 6. **`Aligned sum`** : fixture précalculée ou somme recalculée par le mock ?
 
@@ -233,9 +233,9 @@ remplace avantageusement les propositions 1 et 2 du § 4.
 | # Point § 4 | Décision | Justification |
 |---|---|---|
 | 1. Positions P01–P03 | **Abandonné (sans objet)** : les positions réelles viennent du fichier `.ady` de test, importées par l'app elle-même dans le mock. | Plus fidèle que des copies décalées de `FRavg` ; zéro synthèse. |
-| 2. IR synthétiques | **Abandonné (sans objet)** : les IR réelles du `.ady` sont round-trippées. Le mock calcule les réponses en fréquence servies (`…/frequency-response`) par FFT (mathjs, déjà dépendance) sur l'IR stockée, magnitude en dB + `splOffset`. | Le filet vise la parité UI, pas la précision REW ; la FFT du mock est documentée comme approximation de test. |
+| 2. IR synthétiques | **Abandonné (sans objet)** : les IR réelles du `.ady` sont round-trippées. Le mock calcule les réponses en fréquence servies (`…/frequency-response`) par FFT (radix-2 maison, `test/e2e/support/rew-mock/dsp.js`) sur l'IR stockée, magnitude en dB + `splOffset`. | Le filet vise la parité UI, pas la précision REW ; la FFT du mock est documentée comme approximation de test. |
 | 3. Formes [SUPPOSÉ] | **Écho-mémoire accepté tel quel** : GET sert la dernière valeur POSTée, défauts plausibles sinon. Pas de capture REW live dans ce run (autonome). | Tout écart réel sera détecté plus tard contre REW live ; tracer ici toute correction. |
-| 4. Fichier `.ady` | **Fixture dérivée réduite** `test/e2e/fixtures/sample.ady`, générée depuis `work/Denon AVC-A1H_kef.4sub.3pos.ady` : canaux FL/C/FR/SW1/SW2, 3 positions, IR tronquées (peak vérifié inclus), flottants arrondis. Pas de donnée personnelle au-delà du modèle d'ampli. | 19 Mo → taille committable ; 15 mesures importées au lieu de 45 → parcours e2e plus rapide. |
+| 4. Fichier `.ady` | **Fixture dérivée réduite** `test/e2e/fixtures/sample.ady`, générée depuis un `.ady` réel (hors dépôt) : canaux FL/C/FR/SW1/SW2, 3 positions, IR tronquées (peak vérifié inclus), flottants arrondis. Pas de donnée personnelle au-delà du modèle d'ampli. | 19 Mo → taille committable ; 15 mesures importées au lieu de 45 → parcours e2e plus rapide. |
 | 5. `parseREWFileAsAPI` | **Non utilisé** par le mock (le round-trip rend la conversion .txt→API inutile pour les parcours). Reste disponible si un scénario futur a besoin des fixtures `.txt`. | Moins de couplage e2e→test/auto-eq. |
 | 6. `Aligned sum` | **Somme recalculée par le mock** (addition échantillon par échantillon des IR stockées, après gain/délai/inversion de l'alignment-tool). | Cohérent avec le round-trip ; une fixture précalculée ne correspondrait pas aux données réduites. |
 
@@ -261,7 +261,7 @@ Décisions d'implémentation complémentaires :
 
 `test/e2e/support/rew-mock/` (store, handlers, dsp, index) + harnais
 (`test/e2e/support/harness.js`, `server.js`, bi-cible via `E2E_TARGET=knockout|vue`) +
-3 parcours dans `test/e2e/journeys/` (`npm run test:e2e`, fixtures
+8 parcours (~29 cas) dans `test/e2e/journeys/` (`npm run test:e2e`, fixtures
 `test/e2e/fixtures/sample.ady` — dérivé réduit 705 Ko — et `mso-equalizer-apo.txt`).
 Comportements REW découverts en itérant (à vérifier contre REW live avant le cutover,
 marqués [SUPPOSÉ→CONSTATÉ par l'app]) :

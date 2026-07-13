@@ -82,7 +82,8 @@
 
     <p>
       Conseil pratique : gardez un dossier de travail propre avec vos fichiers ADY, MQX,
-      AVR, MDAT, OCA et courbes cibles. Cela evite beaucoup d'erreurs de protocole.
+      AVR, MDAT, OCA et courbes cibles. Cela evite beaucoup d'erreurs de protocole et
+      de manipulation de fichiers.
     </p>
     <p>
       Si vous utilisez une courbe cible personnalisee, preparez-la a l'avance. Vous en
@@ -290,6 +291,13 @@
       basses et lisse dans les aigus <em>sans</em> modification de niveau, le lissage
       variable est l'alternative recommandee.
     </p>
+    <p>
+      Dans le meme esprit, RCH corrige finement le grave et lisse fortement l'aigu :
+      dans l'aigu, le son direct est deja bien sous la cible, et ne pas le sur-corriger
+      est la pratique recommandee. La plage de frequence que vous reglez fait foi — RCH
+      n'impose pas de zone. Gardez en tete que c'est le cumul mesure corrigee + chaine
+      reelle qui doit suivre la cible : evitez la sur-correction.
+    </p>
 
     <img src="img/doc/speaker-tools-gains-filters.png" alt="Reglages de Speaker Tools" />
 
@@ -338,6 +346,17 @@
       obtenues sont donc plus proches des distances physiques ; en cas d'impulsion
       indisponible, RCH revient a l'ancien alignement sur le pic (signale dans les logs).
     </p>
+    <p>
+      Une fois le Time align fait, les enceintes ne bougent plus : seuls les subs seront
+      deplaces ensuite (Find Sub Alignment). Ne relancez pas d'alignement temporel des
+      enceintes apres cette etape sans raison, car les etapes suivantes en dependent.
+    </p>
+    <p>
+      Cas des enceintes Atmos a reflexion (posees a plat sur les frontales, orientees
+      vers le plafond) : le chemin utile est le rebond au plafond, pas le petit son
+      direct qui fuit vers le micro. L'alignement et la distance suivent ce rebond ;
+      verifiez la coherence de la distance sur ces canaux.
+    </p>
 
     <img src="img/doc/rch-time-align-button.png" alt="Bouton Time Align" />
 
@@ -382,10 +401,11 @@
       A cote de la liste de coupure, le bouton en forme de baguette lance une
       recherche automatique du meilleur crossover pour le groupe d'enceintes. RCH
       teste chaque frequence candidate, calcule le required shift de chaque enceinte
-      du groupe (la meme mesure que le bouton require shift), puis selectionne
-      automatiquement dans la liste celle qui minimise la moyenne des required shift
-      des enceintes du groupe. Un bouton identique dans l'entete de la colonne fait
-      la recherche pour tous les groupes d'un coup.
+      du groupe (la meme mesure que le bouton de recalcul de la colonne Required
+      shift), puis selectionne automatiquement dans la liste celle qui minimise la
+      moyenne, en valeur absolue, des required shift des enceintes du groupe. Un
+      bouton identique dans l'entete de la colonne fait la recherche pour tous les
+      groupes d'un coup.
     </p>
     <p>
       Comme le crossover est une propriete de groupe, le bouton par ligne n'apparait
@@ -425,6 +445,12 @@
       coupure avant de relancer la recherche d'alignement.
     </p>
     <p>
+      Find Sub Alignment deplace le bloc des subs d'un seul delai, dans une plage bornee
+      (environ une demi-periode du crossover), et avance volontairement le sub d'un
+      seizieme de periode. Un petit residuel non nul de required shift apres l'alignement
+      est donc normal.
+    </p>
+    <p>
       Quand l'alignement reussit, RCH met aussi a jour LPF for LFE avec une valeur
       coherente avec l'enceinte retenue, avec un minimum de 120 Hz. Verifiez quand meme ce
       reglage avant l'export final.
@@ -439,6 +465,11 @@
     <p>
       Si necessaire, le bouton Auto Adjust Inversion peut aider a trouver une polarite
       plus favorable sur le raccord avec le sub.
+    </p>
+    <p>
+      Attention : si une enceinte demande vraiment une inversion de polarite pour bien se
+      raccorder, cela peut trahir une erreur de cablage (fils + et - inverses). Verifiez-la
+      physiquement plutot que de la masquer par le DSP.
     </p>
     <p>
       Si les previews sont bons sur la moyenne mais moins convaincants sur la position
@@ -671,7 +702,7 @@
     <p>
       Si vous venez d'utiliser Find Sub Alignment, verifiez le champ LPF for LFE avant de
       creer le fichier OCA. RCH peut l'avoir releve automatiquement pour rester coherent
-      avec la coupure de l'enceinte de reference.
+      avec la coupure de l'enceinte selectionnee.
     </p>
 
     <p>
@@ -691,7 +722,7 @@
     <img src="img/doc/finalization-box.png" alt="Zone de finalisation" />
 
     <ul>
-      <li>Choisissez le LPF du LFE.</li>
+      <li>Choisissez le LPF for LFE.</li>
       <li>Choisissez le mode de sortie du subwoofer.</li>
       <li>Activez ou non les options dynamiques selon votre usage.</li>
       <li>Choisissez le format OCA adapte a votre materiel.</li>

@@ -278,6 +278,13 @@
       detailed in the bass and smooth in the highs <em>without</em> any level change,
       variable smoothing is the recommended alternative.
     </p>
+    <p>
+      In the same spirit, RCH corrects the bass finely and smooths the highs heavily: in
+      the highs the direct sound is already well below the target, and not over-correcting
+      it is the recommended practice. The frequency range you set is authoritative — RCH
+      does not impose any zone. Keep in mind that it is the combined corrected measurement
+      + real chain that must follow the target: avoid over-correction.
+    </p>
 
     <img src="img/doc/speaker-tools-gains-filters.png" alt="Speaker Tools settings" />
 
@@ -327,6 +334,17 @@
       distances are therefore closer to the physical ones; when no impulse response is
       available, RCH falls back to the previous peak alignment (reported in the logs).
     </p>
+    <p>
+      Once Time Align is done, the speakers no longer move: only the subwoofers will be
+      shifted afterwards (Find Sub Alignment). Do not re-run speaker time alignment after
+      this step without a reason, as the following steps depend on it.
+    </p>
+    <p>
+      Up-firing Atmos speakers (laid flat on the mains, aimed at the ceiling): the useful
+      path is the ceiling bounce, not the small direct sound that leaks toward the
+      microphone. Alignment and distance follow that bounce; check that the distance is
+      consistent on these channels.
+    </p>
     <img src="img/doc/rch-time-align-button.png" alt="Time Align button" />
 
     <h3>Step 6. Load the target curve, then run Align SPL</h3>
@@ -369,9 +387,10 @@
       Next to the crossover list, the wand button runs an automatic search for the
       best crossover of the speaker group. RCH tests every candidate frequency,
       computes the required shift of each speaker in the group (the same measurement
-      as the required shift button), then automatically selects in the list the one
-      that minimizes the average required shift of the group speakers. An identical
-      button in the column header runs the search for every group at once.
+      as the recompute button in the Required shift column), then automatically selects
+      in the list the one that minimizes the average absolute required shift of the
+      group speakers. An identical button in the column header runs the search for
+      every group at once.
     </p>
     <p>
       Because the crossover is a group property, the per-line button only appears on
@@ -409,6 +428,12 @@
       the alignment search again.
     </p>
     <p>
+      Find Sub Alignment moves the whole subwoofer block by a single delay, within a
+      bounded range (about half a crossover period), and deliberately advances the sub
+      by one sixteenth of a period. A small non-zero required shift left after the
+      alignment is therefore normal.
+    </p>
+    <p>
       When the search succeeds, RCH also updates LPF for LFE to a value consistent with
       the selected speaker, with a 120 Hz minimum. Still verify that field before the
       final export.
@@ -423,6 +448,11 @@
     <p>
       If needed, Auto Adjust Inversion can help find a better polarity state for the
       subwoofer blend.
+    </p>
+    <p>
+      Note: if a speaker genuinely needs a polarity inversion to blend correctly, it may
+      reveal a wiring mistake (+ and - swapped). Check it physically rather than hiding it
+      with DSP.
     </p>
     <p>
       If the previews look good on the average but less convincing at the main listening
