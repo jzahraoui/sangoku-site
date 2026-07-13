@@ -45,7 +45,7 @@ export class SpanAnalyzer {
 
     // Grille 1/96 PPO (remplie par init)
     this.freqs = null; // Float32Array des fréquences
-    this.splDeltas = null; // Float32Array: measured - target (résiduel initial)
+    this.splDeltas = null; // Float64Array: measured - target (résiduel initial)
     this.numPoints = 0;
   }
 
@@ -68,7 +68,9 @@ export class SpanAnalyzer {
     }
 
     this.freqs = Float32Array.from(freqs);
-    this.splDeltas = new Float32Array(freqs.length);
+    // Résidu (mesuré − cible) relu pour interpolation et détection de notches :
+    // gardé en float64, aucun arrondi f32 intermédiaire.
+    this.splDeltas = new Float64Array(freqs.length);
     this.numPoints = freqs.length;
 
     for (let i = 0; i < this.numPoints; i++) {

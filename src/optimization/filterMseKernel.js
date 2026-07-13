@@ -61,7 +61,7 @@ export function prepareProfileCoefficients({ filters, sampleRate, arrays }) {
  *
  * @param {object} p
  * @param {number}       p.n
- * @param {Float32Array} p.deltas
+ * @param {Float64Array} p.deltas
  * @param {Float32Array} p.weights
  * @returns {number}
  */
@@ -80,7 +80,7 @@ export function computeBaseMSE({ n, deltas, weights }) {
  * @param {object} p
  * @param {number}       p.n
  * @param {number}       p.numActive
- * @param {Float32Array} p.deltas
+ * @param {Float64Array} p.deltas
  * @param {Float32Array} p.weights
  * @param {Float64Array} p.sth
  * @param {Float64Array} p.sth2

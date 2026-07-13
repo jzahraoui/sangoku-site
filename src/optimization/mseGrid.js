@@ -14,7 +14,7 @@
  * @param {ArrayLike<number>} p.measuredMagnitude
  * @param {ArrayLike<number>} p.targetMagnitude
  * @param {number} p.sampleRate
- * @returns {{ freqs: Float32Array, weights: Float32Array, deltas: Float32Array, sth: Float64Array, sth2: Float64Array, count: number }}
+ * @returns {{ freqs: Float32Array, weights: Float32Array, deltas: Float64Array, sth: Float64Array, sth2: Float64Array, count: number }}
  */
 export function buildMseGrid({
   spans,
@@ -39,7 +39,9 @@ export function buildMseGrid({
   const count = freqsList.length;
   const freqsArr = new Float32Array(freqsList);
   const weights = new Float32Array(weightsList);
-  const deltas = new Float32Array(deltasList);
+  // Résidu minimisé (mesuré − cible) : gardé en float64, aucun arrondi f32
+  // intermédiaire avant le noyau MSE (filterMseKernel).
+  const deltas = new Float64Array(deltasList);
   const sth = new Float64Array(count);
   const sth2 = new Float64Array(count);
 

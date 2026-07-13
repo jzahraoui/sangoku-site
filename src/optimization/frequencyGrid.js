@@ -47,7 +47,9 @@ export function buildOptimizationFrequencyGrid({
   const numPoints = freqsList.length;
   const outFreqs = new Float32Array(freqsList);
   const weights = new Float32Array(weightsList);
-  const deltas = new Float32Array(deltasList);
+  // Résidu minimisé (mesuré − cible) : gardé en float64, aucun arrondi f32
+  // intermédiaire avant le noyau MSE.
+  const deltas = new Float64Array(deltasList);
 
   const sth = new Float64Array(numPoints);
   const sth2 = new Float64Array(numPoints);
@@ -62,7 +64,7 @@ export function buildOptimizationFrequencyGrid({
 
   const stride = 2;
   const decNumPoints = Math.ceil(numPoints / stride);
-  const decDeltas = new Float32Array(decNumPoints);
+  const decDeltas = new Float64Array(decNumPoints);
   const decWeights = new Float32Array(decNumPoints);
   const decSth = new Float64Array(decNumPoints);
   const decSth2 = new Float64Array(decNumPoints);
