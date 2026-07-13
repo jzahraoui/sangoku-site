@@ -14,7 +14,9 @@ import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
  * Construction dependencies:
  * - `session`: the RewSession instance (rewMeasurements, rewAlignmentTool,
  *   loadData, removeMeasurements, analyseApiResponse).
- * - `applyCutOffFilter(lfe, speaker, frequency)`: BusinessTools bridge.
+ * - `crossoverFilteredIrPair(lfe, speaker, frequency)`: BusinessTools bridge —
+ *   IR filtrées au raccord calculées en interne (getCrossoverFilteredIr), sans
+ *   mesure predicted temporaire dans REW.
  * - `setTargetLevelFromMeasurement(measurement)`: target-curve service bridge.
  * - `getPredictedLfeMeasurements()`: current predicted-LFE list.
  * - `operations`: (optional) createMeasurementOperations instance. When absent
@@ -150,7 +152,7 @@ function buildMeasurementApi({
 
 function createAlignmentService({
   session,
-  applyCutOffFilter,
+  crossoverFilteredIrPair,
   setTargetLevelFromMeasurement,
   getPredictedLfeMeasurements = () => [],
   operations = null,
@@ -161,6 +163,10 @@ function createAlignmentService({
   // (KO path); record-based callers inject derivation-based providers.
   crossoverFor = m => unwrap(m.crossover),
   relatedLfeFor = m => unwrap(m.relatedLfeMeasurement),
+  // Real subs at the speaker's position — their weighted « somme vraie » is the
+  // deterministic référentiel checkAlignment aligns against (voir crossoverFilteredIrPair).
+  // Empty → fallback sur la projection LFE predicted.
+  relatedSubsFor = () => [],
   log = noopLog,
 }) {
   const mops = buildMeasurementApi({
@@ -495,7 +501,6 @@ function createAlignmentService({
    * delay is reset and a warning is logged.
    */
   async function checkAlignment(speakerItem) {
-    const mustBeDeleted = [];
     try {
       const cuttOffFrequency = crossoverFor(speakerItem);
       const PredictedLfe = relatedLfeFor(speakerItem);
@@ -504,19 +509,25 @@ function createAlignmentService({
         throw new Error(`No LFE found, please use sum subs button`);
       }
 
-      const predictedFrontLeft = await mops.producePredictedMeasurement(speakerItem);
-      mustBeDeleted.push(predictedFrontLeft);
-
-      const { PredictedLfeFiltered, predictedSpeakerFiltered } = await applyCutOffFilter(
+      // IR filtrées au raccord calculées en interne (getCrossoverFilteredIr) —
+      // plus de mesures predicted temporaires dans REW (eqGenerate ×3 +
+      // suppressions). L'IR predicted de l'enceinte et du LFE est lue telle que
+      // REW la calcule (bit-exact eqGenerate) ; seul le raccord est réalisé en
+      // local. Côté LFE : la « somme vraie » pondérée splOffsetdB des subs réels
+      // de la position (référentiel canonique déterministe, indépendant de l'état
+      // de la projection), avec repli sur la projection LFE predicted si la liste
+      // est vide. Parité golden REW : test:ir-align-parity / test:align-sub-parity.
+      const { PredictedLfeFiltered, speakerFiltered } = await crossoverFilteredIrPair(
         PredictedLfe,
-        predictedFrontLeft,
+        speakerItem,
         cuttOffFrequency,
+        relatedSubsFor(speakerItem),
       );
-      mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
 
+      // channelB = enceinte → isBInverted porte l'inversion de l'enceinte.
       const { shiftDelay, isBInverted } = await findAligment(
-        PredictedLfeFiltered,
-        predictedSpeakerFiltered,
+        { ir: PredictedLfeFiltered, title: unwrap(PredictedLfe.title) },
+        { ir: speakerFiltered, title: `predicted ${labelOf(speakerItem)}` },
         cuttOffFrequency,
         1,
         false,
@@ -535,8 +546,6 @@ function createAlignmentService({
     } catch {
       log.warn(`Unable to determine inversion for ${labelOf(speakerItem)}`);
       speakerItem.update({ shiftDelay: Infinity });
-    } finally {
-      await session.removeMeasurements(mustBeDeleted);
     }
   }
 

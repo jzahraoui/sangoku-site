@@ -1339,11 +1339,14 @@ class MeasurementViewModel {
 
     this.alignmentService = createAlignmentService({
       session: this.rewSession,
-      applyCutOffFilter: (lfe, speaker, frequency) =>
-        this.businessTools.applyCutOffFilter(lfe, speaker, frequency),
+      crossoverFilteredIrPair: (lfe, speaker, frequency, subs) =>
+        this.businessTools.crossoverFilteredIrPair(lfe, speaker, frequency, subs),
       setTargetLevelFromMeasurement: measurement =>
         this.setTargetLevelFromMeasurement(measurement),
       getPredictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),
+      // Somme vraie des subs réels de la position de l'enceinte (déterministe).
+      relatedSubsFor: speakerItem =>
+        this.byPositionsGroupedSubsMeasurements()[speakerItem.position()] ?? [],
       log: lm,
     });
 

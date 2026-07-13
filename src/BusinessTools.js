@@ -114,8 +114,8 @@ class BusinessTools {
     return this.tools.produceAligned(speakerItem, subResponses);
   }
 
-  async applyCutOffFilter(sub, speaker, cutOffFrequency) {
-    return this.tools.applyCutOffFilter(sub, speaker, cutOffFrequency);
+  async crossoverFilteredIrPair(sub, speaker, cutOffFrequency, subResponses = null) {
+    return this.tools.crossoverFilteredIrPair(sub, speaker, cutOffFrequency, subResponses);
   }
 
   async createMeasurementPreview(item) {

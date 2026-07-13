@@ -385,22 +385,25 @@ function createBusinessTools({
     cuttOffFrequency,
     subResponses = null,
   ) {
+    // 0 Hz (enceinte full range) : pas de filtre de raccord, IR predicted
+    // seules — parité avec le court-circuit à 0 de applyCutOffFilter
+    // (responseCopy).
+    const speakerCrossover = cuttOffFrequency
+      ? speakerHighPassSetting(cuttOffFrequency)
+      : null;
+    const subCrossover = cuttOffFrequency ? subLowPassSetting(cuttOffFrequency) : null;
     const speakerFiltered = await operations.getCrossoverFilteredIr(
       rew(),
       speakerItem,
-      speakerHighPassSetting(cuttOffFrequency),
+      speakerCrossover,
     );
     const PredictedLfeFiltered = subResponses?.length
       ? await operations.getCombinedSubsCrossoverFilteredIr(
           rew(),
           subResponses,
-          subLowPassSetting(cuttOffFrequency),
+          subCrossover,
         )
-      : await operations.getCrossoverFilteredIr(
-          rew(),
-          PredictedLfe,
-          subLowPassSetting(cuttOffFrequency),
-        );
+      : await operations.getCrossoverFilteredIr(rew(), PredictedLfe, subCrossover);
     return { PredictedLfeFiltered, speakerFiltered };
   }
 
@@ -564,6 +567,7 @@ function createBusinessTools({
     revertLfeFilterProccess,
     revertLfeFilterProccessList,
     applyCutOffFilter,
+    crossoverFilteredIrPair,
     produceAligned,
     createMeasurementPreview,
   };
