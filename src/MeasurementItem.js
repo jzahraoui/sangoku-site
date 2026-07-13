@@ -129,6 +129,15 @@ class MeasurementItem {
       this.parentViewModel.measurementsByGroup()[this.groupName()]?.crossover(),
     );
     this.isSub = ko.computed(() => isSubChannel(this.channelDetails()));
+    // Le crossover est une propriété de GROUPE : les contrôles de groupe (find best
+    // crossover) ne s'affichent que sur le représentant, la 1re enceinte du groupe.
+    this.isFirstOfGroup = ko.pureComputed(() => {
+      if (this.isSub()) return false;
+      const members = this.parentViewModel
+        .uniqueSpeakersMeasurements()
+        .filter(m => m.groupName() === this.groupName());
+      return members.length > 0 && members[0].uuid === this.uuid;
+    });
     this.speakerType = ko.pureComputed(() =>
       speakerTypeFor(this.isSub(), this.crossover()),
     );

@@ -797,6 +797,9 @@ class MeasurementViewModel {
         // Refresh the per-position virtual subwoofers (ADR 003): client-side
         // sum of the predicted sub responses, projected as LFE predicted.
         await this.virtualSubwooferService.refreshAll({ force: true });
+
+        // La somme des subs a changé → les required shift des enceintes sont périmés.
+        this.invalidateSpeakerAlignments();
       } catch (error) {
         this.handleError(`Sum failed: ${error.message}`, error);
       } finally {
@@ -851,6 +854,161 @@ class MeasurementViewModel {
         await this.alignmentService.checkAlignment(speakerItem);
       } finally {
         if (!allreadyProcessing) await this.setProcessing(false);
+      }
+    };
+
+    // Cherche le meilleur crossover pour le groupe de l'enceinte cliquée : teste
+    // tous les crossovers candidats, calcule le required shift à chacun (même
+    // métrique que checkAlignment) et sélectionne automatiquement, dans la liste
+    // déroulante du groupe, celui qui minimise la moyenne des |required shift|
+    // des deux membres. En cas d'échec (valeurs infinies partout) : message dans
+    // les logs, liste déroulante inchangée.
+    // Cœur par GROUPE (le crossover est une propriété de groupe) : préconditions,
+    // calcul, sélection auto dans la liste + logs d'audit. Suppose le verrou de
+    // traitement tenu par l'appelant. Lève sur précondition manquante ; renvoie le
+    // crossover retenu, ou null si aucun candidat n'est exploitable. Partagé par le
+    // bouton par ligne (un seul groupe) et le bouton d'en-tête (tous les groupes).
+    const runFindBestCrossoverForGroup = async groupName => {
+      const members = this.uniqueSpeakersMeasurements().filter(
+        m => m.groupName() === groupName,
+      );
+      if (!members.length) {
+        throw new Error(`No speaker found in group ${groupName}`);
+      }
+
+      // Précondition : filtres générés + somme des subs / LFE disponible.
+      for (const member of members) {
+        const filters = await member.getFilters();
+        const hasFilters =
+          Array.isArray(filters) && filters.some(f => f?.type && f.type !== 'None');
+        const subs = this.byPositionsGroupedSubsMeasurements()[member.position()] ?? [];
+        const hasSubSum = subs.length > 0 || Boolean(member.relatedLfeMeasurement());
+        if (!hasFilters || !hasSubSum) {
+          throw new Error(
+            `Please generate the filters and the sub sum before finding the ` +
+              `best crossover (${member.displayMeasurementTitle()})`,
+          );
+        }
+      }
+
+      const candidates = this.alingFrequencies()
+        .map(choice => choice.value)
+        .filter(value => value !== 0);
+
+      lm.info(`Searching best crossover for group ${groupName}...`);
+      const { bestFrequency, table } =
+        await this.alignmentService.findBestCrossover(members, candidates);
+
+      // Table required-shift par candidat / membre (interface d'audit).
+      for (const row of table) {
+        const detail = row.perMember
+          .map(
+            m =>
+              `${m.id}: ${Number.isFinite(m.shiftMs) ? m.shiftMs.toFixed(3) : '∞'}ms` +
+              (m.invertB ? ' (inv)' : ''),
+          )
+          .join(', ');
+        const meanText = Number.isFinite(row.mean) ? row.mean.toFixed(3) : '∞';
+        // Rejet pour inversion incohérente : le tracer explicitement (audit §10).
+        const flag = !row.inversionConsistent ? ' [rejeté: inversion incohérente]' : '';
+        lm.info(`  ${row.fc}Hz → mean |shift| ${meanText}ms (${detail})${flag}`);
+      }
+
+      if (bestFrequency === null) {
+        lm.warn(
+          `Find best crossover: no usable crossover for group ${groupName} ` +
+            `(required shift infinite) — check the filtering / the sub sum`,
+        );
+        return null;
+      }
+
+      // Succès : sélection automatique dans la liste déroulante du groupe (les
+      // deux membres suivent, persisté via le crossover map).
+      this.measurementsByGroup()[groupName].crossover(bestFrequency);
+
+      // Refléter le required shift ET appliquer l'inversion décidée à ce crossover
+      // — même comportement que checkAlignment (toggle si invertB). Le garde-fou
+      // garantit une inversion cohérente sur tout le groupe (§6 : soit les deux,
+      // soit aucun). Sinon l'utilisateur devait relancer l'inversion à la main.
+      const bestRow = table.find(row => row.fc === bestFrequency);
+      for (const member of members) {
+        const entry = bestRow?.perMember.find(m => m.uuid === member.uuid);
+        const shiftDelay = entry && entry.withinBounds ? entry.delayMs / 1000 : Infinity;
+        member.update({ shiftDelay });
+        if (entry?.invertB) {
+          await member.toggleInversion();
+          lm.info(`Inversion toggled for ${member.displayMeasurementTitle()}`);
+        }
+      }
+
+      lm.info(
+        `Best crossover for group ${groupName}: ${bestFrequency}Hz ` +
+          `(mean |required shift| minimised). Downstream steps (filters, ` +
+          `Find Sub Alignment, previews) must be redone.`,
+      );
+      return bestFrequency;
+    };
+
+    // Bouton par ligne : le crossover étant une propriété de GROUPE, le bouton
+    // n'est affiché que sur le représentant du groupe (item.isFirstOfGroup) et
+    // traite tout le groupe de l'enceinte.
+    this.buttonFindBestCrossover = async item => {
+      if (this.isProcessing()) return;
+      const groupName = item.groupName();
+      try {
+        await this.setProcessing(true);
+        const bestFrequency = await runFindBestCrossoverForGroup(groupName);
+        if (bestFrequency !== null) {
+          this.handleSuccess(`Best crossover for ${groupName}: ${bestFrequency}Hz`);
+        }
+      } catch (error) {
+        this.handleError(`Find best crossover failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
+    // Bouton d'en-tête : traite TOUS les groupes d'enceintes. Un groupe en échec
+    // (précondition, aucun candidat) est logué et on poursuit avec les autres.
+    this.buttonFindBestCrossoverAll = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+        const groups = [
+          ...new Set(this.uniqueSpeakersMeasurements().map(m => m.groupName())),
+        ];
+        if (!groups.length) {
+          throw new Error('No speaker groups found');
+        }
+        let applied = 0;
+        for (const groupName of groups) {
+          try {
+            const bestFrequency = await runFindBestCrossoverForGroup(groupName);
+            if (bestFrequency !== null) applied++;
+          } catch (error) {
+            lm.warn(
+              `Find best crossover skipped for group ${groupName}: ${error.message}`,
+            );
+          }
+        }
+        this.handleSuccess(
+          `Best crossover applied to ${applied}/${groups.length} group(s)`,
+        );
+      } catch (error) {
+        this.handleError(`Find best crossover (all) failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
+    // Le required shift affiché (et le résultat de « Find best crossover ») dépend
+    // de la somme des subs (LFE prédictif). Quand celle-ci change, on périme les
+    // required shift de toutes les enceintes. Le déplacement temporel d'une
+    // enceinte est déjà pris en charge par MeasurementItem.cumulativeIRShiftSeconds
+    // (→ shiftDelay(Infinity)).
+    this.invalidateSpeakerAlignments = () => {
+      for (const speaker of this.uniqueSpeakersMeasurements()) {
+        speaker.shiftDelay(Infinity);
       }
     };
 
@@ -1071,6 +1229,9 @@ class MeasurementViewModel {
         await this.setProcessing(true);
         await this.subOptimizationService.equalizeSubs();
 
+        // L'EQ des subs modifie la somme prédictive → required shift périmés.
+        this.invalidateSpeakerAlignments();
+
         this.handleSuccess('Equalize Subs successful');
       } catch (error) {
         this.handleError(`Equalize Subs failed: ${error.message}`, error);
@@ -1124,6 +1285,9 @@ class MeasurementViewModel {
             this.subOptimizerProgress(`${phaseLabel} ${percent}%`);
           },
         });
+
+        // L'optimiseur modifie délais/gains/polarités des subs → somme changée.
+        this.invalidateSpeakerAlignments();
 
         this.handleSuccess(`MultiSubOptimizer successfull`);
       } catch (error) {
@@ -1341,6 +1505,8 @@ class MeasurementViewModel {
       session: this.rewSession,
       crossoverFilteredIrPair: (lfe, speaker, frequency, subs) =>
         this.businessTools.crossoverFilteredIrPair(lfe, speaker, frequency, subs),
+      crossoverRequiredShiftSweep: (speaker, lfe, subs, frequencies) =>
+        this.businessTools.crossoverRequiredShiftSweep(speaker, lfe, subs, frequencies),
       setTargetLevelFromMeasurement: measurement =>
         this.setTargetLevelFromMeasurement(measurement),
       getPredictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),

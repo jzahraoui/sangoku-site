@@ -1897,6 +1897,17 @@
                     optionsCaption: translations().crossover,
                     value: gobalCrossover"
                     ></select>
+                    <button
+                      class="button"
+                      style="margin-left: 5px; padding: 2px 6px; font-size: 0.85em"
+                      data-bind="
+                        click: buttonFindBestCrossoverAll,
+                        disable: isProcessing(),
+                        css: { disabled: isProcessing, loading: isProcessing },
+                        attr: { 'data-tooltip': translations().find_best_crossover_all_tooltip }"
+                    >
+                      <i class="fa fa-magic" aria-hidden="true"></i>
+                    </button>
                   </th>
                   <th class="table-header-cell">
                     <span class="table-header-label">Invert</span>
@@ -2015,7 +2026,7 @@
                     style="text-align: right"
                     data-bind="text: splOffsetDeltadB().toFixed(1), css: { error: splIsAboveLimit() }"
                   ></td>
-                  <td style="text-align: center">
+                  <td style="text-align: left">
                     <select
                       class="combo-box"
                       aria-label="Channel crossover frequency"
@@ -2027,6 +2038,18 @@
                     visible: !isSub() && isValid,
                     value: $parent.measurementsByGroup()[groupName()] && $parent.measurementsByGroup()[groupName()].crossover"
                     ></select>
+                    <button
+                      class="button"
+                      style="margin-left: 5px; padding: 2px 6px; font-size: 0.85em"
+                      data-bind="
+                      click: $parent.buttonFindBestCrossover,
+                      disable: $parent.isProcessing(),
+                      css: { disabled: $parent.isProcessing() },
+                      visible: !isSub() && isValid && isFirstOfGroup(),
+                      attr: { 'data-tooltip': $parent.translations().find_best_crossover_tooltip }"
+                    >
+                      <i class="fa fa-magic" aria-hidden="true"></i>
+                    </button>
                   </td>
                   <td style="text-align: center">
                     <button
