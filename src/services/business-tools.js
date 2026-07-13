@@ -28,6 +28,12 @@ import {
   metersToSeconds,
   secondsToMeters,
 } from '../measurement/measurement-calculations.js';
+import { applyBankAndCrossoverToIr } from '../measurement/rew-filter-bank.js';
+import { combineImpulseResponses } from '../dsp/impulseResponse.js';
+import {
+  alignImpulseResponses,
+  crossoverAlignmentWindowMs,
+} from '../dsp/ir-align.js';
 
 const unwrap = value => (typeof value === 'function' ? value() : value);
 
@@ -408,6 +414,86 @@ function createBusinessTools({
   }
 
   /**
+   * Balaie une liste de crossovers candidats et renvoie, pour UNE enceinte, le
+   * required shift à chacun. Les IR predicted (enceinte + « somme vraie »
+   * pondérée des subs, ou LFE prédictif en repli) sont lues **une seule fois** ;
+   * seul le filtre de raccord (BU12 HP / LR24 LP) est réappliqué localement par
+   * candidat (cascade de biquads) — donc pas de régénération de filtres ni
+   * d'aller-retour REW par crossover (perf). Aucune écriture REW, aucune mutation
+   * (ni inversion, ni filtres). Même calcul que checkAlignment :
+   * `alignImpulseResponses(subFiltered, speakerFiltered, {frequency, ±1 ms})`.
+   * La valeur de référence pour le classement est le **`delayMs` borné** (identique
+   * à ce que checkAlignment / l'UI affiche) — PAS `requiredDelayMs`, le pic libre
+   * non borné, sujet aux sauts de cycle (REGLES-METIER §2). `requiredDelayMs` est
+   * renvoyé à titre indicatif. `withinBounds === false` = « Delay too large » ⇒
+   * l'appelant traite le membre comme Infinity (écarté).
+   *
+   * @returns {Promise<Array<{ frequency:number, requiredDelayMs:number,
+   *   delayMs:number, withinBounds:boolean, invertB:boolean }>>}
+   */
+  async function crossoverRequiredShiftSweep(speaker, lfe, subs, candidateFrequencies) {
+    // Lecture UNE fois des IR predicted brutes (avant raccord).
+    const speakerRaw = await operations.getPredictedImpulseResponseInfo(rew(), speaker);
+    let subSumRaw;
+    if (subs?.length) {
+      const irs = [];
+      const weightsDb = [];
+      for (const sub of subs) {
+        irs.push(await operations.getPredictedImpulseResponseInfo(rew(), sub));
+        weightsDb.push(unwrap(sub.splOffsetdB) ?? 0);
+      }
+      subSumRaw = combineImpulseResponses(irs, weightsDb);
+    } else {
+      if (!lfe) {
+        throw new Error('Cannot find predicted LFE for the crossover sweep');
+      }
+      subSumRaw = await operations.getPredictedImpulseResponseInfo(rew(), lfe);
+    }
+
+    const results = [];
+    for (const frequency of candidateFrequencies) {
+      let requiredDelayMs = Infinity;
+      let delayMs = Infinity;
+      let withinBounds = false;
+      let invertB = false;
+      try {
+        const speakerFiltered = applyBankAndCrossoverToIr(
+          speakerRaw,
+          [],
+          speakerHighPassSetting(frequency),
+        );
+        const subFiltered = applyBankAndCrossoverToIr(
+          subSumRaw,
+          [],
+          subLowPassSetting(frequency),
+        );
+        // Même ordre A=sub, B=enceinte et MÊME fenêtre centrée ±T/4 que
+        // checkAlignment (source unique crossoverAlignmentWindowMs) — évite toute
+        // divergence bouton/auto et les sauts de cycle du grave.
+        const { minMs, maxMs } = crossoverAlignmentWindowMs(frequency);
+        const res = alignImpulseResponses(subFiltered, speakerFiltered, {
+          frequency,
+          minDelayMs: minMs,
+          maxDelayMs: maxMs,
+        });
+        requiredDelayMs = res.requiredDelayMs;
+        delayMs = res.delayMs;
+        withinBounds = res.withinBounds;
+        // Inversion que checkAlignment appliquerait à CETTE enceinte à ce raccord —
+        // remontée pour le garde-fou d'inversion cohérente du groupe (findBestCrossover).
+        invertB = res.invertB;
+      } catch (error) {
+        log.warn(
+          `Crossover sweep: alignment failed at ${frequency}Hz for ` +
+            `${unwrap(speaker.title)} (${error.message})`,
+        );
+      }
+      results.push({ frequency, requiredDelayMs, delayMs, withinBounds, invertB });
+    }
+    return results;
+  }
+
+  /**
    * Measured alignment gap (seconds) between the predicted LFE and a speaker,
    * both crossover-filtered — the exact quantity produceAligned starts from.
    * Used to size the optimizer's alignment reserve. Returns null when the
@@ -449,7 +535,11 @@ function createBusinessTools({
 
     const cutoffPeriod = 1 / cuttOffFrequency; // for 100Hz, period is 10ms
     const delay = cutoffPeriod / 16; // for 100Hz, delay is 0.625ms
-    const maxForwardSearchMs = Math.round((cutoffPeriod / 2) * 1000 * 100) / 100;
+    // Fenêtre de recherche avant [0, T/2] dérivée du crossover (source unique
+    // crossoverAlignmentWindowMs, partagée avec checkAlignment / le sweep).
+    // Arrondi 0.01 ms conservé ici → parité golden align-sub inchangée.
+    const { maxMs } = crossoverAlignmentWindowMs(cuttOffFrequency, { forward: true });
+    const maxForwardSearchMs = Math.round(maxMs * 100) / 100;
 
     // get the sub impulse closer to the front left, better method than cross corr align
     const distanceToSpeakerPeak =
@@ -568,6 +658,7 @@ function createBusinessTools({
     revertLfeFilterProccessList,
     applyCutOffFilter,
     crossoverFilteredIrPair,
+    crossoverRequiredShiftSweep,
     produceAligned,
     createMeasurementPreview,
   };

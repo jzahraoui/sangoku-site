@@ -106,6 +106,175 @@ describe('getTargetLevelAtFreq', () => {
   });
 });
 
+describe('findBestCrossover (choix du crossover par groupe)', () => {
+  const makeMember = uuid => ({ uuid, title: uuid, crossover: () => 80 });
+
+  const makeService = sweepByMember =>
+    createAlignmentService({
+      session: { rewMeasurements: {} },
+      crossoverFilteredIrPair: vi.fn(),
+      setTargetLevelFromMeasurement: vi.fn(),
+      relatedLfeFor: () => ({ uuid: 'lfe' }),
+      relatedSubsFor: () => [{ uuid: 'sub', splOffsetdB: 0 }],
+      crossoverRequiredShiftSweep: vi.fn(member =>
+        Promise.resolve(sweepByMember[member.uuid]),
+      ),
+    });
+
+  it('retient le crossover à la plus faible moyenne des |required shift|', async () => {
+    // Enceintes pré-alignées → shifts FL/FR proches à un crossover donné.
+    // Moyennes |shift| : 60→(0.5+0.5)/2=0.50, 80→(0.15+0.2)/2=0.175,
+    // 100→(0.4+0.35)/2=0.375 → 80 gagne (raccord de groupe le plus serré au sub fixe).
+    const sweepFL = [
+      { frequency: 60, requiredDelayMs: 0.5, delayMs: 0.5, withinBounds: true },
+      { frequency: 80, requiredDelayMs: 0.15, delayMs: 0.15, withinBounds: true },
+      { frequency: 100, requiredDelayMs: 0.4, delayMs: 0.4, withinBounds: true },
+    ];
+    const sweepFR = [
+      { frequency: 60, requiredDelayMs: 0.5, delayMs: 0.5, withinBounds: true },
+      { frequency: 80, requiredDelayMs: 0.2, delayMs: 0.2, withinBounds: true },
+      { frequency: 100, requiredDelayMs: 0.35, delayMs: 0.35, withinBounds: true },
+    ];
+    const service = makeService({ FL: sweepFL, FR: sweepFR });
+
+    const { bestFrequency, table } = await service.findBestCrossover(
+      [makeMember('FL'), makeMember('FR')],
+      [60, 80, 100],
+    );
+
+    expect(bestFrequency).toBe(80);
+    expect(table.find(r => r.fc === 80).mean).toBeCloseTo(0.175, 6);
+    expect(table.find(r => r.fc === 100).mean).toBeCloseTo(0.375, 6);
+  });
+
+  it('moyenne sur les valeurs ABSOLUES : deux shifts opposés ne s’annulent pas', async () => {
+    const sweepFL = [
+      { frequency: 80, requiredDelayMs: 0.5, delayMs: 0.5, withinBounds: true },
+    ];
+    const sweepFR = [
+      { frequency: 80, requiredDelayMs: -0.5, delayMs: -0.5, withinBounds: true },
+    ];
+    const service = makeService({ FL: sweepFL, FR: sweepFR });
+
+    const { table } = await service.findBestCrossover(
+      [makeMember('FL'), makeMember('FR')],
+      [80],
+    );
+
+    // Moyenne SIGNÉE = 0 ; moyenne des |shift| = 0.5 (pas de compensation).
+    expect(table.find(r => r.fc === 80).mean).toBeCloseTo(0.5, 6);
+  });
+
+  it('classe sur le delayMs BORNÉ, pas sur le requiredDelayMs libre (sauts de cycle)', async () => {
+    // Reproduit le bug : le pic libre saute d'un cycle (grande valeur), mais le
+    // delayMs borné (checkAlignment / UI) est petit → c'est lui qui compte.
+    // 120Hz : delayMs = (0, −0.36) → mean 0.18 (le meilleur).
+    // 250Hz : requiredDelayMs plus petit (−2.5) MAIS delayMs borné ~0.9 → mean 0.9.
+    const sweepFL = [
+      { frequency: 120, requiredDelayMs: -8.635, delayMs: -0.36, withinBounds: true },
+      { frequency: 250, requiredDelayMs: -3.705, delayMs: 0.95, withinBounds: true },
+    ];
+    const sweepFR = [
+      { frequency: 120, requiredDelayMs: -4.075, delayMs: 0.0, withinBounds: true },
+      { frequency: 250, requiredDelayMs: -2.562, delayMs: 0.85, withinBounds: true },
+    ];
+    const service = makeService({ FL: sweepFL, FR: sweepFR });
+
+    const { bestFrequency, table } = await service.findBestCrossover(
+      [makeMember('FL'), makeMember('FR')],
+      [120, 250],
+    );
+
+    expect(table.find(r => r.fc === 120).mean).toBeCloseTo(0.18, 6);
+    expect(table.find(r => r.fc === 250).mean).toBeCloseTo(0.9, 6);
+    // Si on classait sur requiredDelayMs, 250 gagnerait (2.5<4) — le bug. Ici 120.
+    expect(bestFrequency).toBe(120);
+  });
+
+  it('écarte un membre hors bornes même avec un delayMs fini (Delay too large)', async () => {
+    const sweepFL = [
+      { frequency: 60, requiredDelayMs: 0.05, delayMs: 0.05, withinBounds: true },
+      { frequency: 80, requiredDelayMs: 0.2, delayMs: 0.2, withinBounds: true },
+    ];
+    const sweepFR = [
+      // delayMs fini (clampé) mais withinBounds=false → traité comme Infinity.
+      { frequency: 60, requiredDelayMs: 5.0, delayMs: 1.0, withinBounds: false },
+      { frequency: 80, requiredDelayMs: 0.25, delayMs: 0.25, withinBounds: true },
+    ];
+    const service = makeService({ FL: sweepFL, FR: sweepFR });
+
+    const { bestFrequency, table } = await service.findBestCrossover(
+      [makeMember('FL'), makeMember('FR')],
+      [60, 80],
+    );
+
+    // 60Hz écarté (FR hors bornes → ∞) malgré delayMs=1.0 fini → 80.
+    expect(table.find(r => r.fc === 60).mean).toBe(Infinity);
+    expect(bestFrequency).toBe(80);
+  });
+
+  it('rejette un crossover où un seul membre du groupe serait inversé (garde-fou §6)', async () => {
+    // 60Hz : shifts petits MAIS FL inversé et FR non → incohérent → rejeté,
+    // même s'il a le plus petit shift. 80Hz : inversion cohérente → retenu.
+    const sweepFL = [
+      { frequency: 60, requiredDelayMs: 0.1, delayMs: 0.1, withinBounds: true, invertB: true },
+      { frequency: 80, requiredDelayMs: 0.3, delayMs: 0.3, withinBounds: true, invertB: false },
+    ];
+    const sweepFR = [
+      { frequency: 60, requiredDelayMs: 0.1, delayMs: 0.1, withinBounds: true, invertB: false },
+      { frequency: 80, requiredDelayMs: 0.3, delayMs: 0.3, withinBounds: true, invertB: false },
+    ];
+    const service = makeService({ FL: sweepFL, FR: sweepFR });
+
+    const { bestFrequency, table } = await service.findBestCrossover(
+      [makeMember('FL'), makeMember('FR')],
+      [60, 80],
+    );
+
+    expect(table.find(r => r.fc === 60).inversionConsistent).toBe(false);
+    expect(table.find(r => r.fc === 60).mean).toBe(Infinity); // rejeté
+    expect(bestFrequency).toBe(80);
+  });
+
+  it('accepte un crossover où les DEUX membres sont inversés (cohérent)', async () => {
+    const sweepFL = [
+      { frequency: 80, requiredDelayMs: 0.2, delayMs: 0.2, withinBounds: true, invertB: true },
+    ];
+    const sweepFR = [
+      { frequency: 80, requiredDelayMs: 0.2, delayMs: 0.2, withinBounds: true, invertB: true },
+    ];
+    const service = makeService({ FL: sweepFL, FR: sweepFR });
+
+    const { bestFrequency, table } = await service.findBestCrossover(
+      [makeMember('FL'), makeMember('FR')],
+      [80],
+    );
+
+    expect(table.find(r => r.fc === 80).inversionConsistent).toBe(true);
+    expect(bestFrequency).toBe(80);
+  });
+
+  it('renvoie bestFrequency null quand tous les candidats sont non finis', async () => {
+    const infinite = fc => ({
+      frequency: fc,
+      requiredDelayMs: Infinity,
+      delayMs: Infinity,
+      withinBounds: false,
+    });
+    const service = makeService({
+      FL: [infinite(60), infinite(80)],
+      FR: [infinite(60), infinite(80)],
+    });
+
+    const { bestFrequency } = await service.findBestCrossover(
+      [makeMember('FL'), makeMember('FR')],
+      [60, 80],
+    );
+
+    expect(bestFrequency).toBeNull();
+  });
+});
+
 describe('findAligment (aligneur interne, parité Align IRs)', () => {
   const SR = 48000;
   const alignBurst = (startSample, { invert = false } = {}) => {

@@ -64,6 +64,69 @@ describe('createBusinessTools.createsSum', () => {
   });
 });
 
+describe('createBusinessTools.crossoverRequiredShiftSweep', () => {
+  const SR = 48000;
+  const makeIr = (peakSample = 200) => {
+    const data = new Float64Array(4096);
+    data[peakSample] = 1;
+    return { data, sampleRate: SR, startTime: 0 };
+  };
+
+  function harness() {
+    const operations = {
+      getPredictedImpulseResponseInfo: vi
+        .fn()
+        .mockImplementation(async (_rew, m) =>
+          makeIr(m.uuid === 'sub' ? 260 : 200),
+        ),
+    };
+    const session = { rewMeasurements: { id: 'rew' } };
+    const tools = createBusinessTools({ operations, session });
+    return { operations, tools };
+  }
+
+  it('lit chaque IR predicted UNE fois puis balaie les candidats localement', async () => {
+    const { operations, tools } = harness();
+    const speaker = { uuid: 'FL', title: 'FL', splOffsetdB: 0 };
+    const subs = [{ uuid: 'sub', title: 'SW', splOffsetdB: 0 }];
+
+    const results = await tools.crossoverRequiredShiftSweep(
+      speaker,
+      null,
+      subs,
+      [60, 80, 100],
+    );
+
+    // 1 lecture pour l'enceinte + 1 pour le sub — PAS une lecture par candidat.
+    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(2);
+    expect(results).toHaveLength(3);
+    for (const r of results) {
+      expect([60, 80, 100]).toContain(r.frequency);
+      expect(Number.isFinite(r.requiredDelayMs)).toBe(true);
+      expect(typeof r.withinBounds).toBe('boolean');
+      expect(typeof r.invertB).toBe('boolean');
+    }
+  });
+
+  it('utilise le LFE prédictif en repli quand aucun sub réel', async () => {
+    const { operations, tools } = harness();
+    const speaker = { uuid: 'FL', title: 'FL' };
+    const lfe = { uuid: 'lfe', title: 'LFE' };
+
+    const results = await tools.crossoverRequiredShiftSweep(speaker, lfe, [], [80]);
+
+    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(2);
+    expect(results).toHaveLength(1);
+  });
+
+  it('lève si ni sub ni LFE ne sont disponibles', async () => {
+    const { tools } = harness();
+    await expect(
+      tools.crossoverRequiredShiftSweep({ uuid: 'FL', title: 'FL' }, null, [], [80]),
+    ).rejects.toThrow('Cannot find predicted LFE');
+  });
+});
+
 describe('createBusinessTools.revertLfeFilterProccess', () => {
   function harness() {
     const filter = { uuid: 'lpf', title: 'lpf', isFilter: true };

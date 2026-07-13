@@ -1,5 +1,5 @@
 import { FrequencyResponseAnalyzer } from '../analysis/index.js';
-import { alignImpulseResponses } from '../dsp/ir-align.js';
+import { alignImpulseResponses, crossoverAlignmentWindowMs } from '../dsp/ir-align.js';
 import { excessPhaseArrivalSeconds } from '../dsp/time-alignment.js';
 import { cleanFloat32Value } from '../measurement/measurement-calculations.js';
 import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
@@ -153,6 +153,12 @@ function buildMeasurementApi({
 function createAlignmentService({
   session,
   crossoverFilteredIrPair,
+  // Balayage du required shift sur les crossovers candidats (une enceinte) —
+  // pont BusinessTools (crossoverRequiredShiftSweep). Injecté par la couche UI ;
+  // le stub échoue à l'appel si non câblé (chemins de tests sans find-best-crossover).
+  crossoverRequiredShiftSweep = async () => {
+    throw new Error('crossoverRequiredShiftSweep is not wired');
+  },
   setTargetLevelFromMeasurement,
   getPredictedLfeMeasurements = () => [],
   operations = null,
@@ -525,14 +531,17 @@ function createAlignmentService({
       );
 
       // channelB = enceinte → isBInverted porte l'inversion de l'enceinte.
+      // Fenêtre centrée ±T/4 dérivée du crossover (source unique partagée avec le
+      // sweep « find best crossover ») — un demi-cycle de large, sans saut de cycle.
+      const { minMs, maxMs } = crossoverAlignmentWindowMs(cuttOffFrequency);
       const { shiftDelay, isBInverted } = await findAligment(
         { ir: PredictedLfeFiltered, title: unwrap(PredictedLfe.title) },
         { ir: speakerFiltered, title: `predicted ${labelOf(speakerItem)}` },
         cuttOffFrequency,
-        1,
+        maxMs,
         false,
         null,
-        -1,
+        minMs,
       );
 
       speakerItem.update({ shiftDelay });
@@ -555,6 +564,108 @@ function createAlignmentService({
     }
   }
 
+  /**
+   * Cherche le meilleur crossover pour un groupe d'enceintes (le crossover est
+   * partagé au niveau du groupe). Pour chaque membre, balaie les crossovers
+   * candidats et mesure le required shift à chacun (crossoverRequiredShiftSweep,
+   * IR lues une fois). Le crossover retenu minimise la **moyenne des
+   * |required shift|** des membres, en prenant le **shift borné** `delayMs`
+   * (identique à checkAlignment / l'UI, recherche ±1 ms) — pas le pic libre
+   * `requiredDelayMs`, sujet aux sauts de cycle. Un membre hors bornes vaut
+   * Infinity (comme le « Delay too large » de checkAlignment) → candidat écarté.
+   *
+   * Pourquoi le shift ABSOLU (et non un désaccord entre enceintes) : les
+   * enceintes sont déjà alignées temporellement entre elles (figées après le Time
+   * align) et le bloc des subs est aligné à UNE enceinte de référence puis figé —
+   * il ne suit PAS chaque groupe. Le required shift absolu d'un groupe face au sub
+   * (fixe) est donc un résidu réel et non corrigeable : on choisit le crossover
+   * qui le minimise. On prend la **valeur absolue avant** de moyenner → deux
+   * shifts de signe opposé ne s'annulent pas (moyenne signée jamais utilisée).
+   *
+   * Garde-fou d'inversion (REGLES-METIER §6) : un candidat où les membres du
+   * groupe ne partagent PAS la même inversion (l'un inversé, l'autre non) est
+   * **rejeté** (moyenne Infinity) — le crossover retenu garantit une inversion
+   * cohérente sur toute la paire.
+   *
+   * Un candidat dont un membre est non fini (Infinity/NaN) est écarté. Si aucun
+   * candidat n'est exploitable, `bestFrequency` vaut `null` (échec — l'appelant
+   * logue et ne touche à rien). Ne mute rien (pas d'écriture, pas d'inversion).
+   *
+   * @returns {Promise<{ bestFrequency: number|null, table: Array<{ fc:number,
+   *   perMember: Array<{uuid, id, shiftMs, delayMs, requiredDelayMs, withinBounds,
+   *   invertB}>, mean:number, inversionConsistent:boolean }> }>}
+   */
+  async function findBestCrossover(groupSpeakerItems, candidateFrequencies) {
+    if (!groupSpeakerItems?.length) {
+      throw new Error('No speaker measurements for the crossover search');
+    }
+    const frequencies = (candidateFrequencies ?? []).filter(
+      f => Number.isFinite(f) && f > 0,
+    );
+    if (!frequencies.length) {
+      throw new Error('No candidate crossover frequencies');
+    }
+
+    // Balayage par membre (IR predicted lues une seule fois par membre).
+    const perMemberSweeps = [];
+    for (const member of groupSpeakerItems) {
+      const lfe = relatedLfeFor(member);
+      const subs = relatedSubsFor(member);
+      const sweep = await crossoverRequiredShiftSweep(member, lfe, subs, frequencies);
+      const byFreq = new Map(sweep.map(entry => [entry.frequency, entry]));
+      perMemberSweeps.push({ member, byFreq });
+    }
+
+    // Agrégation par candidat : moyenne des |required shift| sur les membres, en
+    // utilisant la MÊME valeur que checkAlignment / l'UI — le `delayMs` **borné**
+    // (recherche ±1 ms) et non le pic libre `requiredDelayMs` (sujet aux sauts de
+    // cycle, REGLES-METIER §2). Un membre hors bornes (`withinBounds === false`,
+    // = le « Delay too large » qui met checkAlignment à Infinity) rend la moyenne
+    // non finie → candidat écarté.
+    const table = frequencies.map(fc => {
+      const perMember = perMemberSweeps.map(({ member, byFreq }) => {
+        const entry = byFreq.get(fc) ?? {};
+        const shiftMs = entry.withinBounds ? entry.delayMs : Infinity;
+        return {
+          uuid: member.uuid,
+          id: labelOf(member),
+          shiftMs,
+          delayMs: entry.delayMs,
+          requiredDelayMs: entry.requiredDelayMs,
+          withinBounds: entry.withinBounds,
+          invertB: Boolean(entry.invertB),
+        };
+      });
+      // Garde-fou d'inversion (REGLES-METIER §6) : les membres d'un groupe doivent
+      // partager la même inversion. Si à ce crossover l'un serait inversé et pas
+      // l'autre, on REJETTE le candidat — le crossover retenu garantit alors que le
+      // checkAlignment ultérieur appliquera la même décision aux deux membres.
+      const inversionConsistent = perMember.every(
+        m => m.invertB === perMember[0].invertB,
+      );
+      const absShifts = perMember.map(m => Math.abs(m.shiftMs));
+      const shiftsFinite = absShifts.every(v => Number.isFinite(v));
+      let mean = shiftsFinite
+        ? absShifts.reduce((sum, v) => sum + v, 0) / absShifts.length
+        : Infinity;
+      if (shiftsFinite && !inversionConsistent) {
+        mean = Infinity; // rejeté : inversion incohérente dans le groupe
+      }
+      return { fc, perMember, mean, inversionConsistent };
+    });
+
+    let bestFrequency = null;
+    let bestMean = Infinity;
+    for (const row of table) {
+      if (Number.isFinite(row.mean) && row.mean < bestMean) {
+        bestMean = row.mean;
+        bestFrequency = row.fc;
+      }
+    }
+
+    return { bestFrequency, table };
+  }
+
   return {
     adjustSubwooferSPLLevels,
     alignArrivals,
@@ -563,6 +674,7 @@ function createAlignmentService({
     autoAdjustInversion,
     checkAlignment,
     findAligment,
+    findBestCrossover,
     getTargetLevelAtFreq,
     setSameDelayToAll,
   };

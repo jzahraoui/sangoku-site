@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   alignImpulseResponses,
+  crossoverAlignmentWindowMs,
   fractionalShift,
   octaveBandPass,
 } from '../../src/dsp/ir-align.js';
@@ -116,5 +117,35 @@ describe('alignImpulseResponses', () => {
     expect(() =>
       alignImpulseResponses(a, makeIr(burst(1024, 100)), { frequency: 10 }),
     ).toThrow(RangeError);
+  });
+});
+
+describe('crossoverAlignmentWindowMs (fenêtre partagée bouton/auto)', () => {
+  it('fenêtre centrée = ±T/4 (±250/fc ms), largeur un demi-cycle', () => {
+    expect(crossoverAlignmentWindowMs(250)).toEqual({ minMs: -1, maxMs: 1 });
+    expect(crossoverAlignmentWindowMs(40)).toEqual({ minMs: -6.25, maxMs: 6.25 });
+    const w120 = crossoverAlignmentWindowMs(120);
+    expect(w120.maxMs).toBeCloseTo(2.0833, 3);
+    expect(w120.minMs).toBeCloseTo(-2.0833, 3);
+  });
+
+  it('fenêtre avant = [0, T/2] (Find Sub Alignment), même valeur que produceAligned', () => {
+    // produceAligned : Math.round((cutoffPeriod/2)*1000*100)/100.
+    for (const fc of [40, 80, 120, 250]) {
+      const { minMs, maxMs } = crossoverAlignmentWindowMs(fc, { forward: true });
+      expect(minMs).toBe(0);
+      const rounded = Math.round(maxMs * 100) / 100;
+      const legacy = Math.round(((1 / fc) / 2) * 1000 * 100) / 100;
+      expect(rounded).toBe(legacy);
+    }
+  });
+
+  it('à 250 Hz la fenêtre centrée vaut l’ancien ±1 ms fixe', () => {
+    expect(crossoverAlignmentWindowMs(250)).toEqual({ minMs: -1, maxMs: 1 });
+  });
+
+  it('rejette une fréquence non positive', () => {
+    expect(() => crossoverAlignmentWindowMs(0)).toThrow(RangeError);
+    expect(() => crossoverAlignmentWindowMs(-80)).toThrow(RangeError);
   });
 });

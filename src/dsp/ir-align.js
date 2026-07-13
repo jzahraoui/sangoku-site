@@ -388,3 +388,43 @@ export function alignImpulseResponses(irA, irB, params) {
 
   return { delayMs, invertB, withinBounds, requiredDelayMs };
 }
+
+/**
+ * Fenêtre de recherche d'alignement au raccord, dérivée de la période du
+ * crossover (T = 1/fc). **Source unique** partagée par les trois chemins
+ * d'alignement pour qu'ils ne divergent jamais.
+ *
+ * Deux formes, même **largeur d'un demi-cycle (T/2)** :
+ * - `forward: true` → `[0, T/2]` (T/2 = 500/fc ms). Find Sub Alignment
+ *   (`produceAligned`) : le sub est d'abord pré-positionné sur le pic de
+ *   l'enceinte puis on cherche le délai à APPLIQUER, forcément vers l'avant.
+ * - défaut (centré) → `[−T/4, +T/4]` (±250/fc ms). checkAlignment (bouton
+ *   required shift) et le sweep « find best crossover » : on MESURE un résidu
+ *   signé (positif ou négatif) depuis la position courante.
+ *
+ * Pourquoi pas plus large. Les lobes de la corrélation (carré signé) se
+ * répètent tous les **T/2** — le lobe à T/2 est l'alignement **inversé** (180°
+ * au raccord ; c'est le −4 ms parasite observé à 120 Hz). Une fenêtre centrée
+ * d'un cycle entier (±T/2) ré-inclurait ce lobe inversé au bord → sauts de
+ * cycle. ±T/4 isole un **seul** lobe → pic unique ; combiné au drapeau
+ * d'inversion, il représente déjà TOUS les alignements (le décalage minimal,
+ * éventuellement inversé). Le ±1 ms fixe historique n'était juste que ±T/4 à
+ * 250 Hz — trop étroit dans le grave.
+ *
+ * @param {number} frequency Hz (> 0)
+ * @param {{ forward?: boolean }} [options]
+ * @returns {{ minMs: number, maxMs: number }}
+ */
+export function crossoverAlignmentWindowMs(frequency, { forward = false } = {}) {
+  if (!(frequency > 0)) {
+    throw new RangeError(
+      `crossoverAlignmentWindowMs needs a positive frequency (got ${frequency})`,
+    );
+  }
+  const halfPeriodMs = 500 / frequency; // T/2 en ms = 1000 / (2 * frequency)
+  if (forward) {
+    return { minMs: 0, maxMs: halfPeriodMs };
+  }
+  const quarterPeriodMs = halfPeriodMs / 2; // T/4
+  return { minMs: -quarterPeriodMs, maxMs: quarterPeriodMs };
+}
