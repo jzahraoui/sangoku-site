@@ -1734,6 +1734,9 @@ button i,
   display: block;
   margin: var(--spacing-xl) auto;
   border: none;
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 3 / 2;
 }
 
 /* AVR Configuration Styles */
