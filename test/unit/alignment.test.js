@@ -104,28 +104,77 @@ describe('getTargetLevelAtFreq', () => {
   });
 });
 
-describe('findAligment', () => {
-  it('rejects non-finite alignment delays', async () => {
-    const { session, service } = createHarness();
-    session.rewAlignmentTool.alignIRsBatch.mockResolvedValue({
-      results: [{ 'Delay B ms': 'not-a-number', 'Invert B': 'false' }],
-    });
-
-    await expect(
-      service.findAligment({ uuid: 'a' }, { uuid: 'b' }, 80),
-    ).rejects.toThrow('Invalid AlignResults object or missing Delay B ms');
+describe('findAligment (aligneur interne, parité Align IRs)', () => {
+  const SR = 48000;
+  const alignBurst = (startSample, { invert = false } = {}) => {
+    const out = new Float64Array(16384);
+    for (let i = startSample; i < out.length; i++) {
+      const t = (i - startSample) / SR;
+      out[i] =
+        (invert ? -1 : 1) * Math.sin(2 * Math.PI * 80 * t) * Math.exp(-t * 60);
+    }
+    return out;
+  };
+  const channel = data => ({
+    uuid: 'x',
+    getImpulseResponseInfo: vi
+      .fn()
+      .mockResolvedValue({ data, sampleRate: SR, startTime: 0 }),
   });
 
-  it('converts the delay to seconds and reports the inversion', async () => {
-    const { session, service } = createHarness();
-    session.rewAlignmentTool.alignIRsBatch.mockResolvedValue({
-      results: [{ 'Delay B ms': '2.5', 'Invert B': 'true' }],
-    });
+  it('computes the delay in seconds and the inversion internally', async () => {
+    const { service } = createHarness();
+    // B en retard de 48 échantillons (1 ms), non inversé
+    const result = await service.findAligment(
+      channel(alignBurst(2000)),
+      channel(alignBurst(2048)),
+      80,
+      3,
+      false,
+      null,
+      -3,
+    );
+    expect(Math.abs(Math.abs(result.shiftDelay) - 0.001)).toBeLessThan(0.0001);
+    expect(result.isBInverted).toBe(false);
+  });
 
+  it('reports an inverted B', async () => {
+    const { service } = createHarness();
+    const result = await service.findAligment(
+      channel(alignBurst(2000)),
+      channel(alignBurst(2024, { invert: true })),
+      80,
+      3,
+      false,
+      null,
+      -3,
+    );
+    expect(result.isBInverted).toBe(true);
+  });
+
+  it('throws the explicit Delay too large error with the required delay', async () => {
+    const { service } = createHarness();
+    // vrai délai 0.5 ms, bornes ±0.1 ms : la corrélation monte vers 0.5 ms,
+    // le max contraint colle à la borne et l'affinage dérive dehors — le même
+    // motif que le refus observé au golden (FL↔SW1@80, bornes serrées)
     await expect(
-      service.findAligment({ uuid: 'a' }, { uuid: 'b' }, 80),
-    ).resolves.toEqual({ shiftDelay: 0.0025, isBInverted: true });
-    expect(session.rewAlignmentTool.alignIRsBatch).toHaveBeenCalledWith('a', 'b', 80);
+      service.findAligment(
+        channel(alignBurst(2000)),
+        channel(alignBurst(2024)),
+        80,
+        0.1,
+        false,
+        null,
+        -0.1,
+      ),
+    ).rejects.toThrow(/Delay too large.*80 Hz.*ms/);
+  });
+
+  it('refuses the aligned-sum option (unused in production)', async () => {
+    const { service } = createHarness();
+    await expect(
+      service.findAligment({}, {}, 80, 3, true, 'sum title', -0.5),
+    ).rejects.toThrow(/Aligned sum is not supported/);
   });
 });
 

@@ -1,4 +1,5 @@
 import { FrequencyResponseAnalyzer } from '../analysis/index.js';
+import { alignImpulseResponses } from '../dsp/ir-align.js';
 import { excessPhaseArrivalSeconds } from '../dsp/time-alignment.js';
 import { cleanFloat32Value } from '../measurement/measurement-calculations.js';
 import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
@@ -426,7 +427,15 @@ function createAlignmentService({
     return subsFrequencyBands;
   }
 
-  /** Drive the REW alignment tool to align channel B against channel A. */
+  /**
+   * Align channel B against channel A — implémentation INTERNE de la
+   * commande « Align IRs » (src/dsp/ir-align.js), à parité démontrée contre
+   * l'alignment tool de REW (test:ir-align-parity : Δ ≤ 0.062 ms, mêmes
+   * inversions, mêmes refus sur 2 systèmes du corpus). Plus d'allers-retours
+   * REW (~ms au lieu de secondes) et le « Delay too large » devient un
+   * message exploitable portant le délai requis. Le client
+   * rewAlignmentTool est conservé pour le harnais de parité.
+   */
   async function findAligment(
     channelA,
     channelB,
@@ -436,52 +445,43 @@ function createAlignmentService({
     sumTitle = null,
     minSearchRange = -0.5,
   ) {
-    if (createSum && !sumTitle) {
-      throw new Error('sumTitle is required when createSum is true');
+    if (createSum) {
+      // Jamais utilisé en production (tous les appelants passent false) ;
+      // la somme alignée se fait via l'arithmétique REW au besoin.
+      throw new Error(
+        `Aligned sum is not supported by the internal aligner (requested for ${sumTitle})`,
+      );
     }
 
     try {
-      await session.rewAlignmentTool.setRemoveTimeDelay(false);
-      await session.rewAlignmentTool.resetAll();
-      await session.rewAlignmentTool.setMaxNegativeDelay(minSearchRange);
-      await session.rewAlignmentTool.setMaxPositiveDelay(maxSearchRange);
-
-      const AlignResults = await session.rewAlignmentTool.alignIRsBatch(
-        channelA.uuid,
-        channelB.uuid,
+      const irA = await mops.getImpulseResponseInfo(channelA);
+      const irB = await mops.getImpulseResponseInfo(channelB);
+      const result = alignImpulseResponses(irA, irB, {
         frequency,
-      );
+        minDelayMs: minSearchRange,
+        maxDelayMs: maxSearchRange,
+      });
 
-      if (!AlignResults.results) {
-        throw new Error('alignment-tool: Invalid AlignResults object or missing results');
-      }
-
-      const AlignResultsDetails = AlignResults.results[0];
-
-      if (AlignResultsDetails.Error?.length > 0) {
-        throw new Error(AlignResultsDetails.Error);
-      }
-
-      const shiftDelayMs = Number(AlignResultsDetails['Delay B ms']);
-      if (!Number.isFinite(shiftDelayMs)) {
-        throw new TypeError(
-          'alignment-tool: Invalid AlignResults object or missing Delay B ms',
+      if (!result.withinBounds) {
+        // Même contrat d'erreur que l'outil REW, mais avec le délai requis
+        // toujours présent et exploitable par l'appelant.
+        throw new Error(
+          `Delay too large. The delay required to align the responses at ` +
+            `${frequency} Hz is too large, ${result.requiredDelayMs.toFixed(2)} ms`,
         );
       }
-      if (shiftDelayMs === maxSearchRange || shiftDelayMs === minSearchRange) {
+
+      const shiftDelayMs = result.delayMs;
+      if (
+        Math.abs(shiftDelayMs - maxSearchRange) < 0.005 ||
+        Math.abs(shiftDelayMs - minSearchRange) < 0.005
+      ) {
         log.warn('alignment-tool: Shift is maxed out to the limit: ' + shiftDelayMs);
       }
-      const isBInverted = AlignResultsDetails['Invert B'] === 'true';
-
-      if (isBInverted) {
+      if (result.invertB) {
         log.warn('alignment-tool: Results provided were with toggled polarity');
       }
-      if (createSum) {
-        const alignedSum = await session.rewAlignmentTool.alignedSum();
-        const alignedSumObject = await session.analyseApiResponse(alignedSum);
-        await alignedSumObject.setTitle(sumTitle);
-      }
-      return { shiftDelay: shiftDelayMs / 1000, isBInverted };
+      return { shiftDelay: shiftDelayMs / 1000, isBInverted: result.invertB };
     } catch (error) {
       throw new Error(`Alignment tool failed: ${error.message}`, { cause: error });
     }
