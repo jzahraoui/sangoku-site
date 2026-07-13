@@ -305,6 +305,27 @@ describe('VirtualSubwoofer.watch', () => {
     sub1.record.update({ splOffsetdB: 2 });
     expect(virtualSub.dirty).toBe(false);
   });
+
+  it('markConsistent clears the dirty flag left by the caller own writes', () => {
+    const sub1 = makeSub('sw1', 'SW1avg');
+    const virtualSub = new VirtualSubwoofer({
+      position: 'P1',
+      session: { measurements: { get: () => [] } },
+      mops: {},
+      log: { info: () => {} },
+    });
+
+    virtualSub.watch([sub1]);
+    sub1.record.update({ splOffsetdB: 1 });
+    expect(virtualSub.dirty).toBe(true);
+
+    virtualSub.markConsistent();
+    expect(virtualSub.dirty).toBe(false);
+
+    // A later change marks it dirty again.
+    sub1.record.update({ splOffsetdB: 2 });
+    expect(virtualSub.dirty).toBe(true);
+  });
 });
 
 describe('VirtualSubwoofer — adoption et refreshProjected', () => {

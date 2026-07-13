@@ -400,6 +400,7 @@ describe('produceAligned via le sub virtuel (ADR 003 v2)', () => {
       bridge: {
         refresh: vi.fn().mockResolvedValue(projection),
         refreshProjected: vi.fn().mockResolvedValue([]),
+        markConsistent: vi.fn(),
         setFilters: vi.fn().mockResolvedValue([]),
         forEachSub: vi.fn().mockImplementation(async (fn, options) => {
           forEachCalls.push({ fn, options });
@@ -409,7 +410,7 @@ describe('produceAligned via le sub virtuel (ADR 003 v2)', () => {
     };
   }
 
-  it('propagates the found alignment to the other positions then recomputes', async () => {
+  it('propagates the found alignment to the other positions without a global recompute', async () => {
     const projection = fakeSub('proj', { title: () => 'LFE predicted_P1' });
     const { bridge, forEachCalls } = bridgeWithCapture(projection);
     const sw1 = fakeSub('sw1');
@@ -426,9 +427,12 @@ describe('produceAligned via le sub virtuel (ADR 003 v2)', () => {
 
     await service.produceAligned(fakeSub('FL'));
 
-    // Projection ensured before the alignment, recompute after.
+    // Projection ensured before the alignment; the current position was
+    // updated in place by produceAligned (subs + projection), so no global
+    // recompute — only the consistency declaration.
     expect(bridge.refresh).toHaveBeenCalledWith(1, {});
-    expect(bridge.refreshProjected).toHaveBeenCalledWith({ force: true });
+    expect(bridge.refreshProjected).not.toHaveBeenCalled();
+    expect(bridge.markConsistent).toHaveBeenCalledWith(1);
 
     // Only the OTHER position receives the offset + inversion toggle.
     expect(forEachCalls).toHaveLength(1);
@@ -455,7 +459,8 @@ describe('produceAligned via le sub virtuel (ADR 003 v2)', () => {
     await service.produceAligned(fakeSub('FL'));
 
     expect(bridge.forEachSub).not.toHaveBeenCalled();
-    expect(bridge.refreshProjected).toHaveBeenCalledWith({ force: true });
+    expect(bridge.refreshProjected).not.toHaveBeenCalled();
+    expect(bridge.markConsistent).not.toHaveBeenCalled();
   });
 
   it('mirrors the subs non-auto slots on the projection before equalizing', async () => {

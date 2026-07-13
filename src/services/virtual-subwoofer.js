@@ -122,6 +122,17 @@ class VirtualSubwoofer {
     this.dirty = true;
   }
 
+  /**
+   * Declare the projection consistent with the real subs. Reserved for callers
+   * that applied the SAME delta to every sub AND to the projection in place
+   * (produceAligned: shared offset + inversion — the sum of shifted subs is the
+   * shifted sum, so re-projecting would be a no-op). Any later change to a sub
+   * marks the instance dirty again through watch().
+   */
+  markConsistent() {
+    this.dirty = false;
+  }
+
   /** Watch the real subs' records: any API delta marks the instance dirty. */
   watch(subs) {
     const seen = new Set();
@@ -384,6 +395,11 @@ function createVirtualSubwooferService({
     }
   }
 
+  /** Position-level markConsistent — see VirtualSubwoofer.markConsistent. */
+  function markConsistent(position) {
+    subwooferFor(position).markConsistent();
+  }
+
   /** Groups targeted by a command: one position, or every non-empty group. */
   function targetGroups(position) {
     const groups = getSubsByPosition();
@@ -481,6 +497,7 @@ function createVirtualSubwooferService({
   return {
     subwooferFor,
     markDirty,
+    markConsistent,
     refresh,
     refreshAll,
     refreshProjected,

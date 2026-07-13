@@ -491,14 +491,35 @@ describe('IR shift sequences', () => {
     expect(rew.offsetTZero).not.toHaveBeenCalled();
   });
 
-  it('addIROffsetSeconds shifts t=0 and accumulates the offset', async () => {
+  it('addIROffsetSeconds shifts t=0, accumulates the offset and mirrors the peak time', async () => {
     const m = record({ cumulativeIRShiftSeconds: () => 0.001 });
     const rew = { offsetTZero: vi.fn().mockResolvedValue({}) };
 
     await expect(ops.addIROffsetSeconds(rew, m, 0.002)).resolves.toBe(true);
 
     expect(rew.offsetTZero).toHaveBeenCalledWith('uuid-1', 0.002);
-    expect(m.update).toHaveBeenCalledWith({ cumulativeIRShiftSeconds: 0.003 });
+    // The peak time follows the t=0 shift locally so reads before the next
+    // poll stay correct and the poll echo is not a change.
+    expect(m.update).toHaveBeenCalledWith({
+      cumulativeIRShiftSeconds: 0.003,
+      timeOfIRPeakSeconds: 0,
+    });
+  });
+
+  it('addIROffsetSeconds mirrors the IR start time when present', async () => {
+    const m = record({
+      cumulativeIRShiftSeconds: () => 0,
+      timeOfIRStartSeconds: 0.0015,
+    });
+    const rew = { offsetTZero: vi.fn().mockResolvedValue({}) };
+
+    await ops.addIROffsetSeconds(rew, m, 0.001);
+
+    expect(m.update).toHaveBeenCalledWith({
+      cumulativeIRShiftSeconds: 0.001,
+      timeOfIRPeakSeconds: 0.001,
+      timeOfIRStartSeconds: 0.0005,
+    });
   });
 
   it('setcumulativeIRShiftSeconds applies the delta to the current shift', async () => {

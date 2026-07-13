@@ -135,11 +135,20 @@ class MeasurementRecord {
     }
 
     const changed = {};
+    // Sub-nanosecond float deltas are polling echoes of our own writes (local
+    // rounded value vs REW raw arithmetic), not changes: emitting them would
+    // re-mark the virtual subwoofers dirty after every alignment.
+    const isFloatEcho = (a, b) =>
+      typeof a === 'number' &&
+      typeof b === 'number' &&
+      Number.isFinite(a) &&
+      Number.isFinite(b) &&
+      Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
     const apply = (field, value) => {
-      if (value !== undefined && this[field] !== value) {
-        this[field] = value;
-        changed[field] = value;
-      }
+      if (value === undefined || this[field] === value) return;
+      if (isFloatEcho(this[field], value)) return;
+      this[field] = value;
+      changed[field] = value;
     };
 
     for (const field of API_UPDATE_FIELDS) {

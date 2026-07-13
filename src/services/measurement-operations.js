@@ -653,7 +653,19 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       10,
     );
     await rew.offsetTZero(m.uuid, amountToAdd);
-    m.update({ cumulativeIRShiftSeconds: newCumulativeShift });
+    // offsetTZero shifts every time reference: mirror the peak/start times
+    // locally so reads before the next poll (IR window refTime, peak
+    // arithmetic) stay correct and the poll echo is not a change.
+    const partial = { cumulativeIRShiftSeconds: newCumulativeShift };
+    const peakSeconds = unwrap(m.timeOfIRPeakSeconds);
+    if (Number.isFinite(peakSeconds)) {
+      partial.timeOfIRPeakSeconds = peakSeconds - amountToAdd;
+    }
+    const startSeconds = unwrap(m.timeOfIRStartSeconds);
+    if (Number.isFinite(startSeconds)) {
+      partial.timeOfIRStartSeconds = startSeconds - amountToAdd;
+    }
+    m.update(partial);
     log.debug(`Offset t=${(amountToAdd * 1000).toFixed(2)}ms added to ${unwrap(m.title)}`);
     return true;
   }

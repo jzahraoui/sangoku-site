@@ -129,6 +129,29 @@ describe('MeasurementRecord.update', () => {
     const record = new MeasurementRecord(apiItem());
     expect(record.update(null)).toEqual({});
   });
+
+  it('absorbs sub-nanosecond float echoes from the polling merge', () => {
+    const record = new MeasurementRecord(
+      apiItem({ timeOfIRPeakSeconds: 0.003, cumulativeIRShiftSeconds: 0.001 }),
+    );
+    const handler = vi.fn();
+    record.on('change', handler);
+
+    // Poll echo of our own rounded write: same value up to float arithmetic.
+    expect(
+      record.update({
+        timeOfIRPeakSeconds: 0.003 + 1e-13,
+        cumulativeIRShiftSeconds: 0.001 - 5e-14,
+      }),
+    ).toEqual({});
+    expect(handler).not.toHaveBeenCalled();
+    expect(record.timeOfIRPeakSeconds).toBe(0.003);
+
+    // A real delta (one sample at 48 kHz ≈ 2e-5 s) is still a change.
+    const changed = record.update({ timeOfIRPeakSeconds: 0.003 + 2e-5 });
+    expect(changed).toEqual({ timeOfIRPeakSeconds: 0.003 + 2e-5 });
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('MeasurementRecord events', () => {

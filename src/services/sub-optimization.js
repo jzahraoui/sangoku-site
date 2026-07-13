@@ -345,7 +345,10 @@ function createSubOptimizationService({
     // ADR 003 v2 — carry the found alignment (offset + inversion) to the
     // other positions' REAL subs through the group commands: the historical
     // sync only shifted their predicted measurements, which are now throwaway
-    // projections. Every projection is then recomputed from its subs.
+    // projections. Each group command re-projects its own position; the
+    // current position needs no re-projection — produceAligned applied the
+    // same offset/inversion to its subs AND its projection in place, and the
+    // sum of equally-shifted subs is the equally-shifted sum.
     if (alignment) {
       const currentKey = String(position);
       const groups = lists.byPositionsGroupedSubsMeasurements?.() ?? {};
@@ -361,11 +364,10 @@ function createSubOptimizationService({
           { position: groupPosition },
         );
       }
+      virtualSubwoofers.markConsistent(position);
     } else {
       log.warn('produceAligned returned no alignment result; skipping propagation');
     }
-
-    await virtualSubwoofers.refreshProjected({ force: true });
   }
 
   async function syncAllPredictedLfeMeasurement() {
