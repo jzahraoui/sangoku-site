@@ -364,6 +364,38 @@
       alignment and exports.
     </p>
 
+    <h4>Find the best crossover automatically</h4>
+    <p>
+      Next to the crossover list, the wand button runs an automatic search for the
+      best crossover of the speaker group. RCH tests every candidate frequency,
+      computes the required shift of each speaker in the group (the same measurement
+      as the required shift button), then automatically selects in the list the one
+      that minimizes the average required shift of the group speakers. An identical
+      button in the column header runs the search for every group at once.
+    </p>
+    <p>
+      Because the crossover is a group property, the per-line button only appears on
+      the first speaker of each group. Clicking it processes the whole group.
+    </p>
+    <p>
+      Requirements: filters must already be generated and the subwoofer sum must exist
+      (Sum subs / LFE predicted), otherwise RCH shows an alert and does nothing. In
+      practice: generate filters once with a starting crossover, build the subwoofer
+      sum, then run the best-crossover search and regenerate the filters for the
+      chosen value.
+    </p>
+    <p>
+      If the best crossover requires a polarity inversion, RCH applies it right away,
+      and always consistently across all speakers of the group: a frequency that would
+      invert only one speaker of a pair is discarded. The log details, for each tested
+      frequency, the shift of each speaker, the average, any inversion (inv), and the
+      discarded frequencies.
+    </p>
+    <p>
+      Changing the crossover means downstream steps must be redone (filters, Find Sub
+      Alignment, previews): the log reminds you of this.
+    </p>
+
     <img src="img/doc/rch-parameters-table.png" alt="RCH measurement table" />
 
     <h3>Step 8. Align the subwoofer with a speaker</h3>

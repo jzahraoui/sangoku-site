@@ -377,6 +377,41 @@
       process : previews, alignement du sub et exports.
     </p>
 
+    <h4>Trouver automatiquement le meilleur crossover</h4>
+    <p>
+      A cote de la liste de coupure, le bouton en forme de baguette lance une
+      recherche automatique du meilleur crossover pour le groupe d'enceintes. RCH
+      teste chaque frequence candidate, calcule le required shift de chaque enceinte
+      du groupe (la meme mesure que le bouton require shift), puis selectionne
+      automatiquement dans la liste celle qui minimise la moyenne des required shift
+      des enceintes du groupe. Un bouton identique dans l'entete de la colonne fait
+      la recherche pour tous les groupes d'un coup.
+    </p>
+    <p>
+      Comme le crossover est une propriete de groupe, le bouton par ligne n'apparait
+      que sur la premiere enceinte de chaque groupe. Cliquer dessus traite tout le
+      groupe.
+    </p>
+    <p>
+      Prerequis : les filtres doivent deja etre generes et la somme des subs doit
+      exister (Sum subs / LFE predicted), sinon RCH affiche une alerte et ne fait
+      rien. En pratique : generez une premiere fois les filtres avec une coupure de
+      depart, faites la somme des subs, puis lancez la recherche du meilleur crossover
+      et regenerez les filtres pour la valeur retenue.
+    </p>
+    <p>
+      Si le meilleur crossover demande d'inverser la polarite, RCH applique
+      l'inversion tout de suite, et toujours de facon coherente sur toutes les
+      enceintes du groupe : une frequence qui inverserait une seule enceinte d'une
+      paire est ecartee. Le journal detaille, pour chaque frequence testee, le shift
+      de chaque enceinte, la moyenne, l'inversion eventuelle (inv) et les frequences
+      ecartees.
+    </p>
+    <p>
+      Changer de crossover rend l'aval a refaire (filtres, Find Sub Alignment,
+      previews) : le journal le rappelle.
+    </p>
+
     <img src="img/doc/rch-parameters-table.png" alt="Tableau de parametres RCH" />
 
     <h3>Etape 8. Aligner le sub avec une enceinte</h3>
