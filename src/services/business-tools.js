@@ -47,7 +47,7 @@ function createBusinessTools({
   relatedLfeFor = m => unwrap(m.relatedLfeMeasurement),
   subDistanceLeftBeforeError = () => Infinity,
   speedOfSound = () => 343,
-  findAligment = () => {
+  findAligment = async () => {
     throw new Error('findAligment is not wired');
   },
   // createMeasurementPreview context (per-speaker preview). Providers mirror the
@@ -353,11 +353,57 @@ function createBusinessTools({
     }
   }
 
+  // Filtres de raccord du bass management simulé (mêmes valeurs que
+  // applyCutOffFilter) — réalisés en interne par buildCrossoverCascade.
+  const subLowPassSetting = frequency => ({
+    type: 'Low pass',
+    frequency,
+    shape: 'L-R',
+    slopedBPerOctave: 24,
+  });
+  const speakerHighPassSetting = frequency => ({
+    type: 'High pass',
+    frequency,
+    shape: 'BU',
+    slopedBPerOctave: 12,
+  });
+
   /**
-   * Align a subwoofer (predicted LFE) with a speaker by computing and applying
-   * the optimal time offset (parity with BusinessTools.produceAligned). The
-   * temporary predicted/filtered measurements are cleaned up in the finally.
+   * IR filtrées au raccord de l'enceinte et du LFE, calculées en interne —
+   * plus aucune mesure predicted temporaire dans REW. L'IR predicted de
+   * chaque mesure est lue telle que REW la calcule (/eq/impulse-response,
+   * identique bit à bit au eqGenerate) ; seul le raccord est réalisé en
+   * local. Côté LFE : la « somme vraie » pondérée des subs réels quand la
+   * liste est fournie (référentiel canonique — le même état des subs donne
+   * toujours le même résultat, quelle que soit l'histoire de la projection),
+   * sinon la projection. Parité golden REW réel : npm run
+   * test:align-sub-parity.
    */
+  async function crossoverFilteredIrPair(
+    PredictedLfe,
+    speakerItem,
+    cuttOffFrequency,
+    subResponses = null,
+  ) {
+    const speakerFiltered = await operations.getCrossoverFilteredIr(
+      rew(),
+      speakerItem,
+      speakerHighPassSetting(cuttOffFrequency),
+    );
+    const PredictedLfeFiltered = subResponses?.length
+      ? await operations.getCombinedSubsCrossoverFilteredIr(
+          rew(),
+          subResponses,
+          subLowPassSetting(cuttOffFrequency),
+        )
+      : await operations.getCrossoverFilteredIr(
+          rew(),
+          PredictedLfe,
+          subLowPassSetting(cuttOffFrequency),
+        );
+    return { PredictedLfeFiltered, speakerFiltered };
+  }
+
   /**
    * Measured alignment gap (seconds) between the predicted LFE and a speaker,
    * both crossover-filtered — the exact quantity produceAligned starts from.
@@ -369,103 +415,89 @@ function createBusinessTools({
     const PredictedLfe = relatedLfeFor(speakerItem);
     if (!PredictedLfe || !cuttOffFrequency) return null;
 
-    const mustBeDeleted = [];
-    try {
-      const predictedSpeaker = await operations.producePredictedMeasurement(
-        rew(),
-        speakerItem,
-        sessionContext,
-      );
-      mustBeDeleted.push(predictedSpeaker);
-
-      const { PredictedLfeFiltered, predictedSpeakerFiltered } =
-        await applyCutOffFilter(PredictedLfe, predictedSpeaker, cuttOffFrequency);
-      mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
-
-      return (
-        unwrap(PredictedLfeFiltered.timeOfIRPeakSeconds) -
-        unwrap(predictedSpeakerFiltered.timeOfIRPeakSeconds)
-      );
-    } finally {
-      await session.removeMeasurements(mustBeDeleted);
-    }
+    const { PredictedLfeFiltered, speakerFiltered } = await crossoverFilteredIrPair(
+      PredictedLfe,
+      speakerItem,
+      cuttOffFrequency,
+    );
+    return (
+      PredictedLfeFiltered.timeOfIRPeakSeconds - speakerFiltered.timeOfIRPeakSeconds
+    );
   }
 
+  /**
+   * Align a subwoofer (predicted LFE) with a speaker by computing and applying
+   * the optimal time offset (parity with BusinessTools.produceAligned). The
+   * filtered responses are computed internally: the only REW writes left are
+   * the final offsets/inversion on the real measurements.
+   */
   async function produceAligned(speakerItem, subResponses) {
     const cuttOffFrequency = crossoverForSpeaker(speakerItem);
     const PredictedLfe = relatedLfeFor(speakerItem);
     validateInputs(PredictedLfe, speakerItem, cuttOffFrequency);
 
     const speed = speedOfSound();
-    const mustBeDeleted = [];
-    try {
-      const predictedFrontLeft = await operations.producePredictedMeasurement(
-        rew(),
-        speakerItem,
-        sessionContext,
+    const { PredictedLfeFiltered, speakerFiltered } = await crossoverFilteredIrPair(
+      PredictedLfe,
+      speakerItem,
+      cuttOffFrequency,
+      subResponses,
+    );
+
+    const cutoffPeriod = 1 / cuttOffFrequency; // for 100Hz, period is 10ms
+    const delay = cutoffPeriod / 16; // for 100Hz, delay is 0.625ms
+    const maxForwardSearchMs = Math.round((cutoffPeriod / 2) * 1000 * 100) / 100;
+
+    // get the sub impulse closer to the front left, better method than cross corr align
+    const distanceToSpeakerPeak =
+      PredictedLfeFiltered.timeOfIRPeakSeconds - speakerFiltered.timeOfIRPeakSeconds;
+    let finalDistance = distanceToSpeakerPeak - delay;
+
+    const neededDistanceMeter = secondsToMeters(finalDistance, speed);
+    // Calculate and apply adjustment to stay within maximum distance
+    const overheadOffset = subDistanceLeftBeforeError() - neededDistanceMeter;
+
+    if (overheadOffset < 0) {
+      log.warn(
+        `Adjusting alignment by ${-overheadOffset.toFixed(
+          2,
+        )}m to stay within max distance limit.`,
       );
-      mustBeDeleted.push(predictedFrontLeft);
-
-      const { PredictedLfeFiltered, predictedSpeakerFiltered } =
-        await applyCutOffFilter(PredictedLfe, predictedFrontLeft, cuttOffFrequency);
-      mustBeDeleted.push(PredictedLfeFiltered, predictedSpeakerFiltered);
-
-      const cutoffPeriod = 1 / cuttOffFrequency; // for 100Hz, period is 10ms
-      const delay = cutoffPeriod / 16; // for 100Hz, delay is 0.625ms
-      const maxForwardSearchMs = Math.round((cutoffPeriod / 2) * 1000 * 100) / 100;
-
-      // get the sub impulse closer to the front left, better method than cross corr align
-      const distanceToSpeakerPeak =
-        unwrap(PredictedLfeFiltered.timeOfIRPeakSeconds) -
-        unwrap(predictedSpeakerFiltered.timeOfIRPeakSeconds);
-      let finalDistance = distanceToSpeakerPeak - delay;
-
-      const neededDistanceMeter = secondsToMeters(finalDistance, speed);
-      // Calculate and apply adjustment to stay within maximum distance
-      const overheadOffset = subDistanceLeftBeforeError() - neededDistanceMeter;
-
-      if (overheadOffset < 0) {
-        log.warn(
-          `Adjusting alignment by ${-overheadOffset.toFixed(
-            2,
-          )}m to stay within max distance limit.`,
-        );
-        finalDistance += metersToSeconds(overheadOffset, speed);
-      }
-
-      await operations.addIROffsetSeconds(rew(), PredictedLfeFiltered, finalDistance);
-
-      const { shiftDelay, isBInverted } = await findAligment(
-        predictedSpeakerFiltered,
-        PredictedLfeFiltered,
-        cuttOffFrequency,
-        maxForwardSearchMs,
-        false,
-        `${RESULT_PREFIX}${unwrap(predictedSpeakerFiltered.title)} X@${cuttOffFrequency}Hz_P${unwrap(predictedSpeakerFiltered.position)}`,
-        0,
-      );
-
-      if (isBInverted) {
-        await operations.toggleInversion(rew(), PredictedLfe);
-      }
-
-      finalDistance -= shiftDelay;
-
-      await operations.addIROffsetSeconds(rew(), PredictedLfe, finalDistance);
-      await applyTimeOffsetToSubs(finalDistance, subResponses, isBInverted);
-
-      const shiftDistance = secondsToMeters(finalDistance, speed).toFixed(2);
-      log.info(
-        `Subwoofer deplaced by: ${shiftDistance}m (alignment:${(
-          (delay + shiftDelay) *
-          1000
-        ).toFixed(2)}ms)`,
-      );
-      // Applied alignment, so callers can carry it to other positions' subs.
-      return { offsetSeconds: finalDistance, inverted: isBInverted };
-    } finally {
-      await session.removeMeasurements(mustBeDeleted);
+      finalDistance += metersToSeconds(overheadOffset, speed);
     }
+
+    // Équivalent interne de l'offsetTZero temporaire sur la mesure filtrée.
+    PredictedLfeFiltered.startTime -= finalDistance;
+
+    const speakerLabel = `predicted ${unwrap(speakerItem.title)}`;
+    const { shiftDelay, isBInverted } = await findAligment(
+      { ir: speakerFiltered, title: speakerLabel },
+      { ir: PredictedLfeFiltered, title: unwrap(PredictedLfe.title) },
+      cuttOffFrequency,
+      maxForwardSearchMs,
+      false,
+      `${RESULT_PREFIX}${speakerLabel} X@${cuttOffFrequency}Hz_P${positionFor(speakerItem)}`,
+      0,
+    );
+
+    if (isBInverted) {
+      await operations.toggleInversion(rew(), PredictedLfe);
+    }
+
+    finalDistance -= shiftDelay;
+
+    await operations.addIROffsetSeconds(rew(), PredictedLfe, finalDistance);
+    await applyTimeOffsetToSubs(finalDistance, subResponses, isBInverted);
+
+    const shiftDistance = secondsToMeters(finalDistance, speed).toFixed(2);
+    log.info(
+      `Subwoofer deplaced by: ${shiftDistance}m (alignment:${(
+        (delay + shiftDelay) *
+        1000
+      ).toFixed(2)}ms)`,
+    );
+    // Applied alignment, so callers can carry it to other positions' subs.
+    return { offsetSeconds: finalDistance, inverted: isBInverted };
   }
 
   /**

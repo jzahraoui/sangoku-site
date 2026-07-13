@@ -37,6 +37,14 @@ test('tuning: Find Sub Alignment, preview et revert LFE sur la projection impuls
         const vm = globalThis.viewModel;
         const fl = vm.measurements().find(m => m.title() === 'FLavg');
         vm.selectedSpeaker(fl.uuid);
+        // Raccord à 100 Hz : depuis que les mesures filtrées du bouton sont
+        // réellement filtrées (LP/HP internes — le mock, lui, n'applique
+        // aucun filtre à ses eqGenerate), l'optimum des IR jouets à 80 Hz
+        // tombe 0.13 ms sous la borne basse de recherche et REW comme
+        // l'interne refusent (« Delay too large ») ; à 100/120/150/60 Hz il
+        // est dans la fenêtre. Le parcours vérifie la plomberie du bouton,
+        // pas la valeur : on choisit un raccord qui aboutit.
+        vm.measurementsByGroup()[fl.groupName()].crossover(100);
         return vm
           .measurements()
           .filter(m => m.isSub())

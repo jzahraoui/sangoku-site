@@ -14,6 +14,8 @@ import {
   computeReferenceProfile,
   meanProfileOffset,
 } from '../measurement/reference-compensation.js';
+import { applyBankAndCrossoverToIr } from '../measurement/rew-filter-bank.js';
+import { combineImpulseResponses } from '../dsp/impulseResponse.js';
 
 /**
  * Simple REW wrappers extracted from MeasurementItem
@@ -185,6 +187,64 @@ async function getImpulseResponseInfo(
     sampleRate: body.sampleRate,
     startTime: body.startTime ?? 0,
   };
+}
+
+/**
+ * Variante de getPredictedImpulseResponse exposant le référentiel temporel
+ * complet, IR brute par défaut. La réponse de /eq/impulse-response est
+ * IDENTIQUE BIT À BIT à l'IR de la mesure générée par eqGenerate (mesuré,
+ * REW 5.40 B128) : le bank de la mesure — quel que soit le type des
+ * filtres — et le flag d'inversion y sont intégrés.
+ */
+async function getPredictedImpulseResponseInfo(
+  rew,
+  m,
+  { unit = 'percent', windowed = false, normalised = false } = {},
+) {
+  const body = await rew.getPredictedImpulseResponse(m.uuid, {
+    unit,
+    windowed,
+    normalised,
+  });
+  return {
+    data: body.data,
+    sampleRate: body.sampleRate,
+    startTime: body.startTime ?? 0,
+  };
+}
+
+/**
+ * IR « predicted + raccord » sans mesure temporaire : l'IR predicted est lue
+ * telle que REW la calcule (1 lecture, bank intégré — voir
+ * getPredictedImpulseResponseInfo) et seul le filtre de raccord est réalisé
+ * en local — remplace la génération de mesures predicted temporaires dans
+ * REW (eqGenerate ×N + suppressions) pour les chemins d'alignement.
+ */
+async function getCrossoverFilteredIr(rew, m, crossoverSetting = null) {
+  const ir = await getPredictedImpulseResponseInfo(rew, m);
+  return applyBankAndCrossoverToIr(ir, [], crossoverSetting);
+}
+
+/**
+ * « Somme vraie » des subs, filtrée au raccord : Σ pondérée (splOffsetdB —
+ * les exports d'IR REW n'intègrent pas le niveau) des IR predicted des subs
+ * réels, dans le référentiel absolu. Contrairement à la projection LFE
+ * predicted (synthèse + import + offsets successifs), cette somme ne dépend
+ * d'aucun état intermédiaire : le même état des subs donne toujours la même
+ * IR — l'alignement devient déterministe.
+ */
+async function getCombinedSubsCrossoverFilteredIr(rew, subs, crossoverSetting = null) {
+  if (!subs?.length) {
+    throw new Error('No subwoofer measurements to combine');
+  }
+  const irs = [];
+  const weightsDb = [];
+  for (const sub of subs) {
+    irs.push(await getPredictedImpulseResponseInfo(rew, sub));
+    weightsDb.push(unwrap(sub.splOffsetdB) ?? 0);
+  }
+  const sum = combineImpulseResponses(irs, weightsDb);
+  return applyBankAndCrossoverToIr(sum, [], crossoverSetting);
 }
 
 async function getFilterImpulseResponse(rew, m, { freq, sampleCount } = {}) {
@@ -1106,8 +1166,11 @@ function createMeasurementOperations({ log = noopLog } = {}) {
     getFreeXFilterIndex,
     getFrequencyResponse,
     getImpulseResponse,
+    getCombinedSubsCrossoverFilteredIr,
+    getCrossoverFilteredIr,
     getImpulseResponseInfo,
     getPredictedImpulseResponse,
+    getPredictedImpulseResponseInfo,
     getTargetLevel,
     getTargetResponse,
     isDefaultEqualiser,

@@ -148,6 +148,20 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
       setSingleFilter: vi.fn().mockResolvedValue(true),
       addIROffsetSeconds: vi.fn().mockResolvedValue(true),
       toggleInversion: vi.fn().mockResolvedValue(true),
+      // IR filtrée interne : le LFE pique un peu après l'enceinte
+      getCrossoverFilteredIr: vi.fn().mockImplementation(async (_rew, m) => ({
+        data: new Float64Array(8),
+        sampleRate: 48000,
+        startTime: 0,
+        timeOfIRPeakSeconds: m.role === 'lfe' ? 0.002 : 0.001,
+      })),
+      // somme vraie des subs (même pic que le LFE projeté dans ces tests)
+      getCombinedSubsCrossoverFilteredIr: vi.fn().mockResolvedValue({
+        data: new Float64Array(8),
+        sampleRate: 48000,
+        startTime: 0,
+        timeOfIRPeakSeconds: 0.002,
+      }),
     };
     const session = {
       rewMeasurements: { id: 'rew' },
@@ -170,15 +184,27 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     return { operations, session, tools, findAligment, predictedLfe };
   }
 
-  it('alignmentGapSeconds measures the crossover-filtered peak gap and cleans up', async () => {
-    const { tools, session } = harness();
+  it('alignmentGapSeconds measures the crossover-filtered peak gap internally', async () => {
+    const { operations, tools, session } = harness();
     const speaker = { uuid: 'fl', title: 'FL', role: 'spk' };
 
     const gap = await tools.alignmentGapSeconds(speaker);
 
     // filtered LFE peak (0.002) minus filtered speaker peak (0.001)
     expect(gap).toBeCloseTo(0.001, 6);
-    expect(session.removeMeasurements).toHaveBeenCalled();
+    // internal path: HP BU12 on the speaker, LP LR24 on the LFE — no REW
+    // temporary measurement, nothing to clean up.
+    expect(operations.getCrossoverFilteredIr).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      speaker,
+      expect.objectContaining({ type: 'High pass', frequency: 80, shape: 'BU' }),
+    );
+    expect(operations.getCrossoverFilteredIr).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      expect.objectContaining({ uuid: 'lfe' }),
+      expect.objectContaining({ type: 'Low pass', frequency: 80, shape: 'L-R' }),
+    );
+    expect(session.removeMeasurements).not.toHaveBeenCalled();
   });
 
   it('alignmentGapSeconds returns null without a predicted LFE', async () => {
@@ -231,25 +257,29 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     expect(operations.setSingleFilter.mock.calls[3][2]).toMatchObject({ type: 'None' });
   });
 
-  it('produceAligned aligns the LFE and subs, then cleans up', async () => {
+  it('produceAligned aligns the LFE and subs without REW temporaries', async () => {
     const { operations, session, tools, findAligment, predictedLfe } = harness();
     const speaker = { uuid: 'fl', title: 'FL', role: 'spk', haveImpulseResponse: true };
     const subs = [{ uuid: 'sw1' }, { uuid: 'sw2' }];
 
     await tools.produceAligned(speaker, subs);
 
-    // findAligment runs the filtered speaker/LFE pair at the crossover
-    // (predictedSpeakerFiltered is a prediction of the predicted front-left)
+    // findAligment runs on the internally filtered speaker/LFE IR pair at the
+    // crossover — the channels carry a precomputed `ir`, no REW measurement.
     expect(findAligment).toHaveBeenCalledWith(
-      expect.objectContaining({ uuid: 'pred-pred-fl' }),
-      expect.objectContaining({ uuid: 'pred-lfe' }),
+      expect.objectContaining({ ir: expect.objectContaining({ sampleRate: 48000 }) }),
+      expect.objectContaining({ ir: expect.objectContaining({ sampleRate: 48000 }) }),
       80,
       expect.any(Number),
       false,
       expect.any(String),
       0,
     );
-    // the predicted LFE is shifted (final offset applied on the real LFE record)
+    // the temporary pre-alignment shift lives on the internal IR only: the
+    // filtered LFE startTime moved by -finalDistance before the search
+    const lfeChannel = findAligment.mock.calls[0][1];
+    expect(lfeChannel.ir.startTime).toBeLessThan(0);
+    // the final offset is applied on the real LFE record
     expect(operations.addIROffsetSeconds).toHaveBeenCalledWith(
       session.rewMeasurements,
       predictedLfe,
@@ -268,12 +298,15 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     );
     // no inversion for this run
     expect(operations.toggleInversion).not.toHaveBeenCalled();
-    // temporary predicted/filtered measurements removed
-    expect(session.removeMeasurements).toHaveBeenCalledWith([
-      expect.objectContaining({ uuid: 'pred-fl' }),
-      expect.objectContaining({ uuid: 'pred-lfe' }),
-      expect.objectContaining({ uuid: 'pred-pred-fl' }),
-    ]);
+    // internal path: no predicted measurement generated, nothing removed
+    expect(operations.producePredictedMeasurement).not.toHaveBeenCalled();
+    expect(session.removeMeasurements).not.toHaveBeenCalled();
+    // the LFE side is the TRUE weighted sum of the real subs, not the projection
+    expect(operations.getCombinedSubsCrossoverFilteredIr).toHaveBeenCalledWith(
+      session.rewMeasurements,
+      subs,
+      expect.objectContaining({ type: 'Low pass', frequency: 80 }),
+    );
   });
 
   it('produceAligned toggles polarity when the alignment tool reports inversion', async () => {

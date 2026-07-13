@@ -133,15 +133,35 @@ class VirtualSubwoofer {
     this.dirty = false;
   }
 
-  /** Watch the real subs' records: any API delta marks the instance dirty. */
+  /**
+   * Watch the real subs' records: an API delta on a field the sum depends on
+   * marks the instance dirty. The time-of-IR fields are derived readouts of a
+   * delay already carried by cumulativeIRShiftSeconds: REW recomputes them a
+   * few µs away after each fractional offset re-interpolation, and treating
+   * those echoes as changes forced a full sum rebuild on every second click.
+   */
+  static DERIVED_TIME_FIELDS = new Set([
+    'timeOfIRPeakSeconds',
+    'timeOfIRStartSeconds',
+  ]);
+
   watch(subs) {
     const seen = new Set();
+    const isRealChange = changed =>
+      Object.keys(changed).some(
+        field => !VirtualSubwoofer.DERIVED_TIME_FIELDS.has(field),
+      );
     for (const sub of subs) {
       const record = sub.record ?? (typeof sub.on === 'function' ? sub : null);
       if (!record) continue;
       seen.add(record);
       if (!this.unsubscribes.has(record)) {
-        this.unsubscribes.set(record, record.on('change', () => this.markDirty()));
+        this.unsubscribes.set(
+          record,
+          record.on('change', changed => {
+            if (isRealChange(changed)) this.markDirty();
+          }),
+        );
       }
     }
     for (const [record, unsubscribe] of this.unsubscribes) {

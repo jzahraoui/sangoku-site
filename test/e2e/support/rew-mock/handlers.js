@@ -385,10 +385,7 @@ function buildRoutes(store) {
     new RegExp(`^/measurements/${id}/target-response$`),
     measurement((r, q) => targetResponseBody(r, q)),
   );
-  add(
-    'GET',
-    new RegExp(`^/measurements/${id}/impulse-response$`),
-    measurement((r, q) => {
+  const impulseResponseBody = (r, q) => {
       if (!r.ir) return { __status: 404, message: 'No impulse response' };
       const targetRate = Number(q.get('samplerate')) || r.sampleRate;
       let data = r.ir;
@@ -426,7 +423,18 @@ function buildRoutes(store) {
         delay: 0,
         data: encodeFloat32ToBase64(data),
       };
-    }),
+  };
+  add(
+    'GET',
+    new RegExp(`^/measurements/${id}/impulse-response$`),
+    measurement(impulseResponseBody),
+  );
+  // Predicted IR (bank intégré dans le vrai REW) : le mock ne modélise pas
+  // l'EQ — même corps que l'IR brute, comme eq/frequency-response ci-dessus.
+  add(
+    'GET',
+    new RegExp(`^/measurements/${id}/eq/impulse-response$`),
+    measurement(impulseResponseBody),
   );
   add(
     'GET',

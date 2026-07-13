@@ -135,18 +135,29 @@ class MeasurementRecord {
     }
 
     const changed = {};
-    // Sub-nanosecond float deltas are polling echoes of our own writes (local
-    // rounded value vs REW raw arithmetic), not changes: emitting them would
-    // re-mark the virtual subwoofers dirty after every alignment.
-    const isFloatEcho = (a, b) =>
+    // Tiny float deltas are polling echoes of our own writes, not changes:
+    // emitting them would re-mark the virtual subwoofers dirty after every
+    // alignment. Time-of-IR fields tolerate up to half a sample at 48 kHz —
+    // a fractional offsetTZero makes REW re-interpolate the IR and recompute
+    // its peak a few µs away from the mirrored local value (measured 4.4 µs);
+    // other numeric fields only differ by our 1e-10 rounding. The echoed API
+    // value is adopted silently so the record stays exact.
+    const echoToleranceOf = field =>
+      field === 'timeOfIRPeakSeconds' || field === 'timeOfIRStartSeconds'
+        ? 1e-5
+        : 1e-9;
+    const isFloatEcho = (a, b, tolerance) =>
       typeof a === 'number' &&
       typeof b === 'number' &&
       Number.isFinite(a) &&
       Number.isFinite(b) &&
-      Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+      Math.abs(a - b) <= tolerance * Math.max(1, Math.abs(a), Math.abs(b));
     const apply = (field, value) => {
       if (value === undefined || this[field] === value) return;
-      if (isFloatEcho(this[field], value)) return;
+      if (isFloatEcho(this[field], value, echoToleranceOf(field))) {
+        this[field] = value;
+        return;
+      }
       this[field] = value;
       changed[field] = value;
     };

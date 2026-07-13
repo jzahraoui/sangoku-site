@@ -454,8 +454,10 @@ function createAlignmentService({
     }
 
     try {
-      const irA = await mops.getImpulseResponseInfo(channelA);
-      const irB = await mops.getImpulseResponseInfo(channelB);
+      // Les canaux peuvent porter une IR précalculée (chemin interne des
+      // mesures filtrées, business-tools) au lieu d'une mesure REW à lire.
+      const irA = channelA.ir ?? (await mops.getImpulseResponseInfo(channelA));
+      const irB = channelB.ir ?? (await mops.getImpulseResponseInfo(channelB));
       const result = alignImpulseResponses(irA, irB, {
         frequency,
         minDelayMs: minSearchRange,

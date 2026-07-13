@@ -37,6 +37,13 @@ test('align sub joint : filtres PK par sub + projection, cible target-match', as
       // L'input natif du checkbox-container est masqué par le style : on
       // passe par l'observable, comme les autres parcours.
       await page.evaluate(() => {
+        // Depuis que la réserve d'alignement est mesurée sur des IR vraiment
+        // filtrées (mock /eq/impulse-response), le solveur aligne les subs
+        // jouets par délais purs et ses filtres tombent sous le seuil
+        // utilisateur de 0.4 dB (« below min filter gain … discarded »).
+        // Seuil à 0 : le parcours valide le câblage des filtres (gaindB,
+        // isAuto, slots), pas la pertinence acoustique du jouet.
+        globalThis.viewModel.autoEqConfig.minFilterGain(0);
         globalThis.viewModel.jointOptimizerBudget({
           filtersPerSub: 2,
           populationSize: 12,

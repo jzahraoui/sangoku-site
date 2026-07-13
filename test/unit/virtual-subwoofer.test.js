@@ -306,6 +306,28 @@ describe('VirtualSubwoofer.watch', () => {
     expect(virtualSub.dirty).toBe(false);
   });
 
+  it('ignores derived time-field echoes but keeps real changes', () => {
+    const sub1 = makeSub('sw1', 'SW1avg');
+    const virtualSub = new VirtualSubwoofer({
+      position: 'P1',
+      session: { measurements: { get: () => [] } },
+      mops: {},
+      log: { info: () => {} },
+    });
+
+    virtualSub.watch([sub1]);
+    virtualSub.dirty = false;
+
+    // Poll echo after a fractional offsetTZero: REW recomputes the derived
+    // time fields — the sum did not change.
+    sub1.record.update({ timeOfIRPeakSeconds: 0.123, timeOfIRStartSeconds: 0.1 });
+    expect(virtualSub.dirty).toBe(false);
+
+    // A real delay change (cumulative shift) still marks dirty.
+    sub1.record.update({ cumulativeIRShiftSeconds: 0.005, timeOfIRPeakSeconds: 0.118 });
+    expect(virtualSub.dirty).toBe(true);
+  });
+
   it('markConsistent clears the dirty flag left by the caller own writes', () => {
     const sub1 = makeSub('sw1', 'SW1avg');
     const virtualSub = new VirtualSubwoofer({

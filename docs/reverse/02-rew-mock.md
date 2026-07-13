@@ -287,3 +287,25 @@ marqués [SUPPOSÉ→CONSTATÉ par l'app]) :
 > Mise à jour 2026-07-12 : le stub `Match target` a été retiré — le calcul de
 > filtres applicatif passe exclusivement par le mode RCH (interne). Le client
 > REST bas niveau `matchTarget` subsiste pour les tests de parité live.
+
+> Mise à jour 2026-07-13 — chemin interne de Find Sub Alignment :
+>
+> - Le mock expose `GET …/eq/impulse-response` (IR predicted) comme **alias de
+>   l'IR brute**, sur le modèle de `eq/frequency-response` : il ne modélise
+>   toujours pas l'EQ. Sur le vrai REW (5.40 B128, mesuré), cette réponse est
+>   identique bit à bit à l'IR de la mesure `eqGenerate` (bank et inversion
+>   intégrés) — c'est la source du chemin interne d'alignement
+>   (`getPredictedImpulseResponseInfo`).
+> - **Écarts de fidélité assumés** du mock : `Invert` ne bascule que le flag
+>   (le vrai REW intègre l'inversion dans les DONNÉES de tous ses exports
+>   d'IR) — l'appliquer aux exports casse 3 parcours calibrés, ne pas le
+>   « fidéliser » sans les recalibrer ; les exports d'IR n'intègrent pas le
+>   SPL offset (identique au vrai REW, mesuré).
+> - **Les IR de `sample.ady` n'ont pas de contenu grave** : filtrées par un
+>   vrai LP L-R 24 (raccord interne), leur pic se déplace de ~25 ms et
+>   l'optimum d'alignement à 80 Hz tombe 0.13 ms sous la borne basse
+>   (« Delay too large », comportement REW attendu). Le parcours tuning
+>   travaille à 100 Hz ; le parcours joint met `minFilterGain` à 0 (la
+>   réserve d'alignement mesurée sur des IR vraiment filtrées laisse le
+>   solveur aligner les jouets par délais purs — ses filtres tombent sous
+>   0.4 dB). Les assertions restent des sorties de workflow, pas des valeurs.

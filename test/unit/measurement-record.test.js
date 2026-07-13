@@ -137,20 +137,26 @@ describe('MeasurementRecord.update', () => {
     const handler = vi.fn();
     record.on('change', handler);
 
-    // Poll echo of our own rounded write: same value up to float arithmetic.
+    // Poll echo of our own mirrored write: REW recomputes the peak a few µs
+    // away after a fractional offsetTZero re-interpolation. Adopted silently.
     expect(
       record.update({
-        timeOfIRPeakSeconds: 0.003 + 1e-13,
+        timeOfIRPeakSeconds: 0.003 + 4.4e-6,
         cumulativeIRShiftSeconds: 0.001 - 5e-14,
       }),
     ).toEqual({});
     expect(handler).not.toHaveBeenCalled();
-    expect(record.timeOfIRPeakSeconds).toBe(0.003);
+    expect(record.timeOfIRPeakSeconds).toBe(0.003 + 4.4e-6);
 
     // A real delta (one sample at 48 kHz ≈ 2e-5 s) is still a change.
-    const changed = record.update({ timeOfIRPeakSeconds: 0.003 + 2e-5 });
-    expect(changed).toEqual({ timeOfIRPeakSeconds: 0.003 + 2e-5 });
+    const changed = record.update({ timeOfIRPeakSeconds: 0.003 + 2.5e-5 });
+    expect(changed).toEqual({ timeOfIRPeakSeconds: 0.003 + 2.5e-5 });
     expect(handler).toHaveBeenCalledTimes(1);
+
+    // The tight tolerance stays on the other numeric fields.
+    expect(record.update({ cumulativeIRShiftSeconds: 0.001 + 4.4e-6 })).toEqual({
+      cumulativeIRShiftSeconds: 0.001 + 4.4e-6,
+    });
   });
 });
 
