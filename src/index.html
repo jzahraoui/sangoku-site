@@ -598,7 +598,6 @@
                   </label>
                 </div>
 
-
                 <details class="autoeq-settings">
                   <summary data-i18n="autoeq_settings">AutoEQ Settings</summary>
 
@@ -1202,7 +1201,6 @@
 
             <label class="checkbox-container">
               <input
-                class="checkmark"
                 type="checkbox"
                 data-bind="checked: DeleteOriginalForLfeRevert"
               />
@@ -1242,29 +1240,35 @@
 
             <div style="display: flex; flex-direction: column">
               <div class="number-input">
-                <span style="width: 150px; text-align: left" data-i18n="additional_gain"
-                  >Additional gain (+/-0.5):</span
+                <label
+                  for="subTrimGainAmount"
+                  style="width: 150px; text-align: left"
+                  data-i18n="additional_gain"
+                  >Additional gain:</label
                 >
+                <input
+                  id="subTrimGainAmount"
+                  type="number"
+                  data-bind="
+                      value: subTrimGainAmount,
+                      valueUpdate: 'afterkeydown',
+                      disable: isProcessing(),
+                      attr: {
+                          step: 0.5,
+                          min: -9,
+                          max: 9,
+                          title: translations().apply_sub_gain_tooltip
+                      }"
+                />
                 <button
                   class="button small-button"
                   data-bind="
-                  click: decreaseSubTrimGain,
+                  click: applySubTrimGain,
                   disable: isProcessing(),
                   css: { disabled: isProcessing },
-                  attr: { 'data-tooltip': translations().decrease_sub_gain_tooltip }"
-                >
-                  -
-                </button>
-                <button
-                  class="button small-button"
-                  data-bind="
-                  click: increaseSubTrimGain,
-                  disable: isProcessing(),
-                  css: { disabled: isProcessing },
-                  attr: { 'data-tooltip': translations().increase_sub_gain_tooltip }"
-                >
-                  +
-                </button>
+                  text: translations().apply_sub_gain,
+                  attr: { 'data-tooltip': translations().apply_sub_gain_tooltip }"
+                ></button>
               </div>
               <div class="number-input">
                 <label
@@ -1313,7 +1317,7 @@
               <div>
                 <label
                   style="width: 150px; text-align: left"
-                  for="min"
+                  for="minSub"
                   data-i18n="frequency_range"
                   >Frequency Range:</label
                 >
@@ -1348,7 +1352,6 @@
               <div data-bind="visible: uniqueSubsMeasurements().length > 1">
                 <label class="checkbox-container">
                   <input
-                    class="checkmark"
                     type="checkbox"
                     data-bind="checked: useAllPassFiltersForSubs"
                   />
@@ -1359,7 +1362,6 @@
                 </label>
                 <label class="checkbox-container">
                   <input
-                    class="checkmark"
                     type="checkbox"
                     data-testid="use-joint-sub-optimization"
                     data-bind="checked: useJointSubOptimization"
@@ -1453,7 +1455,7 @@
                   aria-describedby="dropzoneMsoText"
                 >
                   <span class="dropzone-inner">
-                    <i class="fa fa-cloud-upload" aria-hidden="true"></i>
+                    <i class="fas fa-cloud-arrow-up" aria-hidden="true"></i>
                     <span id="dropzoneMsoText" data-i18n="drop_mso" class="dropzone-text">
                       Drop your Equalizer APO export file here or click to select
                     </span>
@@ -1504,7 +1506,7 @@
               attr: { 'data-tooltip': translations().find_sub_alignment_tooltip }"
               >
                 <i
-                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-magic'"
+                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-magic'"
                   aria-hidden="true"
                 ></i>
                 <span data-i18n="find_sub_alignment">Find Sub Alignment</span>
@@ -1614,7 +1616,7 @@
                 attr: { 'data-tooltip': translations().create_oca_tooltip }"
               >
                 <i
-                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
+                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-file-export'"
                   aria-hidden="true"
                 ></i>
                 <span data-i18n="create_oca_file">Create OCA File</span>
@@ -1630,7 +1632,7 @@
                 attr: { 'data-tooltip': translations().export_settings_tooltip }"
               >
                 <i
-                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-file-export'"
+                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-file-export'"
                   aria-hidden="true"
                 ></i>
                 <span data-i18n="create_settings_file">Create Settings File</span>
@@ -1640,7 +1642,11 @@
         </section>
         <!-- Result Status -->
         <div id="status" data-bind="visible: hasStatus()" class="status-message success">
-          <p data-testid="status-message" data-bind="text: status()" class="status-text"></p>
+          <p
+            data-testid="status-message"
+            data-bind="text: status()"
+            class="status-text"
+          ></p>
         </div>
         <!-- Real-time Logs Container -->
         <div id="logs-container" class="logs-container">
@@ -1877,7 +1883,7 @@
                         attr: { 'data-tooltip': translations().auto_adjust_inversion_tooltip }"
                       >
                         <i
-                          data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fa fa-sync-alt'"
+                          data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-sync-alt'"
                           aria-hidden="true"
                         ></i>
                       </button>
@@ -1906,7 +1912,7 @@
                         css: { disabled: isProcessing, loading: isProcessing },
                         attr: { 'data-tooltip': translations().find_best_crossover_all_tooltip }"
                     >
-                      <i class="fa fa-magic" aria-hidden="true"></i>
+                      <i class="fas fa-magic" aria-hidden="true"></i>
                     </button>
                   </th>
                   <th class="table-header-cell">
@@ -1920,7 +1926,7 @@
                           css: { disabled: isProcessing, loading: isProcessing  },
                           attr: { 'data-tooltip': translations().toggle_phase_inversion_tooltip }"
                       >
-                        <i id="invert-icon" class="fa fa-arrow-up" aria-hidden="true"></i>
+                        <i id="invert-icon" class="fas fa-arrow-up" aria-hidden="true"></i>
                       </button>
                     </div>
                   </th>
@@ -1937,7 +1943,7 @@
                           css: { disabled: isProcessing, loading: isProcessing  },
                           attr: { 'data-tooltip': createSpeakerFilterTooltip() }"
                       >
-                        <i class="fa fa-sliders" aria-hidden="true"></i>
+                        <i class="fas fa-sliders" aria-hidden="true"></i>
                       </button>
                     </div>
                   </th>
@@ -1952,7 +1958,7 @@
                           css: { disabled: isProcessing, loading: isProcessing  },
                           attr: { 'data-tooltip': translations().create_preview_tooltip }"
                       >
-                        <i class="fa fa-eye" aria-hidden="true"></i>
+                        <i class="fas fa-eye" aria-hidden="true"></i>
                       </button>
                     </div>
                   </th>
@@ -2048,7 +2054,7 @@
                       visible: !isSub() && isValid && isFirstOfGroup(),
                       attr: { 'data-tooltip': $parent.translations().find_best_crossover_tooltip }"
                     >
-                      <i class="fa fa-magic" aria-hidden="true"></i>
+                      <i class="fas fa-magic" aria-hidden="true"></i>
                     </button>
                   </td>
                   <td style="text-align: center">
@@ -2062,7 +2068,7 @@
                       attr: { 'data-tooltip': $parent.translations().toggle_phase_inversion_tooltip }"
                     >
                       <i
-                        data-bind="css: inverted() ? 'fa fa-arrow-down' : 'fa fa-arrow-up'"
+                        data-bind="css: inverted() ? 'fas fa-arrow-down' : 'fas fa-arrow-up'"
                         aria-hidden="true"
                       ></i>
                     </button>
@@ -2077,7 +2083,7 @@
                       visible: !isSub() && isValid,
                       attr: { 'data-tooltip': $parent.createSpeakerFilterTooltip() }"
                     >
-                      <i class="fa fa-sliders" aria-hidden="true"></i>
+                      <i class="fas fa-sliders" aria-hidden="true"></i>
                     </button>
                   </td>
                   <td style="text-align: center">
@@ -2090,7 +2096,7 @@
                       visible: !isSub() && isValid,
                       attr: { 'data-tooltip': $parent.translations().create_preview_tooltip }"
                     >
-                      <i class="fa fa-eye" aria-hidden="true"></i>
+                      <i class="fas fa-eye" aria-hidden="true"></i>
                     </button>
                   </td>
                 </tr>

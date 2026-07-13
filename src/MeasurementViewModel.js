@@ -328,6 +328,7 @@ class MeasurementViewModel {
     this.maxBoostOverallValue = ko.observable(0);
     this.minOverallValue = 0;
     this.maxOverallValue = 3;
+    this.subTrimGainAmount = ko.observable(3);
     this.loadedFileName = ko.observable('');
     this.distanceUnit = ko.observable('M');
     this.visibleColumns = ko.observable({
@@ -780,6 +781,23 @@ class MeasurementViewModel {
         await this.virtualSubwooferService.addSPLOffset(-0.5);
       } catch (error) {
         this.handleError(`Decreasing sub trim gain failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
+    // Apply an arbitrary gain delta to every sub in a single operation: the
+    // heavy sum recompute + IR reimport runs once, instead of once per +/-0.5
+    // click. Same group command as the buttons, only the amount differs.
+    this.applySubTrimGain = async () => {
+      if (this.isProcessing()) return;
+      const amount = Number(this.subTrimGainAmount());
+      if (!Number.isFinite(amount) || amount === 0) return;
+      try {
+        await this.setProcessing(true);
+        await this.virtualSubwooferService.addSPLOffset(amount);
+      } catch (error) {
+        this.handleError(`Applying sub trim gain failed: ${error.message}`, error);
       } finally {
         await this.setProcessing(false);
       }
