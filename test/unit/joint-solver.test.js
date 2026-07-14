@@ -28,7 +28,12 @@ function makeSub(name, id, { level = 80, delayMs = 0, points = 96 } = {}) {
   };
 }
 
-function makeJointOptimizer({ filtersPerSub = 1, seed = 42, budget = {} } = {}) {
+function makeJointOptimizer({
+  filtersPerSub = 1,
+  seed = 42,
+  budget = {},
+  jointExtras = {},
+} = {}) {
   const sub1 = makeSub('SW1', 'uuid-1');
   const sub2 = makeSub('SW2', 'uuid-2', { delayMs: 2 });
   const optimizer = new MultiSubOptimizer(
@@ -46,6 +51,7 @@ function makeJointOptimizer({ filtersPerSub = 1, seed = 42, budget = {} } = {}) 
           alignmentGenerations: budget.alignmentGenerations ?? 40,
           generations: budget.generations ?? 60,
           patience: budget.patience ?? 50,
+          ...jointExtras,
         },
       },
     },
@@ -199,6 +205,28 @@ describe('optimizeSubwoofersJoint', () => {
     const first = await makeJointOptimizer({ seed: 7 }).optimizeSubwoofersJoint();
     const second = await makeJointOptimizer({ seed: 7 }).optimizeSubwoofersJoint();
     expect(first.bestSum.score).toBeCloseTo(second.bestSum.score, 10);
+  });
+
+  it('is deterministic when seeded via joint config (jointOptimizerBudget path)', async () => {
+    const run = () => {
+      const optimizer = makeJointOptimizer({ jointExtras: { seed: 1234 } });
+      // Le seed doit venir de la CONFIG (chemin du budget e2e), pas du
+      // seeding manuel du harnais : on le neutralise explicitement.
+      optimizer._random = Math.random;
+      return optimizer.optimizeSubwoofersJoint();
+    };
+    const first = await run();
+    const second = await run();
+    expect(first.bestSum.score).toBeCloseTo(second.bestSum.score, 10);
+    expect(first.optimizedSubs.map(s => s.param)).toEqual(
+      second.optimizedSubs.map(s => s.param),
+    );
+  });
+
+  it('rejects a non-integer joint seed', () => {
+    expect(() => makeJointOptimizer({ jointExtras: { seed: 1.5 } })).toThrow(
+      /joint\.seed/,
+    );
   });
 
   it('reports progress for both phases', async () => {

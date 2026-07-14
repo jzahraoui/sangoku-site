@@ -47,6 +47,12 @@ export async function runJointOptimization(optimizer, options = {}) {
   referenceSub.param = EMPTY_CONFIG;
 
   const joint = config.optimization.joint;
+  // Reproductibilité opt-in (joint.seed, entier positif) : toute la
+  // randomness du flux passe par optimizer._random — la seeder ici rend les
+  // trois phases déterministes. Sans seed : Math.random (historique).
+  if (joint.seed !== null && joint.seed !== undefined) {
+    optimizer._random = optimizer._createSeededRandom(joint.seed);
+  }
   const layout = buildGenomeLayout(config, preparedSubs.length);
 
   const baselineParams = preparedSubs.map(() => cloneParam(EMPTY_CONFIG));

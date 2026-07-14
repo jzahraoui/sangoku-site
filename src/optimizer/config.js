@@ -68,6 +68,10 @@ export const DEFAULT_CONFIG = {
       // delay it adds is priced by the temporal guard of the target-match
       // objective. Disabled pending bench adoption.
       allPassPerSub: false,
+      // Reproducibility opt-in: a positive integer seeds the solver's PRNG
+      // (xorshift32) so a run is deterministic — tests, benches, debugging.
+      // null (default) keeps the historical Math.random behaviour.
+      seed: null,
       allPassFrequency: { min: 10, max: 120 },
       allPassQ: { min: 0.2, max: 2 },
       populationSize: 80,
@@ -329,6 +333,9 @@ export function validateOptimizerConfig(config) {
   }
   if (typeof joint.allPassPerSub !== 'boolean') {
     throw new TypeError('optimization joint.allPassPerSub must be a boolean');
+  }
+  if (joint.seed !== null && (!Number.isInteger(joint.seed) || joint.seed <= 0)) {
+    throw new Error('optimization joint.seed must be a positive integer or null');
   }
   validateBounds(joint.allPassFrequency, 'joint allPassFrequency', false);
   validateBounds(joint.allPassQ, 'joint allPassQ', false);
