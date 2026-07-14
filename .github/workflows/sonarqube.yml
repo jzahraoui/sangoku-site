@@ -1,0 +1,25 @@
+name: SonarQube Cloud
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonarqube:
+    name: Analyse SonarQube Cloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Historique complet : indispensable pour un SCM/blame fiable
+          # (attribution des issues, périodes "new code").
+          fetch-depth: 0
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          # Jeton SonarQube Cloud à créer dans les secrets du dépôt GitHub.
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
