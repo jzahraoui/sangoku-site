@@ -134,9 +134,11 @@ export async function runJointOptimization(optimizer, options = {}) {
     });
   }
 
-  const winner = [phase1, phase2, phase3]
-    .filter(Boolean)
-    .reduce((best, candidate) => (candidate.bestCost <= best.bestCost ? candidate : best));
+  const candidates = [phase1, phase2, phase3].filter(Boolean);
+  const winner = candidates.reduce(
+    (best, candidate) => (candidate.bestCost <= best.bestCost ? candidate : best),
+    candidates[0],
+  );
   const bestParams = decodeGenome(layout, winner.best);
 
   for (let subIndex = 0; subIndex < preparedSubs.length; subIndex++) {

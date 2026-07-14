@@ -605,7 +605,6 @@ class MeasurementItem {
       this.rewMeasurements,
       this,
       this.otherPositionMeasurements(),
-      this.sessionContext(),
     );
   }
 

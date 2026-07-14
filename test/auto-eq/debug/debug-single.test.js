@@ -43,7 +43,7 @@ const calculator = new AutoEQCalculator(
 console.log('\n⚙️ Calcul Auto-EQ...\n');
 await calculator.calculate(measuredResponse, targetResponse);
 
-console.log('\n�� Filtres générés:');
+console.log('\nFiltres générés:');
 for (const f of calculator.filterSet.getActiveFilters()) {
   console.log(
     `  ${f.fc.toFixed(0)}Hz  ${f.gain > 0 ? '+' : ''}${f.gain.toFixed(

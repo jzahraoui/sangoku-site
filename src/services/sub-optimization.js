@@ -139,7 +139,7 @@ function buildMeasurementApi({
         overwrite,
       }),
     copyFiltersToOther: m =>
-      operations.copyFiltersToOther(rew(), m, getOtherPositionMeasurements(m), sessionContext),
+      operations.copyFiltersToOther(rew(), m, getOtherPositionMeasurements(m)),
     addIROffsetSeconds: (m, value) => operations.addIROffsetSeconds(rew(), m, value),
     addSPLOffsetDB: (m, value) => operations.addSPLOffsetDB(rew(), m, value),
     copySplOffsetDeltadBToOther: m =>

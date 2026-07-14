@@ -1,6 +1,19 @@
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
+
+const require = createRequire(import.meta.url);
+// Absolute path to the locally-installed vite CLI. We spawn node itself
+// (process.execPath, a fixed trusted path) with this script instead of
+// resolving a command name such as "npx" through PATH — a PATH entry pointing
+// at a writable directory could otherwise shadow the intended executable.
+const VITE_BIN = path.join(
+  path.dirname(require.resolve('vite/package.json')),
+  'bin',
+  'vite.js',
+);
 
 const PREVIEW_HOST = '127.0.0.1';
 const PREVIEW_PORT = 4180; // distinct from the smoke tests (4173)
@@ -13,8 +26,8 @@ const STARTUP_TIMEOUT_MS = 30000;
  */
 function startPreviewServer() {
   const child = spawn(
-    'npx',
-    ['vite', 'preview', '--host', PREVIEW_HOST, '--port', String(PREVIEW_PORT)],
+    process.execPath,
+    [VITE_BIN, 'preview', '--host', PREVIEW_HOST, '--port', String(PREVIEW_PORT)],
     {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, BROWSER: 'none' },

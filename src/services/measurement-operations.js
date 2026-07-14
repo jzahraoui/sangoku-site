@@ -1119,7 +1119,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       await checkFilterGain(rew, m);
 
       if (copyToOther) {
-        await copyFiltersToOther(rew, m, ctx.otherTargets(), ctx.session);
+        await copyFiltersToOther(rew, m, ctx.otherTargets());
       }
     } catch (error) {
       operationError = new Error(`Filter creation failed: ${error.message}`, {
