@@ -47,6 +47,7 @@ const translations = {
       'Align "LFE Predicted" and all individual subwoofer measurements with the selected channel. The speaker must already have a computed filter.',
     select_speaker_channel: 'Select speaker channel',
     find_sub_alignment: 'Find Sub Alignment',
+    find_best_lfe_lpf: 'Find Best LFE Low-Pass',
     create_oca_file: 'Create OCA File',
     measurement: 'Measurement',
     trim_db: 'Trim (dB)',
@@ -183,6 +184,8 @@ const translations = {
       'Test every crossover and select the one with the lowest average absolute required shift for the group',
     find_best_crossover_all_tooltip:
       'Find the best crossover for every speaker group',
+    find_best_lfe_lpf_tooltip:
+      'Test every LFE low-pass frequency of the AVR and select the one giving the most constructive summation between the LFE and the front speakers',
     auto_adjust_inversion_tooltip:
       'Automatically adjust phase inversion for the best response',
     create_oca_tooltip: 'Generate an OCA file for upload to the AVR',
@@ -270,6 +273,7 @@ const translations = {
       "Alignez « LFE Predicted » et toutes les mesures individuelles des caissons avec le canal sélectionné. L'enceinte doit déjà avoir un filtre calculé.",
     select_speaker_channel: "Sélectionnez le canal de l'enceinte",
     find_sub_alignment: "Trouver l'alignement du caisson",
+    find_best_lfe_lpf: 'Trouver le meilleur passe-bas LFE',
     create_oca_file: 'Créer le fichier OCA',
     measurement: 'Mesure',
     trim_db: 'Trim (dB)',
@@ -408,6 +412,8 @@ const translations = {
       'Tester chaque crossover et sélectionner celui qui minimise la moyenne des required shift en valeur absolue du groupe',
     find_best_crossover_all_tooltip:
       'Trouver le meilleur crossover pour chaque groupe d’enceintes',
+    find_best_lfe_lpf_tooltip:
+      'Tester chaque fréquence de passe-bas LFE de l’AVR et sélectionner celle qui donne la somme la plus constructive entre le LFE et les enceintes frontales',
     auto_adjust_inversion_tooltip:
       'Ajuster automatiquement l’inversion de phase pour obtenir la réponse optimale',
     create_oca_tooltip: 'Générer un fichier OCA pour l’AVR',

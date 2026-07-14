@@ -1586,16 +1586,32 @@
                 class="setting-label"
                 >LFE Crossover</label
               >
-              <select
-                id="lfeCrossoverSelect"
-                class="combo-box"
-                data-bind="
-                options: LfeFrequencies, 
-                optionsText: 'text', 
-                optionsValue: 'value', 
-                event: { change: $root.saveMeasurements }, 
-                value: lpfForLFE"
-              ></select>
+              <div class="control-row">
+                <select
+                  id="lfeCrossoverSelect"
+                  class="combo-box"
+                  data-bind="
+                  options: LfeFrequencies,
+                  optionsText: 'text',
+                  optionsValue: 'value',
+                  event: { change: $root.saveMeasurements },
+                  value: lpfForLFE"
+                ></select>
+                <button
+                  class="button action-button"
+                  data-bind="
+                  click: buttonFindBestLfeLowPass,
+                  disable: isProcessing(),
+                  css: { disabled: isProcessing, loading: isProcessing },
+                  attr: { 'data-tooltip': translations().find_best_lfe_lpf_tooltip }"
+                >
+                  <i
+                    data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-magic'"
+                    aria-hidden="true"
+                  ></i>
+                  <span data-i18n="find_best_lfe_lpf">Find Best LFE Low-Pass</span>
+                </button>
+              </div>
 
               <label
                 for="subwooferOutputSelect"

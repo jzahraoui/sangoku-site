@@ -159,6 +159,12 @@ function createAlignmentService({
   crossoverRequiredShiftSweep = async () => {
     throw new Error('crossoverRequiredShiftSweep is not wired');
   },
+  // Balayage de la sommation LFE + enceinte sur les passe-bas LFE candidats
+  // (une enceinte) — pont BusinessTools (lfeLowPassSummationSweep). Injecté par
+  // la couche UI ; le stub échoue à l'appel si non câblé.
+  lfeLowPassSummationSweep = async () => {
+    throw new Error('lfeLowPassSummationSweep is not wired');
+  },
   setTargetLevelFromMeasurement,
   getPredictedLfeMeasurements = () => [],
   operations = null,
@@ -666,6 +672,82 @@ function createAlignmentService({
     return { bestFrequency, table };
   }
 
+  /**
+   * Cherche la fréquence du passe-bas LFE (« LPF for LFE » de l'AVR) qui donne
+   * la sommation la plus constructive entre la voie LFE et les enceintes
+   * frontales LCR. Pour chaque front, balaie les candidats
+   * (lfeLowPassSummationSweep : IR lues une fois, LR24 appliqué
+   * analytiquement) ; le candidat retenu minimise la **moyenne des pertes de
+   * sommation** (dB, bande 20–120 Hz) sur les fronts. La perte de contenu d'un
+   * candidat bas est déjà pénalisée par le critère du sweep (référence non
+   * filtrée) — aucune borne sur les candidats : toutes les valeurs de l'AVR
+   * sont jugées (plan auto-select LPF LFE, décisions 2026-07-14).
+   *
+   * Un candidat dont un membre est non fini est écarté. Si aucun candidat
+   * n'est exploitable, `bestFrequency` vaut `null` (échec — l'appelant logue
+   * et ne touche à rien). Fonction pure : aucune écriture REW, aucune
+   * mutation (le réglage lpfForLFE est appliqué par le handler UI).
+   *
+   * @returns {Promise<{ bestFrequency: number|null, table: Array<{ fc:number,
+   *   perMember: Array<{uuid, id, lossDb, worstLossDb}>, mean:number,
+   *   groupDelayMs:number }> }>}
+   */
+  async function findBestLfeLowPass(frontItems, candidateFrequencies) {
+    if (!frontItems?.length) {
+      throw new Error('No front speaker measurements for the LFE low-pass search');
+    }
+    const frequencies = (candidateFrequencies ?? []).filter(
+      f => Number.isFinite(f) && f > 0,
+    );
+    if (!frequencies.length) {
+      throw new Error('No candidate LFE low-pass frequencies');
+    }
+
+    // Balayage par front (IR predicted lues une seule fois par membre).
+    const perMemberSweeps = [];
+    for (const member of frontItems) {
+      const lfe = relatedLfeFor(member);
+      const subs = relatedSubsFor(member);
+      const sweep = await lfeLowPassSummationSweep(member, lfe, subs, frequencies);
+      const byFreq = new Map(sweep.map(entry => [entry.frequency, entry]));
+      perMemberSweeps.push({ member, byFreq });
+    }
+
+    // Agrégation par candidat : moyenne des pertes de sommation sur les fronts
+    // présents (même logique de groupe que findBestCrossover). Pas de garde-fou
+    // d'inversion ici : rien n'est muté, aucune décision d'inversion n'est prise.
+    const table = frequencies.map(fc => {
+      const perMember = perMemberSweeps.map(({ member, byFreq }) => {
+        const entry = byFreq.get(fc) ?? {};
+        return {
+          uuid: member.uuid,
+          id: labelOf(member),
+          lossDb: Number.isFinite(entry.summationLossDb)
+            ? entry.summationLossDb
+            : Infinity,
+          worstLossDb: entry.worstLossDb,
+        };
+      });
+      const losses = perMember.map(m => m.lossDb);
+      const mean = losses.every(v => Number.isFinite(v))
+        ? losses.reduce((sum, v) => sum + v, 0) / losses.length
+        : Infinity;
+      const groupDelayMs = perMemberSweeps[0].byFreq.get(fc)?.groupDelayMs;
+      return { fc, perMember, mean, groupDelayMs };
+    });
+
+    let bestFrequency = null;
+    let bestMean = Infinity;
+    for (const row of table) {
+      if (Number.isFinite(row.mean) && row.mean < bestMean) {
+        bestMean = row.mean;
+        bestFrequency = row.fc;
+      }
+    }
+
+    return { bestFrequency, table };
+  }
+
   return {
     adjustSubwooferSPLLevels,
     alignArrivals,
@@ -675,6 +757,7 @@ function createAlignmentService({
     checkAlignment,
     findAligment,
     findBestCrossover,
+    findBestLfeLowPass,
     getTargetLevelAtFreq,
     setSameDelayToAll,
   };

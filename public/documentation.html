@@ -1053,6 +1053,22 @@
       creer le fichier OCA. RCH peut l'avoir releve automatiquement pour rester coherent
       avec la coupure de l'enceinte selectionnee.
     </p>
+    <p>
+      Le bouton Find Best LFE Low-Pass, a cote du champ LPF for LFE, choisit cette
+      valeur automatiquement. RCH teste toutes les frequences de passe-bas LFE
+      disponibles pour votre AVR : pour chacune, il simule le filtre (LR24, le meme
+      type que celui du bass management) sur la somme reelle des subs, prend en compte
+      le decalage temporel que ce filtre impose au signal LFE, puis mesure la qualite
+      de l'addition avec le canal complet des enceintes frontales (FL, C, FR) — la
+      partie jouee par l'enceinte au-dessus de son crossover ET son grave redirige
+      vers les subs — sur toute la bande utile du LFE, jusqu'a 120 Hz. La frequence retenue est celle qui donne la somme la
+      plus constructive ; une valeur basse qui couperait du contenu sous 120 Hz est
+      penalisee de la meme maniere qu'une annulation. Le detail par candidat (perte de
+      sommation moyenne, pire creux, decalage pris en compte) est visible dans les
+      logs, ainsi que la comparaison avec la valeur precedente. Les filtres des
+      enceintes et la somme des subs doivent etre prets (memes prerequis que Find Best
+      Crossover) ; aucun autre reglage n'est modifie.
+    </p>
 
     <p>
       La generation du fichier OCA est desormais entierement interne : RCH lit les

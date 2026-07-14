@@ -1002,6 +1002,22 @@
       creating the OCA file. RCH may have raised it automatically to stay consistent with
       the selected speaker crossover.
     </p>
+    <p>
+      The Find Best LFE Low-Pass button, next to the LPF for LFE field, picks this
+      value automatically. RCH tests every LFE low-pass frequency available for your
+      AVR: for each one, it simulates the filter (LR24, the same type as the bass
+      management low-pass) on the real sum of the subwoofers, takes into account the
+      time shift this filter imposes on the LFE signal, then measures how well the
+      result adds up with the complete front channels (FL, C, FR) — the part played
+      by the speaker above its crossover AND its bass redirected to the subwoofers —
+      across the whole useful LFE band, up to 120 Hz. The selected frequency is the one giving the most
+      constructive summation; a low value that would cut content below 120 Hz is
+      penalised exactly like a cancellation. The per-candidate details (mean summation
+      loss, worst dip, time shift taken into account) are visible in the logs, along
+      with the comparison against the previous value. The speaker filters and the sub
+      sum must be ready (same prerequisites as Find Best Crossover); no other setting
+      is modified.
+    </p>
 
     <p>
       OCA file generation is now fully internal: RCH reads the filters present in REW

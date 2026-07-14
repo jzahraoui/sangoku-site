@@ -123,6 +123,28 @@ export function getComplexResponseWithTrig(coeffs, trig) {
 }
 
 /**
+ * Réponse complexe d'une cascade de biquads : produit des réponses de chaque
+ * étage (getComplexResponseFromCoefficients). Les coefficients doivent avoir
+ * été calculés au `sampleRate` fourni.
+ *
+ * @param {Array<{ a0,a1,a2,b0,b1,b2 }>} filters - Cascade (BiquadFilter ou coeffs)
+ * @param {number} freq       - Frequency (Hz)
+ * @param {number} sampleRate - Sample rate (Hz)
+ * @returns {{ re: number, im: number }}
+ */
+export function getCascadeComplexResponse(filters, freq, sampleRate) {
+  let re = 1;
+  let im = 0;
+  for (const filter of filters) {
+    const stage = getComplexResponseFromCoefficients(filter, freq, sampleRate);
+    const nextRe = re * stage.re - im * stage.im;
+    im = re * stage.im + im * stage.re;
+    re = nextRe;
+  }
+  return { re, im };
+}
+
+/**
  * Computes filter phase in degrees.
  *
  * @param {{ p1,p2,p3,p4,p5 }} coeffs - Phase coefficients

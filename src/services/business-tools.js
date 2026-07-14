@@ -28,14 +28,29 @@ import {
   metersToSeconds,
   secondsToMeters,
 } from '../measurement/measurement-calculations.js';
-import { applyBankAndCrossoverToIr } from '../measurement/rew-filter-bank.js';
+import {
+  applyBankAndCrossoverToIr,
+  buildCrossoverCascade,
+} from '../measurement/rew-filter-bank.js';
 import { combineImpulseResponses } from '../dsp/impulseResponse.js';
 import {
   alignImpulseResponses,
   crossoverAlignmentWindowMs,
 } from '../dsp/ir-align.js';
+import { complexSpectrumAt, logSpacedFrequencies } from '../dsp/spectrum.js';
+import { getCascadeComplexResponse } from '../dsp/biquadResponse.js';
 
 const unwrap = value => (typeof value === 'function' ? value() : value);
+
+// Bande d'évaluation de la sommation LFE + fronts : le contenu LFE des pistes
+// de films s'arrête à 120 Hz (borne haute de la bande utile) ; sous 20 Hz le
+// passe-bas candidat n'a plus d'effet discriminant.
+const LFE_EVALUATION_MIN_HZ = 20;
+const LFE_EVALUATION_MAX_HZ = 120;
+const LFE_EVALUATION_POINTS_PER_OCTAVE = 16;
+// Plancher numérique des magnitudes avant passage au log — les IR predicted
+// ne sont jamais nulles sur la bande, le garde ne sert qu'aux cas dégénérés.
+const MAGNITUDE_EPSILON = 1e-12;
 
 
 
@@ -432,10 +447,13 @@ function createBusinessTools({
    * @returns {Promise<Array<{ frequency:number, requiredDelayMs:number,
    *   delayMs:number, withinBounds:boolean, invertB:boolean }>>}
    */
-  async function crossoverRequiredShiftSweep(speaker, lfe, subs, candidateFrequencies) {
-    // Lecture UNE fois des IR predicted brutes (avant raccord).
-    const speakerRaw = await operations.getPredictedImpulseResponseInfo(rew(), speaker);
-    let subSumRaw;
+  /**
+   * IR predicted brute de la voie LFE : « somme vraie » pondérée splOffsetdB
+   * des subs réels quand la liste est fournie (référentiel canonique), sinon
+   * la projection LFE predicted. Partagée par les deux sweeps (crossover et
+   * passe-bas LFE).
+   */
+  async function predictedSubSumIr(lfe, subs) {
     if (subs?.length) {
       const irs = [];
       const weightsDb = [];
@@ -443,13 +461,24 @@ function createBusinessTools({
         irs.push(await operations.getPredictedImpulseResponseInfo(rew(), sub));
         weightsDb.push(unwrap(sub.splOffsetdB) ?? 0);
       }
-      subSumRaw = combineImpulseResponses(irs, weightsDb);
-    } else {
-      if (!lfe) {
-        throw new Error('Cannot find predicted LFE for the crossover sweep');
-      }
-      subSumRaw = await operations.getPredictedImpulseResponseInfo(rew(), lfe);
+      return combineImpulseResponses(irs, weightsDb);
     }
+    if (!lfe) {
+      throw new Error('Cannot find predicted LFE for the sweep');
+    }
+    // Même convention de niveau que la somme vraie : l'export d'IR REW
+    // n'intègre pas le SPL offset, on remet la projection à son niveau
+    // affiché. Sans effet sur l'alignement (xcorr, invariant d'échelle),
+    // nécessaire au critère de sommation du passe-bas LFE.
+    const ir = await operations.getPredictedImpulseResponseInfo(rew(), lfe);
+    const weightDb = unwrap(lfe.splOffsetdB) ?? 0;
+    return weightDb === 0 ? ir : combineImpulseResponses([ir], [weightDb]);
+  }
+
+  async function crossoverRequiredShiftSweep(speaker, lfe, subs, candidateFrequencies) {
+    // Lecture UNE fois des IR predicted brutes (avant raccord).
+    const speakerRaw = await operations.getPredictedImpulseResponseInfo(rew(), speaker);
+    const subSumRaw = await predictedSubSumIr(lfe, subs);
 
     const results = [];
     for (const frequency of candidateFrequencies) {
@@ -492,6 +521,126 @@ function createBusinessTools({
       results.push({ frequency, requiredDelayMs, delayMs, withinBounds, invertB });
     }
     return results;
+  }
+
+  /**
+   * Perte de sommation moyenne (dB) d'un candidat : la voie LFE (spectre des
+   * subs × LR24 candidat) est sommée en complexe avec la voie du canal front
+   * complet, puis comparée point à point à la référence cohérente non filtrée.
+   */
+  function candidateSummationLoss(fc, grid, sampleRate, frontSpec, subSpec, refDb) {
+    const cascade = buildCrossoverCascade(subLowPassSetting(fc), sampleRate);
+    let lossSum = 0;
+    let worstLossDb = 0;
+    for (let i = 0; i < grid.length; i++) {
+      const lp = getCascadeComplexResponse(cascade, grid[i], sampleRate);
+      const lfeRe = subSpec.re[i] * lp.re - subSpec.im[i] * lp.im;
+      const lfeIm = subSpec.re[i] * lp.im + subSpec.im[i] * lp.re;
+      const sumMagnitude = Math.hypot(frontSpec.re[i] + lfeRe, frontSpec.im[i] + lfeIm);
+      const lossDb = refDb[i] - 20 * Math.log10(sumMagnitude + MAGNITUDE_EPSILON);
+      lossSum += lossDb;
+      worstLossDb = Math.max(worstLossDb, lossDb);
+    }
+    return { summationLossDb: lossSum / grid.length, worstLossDb };
+  }
+
+  /**
+   * Balaie les fréquences candidates du passe-bas LFE (« LPF for LFE » de
+   * l'AVR — LR24, même topologie que le LP sub du bass management,
+   * REGLES-METIER §3) et mesure, pour UN canal front, la qualité de la
+   * sommation LFE + canal front COMPLET (enceinte HP + grave redirigé) sur la
+   * bande utile du LFE (20–120 Hz, le contenu des pistes de films s'arrête à
+   * 120 Hz).
+   *
+   * Tout est réalisé en fréquentiel sur la grille d'évaluation : spectres
+   * complexes des IR predicted (référentiel absolu, donc directement
+   * sommables), filtres du bass management (HP BW12 enceinte + LR24 du grave
+   * redirigé au crossover du groupe ; 0 = Large : réponse complète seule) et
+   * LR24 candidat appliqués analytiquement (réponse exacte des mêmes biquads
+   * que le chemin IR). Les IR sont lues UNE fois ; aucune écriture REW,
+   * aucune mutation.
+   *
+   * Critère par candidat : perte de sommation moyenne (dB) sur la grille,
+   * référence = |canal front| + |LFE non filtré| (sommation parfaitement
+   * cohérente ET contenu intégralement préservé). Un candidat bas paie sa
+   * perte de contenu sous 120 Hz exactement comme une annulation — le
+   * compromis contenu/addition du plan tient dans un seul critère.
+   * `groupDelayMs` est le retard de groupe du LR24 dans sa bande passante
+   * (2 × √2/ω0), le « décalage pris en compte » — purement informatif.
+   *
+   * @returns {Promise<Array<{ frequency:number, summationLossDb:number,
+   *   worstLossDb:number, groupDelayMs:number }>>}
+   */
+  async function lfeLowPassSummationSweep(speaker, lfe, subs, candidateFrequencies) {
+    const frequencies = (candidateFrequencies ?? []).filter(
+      f => Number.isFinite(f) && f > 0,
+    );
+    if (!frequencies.length) {
+      throw new Error('No candidate LFE low-pass frequencies');
+    }
+
+    // Lecture UNE fois des IR predicted brutes.
+    const speakerRaw = await operations.getPredictedImpulseResponseInfo(rew(), speaker);
+    const subSumRaw = await predictedSubSumIr(lfe, subs);
+    if (speakerRaw.sampleRate !== subSumRaw.sampleRate) {
+      throw new Error(
+        `Sample rates differ: ${speakerRaw.sampleRate} vs ${subSumRaw.sampleRate}`,
+      );
+    }
+    const sampleRate = speakerRaw.sampleRate;
+
+    const grid = logSpacedFrequencies(
+      LFE_EVALUATION_MIN_HZ,
+      LFE_EVALUATION_MAX_HZ,
+      LFE_EVALUATION_POINTS_PER_OCTAVE,
+    );
+
+    // Voie du canal front COMPLET — ce que le canal fait réellement entendre
+    // en bass management (décision 2026-07-15, simulation REW à l'appui) :
+    // enceinte predicted (égalisée) × HP BW12 au crossover du groupe + grave
+    // redirigé (somme des subs × LR24 au MÊME crossover). Une enceinte Large
+    // (crossover 0) joue sa réponse complète, sans redirection. Dans le grave
+    // profond, le grave redirigé sort des mêmes subs que le LFE : un candidat
+    // égal au crossover y est en phase à l'identique — l'intuition
+    // « le passe-bas confirme le crossover » est ainsi portée par le modèle,
+    // et arbitrée contre la préservation du contenu.
+    // L'export d'IR REW n'intégrant pas le SPL offset, l'enceinte est remise
+    // à son niveau affiché (même convention que la somme vraie des subs) :
+    // c'est cet équilibre front/LFE qui donne son sens au critère.
+    const frontSpec = complexSpectrumAt(speakerRaw, grid);
+    const subSpec = complexSpectrumAt(subSumRaw, grid);
+    const speakerGain = 10 ** ((unwrap(speaker.splOffsetdB) ?? 0) / 20);
+    const crossover = crossoverForSpeaker(speaker) ?? 0;
+    const hpCascade = crossover
+      ? buildCrossoverCascade(speakerHighPassSetting(crossover), sampleRate)
+      : [];
+    const redirectCascade = crossover
+      ? buildCrossoverCascade(subLowPassSetting(crossover), sampleRate)
+      : null;
+    for (let i = 0; i < grid.length; i++) {
+      const hp = getCascadeComplexResponse(hpCascade, grid[i], sampleRate);
+      let re = speakerGain * (frontSpec.re[i] * hp.re - frontSpec.im[i] * hp.im);
+      let im = speakerGain * (frontSpec.re[i] * hp.im + frontSpec.im[i] * hp.re);
+      if (redirectCascade) {
+        const lp = getCascadeComplexResponse(redirectCascade, grid[i], sampleRate);
+        re += subSpec.re[i] * lp.re - subSpec.im[i] * lp.im;
+        im += subSpec.re[i] * lp.im + subSpec.im[i] * lp.re;
+      }
+      frontSpec.re[i] = re;
+      frontSpec.im[i] = im;
+    }
+
+    const refDb = grid.map((_, i) => {
+      const frontMagnitude = Math.hypot(frontSpec.re[i], frontSpec.im[i]);
+      const subMagnitude = Math.hypot(subSpec.re[i], subSpec.im[i]);
+      return 20 * Math.log10(frontMagnitude + subMagnitude + MAGNITUDE_EPSILON);
+    });
+
+    return frequencies.map(frequency => ({
+      frequency,
+      ...candidateSummationLoss(frequency, grid, sampleRate, frontSpec, subSpec, refDb),
+      groupDelayMs: (1000 * Math.SQRT2) / (Math.PI * frequency),
+    }));
   }
 
   /**
@@ -660,6 +809,7 @@ function createBusinessTools({
     applyCutOffFilter,
     crossoverFilteredIrPair,
     crossoverRequiredShiftSweep,
+    lfeLowPassSummationSweep,
     produceAligned,
     createMeasurementPreview,
   };

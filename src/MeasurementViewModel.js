@@ -80,6 +80,25 @@ function logCrossoverAuditTable(table) {
   }
 }
 
+// Table perte-de-sommation par candidat / front (interface d'audit du
+// « find best LFE low-pass »).
+function logLfeLowPassAuditTable(table) {
+  for (const row of table) {
+    const detail = row.perMember
+      .map(
+        m =>
+          `${m.id}: ${Number.isFinite(m.lossDb) ? m.lossDb.toFixed(2) : '∞'}dB` +
+          (Number.isFinite(m.worstLossDb) ? ` (worst ${m.worstLossDb.toFixed(2)}dB)` : ''),
+      )
+      .join(', ');
+    const meanText = Number.isFinite(row.mean) ? row.mean.toFixed(2) : '∞';
+    const delayText = Number.isFinite(row.groupDelayMs)
+      ? `, delay ${row.groupDelayMs.toFixed(2)}ms`
+      : '';
+    lm.info(`  LPF ${row.fc}Hz → mean summation loss ${meanText}dB${delayText} (${detail})`);
+  }
+}
+
 // Valeurs par défaut de la config AutoEQ (UI). Source unique utilisée pour
 // initialiser les observables au démarrage et pour resetAutoEqConfig().
 const DEFAULT_AUTOEQ_CONFIG = {
@@ -868,6 +887,91 @@ class MeasurementViewModel {
       }
     };
 
+    // Recherche automatique du « LPF for LFE » : juge TOUTES les valeurs de
+    // passe-bas LFE de l'AVR (LR24 simulé en interne) sur la qualité de la
+    // sommation LFE + fronts LCR (bande utile ≤ 120 Hz) et applique la
+    // meilleure au réglage lpfForLFE — remplace la valeur heuristique posée
+    // par Find Sub Alignment (max(120, crossover)), qui n'est exacte que
+    // lorsque le passe-bas retenu égale le crossover de l'enceinte de
+    // référence. Ne modifie AUCUN autre réglage (ni délai des subs, ni
+    // inversions) ; le décalage du LR24 candidat est purement informatif.
+    this.buttonFindBestLfeLowPass = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+
+        const fronts = this.uniqueSpeakersMeasurements().filter(item =>
+          ['FL', 'C', 'FR'].includes(item.channelName()),
+        );
+        if (!fronts.length) {
+          throw new Error('No front speaker (FL/C/FR) found');
+        }
+
+        // Précondition : filtres générés + somme des subs / LFE disponible
+        // (mêmes exigences que le find best crossover).
+        for (const member of fronts) {
+          const filters = await member.getFilters();
+          const hasFilters =
+            Array.isArray(filters) && filters.some(f => f?.type && f.type !== 'None');
+          const subs =
+            this.byPositionsGroupedSubsMeasurements()[member.position()] ?? [];
+          const hasSubSum = subs.length > 0 || Boolean(member.relatedLfeMeasurement());
+          if (!hasFilters || !hasSubSum) {
+            throw new Error(
+              `Please generate the filters and the sub sum before finding the ` +
+                `best LFE low-pass (${member.displayMeasurementTitle()})`,
+            );
+          }
+        }
+
+        const candidates = this.LfeFrequencies()
+          .map(choice => choice.value)
+          .filter(value => value > 0);
+
+        lm.info('Searching best LFE low-pass (LPF for LFE)...');
+        const { bestFrequency, table } = await this.alignmentService.findBestLfeLowPass(
+          fronts,
+          candidates,
+        );
+
+        logLfeLowPassAuditTable(table);
+
+        if (bestFrequency === null) {
+          lm.warn(
+            'Find best LFE low-pass: no usable candidate (summation loss ' +
+              'infinite) — check the filtering / the sub sum',
+          );
+          return;
+        }
+
+        const previous = this.lpfForLFE();
+        const bestRow = table.find(row => row.fc === bestFrequency);
+        this.lpfForLFE(bestFrequency);
+        lm.info(
+          `Setting LFE low pass filter to ${bestFrequency} Hz: most constructive ` +
+            `summation with the front speakers over the LFE band (mean loss ` +
+            `${bestRow.mean.toFixed(2)}dB, LR24 group delay ` +
+            `${bestRow.groupDelayMs.toFixed(2)}ms taken into account).`,
+        );
+        const previousRow = table.find(row => row.fc === previous);
+        if (bestFrequency === previous) {
+          lm.info(`The current LPF value ${previous} Hz is confirmed (no change).`);
+        } else if (previousRow && Number.isFinite(previousRow.mean)) {
+          lm.info(
+            `Previous LPF value ${previous} Hz had a mean summation loss of ` +
+              `${previousRow.mean.toFixed(2)}dB → ` +
+              `${(previousRow.mean - bestRow.mean).toFixed(2)}dB improvement.`,
+          );
+        }
+
+        this.handleSuccess(`LFE low-pass set to ${bestFrequency}Hz`);
+      } catch (error) {
+        this.handleError(`Find best LFE low-pass failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
     this.buttonAutoAdjustInversion = async () => {
       if (this.isProcessing()) return;
       try {
@@ -1532,6 +1636,8 @@ class MeasurementViewModel {
         this.businessTools.crossoverFilteredIrPair(lfe, speaker, frequency, subs),
       crossoverRequiredShiftSweep: (speaker, lfe, subs, frequencies) =>
         this.businessTools.crossoverRequiredShiftSweep(speaker, lfe, subs, frequencies),
+      lfeLowPassSummationSweep: (speaker, lfe, subs, frequencies) =>
+        this.businessTools.lfeLowPassSummationSweep(speaker, lfe, subs, frequencies),
       setTargetLevelFromMeasurement: measurement =>
         this.setTargetLevelFromMeasurement(measurement),
       getPredictedLfeMeasurements: () => this.allPredictedLfeMeasurement(),

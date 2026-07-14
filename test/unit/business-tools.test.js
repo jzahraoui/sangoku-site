@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createBusinessTools } from '../../src/services/business-tools.js';
 
+// IR de Dirac partagée par les tests des deux sweeps (crossover et passe-bas LFE).
+const SWEEP_SR = 48000;
+const makeDeltaIr = (peakSample = 200) => {
+  const data = new Float64Array(4096);
+  data[peakSample] = 1;
+  return { data, sampleRate: SWEEP_SR, startTime: 0 };
+};
+
 describe('createBusinessTools.createsSum', () => {
   function harness() {
     let uuidCounter = 0;
@@ -65,19 +73,12 @@ describe('createBusinessTools.createsSum', () => {
 });
 
 describe('createBusinessTools.crossoverRequiredShiftSweep', () => {
-  const SR = 48000;
-  const makeIr = (peakSample = 200) => {
-    const data = new Float64Array(4096);
-    data[peakSample] = 1;
-    return { data, sampleRate: SR, startTime: 0 };
-  };
-
   function harness() {
     const operations = {
       getPredictedImpulseResponseInfo: vi
         .fn()
         .mockImplementation(async (_rew, m) =>
-          makeIr(m.uuid === 'sub' ? 260 : 200),
+          makeDeltaIr(m.uuid === 'sub' ? 260 : 200),
         ),
     };
     const session = { rewMeasurements: { id: 'rew' } };
@@ -124,6 +125,158 @@ describe('createBusinessTools.crossoverRequiredShiftSweep', () => {
     await expect(
       tools.crossoverRequiredShiftSweep({ uuid: 'FL', title: 'FL' }, null, [], [80]),
     ).rejects.toThrow('Cannot find predicted LFE');
+  });
+});
+
+describe('createBusinessTools.lfeLowPassSummationSweep', () => {
+  function harness() {
+    const operations = {
+      getPredictedImpulseResponseInfo: vi
+        .fn()
+        .mockImplementation(async () => makeDeltaIr(200)),
+    };
+    const session = { rewMeasurements: { id: 'rew' } };
+    const tools = createBusinessTools({ operations, session });
+    return { operations, tools };
+  }
+
+  it('lit chaque IR une fois et renvoie un résultat fini par candidat', async () => {
+    const { operations, tools } = harness();
+    const speaker = { uuid: 'FL', title: 'FL', crossover: () => 0 };
+    const subs = [{ uuid: 'sub', title: 'SW', splOffsetdB: 0 }];
+
+    const results = await tools.lfeLowPassSummationSweep(
+      speaker,
+      null,
+      subs,
+      [80, 120, 250],
+    );
+
+    // 1 lecture pour l'enceinte + 1 pour le sub — PAS une lecture par candidat.
+    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(2);
+    expect(results.map(r => r.frequency)).toEqual([80, 120, 250]);
+    for (const r of results) {
+      expect(Number.isFinite(r.summationLossDb)).toBe(true);
+      expect(r.summationLossDb).toBeGreaterThanOrEqual(0);
+      // Le pire creux borne la moyenne par construction.
+      expect(r.worstLossDb).toBeGreaterThanOrEqual(r.summationLossDb);
+      // Retard de groupe passe-bande du LR24 : √2/(π·fc).
+      expect(r.groupDelayMs).toBeCloseTo((1000 * Math.SQRT2) / (Math.PI * r.frequency), 9);
+    }
+  });
+
+  it('IR coïncidentes (enceinte Large) : la perte diminue quand fc monte', async () => {
+    // Enceinte et sub parfaitement alignés : seul le déphasage du LR24 candidat
+    // dégrade la somme → un passe-bas plus haut (moins de retard de groupe dans
+    // la bande ≤120 Hz) doit toujours gagner.
+    const { tools } = harness();
+    const speaker = { uuid: 'FL', title: 'FL', crossover: () => 0 };
+    const subs = [{ uuid: 'sub', title: 'SW', splOffsetdB: 0 }];
+
+    const results = await tools.lfeLowPassSummationSweep(
+      speaker,
+      null,
+      subs,
+      [80, 120, 250],
+    );
+
+    const byFreq = new Map(results.map(r => [r.frequency, r.summationLossDb]));
+    expect(byFreq.get(80)).toBeGreaterThan(byFreq.get(120));
+    expect(byFreq.get(120)).toBeGreaterThan(byFreq.get(250));
+    expect(byFreq.get(250)).toBeGreaterThan(0);
+  });
+
+  it('applique le HP BW12 de l’enceinte : résultat différent du cas Large', async () => {
+    const { tools } = harness();
+    const subs = [{ uuid: 'sub', title: 'SW', splOffsetdB: 0 }];
+    const large = { uuid: 'FL', title: 'FL', crossover: () => 0 };
+    const small = { uuid: 'FL', title: 'FL', crossover: () => 80 };
+
+    const [withLarge] = await tools.lfeLowPassSummationSweep(large, null, subs, [120]);
+    const [withHp] = await tools.lfeLowPassSummationSweep(small, null, subs, [120]);
+
+    expect(withHp.summationLossDb).not.toBeCloseTo(withLarge.summationLossDb, 6);
+  });
+
+  it('remet chaque voie à son niveau affiché (splOffsetdB) — l’équilibre pilote le critère', async () => {
+    // Les exports d'IR REW n'intègrent pas le SPL offset : sans repondération
+    // de l'enceinte, son poids face aux subs serait arbitraire et le critère
+    // dégénérerait en atténuation du LR24 seul (observé grandeur nature).
+    const { tools } = harness();
+    const subs = [{ uuid: 'sub', title: 'SW', splOffsetdB: 0 }];
+    const loud = { uuid: 'FL', title: 'FL', crossover: () => 0, splOffsetdB: 80 };
+    const quiet = { uuid: 'FL', title: 'FL', crossover: () => 0, splOffsetdB: -80 };
+
+    const [loud80] = await tools.lfeLowPassSummationSweep(loud, null, subs, [80]);
+    const [quiet80] = await tools.lfeLowPassSummationSweep(quiet, null, subs, [80]);
+
+    // Enceinte dominante : le passe-bas candidat ne pèse presque plus rien.
+    expect(loud80.summationLossDb).toBeLessThan(0.02);
+    // Enceinte écrasée : la perte tend vers l'atténuation moyenne du LR24 seul.
+    expect(quiet80.summationLossDb).toBeGreaterThan(1);
+  });
+
+  it('inclut le grave redirigé du canal front : parité analytique à candidat = crossover', async () => {
+    // Enceinte muette (−300 dB) et crossover 80 : la voie front se réduit au
+    // grave redirigé subs×LR24(80). Au candidat fc = 80, le LFE traverse le
+    // MÊME filtre → phase identique, somme = 2·L·H. Avec |L| = 1 (Dirac), la
+    // perte vaut exactement 20·log10((|H|+1)/(2·|H|)) en chaque point —
+    // vérification analytique du modèle « chemin bass management complet ».
+    const { tools } = harness();
+    const speaker = { uuid: 'FL', title: 'FL', crossover: () => 80, splOffsetdB: -300 };
+    const subs = [{ uuid: 'sub', title: 'SW', splOffsetdB: 0 }];
+
+    const [result] = await tools.lfeLowPassSummationSweep(speaker, null, subs, [80]);
+
+    const { logSpacedFrequencies } = await import('../../src/dsp/spectrum.js');
+    const { getCascadeComplexResponse } = await import('../../src/dsp/biquadResponse.js');
+    const { buildCrossoverCascade } = await import(
+      '../../src/measurement/rew-filter-bank.js'
+    );
+    const grid = logSpacedFrequencies(20, 120, 16);
+    const cascade = buildCrossoverCascade(
+      { type: 'Low pass', frequency: 80, shape: 'L-R', slopedBPerOctave: 24 },
+      SWEEP_SR,
+    );
+    let expected = 0;
+    for (const freq of grid) {
+      const h = getCascadeComplexResponse(cascade, freq, SWEEP_SR);
+      const magnitude = Math.hypot(h.re, h.im);
+      expected += 20 * Math.log10((magnitude + 1) / (2 * magnitude));
+    }
+    expected /= grid.length;
+
+    expect(result.summationLossDb).toBeCloseTo(expected, 6);
+  });
+
+  it('pondère aussi la projection LFE de repli par son splOffsetdB', async () => {
+    const { tools } = harness();
+    const speaker = { uuid: 'FL', title: 'FL', crossover: () => 0, splOffsetdB: 0 };
+    const lfeQuiet = { uuid: 'lfe', title: 'LFE', splOffsetdB: -80 };
+
+    const [result] = await tools.lfeLowPassSummationSweep(speaker, lfeQuiet, [], [80]);
+
+    // LFE écrasé de 80 dB → l'enceinte domine, la perte devient négligeable.
+    // Sans la pondération du repli, le LFE resterait au niveau natif (~ celui
+    // de l'enceinte) et la perte serait celle d'un mélange 50/50.
+    expect(result.summationLossDb).toBeLessThan(0.02);
+  });
+
+  it('utilise le LFE prédictif en repli et garde les entrées', async () => {
+    const { operations, tools } = harness();
+    const speaker = { uuid: 'FL', title: 'FL', crossover: () => 0 };
+    const lfe = { uuid: 'lfe', title: 'LFE' };
+
+    const results = await tools.lfeLowPassSummationSweep(speaker, lfe, [], [120]);
+    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(2);
+    expect(results).toHaveLength(1);
+
+    await expect(
+      tools.lfeLowPassSummationSweep(speaker, null, [], [120]),
+    ).rejects.toThrow('Cannot find predicted LFE');
+    await expect(tools.lfeLowPassSummationSweep(speaker, lfe, [], [])).rejects.toThrow(
+      'No candidate LFE low-pass frequencies',
+    );
   });
 });
 

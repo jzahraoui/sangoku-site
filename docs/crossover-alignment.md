@@ -157,7 +157,10 @@ le rappelle, sans recalcul automatique (perception utilisateur, regles-metier §
 - **Hors périmètre** : le shaping « cible × BU12(fc) » (remède d'amplitude du
   raccord, regles-metier §3) n'entre pas ici — il corrige l'amplitude, pas le
   temps, et ne changerait pas l'argmin. `LPF for LFE` n'est pas touché par cette
-  fonction (c'est Find Sub Alignment qui le règle).
+  fonction : Find Sub Alignment pose une valeur heuristique
+  (`max(120, crossover)`), et le bouton dédié « Find Best LFE Low-Pass » la
+  remplace par une recherche mesurée
+  ([`docs/lfe-lowpass-selection.md`](lfe-lowpass-selection.md)).
 
 ---
 

@@ -122,6 +122,10 @@ class BusinessTools {
     return this.tools.crossoverRequiredShiftSweep(speaker, lfe, subs, candidateFrequencies);
   }
 
+  async lfeLowPassSummationSweep(speaker, lfe, subs, candidateFrequencies) {
+    return this.tools.lfeLowPassSummationSweep(speaker, lfe, subs, candidateFrequencies);
+  }
+
   async createMeasurementPreview(item) {
     return this.tools.createMeasurementPreview(item);
   }

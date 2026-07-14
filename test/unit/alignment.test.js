@@ -275,6 +275,90 @@ describe('findBestCrossover (choix du crossover par groupe)', () => {
   });
 });
 
+describe('findBestLfeLowPass (choix du passe-bas LFE)', () => {
+  const makeMember = uuid => ({ uuid, title: uuid });
+
+  const makeService = sweepByMember =>
+    createAlignmentService({
+      session: { rewMeasurements: {} },
+      crossoverFilteredIrPair: vi.fn(),
+      setTargetLevelFromMeasurement: vi.fn(),
+      relatedLfeFor: () => ({ uuid: 'lfe' }),
+      relatedSubsFor: () => [{ uuid: 'sub', splOffsetdB: 0 }],
+      lfeLowPassSummationSweep: vi.fn(member =>
+        Promise.resolve(sweepByMember[member.uuid]),
+      ),
+    });
+
+  const entry = (frequency, summationLossDb, worstLossDb = summationLossDb) => ({
+    frequency,
+    summationLossDb,
+    worstLossDb,
+    groupDelayMs: (1000 * Math.SQRT2) / (Math.PI * frequency),
+  });
+
+  it('retient le candidat à la plus faible perte de sommation moyenne', async () => {
+    // Moyennes : 120→(1.2+0.8)/2=1.0, 150→(0.5+0.7)/2=0.6, 250→(0.9+0.9)/2=0.9
+    // → 150 gagne (somme la plus constructive sur les fronts).
+    const service = makeService({
+      FL: [entry(120, 1.2), entry(150, 0.5), entry(250, 0.9)],
+      FR: [entry(120, 0.8), entry(150, 0.7), entry(250, 0.9)],
+    });
+
+    const { bestFrequency, table } = await service.findBestLfeLowPass(
+      [makeMember('FL'), makeMember('FR')],
+      [120, 150, 250],
+    );
+
+    expect(bestFrequency).toBe(150);
+    expect(table.find(r => r.fc === 150).mean).toBeCloseTo(0.6, 6);
+    expect(table.find(r => r.fc === 120).mean).toBeCloseTo(1.0, 6);
+    // Le décalage informatif du candidat est remonté dans la table.
+    expect(table.find(r => r.fc === 150).groupDelayMs).toBeCloseTo(3.0, 1);
+  });
+
+  it('écarte un candidat dont un membre est non fini', async () => {
+    const service = makeService({
+      FL: [entry(120, 0.1), entry(250, 0.5)],
+      FR: [entry(120, Infinity), entry(250, 0.6)],
+    });
+
+    const { bestFrequency, table } = await service.findBestLfeLowPass(
+      [makeMember('FL'), makeMember('FR')],
+      [120, 250],
+    );
+
+    // 120 écarté (FR non fini) malgré la meilleure perte de FL → 250.
+    expect(table.find(r => r.fc === 120).mean).toBe(Infinity);
+    expect(bestFrequency).toBe(250);
+  });
+
+  it('renvoie bestFrequency null quand tous les candidats sont non finis', async () => {
+    const service = makeService({
+      FL: [entry(120, NaN), entry(250, Infinity)],
+      FR: [entry(120, Infinity), entry(250, NaN)],
+    });
+
+    const { bestFrequency } = await service.findBestLfeLowPass(
+      [makeMember('FL'), makeMember('FR')],
+      [120, 250],
+    );
+
+    expect(bestFrequency).toBeNull();
+  });
+
+  it('lève sans front ou sans candidat exploitable', async () => {
+    const service = makeService({ FL: [entry(120, 0.1)] });
+
+    await expect(service.findBestLfeLowPass([], [120])).rejects.toThrow(
+      'No front speaker measurements',
+    );
+    await expect(
+      service.findBestLfeLowPass([makeMember('FL')], [0, -3, NaN]),
+    ).rejects.toThrow('No candidate LFE low-pass frequencies');
+  });
+});
+
 describe('findAligment (aligneur interne, parité Align IRs)', () => {
   const SR = 48000;
   const alignBurst = (startSample, { invert = false } = {}) => {
