@@ -229,6 +229,19 @@ export function cloneParam(param = {}) {
   return normalizeParam(param);
 }
 
+function validateTargetCurve(objective, targetCurve) {
+  if (objective !== 'target-match') return;
+  if (
+    !targetCurve?.freqs?.length ||
+    !targetCurve?.magnitude?.length ||
+    targetCurve.freqs.length !== targetCurve.magnitude.length
+  ) {
+    throw new Error(
+      'target-match objective requires optimization.targetCurve with matching freqs and magnitude arrays',
+    );
+  }
+}
+
 export function validateOptimizerConfig(config) {
   const validateBounds = (range, name, requireStep = true) => {
     if (!Number.isFinite(range.min) || !Number.isFinite(range.max)) {
@@ -253,17 +266,7 @@ export function validateOptimizerConfig(config) {
   if (!['balanced', 'max-theoretical', 'pre-eq', 'target-match'].includes(objective)) {
     throw new Error('Invalid optimization objective');
   }
-  if (objective === 'target-match') {
-    if (
-      !targetCurve?.freqs?.length ||
-      !targetCurve?.magnitude?.length ||
-      targetCurve.freqs.length !== targetCurve.magnitude.length
-    ) {
-      throw new Error(
-        'target-match objective requires optimization.targetCurve with matching freqs and magnitude arrays',
-      );
-    }
-  }
+  validateTargetCurve(objective, targetCurve);
   if (
     !Number.isFinite(theoreticalWeight) ||
     theoreticalWeight < 0 ||

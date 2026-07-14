@@ -74,6 +74,19 @@ function findPredictedLfeForPosition(items, position) {
  * `snapshots` are plain objects {title, alignOffset, quantizedSpl, inverted}.
  * Throws with the exact messages historically produced by the viewmodel.
  */
+/** Clé la plus fréquente d'une Map de comptages (fallback si vide). */
+function mostCommonKey(counts, fallback) {
+  let best = fallback;
+  let bestCount = -1;
+  for (const [value, count] of counts) {
+    if (count > bestCount) {
+      bestCount = count;
+      best = value;
+    }
+  }
+  return best;
+}
+
 function assertAveragingConsistency(snapshots, tolerance = ALIGN_OFFSET_TOLERANCE) {
   if (snapshots.length < 2) {
     throw new Error('Need at least 2 valid positions to calculate average');
@@ -120,14 +133,7 @@ function assertAveragingConsistency(snapshots, tolerance = ALIGN_OFFSET_TOLERANC
   }
 
   if (quantizedCounts.size > 1) {
-    let mostCommonOffset = referenceQuantized;
-    let bestCount = -1;
-    for (const [value, count] of quantizedCounts) {
-      if (count > bestCount) {
-        bestCount = count;
-        mostCommonOffset = value;
-      }
-    }
+    const mostCommonOffset = mostCommonKey(quantizedCounts, referenceQuantized);
     throw new Error(
       `Some measurements have inconsistent SPL offsets: ${inconsistentQuantizedTitles.join(
         ', ',

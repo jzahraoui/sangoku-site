@@ -98,6 +98,53 @@ function applyTargetOffset(target, offsetDb) {
  * @returns {{freqs: Float64Array, offset: Float64Array} | null}
  *   Profil sur la grille de la courbe de travail, null si entrées invalides.
  */
+/**
+ * Moyennes de `pointwise` par bande log2 (centres en log2(√(lo·hi))) sur la
+ * grille `freqs` — étape 2 de computeReferenceProfile.
+ * @returns {{ centers: number[], means: number[] }}
+ */
+function bandMeans(freqs, pointwise, { fmin, bandCount, bandsPerOctave }) {
+  const n = freqs.length;
+  const centers = [];
+  const means = [];
+  for (let band = 0; band < bandCount; band++) {
+    const lo = fmin * Math.pow(2, band / bandsPerOctave);
+    const hi = fmin * Math.pow(2, (band + 1) / bandsPerOctave);
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < n; i++) {
+      const freq = freqs[i];
+      if (freq >= lo && (freq < hi || band === bandCount - 1)) {
+        sum += pointwise[i];
+        count++;
+      }
+    }
+    if (count > 0) {
+      centers.push(Math.log2(Math.sqrt(lo * hi)));
+      means.push(sum / count);
+    }
+  }
+  return { centers, means };
+}
+
+/**
+ * Interpolation linéaire du profil par bande en x = log2(f) — étape 3 de
+ * computeReferenceProfile (plateaux aux extrémités).
+ */
+function interpolateBandProfile(centers, means, x) {
+  const lastCenter = centers.length - 1;
+  if (x <= centers[0]) {
+    return means[0];
+  }
+  if (x >= centers[lastCenter]) {
+    return means[lastCenter];
+  }
+  let j = 0;
+  while (centers[j + 1] < x) j++;
+  const t = (x - centers[j]) / (centers[j + 1] - centers[j]);
+  return means[j] + t * (means[j + 1] - means[j]);
+}
+
 function computeReferenceProfile(reference, working, { bandsPerOctave = 1 } = {}) {
   if (
     !reference?.freqs?.length ||
@@ -129,43 +176,18 @@ function computeReferenceProfile(reference, working, { bandsPerOctave = 1 } = {}
   const fmin = working.freqs[0];
   const fmax = working.freqs[n - 1];
   const bandCount = Math.max(1, Math.ceil(Math.log2(fmax / fmin) * bandsPerOctave));
-  const centers = [];
-  const means = [];
-  for (let band = 0; band < bandCount; band++) {
-    const lo = fmin * Math.pow(2, band / bandsPerOctave);
-    const hi = fmin * Math.pow(2, (band + 1) / bandsPerOctave);
-    let sum = 0;
-    let count = 0;
-    for (let i = 0; i < n; i++) {
-      const freq = working.freqs[i];
-      if (freq >= lo && (freq < hi || band === bandCount - 1)) {
-        sum += pointwise[i];
-        count++;
-      }
-    }
-    if (count > 0) {
-      centers.push(Math.log2(Math.sqrt(lo * hi)));
-      means.push(sum / count);
-    }
-  }
+  const { centers, means } = bandMeans(working.freqs, pointwise, {
+    fmin,
+    bandCount,
+    bandsPerOctave,
+  });
   if (centers.length === 0) {
     return null;
   }
 
   const offset = new Float64Array(n);
-  const lastCenter = centers.length - 1;
   for (let i = 0; i < n; i++) {
-    const x = Math.log2(working.freqs[i]);
-    if (x <= centers[0]) {
-      offset[i] = means[0];
-    } else if (x >= centers[lastCenter]) {
-      offset[i] = means[lastCenter];
-    } else {
-      let j = 0;
-      while (centers[j + 1] < x) j++;
-      const t = (x - centers[j]) / (centers[j + 1] - centers[j]);
-      offset[i] = means[j] + t * (means[j + 1] - means[j]);
-    }
+    offset[i] = interpolateBandProfile(centers, means, Math.log2(working.freqs[i]));
   }
 
   return { freqs: Float64Array.from(working.freqs), offset };

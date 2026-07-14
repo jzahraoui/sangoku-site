@@ -1,3 +1,38 @@
+// Utilitaires purs de validateExpectedProcess (aucune capture d'état).
+const generateErrorMessage = (expected, received) => {
+  return `The API response does not concern the requested task. expected: "${expected}" received: "${received}"`;
+};
+
+const caseInsensitiveIncludes = (str, search) => {
+  if (typeof str !== 'string' || typeof search !== 'string') {
+    return false;
+  }
+  return str.toLowerCase().includes(search.toLowerCase());
+};
+
+const stringify = value => {
+  if (typeof value === 'string') return value;
+  if (value === undefined) return '';
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+};
+
+// Vue « tout ce que la réponse contient » pour la recherche insensible à la
+// casse (nom de process + message + payload sérialisé).
+const receivedSummary = data =>
+  typeof data === 'string'
+    ? data
+    : [data?.processName, data?.message, stringify(data)].filter(Boolean).join(' ');
+
+const getReceivedField = (data, fieldName) => {
+  if (typeof data === 'string') return data;
+  if (!data || typeof data !== 'object') return stringify(data);
+  return stringify(data[fieldName]);
+};
+
 const processMethods = {
   async restoreImportBlockingIfNeeded() {
     if (this.importBlockingBypassCount === 0 && this.importBlockingRestorePending) {
@@ -146,40 +181,8 @@ const processMethods = {
     if (!expectedProcess) return;
     if (!data) throw new Error('API response is empty');
 
-    const isExpectedString = typeof expectedProcess === 'string';
-
-    const generateErrorMessage = (expected, received) => {
-      return `The API response does not concern the requested task. expected: "${expected}" received: "${received}"`;
-    };
-
-    const caseInsensitiveIncludes = (str, search) => {
-      if (typeof str !== 'string' || typeof search !== 'string') {
-        return false;
-      }
-      return str.toLowerCase().includes(search.toLowerCase());
-    };
-
-    const stringify = value => {
-      if (typeof value === 'string') return value;
-      if (value === undefined) return '';
-      try {
-        return JSON.stringify(value);
-      } catch {
-        return String(value);
-      }
-    };
-
-    const getReceivedField = fieldName => {
-      if (typeof data === 'string') return data;
-      if (!data || typeof data !== 'object') return stringify(data);
-      return stringify(data[fieldName]);
-    };
-
-    if (isExpectedString) {
-      const received =
-        typeof data === 'string'
-          ? data
-          : [data?.processName, data?.message, stringify(data)].filter(Boolean).join(' ');
+    if (typeof expectedProcess === 'string') {
+      const received = receivedSummary(data);
       if (!caseInsensitiveIncludes(received, expectedProcess)) {
         throw new Error(generateErrorMessage(expectedProcess, received));
       }
@@ -192,23 +195,18 @@ const processMethods = {
     // for completion, treat that as done — the caller validates the real outcome
     // (created measurement, arithmetic result, …). Without this the poll retries
     // to exhaustion and the operation spuriously fails.
-    if (caseInsensitiveIncludes(stringify(expectedProcess.message), 'completed')) {
-      const receivedAll =
-        typeof data === 'string'
-          ? data
-          : [data?.processName, data?.message, stringify(data)]
-              .filter(Boolean)
-              .join(' ');
-      if (caseInsensitiveIncludes(receivedAll, 'no process')) {
-        return;
-      }
+    if (
+      caseInsensitiveIncludes(stringify(expectedProcess.message), 'completed') &&
+      caseInsensitiveIncludes(receivedSummary(data), 'no process')
+    ) {
+      return;
     }
 
     for (const fieldName of ['message', 'processName']) {
       const expected = expectedProcess[fieldName];
       if (!expected) continue;
 
-      const received = getReceivedField(fieldName);
+      const received = getReceivedField(data, fieldName);
       if (!caseInsensitiveIncludes(received, expected)) {
         throw new Error(generateErrorMessage(expected, received));
       }

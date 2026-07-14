@@ -149,6 +149,22 @@ function buildMeasurementApi({
   };
 }
 
+/**
+ * Réserve d'alignement (late/early, en secondes) depuis des écarts signés :
+ * un écart positif (sub en retard) consomme le côté late, un négatif le côté
+ * anchor/early. Les écarts non finis sont ignorés.
+ */
+function alignmentReserveSeconds(gapsSeconds) {
+  let late = 0;
+  let early = 0;
+  for (const gapSeconds of gapsSeconds) {
+    if (!Number.isFinite(gapSeconds)) continue;
+    late = Math.max(late, gapSeconds);
+    early = Math.max(early, -gapSeconds);
+  }
+  return { late, early };
+}
+
 function getMaxFromArray(array) {
   if (!Array.isArray(array)) {
     throw new TypeError('Input is not an array');
@@ -658,23 +674,16 @@ function createSubOptimizationService({
     // will (predicted LFE vs speaker, both crossover-filtered — the filters'
     // group delay is included). Fallback: raw IR-peak gaps, an approximation
     // biased by that group delay.
-    let reserveLateSeconds = 0;
-    let reserveEarlySeconds = 0;
     const measuredGaps = (alignmentGapsSeconds ?? []).filter(Number.isFinite);
-    if (measuredGaps.length) {
-      for (const gapSeconds of measuredGaps) {
-        reserveLateSeconds = Math.max(reserveLateSeconds, gapSeconds);
-        reserveEarlySeconds = Math.max(reserveEarlySeconds, -gapSeconds);
-      }
-    } else {
+    let gapsForReserve = measuredGaps;
+    if (!measuredGaps.length) {
       const subPeakSeconds = peakOf(subMeasurement);
-      for (const speaker of lists.frontSpeakersMeasurements?.() ?? []) {
-        const gapSeconds = subPeakSeconds - peakOf(speaker);
-        if (!Number.isFinite(gapSeconds)) continue;
-        reserveLateSeconds = Math.max(reserveLateSeconds, gapSeconds);
-        reserveEarlySeconds = Math.max(reserveEarlySeconds, -gapSeconds);
-      }
+      gapsForReserve = (lists.frontSpeakersMeasurements?.() ?? []).map(
+        speaker => subPeakSeconds - peakOf(speaker),
+      );
     }
+    const { late: reserveLateSeconds, early: reserveEarlySeconds } =
+      alignmentReserveSeconds(gapsForReserve);
 
     const maxDelaySeconds = cleanFloat32Value(
       Math.max(0, headroomSeconds - reserveLateSeconds),

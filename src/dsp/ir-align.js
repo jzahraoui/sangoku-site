@@ -290,6 +290,30 @@ function refinePeak(corr, index) {
  *   affiche dans « Delay too large ») ; `delayMs` = résultat contraint.
  * @throws {TypeError|RangeError} Entrées invalides.
  */
+/**
+ * Recherche contrainte du pic de corrélation dans [minDelayMs, maxDelayMs]
+ * quand le pic libre sort des bornes (étape 5 d'alignImpulseResponses) —
+ * même affinage parabolique que le pic libre.
+ * @returns {number} délai en ms (peut déborder légèrement des bornes après
+ *   affinage ; l'appelant re-vérifie withinBounds)
+ */
+function constrainedCorrelationDelayMs(corr, size, samplePeriod, minDelayMs, maxDelayMs) {
+  const lo = Math.ceil((minDelayMs * 0.001) / samplePeriod);
+  const hi = Math.floor((maxDelayMs * 0.001) / samplePeriod);
+  let bestLag = lo;
+  let bestValue = -Infinity;
+  for (let k = lo; k <= hi; k++) {
+    const value = Math.abs(corr[((k % size) + size) % size]);
+    if (value > bestValue) {
+      bestValue = value;
+      bestLag = k;
+    }
+  }
+  let refined = refinePeak(corr, ((bestLag % size) + size) % size);
+  if (refined > size / 2) refined -= size;
+  return refined * samplePeriod * 1000;
+}
+
 export function alignImpulseResponses(irA, irB, params) {
   const { frequency, minDelayMs = -0.5, maxDelayMs = 3, octaveFrac = 3, order = 6 } = params;
   if (!irA?.data?.length || !irB?.data?.length) {
@@ -359,20 +383,7 @@ export function alignImpulseResponses(irA, irB, params) {
 
   // 5. recherche contrainte dans les bornes si le pic libre en sort
   if (!withinBounds) {
-    const lo = Math.ceil((minDelayMs * 0.001) / samplePeriod);
-    const hi = Math.floor((maxDelayMs * 0.001) / samplePeriod);
-    let bestLag = lo;
-    let bestValue = -Infinity;
-    for (let k = lo; k <= hi; k++) {
-      const value = Math.abs(corr[((k % size) + size) % size]);
-      if (value > bestValue) {
-        bestValue = value;
-        bestLag = k;
-      }
-    }
-    let refined = refinePeak(corr, ((bestLag % size) + size) % size);
-    if (refined > size / 2) refined -= size;
-    delayMs = refined * samplePeriod * 1000;
+    delayMs = constrainedCorrelationDelayMs(corr, size, samplePeriod, minDelayMs, maxDelayMs);
     withinBounds = delayMs >= minDelayMs && delayMs <= maxDelayMs;
   }
 

@@ -475,6 +475,38 @@ async function producePredictedMeasurement(rew, m, session) {
 
 // --- Factory binding the injected logger --------------------------------------
 
+/**
+ * Journalise le rapport du calculateur phase-match. Un WARN/FAIL peut venir
+ * des avertissements globaux OU des verdicts par filtre : journaliser les
+ * deux pour que la raison soit toujours visible.
+ */
+function logPhaseMatchReport(log, report) {
+  const { verdict, warnings, filters: filterVerdicts } = report;
+  const details = [...warnings];
+  const flaggedFilters = (filterVerdicts ?? []).filter(f => f.verdict !== 'PASS');
+  if (flaggedFilters.length > 0) {
+    const shown = flaggedFilters
+      .slice(0, 4)
+      .map(
+        f =>
+          `${Math.round(f.fc)} Hz ${f.gain > 0 ? '+' : ''}${f.gain.toFixed(1)} dB — ${f.warnings[0] ?? f.verdict}`,
+      )
+      .join(' ; ');
+    details.push(
+      `${flaggedFilters.length} filtre(s) signalé(s): ${shown}` +
+        (flaggedFilters.length > 4 ? ' …' : ''),
+    );
+  }
+  const reportMessage =
+    `[createPhaseMatchFilter] rapport: ${verdict}` +
+    (details.length ? ` — ${details.join(' ; ')}` : '');
+  if (verdict === 'FAIL') {
+    log.warn(reportMessage);
+  } else {
+    log.info(reportMessage);
+  }
+}
+
 function createMeasurementOperations({ log = noopLog } = {}) {
   const cleanValue = (value, precision) =>
     cleanFloat32Value(value, precision, raw => log.warn(`Invalid numeric value: ${raw}`));
@@ -1006,32 +1038,7 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       targetFreqResponse,
     );
     if (calculationResult?.report) {
-      const { verdict, warnings, filters: filterVerdicts } = calculationResult.report;
-      // Un WARN/FAIL peut venir des avertissements globaux OU des verdicts par
-      // filtre : journaliser les deux pour que la raison soit toujours visible.
-      const details = [...warnings];
-      const flaggedFilters = (filterVerdicts ?? []).filter(f => f.verdict !== 'PASS');
-      if (flaggedFilters.length > 0) {
-        const shown = flaggedFilters
-          .slice(0, 4)
-          .map(
-            f =>
-              `${Math.round(f.fc)} Hz ${f.gain > 0 ? '+' : ''}${f.gain.toFixed(1)} dB — ${f.warnings[0] ?? f.verdict}`,
-          )
-          .join(' ; ');
-        details.push(
-          `${flaggedFilters.length} filtre(s) signalé(s): ${shown}` +
-            (flaggedFilters.length > 4 ? ' …' : ''),
-        );
-      }
-      const reportMessage =
-        `[createPhaseMatchFilter] rapport: ${verdict}` +
-        (details.length ? ` — ${details.join(' ; ')}` : '');
-      if (verdict === 'FAIL') {
-        log.warn(reportMessage);
-      } else {
-        log.info(reportMessage);
-      }
+      logPhaseMatchReport(log, calculationResult.report);
     }
     const computedFilters = calculator.filterSet.getActiveFilters();
     if (!computedFilters.length) {

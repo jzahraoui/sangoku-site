@@ -62,6 +62,24 @@ const exportsService = createExportsService({ log: lm });
 // delta appliqué par applySubTrimGain est écrêté à cette valeur.
 const SUB_TRIM_GAIN_LIMIT_DB = 9;
 
+// Table required-shift par candidat / membre (interface d'audit du
+// « find best crossover »).
+function logCrossoverAuditTable(table) {
+  for (const row of table) {
+    const detail = row.perMember
+      .map(
+        m =>
+          `${m.id}: ${Number.isFinite(m.shiftMs) ? m.shiftMs.toFixed(3) : '∞'}ms` +
+          (m.invertB ? ' (inv)' : ''),
+      )
+      .join(', ');
+    const meanText = Number.isFinite(row.mean) ? row.mean.toFixed(3) : '∞';
+    // Rejet pour inversion incohérente : le tracer explicitement (audit §10).
+    const flag = !row.inversionConsistent ? ' [rejeté: inversion incohérente]' : '';
+    lm.info(`  ${row.fc}Hz → mean |shift| ${meanText}ms (${detail})${flag}`);
+  }
+}
+
 // Valeurs par défaut de la config AutoEQ (UI). Source unique utilisée pour
 // initialiser les observables au démarrage et pour resetAutoEqConfig().
 const DEFAULT_AUTOEQ_CONFIG = {
@@ -910,20 +928,7 @@ class MeasurementViewModel {
       const { bestFrequency, table } =
         await this.alignmentService.findBestCrossover(members, candidates);
 
-      // Table required-shift par candidat / membre (interface d'audit).
-      for (const row of table) {
-        const detail = row.perMember
-          .map(
-            m =>
-              `${m.id}: ${Number.isFinite(m.shiftMs) ? m.shiftMs.toFixed(3) : '∞'}ms` +
-              (m.invertB ? ' (inv)' : ''),
-          )
-          .join(', ');
-        const meanText = Number.isFinite(row.mean) ? row.mean.toFixed(3) : '∞';
-        // Rejet pour inversion incohérente : le tracer explicitement (audit §10).
-        const flag = !row.inversionConsistent ? ' [rejeté: inversion incohérente]' : '';
-        lm.info(`  ${row.fc}Hz → mean |shift| ${meanText}ms (${detail})${flag}`);
-      }
+      logCrossoverAuditTable(table);
 
       if (bestFrequency === null) {
         lm.warn(

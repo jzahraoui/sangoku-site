@@ -19,6 +19,19 @@ import { peakTimeSeconds, processThroughCascade } from '../dsp/impulseResponse.j
 
 const INERT_TYPES = new Set(['None', 'Text']);
 
+// Types dont l'effet est proportionnel au gain : à gain ~0 le filtre est
+// acoustiquement transparent et son slot est ignoré (même règle que REW).
+const GAIN_DEPENDENT_TYPES = new Set([
+  'PK',
+  'LS',
+  'HS',
+  'LS 6dB',
+  'LS 12dB',
+  'HS 6dB',
+  'HS 12dB',
+  'Modal',
+]);
+
 // Valeur par défaut de REW quand un filtre Modal est posé sans t60Target.
 const DEFAULT_MODAL_T60_TARGET = 300;
 
@@ -39,11 +52,11 @@ export function buildBiquadCascadeFromRewBank(bank, sampleRate) {
     const fc = setting.frequency;
     const gain = setting.gaindB ?? 0;
     const gainless = Math.abs(gain) < 0.005;
+    if (gainless && GAIN_DEPENDENT_TYPES.has(type)) continue;
     const filter = new BiquadFilter(sampleRate);
 
     switch (type) {
       case 'PK':
-        if (gainless) continue;
         filter.setPeaking(fc, setting.q, gain);
         break;
       case 'All pass':
@@ -65,31 +78,24 @@ export function buildBiquadCascadeFromRewBank(bank, sampleRate) {
         filter.setNotch(fc);
         break;
       case 'LS':
-        if (gainless) continue;
         filter.setLowShelf(fc, gain, 'plain');
         break;
       case 'HS':
-        if (gainless) continue;
         filter.setHighShelf(fc, gain, 'plain');
         break;
       case 'LS 6dB':
-        if (gainless) continue;
         filter.setLowShelf(fc, gain, '6dB');
         break;
       case 'LS 12dB':
-        if (gainless) continue;
         filter.setLowShelf(fc, gain, '12dB');
         break;
       case 'HS 6dB':
-        if (gainless) continue;
         filter.setHighShelf(fc, gain, '6dB');
         break;
       case 'HS 12dB':
-        if (gainless) continue;
         filter.setHighShelf(fc, gain, '12dB');
         break;
       case 'Modal':
-        if (gainless) continue;
         filter.setModal(fc, gain, setting.t60Target ?? DEFAULT_MODAL_T60_TARGET);
         break;
       default:
