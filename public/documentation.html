@@ -4,6 +4,7 @@
     <li><a href="#prerequisites">Avant de commencer</a></li>
     <li><a href="#entry-points">Choisir votre point de départ</a></li>
     <li><a href="#workflow">Parcours recommande</a></li>
+    <li><a href="#autoeq">Le calcul des filtres (AutoEQ)</a></li>
     <li><a href="#subwoofers">Caissons et MSO</a></li>
     <li><a href="#finalization">Finalisation</a></li>
     <li><a href="#troubleshooting">Depannage</a></li>
@@ -395,6 +396,13 @@
       filtres ont change et utilise ceux presents dans REW pour toute la suite du
       process : previews, alignement du sub et exports.
     </p>
+    <p>
+      Le calcul lui-meme est pilote par les reglages du panneau Settings. Les valeurs par
+      defaut sont concues pour donner un bon resultat sans rien toucher : si vous voulez
+      comprendre ce qui se passe quand vous cliquez sur Create, ou affiner le
+      comportement, tout est detaille dans
+      <a href="#autoeq">Le calcul des filtres (AutoEQ)</a>.
+    </p>
 
     <h4>Trouver automatiquement le meilleur crossover</h4>
     <p>
@@ -475,6 +483,346 @@
       Si les previews sont bons sur la moyenne mais moins convaincants sur la position
       d'ecoute principale, refaites la verification en conservant aussi la position 1 au
       moment du moyennage.
+    </p>
+  </section>
+
+  <section id="autoeq">
+    <h2>Le calcul des filtres (AutoEQ)</h2>
+    <p>
+      Quand vous cliquez sur Create, RCH calcule lui-meme les filtres parametriques de
+      la mesure : c'est le moteur AutoEQ. Cette section explique ce qu'il fait, ce que
+      chaque reglage change, et comment lire son verdict. Vous n'avez rien a regler pour
+      obtenir un bon resultat : les valeurs par defaut sont un compromis eprouve sur les
+      mesures de reference. Lisez la suite quand vous voulez comprendre, ou affiner.
+    </p>
+
+    <h3>Ce que fait le moteur</h3>
+    <p>
+      Le principe est simple : RCH compare votre mesure a la courbe cible, et pose des
+      filtres la ou l'ecart le justifie. Dans le detail, le calcul se deroule toujours
+      dans cet ordre :
+    </p>
+    <ol>
+      <li>
+        <strong>Analyse de l'ecart.</strong> RCH decoupe la mesure sur la plage de
+        frequence que vous avez choisie, ramene la cible sur la meme grille, puis
+        identifie les zones qui s'ecartent de la cible. Les creux tres profonds sont
+        mis de cote : ce sont des annulations acoustiques, les corriger ne sert a rien.
+      </li>
+      <li>
+        <strong>Placement des filtres.</strong> RCH pose les filtres un par un. A chaque
+        etape il recalcule ce qu'il reste a corriger, choisit la zone la plus utile,
+        place un filtre dessus et optimise son gain et son Q. Il s'arrete des qu'aucune
+        zone ne justifie plus un filtre, meme s'il reste des emplacements libres.
+      </li>
+      <li>
+        <strong>Nettoyage et reoptimisation.</strong> Les filtres devenus inutiles sont
+        retires, et ceux qui restent sont reoptimises ensemble. Cette boucle se repete
+        jusqu'a ce qu'il n'y ait plus rien a enlever.
+      </li>
+      <li>
+        <strong>Reduction des depassements.</strong> Si la correction fait passer la
+        reponse trop au-dessus de la cible quelque part, RCH baisse le filtre de boost
+        responsable.
+      </li>
+      <li>
+        <strong>Options avancees.</strong> Selon les cases cochees, RCH peut rejouer le
+        placement en testant plusieurs hypotheses, puis polir le resultat.
+      </li>
+    </ol>
+    <p>
+      Un point important : a chaque etape, RCH ne garde le nouveau resultat que s'il est
+      <em>meilleur</em> que le precedent. Une option activee ne peut donc pas degrader le
+      resultat retenu par RCH ; au pire elle ne change rien, en echange du temps de
+      calcul.
+    </p>
+
+    <h3>Ou se trouvent les reglages</h3>
+    <p>
+      Les reglages du moteur sont dans le panneau Settings, section AutoEQ. Trois autres
+      reglages, situes dans Speaker Tools, pesent tout autant sur le resultat : les deux
+      limites de boost et la plage de frequence. Ce sont eux qu'il faut regarder en
+      premier.
+    </p>
+
+    <h4>Individual Max Boost et Overall Max Boost</h4>
+    <p>
+      Le premier limite ce qu'un filtre seul peut amplifier ; le second limite ce que
+      tous les filtres cumules peuvent amplifier a une meme frequence. Amplifier coute de
+      la puissance a l'ampli et de l'excursion aux haut-parleurs : ces deux limites sont
+      la pour proteger votre materiel. Les valeurs par defaut, 6 dB et 3 dB, sont deja un
+      bon compromis. Les deux champs acceptent 0 a 6 dB.
+    </p>
+
+    <h4>Frequency Range</h4>
+    <p>
+      La plage que vous reglez <strong>fait foi</strong> : RCH ne corrige rien en dehors
+      et n'impose aucune zone interdite. C'est votre principal outil de controle. Par
+      defaut la plage s'arrete a 16 kHz, volontairement : dans l'aigu, le son direct est
+      deja sous la cible et une mesure en un point ne represente plus ce que vous
+      entendez. Elargir jusqu'a 20 kHz est possible, mais rarement souhaitable.
+    </p>
+
+    <h3>Les curseurs, dans l'ordre de l'ecran</h3>
+
+    <h4>Filters (defaut 20)</h4>
+    <p>
+      Nombre maximal de filtres que le moteur peut utiliser. C'est un plafond, pas un
+      objectif : RCH n'en pose que ce qui est justifie, et retire ceux qui n'apportent
+      rien. Autoriser beaucoup de filtres permet de corriger des accidents etroits ou
+      multiples, mais donne une correction plus complexe ; peu de filtres donnent une
+      correction plus simple et plus robuste.
+    </p>
+
+    <h4>Max cut (dB) (defaut 25)</h4>
+    <p>
+      Attenuation maximale d'un filtre. Attenuer ne coute rien a l'ampli, contrairement a
+      amplifier : c'est pourquoi cette limite est bien plus large que celles de boost. La
+      correction par attenuation est la plus sure.
+    </p>
+
+    <h4>Flatness target (defaut 0.3)</h4>
+    <p>
+      Seuil a partir duquel un ecart a la cible est juge <em>significatif</em>, en dB.
+      C'est le reglage qui decide de ce que le moteur considere comme un defaut a
+      corriger. Plus la valeur est basse, plus RCH traite de petits ecarts, donc plus il
+      pose de filtres ; plus elle est haute, plus il se concentre sur les gros defauts.
+      C'est aussi ce seuil qui finit par arreter le placement : quand plus aucune zone
+      ne le depasse, le placement s'arrete.
+    </p>
+
+    <h4>Optimization passes (defaut 20)</h4>
+    <p>
+      Nombre maximal de passes de la boucle nettoyage + reoptimisation d'ensemble (ce
+      n'est pas un nombre de passes par filtre). La boucle s'arrete d'elle-meme des
+      qu'une passe n'a plus rien a retirer, ce qui arrive presque toujours des la
+      premiere : augmenter cette valeur ne change en general rien au resultat ni au
+      temps de calcul.
+    </p>
+
+    <h4>Gain sign lock (defaut 0.5)</h4>
+    <p>
+      Seuil, en dB, a partir duquel le signe d'un filtre est verrouille : au-dela, un
+      filtre qui attenue ne pourra plus devenir un filtre qui amplifie, et inversement.
+      Cela evite qu'un filtre hesite entre les deux pendant l'optimisation. Valeur basse
+      = verrouillage plus rapide, comportement plus stable ; valeur haute = plus de
+      liberte laissee a l'optimiseur.
+    </p>
+
+    <h4>Notch exclusion (defaut 6)</h4>
+    <p>
+      Profondeur, en dB <em>sous la cible</em>, a partir de laquelle un creux est declare
+      non corrigeable et exclu du calcul. C'est un reglage important : la plupart des
+      creux profonds viennent d'annulations acoustiques entre le son direct et une
+      reflexion, et les combler demanderait une energie enorme pour un resultat nul,
+      voire dangereux pour le materiel. Valeur elevee = RCH tente de corriger davantage
+      de creux ; valeur basse = il en ignore plus.
+    </p>
+
+    <h4>Min filter gain (defaut 0.4)</h4>
+    <p>
+      Gain minimal, en dB, pour qu'un filtre soit conserve et envoye a REW. En dessous,
+      le filtre est juge decoratif et supprime. Cela evite d'encombrer l'egaliseur avec
+      des filtres qui n'ont aucun effet audible.
+    </p>
+
+    <h4>Refinement iterations (defaut 100)</h4>
+    <p>
+      Nombre d'iterations de la passe finale de polissage. N'a d'effet que si la case
+      Refinement est cochee.
+    </p>
+
+    <h4>No boost below (Hz) (defaut 50)</h4>
+    <p>
+      Aucun filtre place sous cette frequence ne pourra amplifier : la zone devient
+      attenuation seule. C'est une protection materielle. Sous 50 Hz, un boost demande
+      beaucoup d'excursion au haut-parleur et beaucoup de puissance a l'ampli, pour
+      corriger le plus souvent une annulation que l'on ne corrigera pas. Mettre 0
+      desactive la protection.
+    </p>
+
+    <h4>Overshoot penalty weight (defaut 0.3)</h4>
+    <p>
+      Un <em>overshoot</em> est un depassement de la courbe cible : la correction fait
+      passer la reponse au-dessus de la cible, ce qui s'entend souvent plus qu'un creux.
+      Ce curseur decourage l'optimiseur de produire de tels depassements, au-dela de
+      1 dB. Plus le poids est eleve, plus il les evite, quitte a etre moins precis
+      ailleurs.
+    </p>
+
+    <h4>Overshoot reduction threshold (dB) (defaut 1.5)</h4>
+    <p>
+      Le meme sujet, traite autrement : une fois les filtres calcules, tout depassement
+      de la cible superieur a ce seuil est corrige en baissant le filtre de boost
+      responsable. Le curseur precedent <em>previent</em> pendant le calcul, celui-ci
+      <em>repare</em> apres. C'est aussi le seuil au-dela duquel le rapport affiche un
+      avertissement.
+    </p>
+
+    <h4>Max Q below 200 Hz et Max Q in high band (defaut 0 = desactive)</h4>
+    <p>
+      Ces deux curseurs plafonnent le facteur Q, c'est-a-dire l'etroitesse des filtres.
+      Un filtre etroit est un resonateur : plus son Q est eleve, plus il met de temps a
+      s'eteindre, ce qui peut s'entendre comme une traine (ringing). Au-dela de Q = 8, un
+      filtre correctif devient audible en tant que tel : c'est pourquoi la plage s'arrete
+      la. Laisses a 0, ces plafonds sont inactifs et seules les regles internes
+      s'appliquent.
+    </p>
+    <p>
+      Les deux bandes ne posent pas le meme probleme. Dans le grave, un filtre etroit qui
+      <em>attenue</em> un mode de piece est utile : il raccourcit la resonance de la
+      piece au lieu d'en creer une. Plafonner trop bas sous 200 Hz vous prive de ce
+      traitement. Dans l'aigu en revanche, un filtre etroit corrige surtout une
+      interference locale, qui change des que le micro bouge : la, plafonner est
+      generalement une bonne idee. Si vous ne devez en regler qu'un, reglez celui de la
+      bande haute, vers 2 ou 3.
+    </p>
+
+    <h4>High band starts at (Hz) (defaut 3000)</h4>
+    <p>
+      Frequence a partir de laquelle le plafond Max Q in high band s'applique. Le defaut
+      de 3 kHz correspond a la zone ou les mesures en un point deviennent peu
+      representatives. Baissez-le si vous voulez etendre la prudence au medium.
+    </p>
+
+    <h3>Les cases a cocher</h3>
+
+    <h4>Beat-REW optimization (decoche par defaut)</h4>
+    <p>
+      Active un mode d'optimisation plus ambitieux, oriente qualite finale plutot que
+      stricte parite avec REW. Plus lent, potentiellement meilleur.
+    </p>
+    <p>
+      <strong>A savoir :</strong> cette case commande aussi les deux suivantes. Reduce
+      &amp; repair et Critical band refinement ont beau etre cochees par defaut, elles ne
+      font rien tant que Beat-REW optimization est decochee. Si vous voulez en profiter,
+      c'est cette case qu'il faut cocher.
+    </p>
+
+    <h4>Candidate placement (cochee par defaut)</h4>
+    <p>
+      Au lieu de placer chaque filtre sur la premiere zone venue, RCH teste plusieurs
+      zones candidates et garde la plus prometteuse. Concretement, RCH rejoue tout le
+      placement de cette maniere et ne remplace le premier resultat que si le second est
+      meilleur. Cela double le temps de calcul, mais ne peut pas degrader le resultat :
+      c'est pourquoi c'est active par defaut.
+    </p>
+
+    <h4>Reduce &amp; repair (cochee, necessite Beat-REW)</h4>
+    <p>
+      Apres une premiere solution, RCH essaie d'enlever les filtres les moins utiles ou
+      les plus risques, puis de reoptimiser ce qui reste. Le but est une correction plus
+      propre a qualite egale : moins de filtres, meme resultat.
+    </p>
+
+    <h4>Critical band refinement (cochee, necessite Beat-REW)</h4>
+    <p>
+      Reoptimise separement trois bandes — le grave modal, le medium critique et l'aigu —
+      au lieu de ne viser qu'un score global. L'idee est de mieux equilibrer la qualite
+      la ou l'oreille est la plus sensible.
+    </p>
+
+    <h4>Refinement (decoche par defaut)</h4>
+    <p>
+      Passe finale de polissage sur la grille complete, alors que le reste du calcul
+      travaille sur une grille allegee. Sur les exemples de reference, cette option
+      ameliore le RMS partout, mais degrade les depassements dans les pieces a creux
+      marques. Elle est donc laissee decochee et a activer au cas par cas, en comparant.
+    </p>
+
+    <h4>Vary Q above 200 Hz (decoche par defaut)</h4>
+    <p>
+      Fait varier progressivement le plafond de Q avec la frequence au-dessus de 200 Hz,
+      au lieu d'un plafond fixe. C'est la preference correspondante de REW, laissee sur
+      la meme valeur par defaut que dans REW.
+    </p>
+
+    <h4>Narrow filters below 200 Hz (cochee par defaut)</h4>
+    <p>
+      Autorise les filtres etroits dans le grave, la ou les resonances de piece sont
+      etroites et marquees. Decocher elargit les corrections du grave, ce qui les rend
+      plus douces mais moins efficaces sur les modes.
+    </p>
+
+    <h4>Allow boosts (cochee par defaut)</h4>
+    <p>
+      Autorise RCH a creer des filtres qui amplifient pour remonter les zones sous la
+      cible. Decocher travaille en attenuation seule, l'approche la plus sure.
+    </p>
+    <p>
+      <strong>A savoir :</strong> decocher cette case met immediatement les deux limites
+      de boost a 0. Si vous la recochez, ces limites <em>restent a 0</em> : pensez a les
+      remettre a 6 et 3, sinon aucun boost ne sera possible alors que la case est cochee.
+    </p>
+
+    <h4>Reset defaults</h4>
+    <p>
+      Ce bouton n'est pas un reglage acoustique : il remet tous les parametres AutoEQ a
+      leurs valeurs par defaut. C'est le bon reflexe si vous vous etes perdu dans les
+      reglages.
+    </p>
+
+    <h3>Lire le resultat</h3>
+    <p>
+      A la fin de chaque calcul, RCH publie un verdict dans les logs, sous la forme
+      <code class="code-text">[createPhaseMatchFilter] rapport: PASS</code>, suivi le cas
+      echeant des filtres signales. Trois verdicts sont possibles :
+    </p>
+    <ul>
+      <li>
+        <strong>PASS</strong> : rien a signaler, la correction est saine.
+      </li>
+      <li>
+        <strong>WARN</strong> : le resultat est utilisable mais merite un coup d'oeil. Le
+        plus souvent : un filtre au Q eleve (au-dela de 8 dans le grave, de 10 ailleurs),
+        un boost au-dessus de 3 kHz, un depassement de cible residuel, une amelioration
+        inferieure a 10 %, ou un boost cumule au-dessus de votre limite globale.
+      </li>
+      <li>
+        <strong>FAIL</strong> : a ne pas utiliser tel quel. Soit un filtre depasse un
+        plafond de securite (Q superieur a 10 dans le grave, a 12 ailleurs), soit la
+        correction degrade la reponse au lieu de l'ameliorer.
+      </li>
+    </ul>
+    <p>
+      Un FAIL n'est presque jamais un probleme de reglage : c'est le signe que la mesure
+      demande quelque chose d'impossible. Les bons reflexes sont d'aller voir du cote de
+      la mesure elle-meme (position du micro, moyennage), de la courbe cible, ou de la
+      plage de frequence.
+    </p>
+
+    <h3>Comment regler sans se perdre</h3>
+    <p>
+      <strong>Vous debutez, ou vous voulez un resultat fiable :</strong> ne touchez a
+      rien. Les defauts sont concus pour ca. Reglez seulement la plage de frequence si
+      vous avez une raison precise de le faire.
+    </p>
+    <p>
+      <strong>Vous cherchez la meilleure qualite possible :</strong> cochez Beat-REW
+      optimization (ce qui active du meme coup Reduce &amp; repair et Critical band
+      refinement), gardez Candidate placement, et essayez Refinement en comparant avant
+      et apres. Attendez-vous a un calcul nettement plus long.
+    </p>
+    <p>
+      <strong>Vous voulez proteger votre materiel :</strong> gardez No boost below a
+      50 Hz, baissez Individual Max Boost, ou decochez Allow boosts pour travailler en
+      attenuation seule.
+    </p>
+    <p>
+      <strong>Vous trouvez la correction artificielle a l'ecoute :</strong> c'est
+      typiquement un exces de filtres etroits. Reglez Max Q in high band vers 2 ou 3,
+      augmentez Notch exclusion pour que RCH ignore plus de creux, et verifiez que vous
+      ne corrigez pas trop haut en frequence.
+    </p>
+    <p>
+      <strong>Vous voulez une correction plus simple :</strong> baissez Filters,
+      augmentez Flatness target pour ne traiter que les gros defauts, et augmentez Min
+      filter gain.
+    </p>
+    <p>
+      Gardez en tete le principe qui vaut pour tout RCH : c'est le cumul de la mesure
+      corrigee et de votre chaine reelle qui doit suivre la cible. La sur-correction est
+      l'erreur la plus frequente.
     </p>
   </section>
 
