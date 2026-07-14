@@ -295,7 +295,11 @@ export function alignImpulseResponses(irA, irB, params) {
   if (!irA?.data?.length || !irB?.data?.length) {
     throw new TypeError('alignImpulseResponses needs two impulse responses');
   }
-  if (irA.sampleRate !== irB.sampleRate || irA.sampleRate <= 0) {
+  if (
+    irA.sampleRate !== irB.sampleRate ||
+    !Number.isFinite(irA.sampleRate) ||
+    irA.sampleRate <= 0
+  ) {
     throw new RangeError('alignImpulseResponses needs a common positive sampleRate');
   }
   if (!Number.isFinite(frequency) || frequency < 20) {

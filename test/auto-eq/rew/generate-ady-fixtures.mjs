@@ -17,29 +17,13 @@
  *     "work/Denon AVC-A1H_kef.4sub.3pos.ady" test/fixtures/ady-3pos FL C SBR
  */
 
-import { readFileSync, writeFileSync, mkdirSync, realpathSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 import RewApi from '../../../src/rew/rew-api.js';
 import { IR_WINDOW_PRESETS } from '../../../src/measurement/working-settings.js';
 import { getWindowsHostIP } from '../test-config.js';
-
-// Empêche un argument CLI malveillant (ex. via un agent LLM) de sortir du
-// dossier d'invocation : canonicalise le chemin puis vérifie qu'il reste
-// à l'intérieur du répertoire de travail courant.
-function safePath(target) {
-  const baseDir = realpathSync(process.cwd());
-  let resolved;
-  try {
-    resolved = realpathSync(target); // résout liens symboliques et « .. »
-  } catch {
-    resolved = path.resolve(baseDir, target); // cible pas encore créée (sortie)
-  }
-  if (resolved !== baseDir && !resolved.startsWith(baseDir + path.sep)) {
-    throw new Error(`path '${target}' is outside the allowed directory`);
-  }
-  return resolved;
-}
+import { safeInputFile, safeOutputDir } from './safe-path.mjs';
 
 const [, , adyPathArg, outDirArg, ...channelArgs] = process.argv;
 const channels = channelArgs.length ? channelArgs : ['FL', 'C', 'SBR'];
@@ -49,8 +33,8 @@ if (!adyPathArg || !outDirArg) {
   );
   process.exit(1);
 }
-const adyPath = safePath(adyPathArg);
-const outDir = safePath(outDirArg);
+const adyPath = safeInputFile(adyPathArg);
+const outDir = safeOutputDir(outDirArg);
 
 const AVERAGE_METHODS = [
   { method: 'Vector average', slug: 'vector-avg' },

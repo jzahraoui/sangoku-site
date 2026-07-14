@@ -48,8 +48,13 @@ const connectAndWait = async page => {
   );
 };
 
+// Chemin UI réel : saisie du delta dans « Additional gain » puis Apply
+// (applySubTrimGain), avec sa coercition Number et sa garde finite/zéro.
 const trimUp = async page => {
-  await page.evaluate(() => globalThis.viewModel.increaseSubTrimGain());
+  await page.evaluate(() => {
+    globalThis.viewModel.subTrimGainAmount('0.5');
+    return globalThis.viewModel.applySubTrimGain();
+  });
   await page.waitForFunction(() => !globalThis.viewModel.isProcessing(), {
     timeout: 120000,
   });

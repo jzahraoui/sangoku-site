@@ -276,7 +276,9 @@ class RewController {
         if (Object.values(pages).some(el => !el)) return;
 
         for (const el of Object.values(pages)) el.style.display = 'none';
-        if (!pages[page]) {
+        // Object.hasOwn : un hash héréditaire (#toString, #constructor) doit
+        // retomber sur la page application, pas déréférencer une méthode.
+        if (!Object.hasOwn(pages, page) || !pages[page]) {
           lm.error('Unknown page:', page);
           page = 'application'; // Default to application page
         }

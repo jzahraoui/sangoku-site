@@ -58,6 +58,10 @@ const exportsService = createExportsService({ log: lm });
 // ALIGN_OFFSET_TOLERANCE et quantize3dB vivent désormais dans
 // src/measurement/measurement-selection.js.
 
+// Borne du champ « Additional gain » des subs (index.html: min/max ±9) : le
+// delta appliqué par applySubTrimGain est écrêté à cette valeur.
+const SUB_TRIM_GAIN_LIMIT_DB = 9;
+
 // Valeurs par défaut de la config AutoEQ (UI). Source unique utilisée pour
 // initialiser les observables au démarrage et pour resetAutoEqConfig().
 const DEFAULT_AUTOEQ_CONFIG = {
@@ -770,38 +774,18 @@ class MeasurementViewModel {
 
     // Sub trim gain (ADR 003 v2): a group command of the virtual subwoofer —
     // the offset is applied to every real sub, and the projections (LFE
-    // predicted + Theo reference) follow by recomputation.
-    this.increaseSubTrimGain = async () => {
-      if (this.isProcessing()) return;
-      try {
-        await this.setProcessing(true);
-        await this.virtualSubwooferService.addSPLOffset(0.5);
-      } catch (error) {
-        this.handleError(`Increasing sub trim gain failed: ${error.message}`, error);
-      } finally {
-        await this.setProcessing(false);
-      }
-    };
-
-    this.decreaseSubTrimGain = async () => {
-      if (this.isProcessing()) return;
-      try {
-        await this.setProcessing(true);
-        await this.virtualSubwooferService.addSPLOffset(-0.5);
-      } catch (error) {
-        this.handleError(`Decreasing sub trim gain failed: ${error.message}`, error);
-      } finally {
-        await this.setProcessing(false);
-      }
-    };
-
-    // Apply an arbitrary gain delta to every sub in a single operation: the
-    // heavy sum recompute + IR reimport runs once, instead of once per +/-0.5
-    // click. Same group command as the buttons, only the amount differs.
+    // predicted + Theo reference) follow by recomputation. The heavy sum
+    // recompute + IR reimport runs once for the whole delta.
+    // The input's min/max are HTML attributes only — clamp here so a typed
+    // out-of-range value can never shift every sub by an absurd amount.
     this.applySubTrimGain = async () => {
       if (this.isProcessing()) return;
-      const amount = Number(this.subTrimGainAmount());
-      if (!Number.isFinite(amount) || amount === 0) return;
+      const rawAmount = Number(this.subTrimGainAmount());
+      if (!Number.isFinite(rawAmount) || rawAmount === 0) return;
+      const amount = Math.max(
+        -SUB_TRIM_GAIN_LIMIT_DB,
+        Math.min(SUB_TRIM_GAIN_LIMIT_DB, rawAmount),
+      );
       try {
         await this.setProcessing(true);
         await this.virtualSubwooferService.addSPLOffset(amount);
