@@ -107,8 +107,9 @@ function packFiltersIntoFreeSlots(contentFilters, reservedIndices = []) {
 /** Throws when an optimization frequency range is unusable. */
 function validatePhaseMatchRange(freqStart, freqEnd, label = '') {
   if (!Number.isFinite(freqStart) || !Number.isFinite(freqEnd) || freqStart >= freqEnd) {
+    const labelSuffix = label ? ` for ${label}` : '';
     throw new RangeError(
-      `Invalid optimization range ${freqStart}Hz-${freqEnd}Hz${label ? ` for ${label}` : ''}`,
+      `Invalid optimization range ${freqStart}Hz-${freqEnd}Hz${labelSuffix}`,
     );
   }
 }

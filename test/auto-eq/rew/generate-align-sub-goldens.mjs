@@ -195,7 +195,7 @@ async function rewPath(speakerUuid, subUuid, fc) {
   } finally {
     // remettre les slots de raccord à None (comme le finally de production)
     await postFilters(subUuid, fullBank(BANKS_POSTED.get(subUuid) ?? []));
-    for (const uuid of temp.reverse()) await remove(uuid);
+    for (const uuid of temp.toReversed()) await remove(uuid);
   }
 }
 
@@ -491,7 +491,7 @@ async function main() {
             : `prod: ${rewResult.align.error ?? 'ok'} | interne: ${align.error ?? 'ok'}`),
       );
     } finally {
-      for (const uuid of caseUuids.reverse()) await remove(uuid);
+      for (const uuid of caseUuids.toReversed()) await remove(uuid);
     }
   }
 

@@ -226,7 +226,7 @@ describe('prepareMeasurements – binary search for startIdx / endIdx', () => {
     const filtered = Array.from(opt.preparedSubs[0].freqs);
     expect(filtered[0]).toBe(50);
     expect(filtered.at(-1)).toBe(120);
-    expect(filtered.length).toBe(71); // 50..120 inclusive
+    expect(filtered).toHaveLength(71); // 50..120 inclusive
   });
 
   // ── startFreq and endFreq properties ──
@@ -338,7 +338,7 @@ describe('prepareMeasurements – binary search for startIdx / endIdx', () => {
     expect(filtered[0]).toBeCloseTo(20);
     expect(filtered.at(-1)).toBeCloseTo(200);
     expect(filtered).not.toContain(19.9);
-    expect(filtered.length).toBe(7); // 20, 20.1, 99.9, 100, 100.1, 199.9, 200
+    expect(filtered).toHaveLength(7); // 20, 20.1, 99.9, 100, 100.1, 199.9, 200
   });
 
   // ── Both subs get the same filtering ──

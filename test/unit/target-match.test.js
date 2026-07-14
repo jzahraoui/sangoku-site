@@ -212,7 +212,7 @@ describe('target-match objective', () => {
       deps,
     );
     const prepared = optimizer.prepareMeasurements();
-    expect(optimizer.targetMagnitude.length).toBe(prepared[0].freqs.length);
+    expect(optimizer.targetMagnitude).toHaveLength(prepared[0].freqs.length);
 
     prepared[0].param = MultiSubOptimizer.EMPTY_CONFIG;
     prepared[1].param = MultiSubOptimizer.EMPTY_CONFIG;

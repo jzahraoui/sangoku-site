@@ -6,6 +6,23 @@
 
 import RewApi from './rew-api.js';
 
+/**
+ * Défauts communs des wrappers arithmétiques « 1 / … » (S107 : les huit
+ * positions historiques sont remplacées par un objet d'options).
+ * @param {{maxGain?: number, lowerLimit?: number, upperLimit?: number,
+ *          targetLevel?: number, autoTarget?: boolean, excludeNotches?: boolean}} options
+ */
+function normalizeOneDividedOptions({
+  maxGain = null,
+  lowerLimit = null,
+  upperLimit = null,
+  targetLevel = null,
+  autoTarget = false,
+  excludeNotches = true,
+} = {}) {
+  return { maxGain, lowerLimit, upperLimit, targetLevel, autoTarget, excludeNotches };
+}
+
 class REWMeasurements {
   constructor(client) {
     if (!client) throw new Error('Client is required');
@@ -1072,93 +1089,45 @@ class REWMeasurements {
   /**
    * 1 / A
    */
-  async arithmeticOneDividedByA(
-    measurementAUUID,
-    measurementBUUID,
-    maxGain = null,
-    lowerLimit = null,
-    upperLimit = null,
-    targetLevel = null,
-    autoTarget = false,
-    excludeNotches = true,
-  ) {
-    return this.arithmetic([measurementAUUID, measurementBUUID], '1 / A', {
-      maxGain,
-      lowerLimit,
-      upperLimit,
-      targetLevel,
-      autoTarget,
-      excludeNotches,
-    });
+  async arithmeticOneDividedByA(measurementAUUID, measurementBUUID, options = {}) {
+    return this.arithmetic(
+      [measurementAUUID, measurementBUUID],
+      '1 / A',
+      normalizeOneDividedOptions(options),
+    );
   }
 
   /**
    * 1 / B
    */
-  async arithmeticOneDividedByB(
-    measurementAUUID,
-    measurementBUUID,
-    maxGain = null,
-    lowerLimit = null,
-    upperLimit = null,
-    targetLevel = null,
-    autoTarget = false,
-    excludeNotches = true,
-  ) {
-    return this.arithmetic([measurementAUUID, measurementBUUID], '1 / B', {
-      maxGain,
-      lowerLimit,
-      upperLimit,
-      targetLevel,
-      autoTarget,
-      excludeNotches,
-    });
+  async arithmeticOneDividedByB(measurementAUUID, measurementBUUID, options = {}) {
+    return this.arithmetic(
+      [measurementAUUID, measurementBUUID],
+      '1 / B',
+      normalizeOneDividedOptions(options),
+    );
   }
 
   /**
    * 1 / |A|
    */
-  async arithmeticOneDividedByAbsA(
-    measurementAUUID,
-    measurementBUUID,
-    maxGain = null,
-    lowerLimit = null,
-    upperLimit = null,
-    targetLevel = null,
-    autoTarget = false,
-    excludeNotches = true,
-  ) {
-    return this.arithmetic([measurementAUUID, measurementBUUID], '1 / |A|', {
-      maxGain,
-      lowerLimit,
-      upperLimit,
-      targetLevel,
-      autoTarget,
-      excludeNotches,
-    });
+  async arithmeticOneDividedByAbsA(measurementAUUID, measurementBUUID, options = {}) {
+    return this.arithmetic(
+      [measurementAUUID, measurementBUUID],
+      '1 / |A|',
+      normalizeOneDividedOptions(options),
+    );
   }
 
   /**
    * 1 / |B|
    */
-  async arithmeticOneDividedByAbsB(
-    measurementAUUID,
-    measurementBUUID,
-    maxGain = null,
-    lowerLimit = null,
-    upperLimit = null,
-    targetLevel = null,
-    autoTarget = false,
-    excludeNotches = true,
-  ) {
-    return this.arithmetic([measurementAUUID, measurementBUUID], '1 / |B|', {
-      maxGain,
-      lowerLimit,
-      upperLimit,
-      targetLevel,
-      autoTarget,
-      excludeNotches,
-    });
+  async arithmeticOneDividedByAbsB(measurementAUUID, measurementBUUID, options = {}) {
+    return this.arithmetic(
+      [measurementAUUID, measurementBUUID],
+      '1 / |B|',
+      normalizeOneDividedOptions(options),
+    );
   }
 
   /**

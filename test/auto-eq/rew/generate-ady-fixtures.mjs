@@ -108,7 +108,7 @@ async function main() {
   console.log(`REW: ${JSON.stringify(rewVersion)}`);
   const ady = JSON.parse(readFileSync(adyPath, 'utf-8'));
   if (!Array.isArray(ady.detectedChannels)) {
-    throw new Error(
+    throw new TypeError(
       'Ce fichier ne contient pas de detectedChannels/responseData — export de ' +
         'configuration (OCA) et non de mesures ?',
     );
@@ -209,7 +209,7 @@ async function main() {
     console.log(`\nmanifest.json écrit (${Object.keys(manifest.channels).length} canaux)`);
   } finally {
     // 5. Nettoyage : ne supprimer que ce que ce script a créé
-    for (const uuid of created.reverse()) {
+    for (const uuid of created.toReversed()) {
       try {
         await rew.request(`/measurements/${uuid}`, 'DELETE');
       } catch (error) {

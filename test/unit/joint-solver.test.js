@@ -107,7 +107,7 @@ describe('joint genome layout', () => {
 
     // 2 non-reference subs × 3 alignment dims + 3 subs × 2 filters × 3 dims
     expect(layout.alignmentDims).toBe(6);
-    expect(layout.bounds.length).toBe(6 + 18);
+    expect(layout.bounds).toHaveLength(6 + 18);
 
     const genome = new Float64Array(layout.bounds.length);
     genome[0] = 0.002; // delay sub1
@@ -135,7 +135,7 @@ describe('joint genome layout — all-pass par sub (expérimental)', () => {
 
     // 2 non-reference subs × (3 alignment + 3 all-pass) dims
     expect(layout.alignmentDims).toBe(12);
-    expect(layout.bounds.length).toBe(12 + 9);
+    expect(layout.bounds).toHaveLength(12 + 9);
 
     const genome = new Float64Array(layout.bounds.length);
     genome[3] = 0.5; // enable sub1 → actif

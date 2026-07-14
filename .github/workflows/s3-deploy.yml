@@ -28,8 +28,10 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
+        # --ignore-scripts : aucune dépendance du lock n'a de script de cycle
+        # de vie (vérifié) ; on interdit leur exécution par défaut (S6505).
         run: |
-          npm ci
+          npm ci --ignore-scripts
 
       - name: Build
         run: |

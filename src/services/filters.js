@@ -41,6 +41,16 @@ function selectMeasurementsForBulkApply({
   return selectedMeasurements;
 }
 
+async function copyMeasurementCommonAttributes(uniqueMeasurements) {
+  console.time('copyMeasurements');
+
+  for (const item of uniqueMeasurements) {
+    await item.copyAllToOther();
+  }
+
+  console.timeEnd('copyMeasurements');
+}
+
 function createFiltersService({
   // operations path (ADR 002): route filter creation to createMeasurementOperations over
   // the flat records. When `operations` is absent the item methods are used
@@ -137,16 +147,6 @@ function createFiltersService({
       log.info(`Inverting channel ${unwrap(item.channelName)}`);
       await item.toggleInversion();
     }
-  }
-
-  async function copyMeasurementCommonAttributes(uniqueMeasurements) {
-    console.time('copyMeasurements');
-
-    for (const item of uniqueMeasurements) {
-      await item.copyAllToOther();
-    }
-
-    console.timeEnd('copyMeasurements');
   }
 
   return {

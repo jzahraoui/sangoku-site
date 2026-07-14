@@ -1056,7 +1056,7 @@ function createSubOptimizationService({
     // in the constructor): start from the engine defaults before overriding.
     const joint = {
       ...structuredClone(MultiSubOptimizer.DEFAULT_CONFIG.optimization.joint),
-      ...(optimizerConfig.optimization.joint ?? {}),
+      ...optimizerConfig.optimization.joint,
     };
     const individualBoostCap = Number(config.maxBoostIndividualValue);
     if (Number.isFinite(individualBoostCap)) {

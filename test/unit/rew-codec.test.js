@@ -47,7 +47,7 @@ describe('rew-codec — contrat float32/Base64', () => {
         encodeFloat32ToBase64(source, isLittleEndian),
         isLittleEndian,
       );
-      expect(decoded.length).toBe(source.length);
+      expect(decoded).toHaveLength(source.length);
       // Comparaison bit à bit : le round-trip ne doit altérer aucun octet.
       const sourceBytes = new Uint8Array(source.buffer);
       const decodedBytes = new Uint8Array(decoded.buffer);

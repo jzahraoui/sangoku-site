@@ -13,7 +13,10 @@ class RewController {
 
   // Extract version tag from commit message if exists
   extractVersionTag(message) {
-    const versionMatch = message.match(/(\d+\.\d+\.\d+)/);
+    // Quantificateurs bornés : évite le backtracking super-linéaire (S8786)
+    // sur les longues suites de chiffres ; aucun composant de version réel
+    // ne dépasse 4 chiffres.
+    const versionMatch = message.match(/\d{1,4}\.\d{1,4}\.\d{1,4}/);
     return versionMatch ? versionMatch[0] : null;
   }
 

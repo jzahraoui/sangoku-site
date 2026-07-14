@@ -95,7 +95,10 @@ async function rewAlign(uuidA, uuidB, frequency, minDelayMs, maxDelayMs) {
     // « Delay too large » : REW refuse et indique le délai requis ; purger le
     // message de process en attente avant la requête suivante.
     await drainPendingProcess();
-    const match = /too large[^0-9-]*(-?[\d.]+)\s*ms/i.exec(error.message);
+    // Nombre décimal explicite : `[\d.]+` chevauchait `[^0-9-]*` sur le « . »
+    // (backtracking super-linéaire, S8786) ; capture identique sur les
+    // messages REW réels (« … too large … -12.34 ms »).
+    const match = /too large[^0-9-]*(-?\d+(?:\.\d+)?)\s*ms/i.exec(error.message);
     return { error: error.message.slice(0, 140), requiredDelayMs: match ? Number(match[1]) : null };
   }
 }
@@ -158,7 +161,7 @@ async function main() {
   for (const { a, b, fcs, bounds } of CASES) {
     for (const fc of fcs) {
       const rewResult = await rewAlign(uuids[a], uuids[b], fc, bounds[0], bounds[1]);
-      let internal = null;
+      let internal;
       try {
         internal = alignImpulseResponses(irCache[a], irCache[b], {
           frequency: fc,
@@ -177,17 +180,17 @@ async function main() {
       const invertMatch =
         rewResult.invertB === undefined || rewResult.invertB === internal.invertB;
       if (!invertMatch) invertMismatches++;
+      const rewCol = rewResult.error
+        ? 'ERR ' + (rewResult.requiredDelayMs ?? '') + ' (' + rewResult.error.slice(0, 60) + ')'
+        : rewResult.delayMs.toFixed(2) + ' ms inv=' + rewResult.invertB;
+      const internalCol = internal.error
+        ? 'ERR ' + internal.error.slice(0, 60)
+        : internal.delayMs.toFixed(2) + ' ms inv=' + internal.invertB +
+          ' (libre ' + internal.requiredDelayMs.toFixed(2) + ')';
+      const deltaCol = delayDiff !== null ? `  Δ=${delayDiff.toFixed(3)} ms` : '';
+      const invertCol = invertMatch ? '' : '  ⚠ INVERT';
       console.log(
-        `${a}↔${b}@${fc} [${bounds}]  REW: ${
-          rewResult.error
-            ? 'ERR ' + (rewResult.requiredDelayMs ?? '') + ' (' + rewResult.error.slice(0, 60) + ')'
-            : rewResult.delayMs.toFixed(2) + ' ms inv=' + rewResult.invertB
-        }  interne: ${
-          internal.error
-            ? 'ERR ' + internal.error.slice(0, 60)
-            : internal.delayMs.toFixed(2) + ' ms inv=' + internal.invertB +
-              ' (libre ' + internal.requiredDelayMs.toFixed(2) + ')'
-        }${delayDiff !== null ? `  Δ=${delayDiff.toFixed(3)} ms` : ''}${invertMatch ? '' : '  ⚠ INVERT'}`,
+        `${a}↔${b}@${fc} [${bounds}]  REW: ${rewCol}  interne: ${internalCol}${deltaCol}${invertCol}`,
       );
     }
   }
