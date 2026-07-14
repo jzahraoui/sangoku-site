@@ -245,8 +245,10 @@ de `logRunReport`.
 
 `enableReduceRepair` et `enableCriticalBandRefinement` valent `true` par défaut
 mais ne font **rien** tant que `enableBeatRewOptimization` est `false` (défaut
-UI) : ils ne sont lus qu'à l'intérieur de `runBeatRewEnhancements`. Toute
-documentation ou tout réglage doit en tenir compte.
+UI) : ils ne sont lus qu'à l'intérieur de `runBeatRewEnhancements`. L'UI
+matérialise cette dépendance : les deux cases sont indentées sous Beat-REW et
+désactivées (`enable:` Knockout) tant que le mode est décoché. Tout réglage
+hors UI doit en tenir compte.
 
 ### 5.2 `minFilterGain` n'est pas un paramètre du moteur
 
@@ -262,9 +264,12 @@ plancher fixe de 0.1 dB.
 Dans le moteur, `allowBoosts: false` empêche seulement un span sous la cible de
 devenir candidat au placement (`SpanCandidateFinder`). Rien dans
 `_buildGainBounds` ne le consulte : un filtre placé sur un span de cut peut
-repasser en gain positif. L'interdiction effective vient de l'UI, qui force
-`individualMaxBoostDb` et `overallMaxBoostDb` à 0. Un appel hors UI avec
-`allowBoosts: false` et `individualMaxBoostDb > 0` **produira des boosts**.
+repasser en gain positif. L'interdiction effective vient de l'UI : les valeurs
+transmises au moteur passent par les computed `effectiveIndividualMaxBoost` /
+`effectiveOverallBoost` (`MeasurementViewModel`), qui valent 0 quand
+`allowBoosts` est décoché — les réglages de l'utilisateur sont conservés et
+restaurés au re-cochage. Un appel hors UI avec `allowBoosts: false` et
+`individualMaxBoostDb > 0` **produira des boosts**.
 
 ### 5.4 Les logs internes du moteur ne sortent nulle part
 

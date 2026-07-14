@@ -485,9 +485,10 @@ class MeasurementItem {
       freqEnd,
       autoEqConfig: this.parentViewModel.autoEqConfig,
       individualMaxBoostDb:
-        options.individualMaxBoostDb ?? this.parentViewModel.individualMaxBoostValue(),
+        options.individualMaxBoostDb ??
+        this.parentViewModel.effectiveIndividualMaxBoost(),
       overallMaxBoostDb:
-        options.overallMaxBoostDb ?? this.parentViewModel.overallBoostValue(),
+        options.overallMaxBoostDb ?? this.parentViewModel.effectiveOverallBoost(),
     });
   }
 
@@ -706,8 +707,8 @@ class MeasurementItem {
         upper: pv.upperFrequencyBound(),
       },
       boosts: {
-        individual: pv.individualMaxBoostValue(),
-        overall: pv.overallBoostValue(),
+        individual: pv.effectiveIndividualMaxBoost(),
+        overall: pv.effectiveOverallBoost(),
       },
       createCalculator: (sampleRate, freqStart, freqEnd, options) =>
         this.createPhaseMatchCalculator(sampleRate, freqStart, freqEnd, options),

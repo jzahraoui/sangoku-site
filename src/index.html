@@ -847,6 +847,32 @@
                     <span data-i18n="autoeq_beat_rew">Beat-REW optimization</span>
                     <span class="checkmark"></span>
                   </label>
+                  <!-- Sous-options : lues par le moteur uniquement en mode
+                       Beat-REW — grisées tant que ce mode est décoché. -->
+                  <label
+                    class="checkbox-container autoeq-suboption"
+                    data-bind="css: { disabled: !autoEqConfig.enableBeatRewOptimization() }"
+                  >
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.enableReduceRepair,
+                        enable: autoEqConfig.enableBeatRewOptimization"
+                    />
+                    <span data-i18n="autoeq_reduce_repair">Reduce &amp; repair</span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <label
+                    class="checkbox-container autoeq-suboption"
+                    data-bind="css: { disabled: !autoEqConfig.enableBeatRewOptimization() }"
+                  >
+                    <input
+                      type="checkbox"
+                      data-bind="checked: autoEqConfig.enableCriticalBandRefinement,
+                        enable: autoEqConfig.enableBeatRewOptimization"
+                    />
+                    <span data-i18n="autoeq_critical_band">Critical band refinement</span>
+                    <span class="checkmark"></span>
+                  </label>
                   <label class="checkbox-container">
                     <input
                       type="checkbox"
@@ -855,22 +881,6 @@
                     <span data-i18n="autoeq_candidate_placement"
                       >Candidate placement</span
                     >
-                    <span class="checkmark"></span>
-                  </label>
-                  <label class="checkbox-container">
-                    <input
-                      type="checkbox"
-                      data-bind="checked: autoEqConfig.enableReduceRepair"
-                    />
-                    <span data-i18n="autoeq_reduce_repair">Reduce &amp; repair</span>
-                    <span class="checkmark"></span>
-                  </label>
-                  <label class="checkbox-container">
-                    <input
-                      type="checkbox"
-                      data-bind="checked: autoEqConfig.enableCriticalBandRefinement"
-                    />
-                    <span data-i18n="autoeq_critical_band">Critical band refinement</span>
                     <span class="checkmark"></span>
                   </label>
                   <label class="checkbox-container">

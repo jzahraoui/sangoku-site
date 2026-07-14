@@ -846,6 +846,13 @@ textarea {
   margin-bottom: var(--spacing-lg);
 }
 
+/* Sous-options du mode Beat-REW : indentées sous leur case parente. */
+.autoeq-settings > .checkbox-container.autoeq-suboption {
+  margin-left: calc(var(--spacing-lg) * 2);
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 /* Code Styles */
 .code-text {
   font-family: 'Lucida Console', Monaco, 'Courier New', monospace;

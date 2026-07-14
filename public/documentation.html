@@ -694,18 +694,9 @@
     </p>
     <p>
       <strong>A savoir :</strong> cette case commande aussi les deux suivantes. Reduce
-      &amp; repair et Critical band refinement ont beau etre cochees par defaut, elles ne
-      font rien tant que Beat-REW optimization est decochee. Si vous voulez en profiter,
-      c'est cette case qu'il faut cocher.
-    </p>
-
-    <h4>Candidate placement (cochee par defaut)</h4>
-    <p>
-      Au lieu de placer chaque filtre sur la premiere zone venue, RCH teste plusieurs
-      zones candidates et garde la plus prometteuse. Concretement, RCH rejoue tout le
-      placement de cette maniere et ne remplace le premier resultat que si le second est
-      meilleur. Cela double le temps de calcul, mais ne peut pas degrader le resultat :
-      c'est pourquoi c'est active par defaut.
+      &amp; repair et Critical band refinement sont indentees sous elle et restent
+      grisees (sans effet) tant que Beat-REW optimization est decochee. Si vous voulez
+      en profiter, c'est cette case qu'il faut cocher.
     </p>
 
     <h4>Reduce &amp; repair (cochee, necessite Beat-REW)</h4>
@@ -720,6 +711,15 @@
       Reoptimise separement trois bandes — le grave modal, le medium critique et l'aigu —
       au lieu de ne viser qu'un score global. L'idee est de mieux equilibrer la qualite
       la ou l'oreille est la plus sensible.
+    </p>
+
+    <h4>Candidate placement (cochee par defaut)</h4>
+    <p>
+      Au lieu de placer chaque filtre sur la premiere zone venue, RCH teste plusieurs
+      zones candidates et garde la plus prometteuse. Concretement, RCH rejoue tout le
+      placement de cette maniere et ne remplace le premier resultat que si le second est
+      meilleur. Cela double le temps de calcul, mais ne peut pas degrader le resultat :
+      c'est pourquoi c'est active par defaut.
     </p>
 
     <h4>Refinement (decoche par defaut)</h4>
@@ -750,9 +750,10 @@
       cible. Decocher travaille en attenuation seule, l'approche la plus sure.
     </p>
     <p>
-      <strong>A savoir :</strong> decocher cette case met immediatement les deux limites
-      de boost a 0. Si vous la recochez, ces limites <em>restent a 0</em> : pensez a les
-      remettre a 6 et 3, sinon aucun boost ne sera possible alors que la case est cochee.
+      <strong>A savoir :</strong> decocher cette case grise les deux limites de boost
+      (Individual Max Boost et Overall Max Boost) et le calcul se fait comme si elles
+      valaient 0. Vos valeurs ne sont pas perdues : elles redeviennent actives des que
+      vous recochez la case.
     </p>
 
     <h4>Reset defaults</h4>

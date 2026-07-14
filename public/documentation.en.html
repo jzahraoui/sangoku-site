@@ -666,18 +666,9 @@
     </p>
     <p>
       <strong>Worth knowing:</strong> this box also governs the next two. Reduce &amp;
-      repair and Critical band refinement may well be ticked by default, they do nothing
-      as long as Beat-REW optimization is off. If you want to benefit from them, this is
-      the box to tick.
-    </p>
-
-    <h4>Candidate placement (on by default)</h4>
-    <p>
-      Instead of placing each filter on the first zone found, RCH tests several candidate
-      zones and keeps the most promising one. In practice, RCH reruns the whole
-      placement this way, and only replaces the first result if the second is better.
-      This doubles the calculation time, but cannot degrade the result: hence it is on
-      by default.
+      repair and Critical band refinement are indented under it and stay greyed out
+      (with no effect) as long as Beat-REW optimization is off. If you want to benefit
+      from them, this is the box to tick.
     </p>
 
     <h4>Reduce &amp; repair (on, requires Beat-REW)</h4>
@@ -692,6 +683,15 @@
       Re-optimises three bands separately — modal bass, critical midrange and treble —
       instead of targeting a single global score. The idea is to balance quality better
       where the ear is most sensitive.
+    </p>
+
+    <h4>Candidate placement (on by default)</h4>
+    <p>
+      Instead of placing each filter on the first zone found, RCH tests several candidate
+      zones and keeps the most promising one. In practice, RCH reruns the whole
+      placement this way, and only replaces the first result if the second is better.
+      This doubles the calculation time, but cannot degrade the result: hence it is on
+      by default.
     </p>
 
     <h4>Refinement (off by default)</h4>
@@ -721,10 +721,10 @@
       Unticking works by attenuation only, the safest approach.
     </p>
     <p>
-      <strong>Worth knowing:</strong> unticking this box immediately sets both boost
-      limits to 0. If you tick it again, those limits <em>stay at 0</em>: remember to set
-      them back to 6 and 3, otherwise no boost will be possible even though the box is
-      ticked.
+      <strong>Worth knowing:</strong> unticking this box greys out both boost limits
+      (Individual Max Boost and Overall Max Boost) and the calculation behaves as if
+      they were 0. Your values are not lost: they become active again as soon as you
+      tick the box back.
     </p>
 
     <h4>Reset defaults</h4>

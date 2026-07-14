@@ -385,12 +385,16 @@ class MeasurementViewModel {
       () => !this.autoEqConfig.allowBoosts(),
     );
 
-    this.autoEqConfig.allowBoosts.subscribe(allowBoosts => {
-      if (!allowBoosts) {
-        this.individualMaxBoostValue(0);
-        this.overallBoostValue(0);
-      }
+    // Valeurs transmises au moteur : décocher « Allow boosts » force 0 dB
+    // sans écraser les réglages de l'utilisateur (restaurés au re-cochage).
+    this.effectiveIndividualMaxBoost = ko.pureComputed(() =>
+      this.autoEqConfig.allowBoosts() ? this.individualMaxBoostValue() : 0,
+    );
+    this.effectiveOverallBoost = ko.pureComputed(() =>
+      this.autoEqConfig.allowBoosts() ? this.overallBoostValue() : 0,
+    );
 
+    this.autoEqConfig.allowBoosts.subscribe(() => {
       this.saveMeasurements();
     });
 
@@ -1175,8 +1179,8 @@ class MeasurementViewModel {
             selectedSmoothingMethod: this.selectedSmoothingMethod(),
             selectedIrWindows: this.selectedIrWindows(),
             selectedRoomCurve: this.selectedRoomCurve(),
-            individualMaxBoostValue: this.individualMaxBoostValue(),
-            overallBoostValue: this.overallBoostValue(),
+            individualMaxBoostValue: this.effectiveIndividualMaxBoost(),
+            overallBoostValue: this.effectiveOverallBoost(),
             numberOfSubwoofers: this.uniqueSubsMeasurements().length,
             revertLfeFrequency: subWithFreq?.revertLfeFrequency,
             maxBoostIndividualValue: this.maxBoostIndividualValue(),
