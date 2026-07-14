@@ -4,7 +4,7 @@
  *
  * Ce fichier contient:
  * - Fonctions utilitaires communes (parsing, réponses brutes, échantillonnage)
- * - Configurations par défaut et presets
+ * - Configuration par défaut
  * - Chemins des exemples de test
  * - Helpers pour la comparaison avec REW
  */
@@ -70,20 +70,9 @@ export const DEFAULT_CONFIG = {
   // Limites de gain - REW utilise jusqu'à -15.2 dB (exemple3)
   maxCutDb: 20,
 
-  // Limitation du group delay - désactivée pour meilleure précision
-  // REW atteint 17.6 ms de variation GD
-  enableGroupDelayLimit: false,
-  maxGroupDelayVariation: 50, // Ignoré si désactivé
-
-  // Pénalité de Q - faible
-  qPenaltyWeight: 0.05,
-
-  // Zone de transition pour la pénalité de Q
-  qPenaltyFreqStart: 500,
-  qPenaltyFreqEnd: 10000,
-
-  // Q maximum par zone de fréquence - permissif
-  maxQLowFreq: 6, // Limité pour réduire GD en BF
+  // Q maximum par zone de fréquence — non consommé par le moteur à ce jour
+  // (plafonds de Q par bande, câblage à décider)
+  maxQLowFreq: 6,
   maxQHighFreq: 4,
 
   // Pénalité d'overshoot - faible pour permettre les boosts agressifs
@@ -95,106 +84,8 @@ export const DEFAULT_CONFIG = {
   allowNarrowFiltersBelow200Hz: true,
   varyQAbove200Hz: false,
 
-  // ===== NOUVEAUX PARAMÈTRES v4.4 =====
   notchExclusionThreshold: 6,
-  enableFrequencyWeighting: true,
-  enableStochasticPerturbation: true,
-  numPerturbations: 100,
   minFilterGain: 0.4,
-
-  // Optimisations
-  enableGlobalBoostConstraint: true,
-  enableMultiStart: true,
-  multiStartAttempts: 5,
-  enableFreqOptimization: true,
-  enableAdaptiveResolution: true,
-  enableAdaptiveCriteria: true,
-
-  // Protection des roll-offs
-  enableRolloffProtection: false,
-
-  // Decay time limit for boosts - légèrement restrictif pour limiter GD
-  enableDecayTimeLimitForBoost: true,
-  maxDecayTime60dB: 600, // 600ms - limite modérée
-};
-
-// ============================================================================
-// PRESETS DE CONFIGURATION
-// ============================================================================
-
-/**
- * Presets prédéfinis pour différents cas d'usage
- */
-export const CONFIG_PRESETS = {
-  /**
-   * Preset "Précision maximale"
-   * Priorité à la réduction du RMS error, group delay moins contraint
-   */
-  precisionFirst: {
-    ...DEFAULT_CONFIG,
-    enableGroupDelayLimit: false,
-    overshootPenaltyWeight: 0.1,
-    qPenaltyWeight: 0.02,
-    maxQLowFreq: 8,
-    maxQHighFreq: 6,
-    numOptimizationPasses: 20,
-    numPerturbations: 150,
-  },
-
-  /**
-   * Preset "Group Delay équilibré"
-   * Bon compromis entre précision et qualité du group delay
-   */
-  gdBalanced: {
-    ...DEFAULT_CONFIG,
-    enableGroupDelayLimit: true,
-    maxGroupDelayVariation: 25,
-    overshootPenaltyWeight: 0.3,
-    qPenaltyWeight: 0.1,
-    maxQLowFreq: 5,
-    maxQHighFreq: 3,
-  },
-
-  /**
-   * Preset "Qualité sonore"
-   * Priorité au naturel du son, corrections modérées
-   */
-  soundQuality: {
-    ...DEFAULT_CONFIG,
-    enableGroupDelayLimit: true,
-    maxGroupDelayVariation: 15,
-    overshootPenaltyWeight: 0.5,
-    qPenaltyWeight: 0.2,
-    maxQLowFreq: 6,
-    maxQHighFreq: 2,
-  },
-
-  /**
-   * Preset "Rapide"
-   * Pour les benchmarks et tests rapides
-   */
-  fast: {
-    ...DEFAULT_CONFIG,
-    numFilters: 10,
-    enableMultiStart: false,
-    enableFreqOptimization: false,
-    enableStochasticPerturbation: false,
-    numOptimizationPasses: 5,
-    multiStartAttempts: 1,
-  },
-
-  /**
-   * Preset "Benchmark"
-   * Configuration standard pour comparaisons reproductibles
-   */
-  benchmark: {
-    ...DEFAULT_CONFIG,
-    numFilters: 15,
-    enableStochasticPerturbation: false, // Déterministe
-    enableMultiStart: false,
-    multiStartAttempts: 1,
-    numOptimizationPasses: 10,
-  },
 };
 
 // ============================================================================
@@ -881,10 +772,7 @@ export const verboseLogCallback = msg => {
  * @returns {Object} - Configuration complète
  */
 export function createConfig(overrides = {}, options = {}) {
-  const { silent = false, verbose = false, preset = null } = options;
-
-  // Partir du preset si spécifié, sinon de DEFAULT_CONFIG
-  const baseConfig = preset ? CONFIG_PRESETS[preset] || DEFAULT_CONFIG : DEFAULT_CONFIG;
+  const { silent = false, verbose = false } = options;
 
   let onLog = defaultLogCallback;
   if (silent) {
@@ -894,7 +782,7 @@ export function createConfig(overrides = {}, options = {}) {
   }
 
   return {
-    ...baseConfig,
+    ...DEFAULT_CONFIG,
     ...overrides,
     onProgress: overrides.onProgress || (silent ? () => {} : defaultProgressCallback),
     onLog: overrides.onLog || onLog,
@@ -948,7 +836,6 @@ export function loadTestExample(exampleName) {
 export default {
   TEST_EXAMPLES,
   DEFAULT_CONFIG,
-  CONFIG_PRESETS,
   MATCH_RANGES,
   parseREWFile,
   parseREWFileAsAPI,
