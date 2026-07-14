@@ -142,6 +142,9 @@ function formatFilter(f) {
   return `fc=${f.fc} gain=${f.gain} Q=${f.Q}`;
 }
 
+// Complexité assumée : test d'identité stricte rouge de longue date
+// (CLAUDE.md : « ne pas réparer ») — pas de refactor sans REW réel.
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function compareFilters(ourFilters, rewFilters, freqStep, gainStep) {
   const diffs = [];
   const maxCount = Math.max(ourFilters.length, rewFilters.length);

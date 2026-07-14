@@ -18,6 +18,10 @@
  * @param {boolean} [inverse=false] - Transformée inverse (normalisée par 1/N)
  * @throws {RangeError} Si la longueur n'est pas une puissance de 2.
  */
+// Complexité 17 assumée (revue 2026-07-14) : le noyau Cooley-Tukey est trois
+// boucles imbriquées irréductibles sur chemin chaud — découper dégraderait
+// lisibilité et performances sans bénéfice.
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function fftInPlace(re, im, inverse = false) {
   const n = re.length;
   if (n < 2 || (n & (n - 1)) !== 0 || im.length !== n) {

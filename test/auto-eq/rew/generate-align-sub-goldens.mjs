@@ -277,6 +277,9 @@ async function applyBank(uuid, bank) {
   await sleep(300);
 }
 
+// Complexité assumée (revue 2026-07-14) : script de génération de goldens
+// piloté sur REW réel — le restructurer n'est vérifiable qu'avec REW branché.
+// eslint-disable-next-line sonarjs/cognitive-complexity
 async function main() {
   console.log(JSON.stringify(await rew.request('/version')));
 

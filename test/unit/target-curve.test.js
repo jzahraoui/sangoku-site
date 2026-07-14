@@ -124,7 +124,7 @@ describe('measurementOps injection', () => {
     });
     const other = measurement('C_P01');
     const created = measurement('generated');
-    const { service, session } = createHarness({ measurements: [reference, other] });
+    const { session } = createHarness({ measurements: [reference, other] });
     session.analyseApiResponse.mockResolvedValue(created);
 
     const measurementOps = {
@@ -174,7 +174,6 @@ describe('measurementOps injection', () => {
     expect(reference.getTargetLevel).not.toHaveBeenCalled();
     expect(reference.setTargetLevel).not.toHaveBeenCalled();
     expect(created.setTitle).not.toHaveBeenCalled();
-    void service;
   });
 });
 

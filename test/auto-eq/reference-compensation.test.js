@@ -78,8 +78,11 @@ test('computeReferenceProfile: D(f) dépendant de la fréquence est suivi, déta
   const freqs = ppoGrid(20, 20000);
   // D = 0 sous 300 Hz, 2 dB au-dessus de 1 kHz, transition log entre les deux,
   // plus une ondulation fine (1/12 oct) que le lissage 1 octave doit gommer.
-  const dOf = f =>
-    f <= 300 ? 0 : f >= 1000 ? 2 : (2 * Math.log(f / 300)) / Math.log(1000 / 300);
+  const dOf = f => {
+    if (f <= 300) return 0;
+    if (f >= 1000) return 2;
+    return (2 * Math.log(f / 300)) / Math.log(1000 / 300);
+  };
   const reference = { freqs, magnitude: freqs.map(() => 80) };
   const working = {
     freqs,
