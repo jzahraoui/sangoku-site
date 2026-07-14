@@ -1,23 +1,13 @@
 import { CHANNEL_TYPES } from './audyssey.js';
-import 'decimal.js';
 import ko from 'knockout';
 import BusinessTools from './BusinessTools.js';
 import lm from './logs.js';
 import { createPhaseMatchCalculator } from './autoeq/phase-match-calculator.js';
 import {
-  arraysMatchWithTolerance,
-  binarySearchLowerBound,
   cleanFloat32Value,
-  compareIrWindows,
-  compareObjectsSorted,
   metersToSeconds,
   secondsToMeters,
 } from './measurement/measurement-calculations.js';
-import {
-  buildPhaseMatchFilters,
-  countFiltersSlotsAvailable,
-  validatePhaseMatchRange,
-} from './measurement/filter-slots.js';
 import {
   MODEL_DISTANCE_CRITICAL_LIMIT,
   MODEL_DISTANCE_LIMIT,
@@ -39,10 +29,7 @@ import {
   splIsAboveLimit,
 } from './measurement/measurement-info.js';
 import MeasurementRecord from './measurement/measurement-record.js';
-import {
-  createMeasurementOperations,
-  getAlignSPLOffsetdBByUUID,
-} from './services/measurement-operations.js';
+import { createMeasurementOperations } from './services/measurement-operations.js';
 
 // Simple REW wrappers live in src/services/measurement-operations.js;
 // the methods below are thin adapters keeping the public API unchanged.
@@ -455,14 +442,6 @@ class MeasurementItem {
     return ops.resetEqualiser(this.rewMeasurements, this, this.rewEq.defaultEqtSettings);
   }
 
-  static arraysMatchWithTolerance(arr1, arr2, tolerance = 0.01) {
-    return arraysMatchWithTolerance(arr1, arr2, tolerance);
-  }
-
-  compareIwWindows(source, target) {
-    return compareIrWindows(source, target);
-  }
-
   async setIrWindows(irWindowsObject) {
     return ops.setIrWindows(this.rewMeasurements, this, irWindowsObject);
   }
@@ -499,14 +478,6 @@ class MeasurementItem {
     return ops.resolveSampleRate(this.rewMeasurements, this);
   }
 
-  binarySearchLowerBound(arr, value) {
-    return binarySearchLowerBound(arr, value);
-  }
-
-  validatePhaseMatchRange(freqStart, freqEnd) {
-    validatePhaseMatchRange(freqStart, freqEnd, this.displayMeasurementTitle());
-  }
-
   createPhaseMatchCalculator(sampleRate, freqStart, freqEnd, options = {}) {
     return createPhaseMatchCalculator({
       sampleRate,
@@ -518,10 +489,6 @@ class MeasurementItem {
       overallMaxBoostDb:
         options.overallMaxBoostDb ?? this.parentViewModel.overallBoostValue(),
     });
-  }
-
-  buildPhaseMatchFilters(activeFilters) {
-    return buildPhaseMatchFilters(activeFilters);
   }
 
   async restoreWorkingSettings(useWorkingSettings, operationError) {
@@ -599,10 +566,6 @@ class MeasurementItem {
     return ops.setZeroAtIrPeak(this.rewMeasurements, this);
   }
 
-  static getAlignSPLOffsetdBByUUID(responseData, targetUUID) {
-    return getAlignSPLOffsetdBByUUID(responseData, targetUUID);
-  }
-
   async getBandwidth() {
     return ops.getBandwidth(this.rewMeasurements, this);
   }
@@ -635,10 +598,6 @@ class MeasurementItem {
       this,
       this.rewEq.defaultEqtSettings,
     );
-  }
-
-  compareObjects(obj1, obj2) {
-    return compareObjectsSorted(obj1, obj2);
   }
 
   async copyFiltersToOther() {
@@ -784,10 +743,6 @@ class MeasurementItem {
     return this.createFilter('phase', useWorkingSettings, copyFiltersToOther);
   }
 
-  countFiltersSlotsAvailable(filters) {
-    return countFiltersSlotsAvailable(filters);
-  }
-
   async setAllFiltersAuto(requiredState = true) {
     return ops.setAllFiltersAuto(this.rewMeasurements, this, requiredState);
   }
@@ -925,14 +880,18 @@ class MeasurementItem {
 
   dispose() {
     // Disposer tous les computed observables
-    this.cumulativeIRDistanceMeters?.dispose();
-    this.cumulativeIRDistanceSeconds?.dispose();
-    this.isSelected?.dispose();
-    this.getOtherGroupMember?.dispose();
-    this.isChannelDetected?.dispose();
-    this.exceedsDistance?.dispose();
-    this.hasErrors?.dispose();
-    this.otherPositionMeasurements?.dispose();
+    for (const name of [
+      'cumulativeIRDistanceMeters',
+      'cumulativeIRDistanceSeconds',
+      'isSelected',
+      'getOtherGroupMember',
+      'isChannelDetected',
+      'exceedsDistance',
+      'hasErrors',
+      'otherPositionMeasurements',
+    ]) {
+      this[name]?.dispose();
+    }
     // Disposer les subscriptions
     this.inverted?.subscription?.dispose();
     this.cumulativeIRShiftSeconds?.subscription?.dispose();

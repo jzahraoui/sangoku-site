@@ -1,6 +1,7 @@
 import MeasurementViewModel from './MeasurementViewModel.js';
 import ko from 'knockout';
 import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import FrequencyRangeSlider from './frequency-range-slider.js';
 import LanguageManager from './language-manager.js';
 import lm from './logs.js';
@@ -266,30 +267,20 @@ class RewController {
 
       // Handle navigation
       function navigateToPage(page) {
-        if (
-          !appContent ||
-          !documentationContent ||
-          !resourcesContent ||
-          !changeLogContent
-        )
-          return;
-        appContent.style.display = 'none';
-        documentationContent.style.display = 'none';
-        resourcesContent.style.display = 'none';
-        changeLogContent.style.display = 'none';
-        if (page === 'documentation') {
-          documentationContent.style.display = 'block';
-        } else if (page === 'resources') {
-          resourcesContent.style.display = 'block';
-        } else if (page === 'changelog') {
-          changeLogContent.style.display = 'block';
-        } else if (page === 'application') {
-          appContent.style.display = 'block';
-        } else {
+        const pages = {
+          documentation: documentationContent,
+          resources: resourcesContent,
+          changelog: changeLogContent,
+          application: appContent,
+        };
+        if (Object.values(pages).some(el => !el)) return;
+
+        for (const el of Object.values(pages)) el.style.display = 'none';
+        if (!pages[page]) {
           lm.error('Unknown page:', page);
-          appContent.style.display = 'block'; // Default to application page
-          page = 'application';
+          page = 'application'; // Default to application page
         }
+        pages[page].style.display = 'block';
         // Update URL without refresh
         history.pushState({ page }, '', `#${page}`);
 
@@ -326,32 +317,30 @@ class RewController {
         button.addEventListener('click', async function (e) {
           e.preventDefault();
 
-          const buttonId = this.id;
-          let folderPath;
-          let zipFilename;
-          let fileExtension;
-
-          // Set parameters based on which button was clicked
-          switch (buttonId) {
-            case 'downloadAllLossless':
-              folderPath = 'ressources/lossless/';
-              zipFilename = 'lossless_audio_files';
-              fileExtension = '.mlp';
-              break;
-            case 'downloadAllLossy':
-              folderPath = 'ressources/lossy/';
-              zipFilename = 'lossy_audio_files';
-              fileExtension = '.mp4';
-              break;
-            case 'downloadAllTargetCurves':
-              folderPath = 'ressources/target_curves/';
-              zipFilename = 'target_curves';
-              fileExtension = '.txt';
-              break;
-            default:
-              lm.error('Unknown button ID');
-              return;
+          // Parameters based on which button was clicked
+          const downloadConfigs = {
+            downloadAllLossless: {
+              folderPath: 'ressources/lossless/',
+              zipFilename: 'lossless_audio_files',
+              fileExtension: '.mlp',
+            },
+            downloadAllLossy: {
+              folderPath: 'ressources/lossy/',
+              zipFilename: 'lossy_audio_files',
+              fileExtension: '.mp4',
+            },
+            downloadAllTargetCurves: {
+              folderPath: 'ressources/target_curves/',
+              zipFilename: 'target_curves',
+              fileExtension: '.txt',
+            },
+          };
+          const config = downloadConfigs[this.id];
+          if (!config) {
+            lm.error('Unknown button ID');
+            return;
           }
+          const { folderPath, zipFilename, fileExtension } = config;
 
           // Create status message
           const statusDiv = document.createElement('div');
@@ -396,13 +385,8 @@ class RewController {
               '<i class="fas fa-spinner fa-spin"></i> Generating ZIP file...';
             const zipBlob = await zip.generateAsync({ type: 'blob' });
 
-            // Create download link and trigger download
-            const downloadLink = document.createElement('a');
-            downloadLink.href = URL.createObjectURL(zipBlob);
-            downloadLink.download = `${zipFilename}.zip`;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            downloadLink.remove();
+            // Trigger download (file-saver handles the anchor + object-URL lifecycle)
+            saveAs(zipBlob, `${zipFilename}.zip`);
 
             // Update status
             statusDiv.innerHTML = '<i class="fas fa-check"></i> Download complete!';
@@ -424,7 +408,7 @@ class RewController {
 
       const commitList = document.getElementById('commitList');
       const loading = document.getElementById('loading');
-      const error = document.getElementById('error');
+      const errorEl = document.getElementById('error');
       const searchInput = document.getElementById('searchCommits');
       const authorFilter = document.getElementById('filterByAuthor');
 
@@ -501,7 +485,7 @@ class RewController {
 
       // Fetch commits from GitHub API
       async function fetchCommits() {
-        if (!commitList || !loading || !error || !searchInput || !authorFilter) return;
+        if (!commitList || !loading || !errorEl || !searchInput || !authorFilter) return;
         try {
           const response = await fetch(
             'https://api.github.com/repos/jzahraoui/sangoku-site/commits',
@@ -534,10 +518,10 @@ class RewController {
           // Set up event listeners for filters
           searchInput.addEventListener('input', filterCommits);
           authorFilter.addEventListener('change', filterCommits);
-        } catch (err) {
-          lm.error(`Error fetching commits: ${err.message}`, err);
+        } catch (error) {
+          lm.error(`Error fetching commits: ${error.message}`, error);
           if (loading) loading.style.display = 'none';
-          if (error) error.style.display = 'block';
+          if (errorEl) errorEl.style.display = 'block';
         }
       }
 

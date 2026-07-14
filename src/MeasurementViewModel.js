@@ -58,6 +58,31 @@ const exportsService = createExportsService({ log: lm });
 // ALIGN_OFFSET_TOLERANCE et quantize3dB vivent désormais dans
 // src/measurement/measurement-selection.js.
 
+// Valeurs par défaut de la config AutoEQ (UI). Source unique utilisée pour
+// initialiser les observables au démarrage et pour resetAutoEqConfig().
+const DEFAULT_AUTOEQ_CONFIG = {
+  numFilters: 20,
+  maxCutDb: 25,
+  flatnessTarget: 0.3,
+  numOptimizationPasses: 20,
+  gainSignLockThreshold: 0.5,
+  notchExclusionThreshold: 6,
+  minFilterGain: 0.4,
+  enableBeatRewOptimization: false,
+  enableCandidatePlacement: true,
+  enableReduceRepair: true,
+  enableCriticalBandRefinement: true,
+  enableRefinement: false,
+  refinementIterations: 100,
+  varyQAbove200Hz: false,
+  allowNarrowFiltersBelow200Hz: true,
+  allowBoosts: true,
+  // Protection ampli/enceintes (spec FR-032) : aucun boost sous 50 Hz.
+  maxBoostFreq: 50,
+  overshootPenaltyWeight: 0.3,
+  maxAllowedOvershoot: 1.5,
+};
+
 /**
  * Creates a proxy that exposes the instance's Knockout observables as
  * plain properties (get/set). Reading `proxy.foo` calls `instance.foo()`,
@@ -114,28 +139,12 @@ class MeasurementViewModel {
     this.confirmDialogMessage = this.confirmManager.confirmDialogMessage;
 
     this.inhibitGraphUpdates = ko.observable(true);
-    this.autoEqConfig = {
-      numFilters: ko.observable(20),
-      maxCutDb: ko.observable(15),
-      flatnessTarget: ko.observable(0.3),
-      numOptimizationPasses: ko.observable(20),
-      gainSignLockThreshold: ko.observable(0.5),
-      notchExclusionThreshold: ko.observable(6),
-      minFilterGain: ko.observable(0.4),
-      enableBeatRewOptimization: ko.observable(true),
-      enableCandidatePlacement: ko.observable(true),
-      enableReduceRepair: ko.observable(true),
-      enableCriticalBandRefinement: ko.observable(true),
-      enableRefinement: ko.observable(false),
-      refinementIterations: ko.observable(100),
-      varyQAbove200Hz: ko.observable(false),
-      allowNarrowFiltersBelow200Hz: ko.observable(true),
-      allowBoosts: ko.observable(true),
-      // Protection ampli/enceintes (spec FR-032) : aucun boost sous 50 Hz.
-      maxBoostFreq: ko.observable(50),
-      overshootPenaltyWeight: ko.observable(0.3),
-      maxAllowedOvershoot: ko.observable(1.5),
-    };
+    this.autoEqConfig = Object.fromEntries(
+      Object.entries(DEFAULT_AUTOEQ_CONFIG).map(([key, value]) => [
+        key,
+        ko.observable(value),
+      ]),
+    );
     this.isPolling = ko.observable(false);
     // Add translation support
     this.translations = ko.observable(
@@ -1882,23 +1891,6 @@ class MeasurementViewModel {
     return this.rewSession.selectCreatedMeasurement(apiItems, expectedTitle);
   }
 
-  // Helper function to handle observable properties
-  updateObservableObject(target, source) {
-    for (const key of Object.keys(source)) {
-      if (ko.isObservable(target[key])) {
-        // If the property is an observable, update its value
-        target[key](source[key]);
-      } else if (typeof source[key] === 'object' && source[key] !== null && target[key]) {
-        // Handle nested objects
-        this.updateObservableObject(target[key], source[key]);
-      } else {
-        // For non-observable properties, directly assign
-        target[key] = source[key];
-      }
-    }
-    return target;
-  }
-
   findMeasurementByUuid(uuid) {
     return this.rewSession.findMeasurementByUuid(uuid);
   }
@@ -1970,25 +1962,9 @@ class MeasurementViewModel {
   }
 
   resetAutoEqConfig() {
-    this.autoEqConfig.numFilters(20);
-    this.autoEqConfig.maxCutDb(25);
-    this.autoEqConfig.flatnessTarget(0.3);
-    this.autoEqConfig.numOptimizationPasses(20);
-    this.autoEqConfig.gainSignLockThreshold(0.5);
-    this.autoEqConfig.notchExclusionThreshold(6);
-    this.autoEqConfig.minFilterGain(0.4);
-    this.autoEqConfig.enableBeatRewOptimization(false);
-    this.autoEqConfig.enableCandidatePlacement(true);
-    this.autoEqConfig.enableReduceRepair(true);
-    this.autoEqConfig.enableCriticalBandRefinement(true);
-    this.autoEqConfig.enableRefinement(false);
-    this.autoEqConfig.refinementIterations(100);
-    this.autoEqConfig.varyQAbove200Hz(false);
-    this.autoEqConfig.allowNarrowFiltersBelow200Hz(true);
-    this.autoEqConfig.allowBoosts(true);
-    this.autoEqConfig.maxBoostFreq(50);
-    this.autoEqConfig.overshootPenaltyWeight(0.3);
-    this.autoEqConfig.maxAllowedOvershoot(1.5);
+    for (const [key, value] of Object.entries(DEFAULT_AUTOEQ_CONFIG)) {
+      this.autoEqConfig[key](value);
+    }
   }
 }
 

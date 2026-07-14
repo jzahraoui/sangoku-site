@@ -11,9 +11,6 @@ import {
   sumProfilesDbAtFrequency,
 } from '../dsp/peakingProfiles.js';
 
-const PPO96_STEP = Math.pow(2, 1 / 96) - 1; // ≈ 0.007246
-const PPO96_MULT = Math.pow(2, 1 / 96); // ≈ 1.007246
-
 /**
  * Analyse fréquentielle d'une courbe mesurée
  *
@@ -300,5 +297,3 @@ export class SpanAnalyzer {
     }
   }
 }
-
-export { PPO96_STEP, PPO96_MULT };

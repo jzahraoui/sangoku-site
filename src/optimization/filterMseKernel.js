@@ -128,37 +128,9 @@ export function computeFilteredMSE({
 }
 
 /**
- * Like prepareProfileCoefficients but also appends one extra candidate filter.
- *
- * @param {object} p
- * @param {Array<{fc:number, Q:number, gain:number}>} p.filters
- * @param {{fc:number, Q:number, gain:number}} p.candidate
- * @param {number} p.sampleRate
- * @param {{ aC3: Float64Array, aSum: Float64Array, bC3: Float64Array, bSum: Float64Array, c2: Float64Array }} p.arrays
- * @returns {number} numActive — total entries written (filters + candidate)
- */
-export function prepareProfileCoefficientsWithCandidate({
-  filters,
-  candidate,
-  sampleRate,
-  arrays,
-}) {
-  if (!candidate) {
-    return prepareProfileCoefficients({ filters, sampleRate, arrays });
-  }
-  return prepareProfileCoefficientsWithCandidateParams({
-    filters,
-    candidateFc: candidate.fc,
-    candidateQ: candidate.Q,
-    candidateGain: candidate.gain,
-    sampleRate,
-    arrays,
-  });
-}
-
-/**
- * Like prepareProfileCoefficientsWithCandidate but accepts candidate parameters
- * directly to avoid creating an intermediate { fc, Q, gain } object per call.
+ * Like prepareProfileCoefficients but also appends one extra candidate filter,
+ * taking candidate parameters directly to avoid creating an intermediate
+ * { fc, Q, gain } object per call.
  *
  * @param {object} p
  * @param {Array<{fc:number, Q:number, gain:number}>} p.filters

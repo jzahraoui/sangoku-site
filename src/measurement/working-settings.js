@@ -1,15 +1,10 @@
 /**
  * REW working-settings presets (smoothing / IR windows) used by the alignment
  * and filter sequences. [MOTEUR] module, zero dependency.
- *
- * IR_WINDOW_PRESETS mirrors the POJO currently inline in MeasurementViewModel.js
- * (to be unified when the Knockout entry is retired — same mirroring precedent
- * as the averaging/predicted title constants).
  */
 
 const DEFAULT_IR_WINDOW_CHOICE = 'Optimized MTW';
 const FALLBACK_IR_WINDOW_CHOICE = 'None';
-const DEFAULT_SMOOTHING_METHOD = 'None';
 
 const IR_WINDOW_PRESETS = {
   None: {
@@ -37,14 +32,9 @@ function getIrWindowConfig(presetName = DEFAULT_IR_WINDOW_CHOICE) {
   };
 }
 
-const irWindowChoices = () =>
-  Object.keys(IR_WINDOW_PRESETS).map(value => ({ value, text: value }));
-
 export {
   DEFAULT_IR_WINDOW_CHOICE,
-  DEFAULT_SMOOTHING_METHOD,
   FALLBACK_IR_WINDOW_CHOICE,
   IR_WINDOW_PRESETS,
   getIrWindowConfig,
-  irWindowChoices,
 };
