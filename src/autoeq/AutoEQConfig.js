@@ -47,7 +47,7 @@ export function createAutoEQConfig(config = {}) {
     30,
     6,
   );
-  const maxCutDb = validateNumber(config.maxCutDb, 'maxCutDb', 0, 30, 12);
+  const maxCutDb = validateNumber(config.maxCutDb, 'maxCutDb', 0, 30, 25);
   const flatnessTarget = validateNumber(
     config.flatnessTarget,
     'flatnessTarget',
