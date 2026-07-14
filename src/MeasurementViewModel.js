@@ -370,7 +370,7 @@ class MeasurementViewModel {
     });
 
     // speaker filter options
-    this.individualMaxBoostValue = ko.observable(3);
+    this.individualMaxBoostValue = ko.observable(6);
     this.individualMaxBoostValueMin = 0;
     this.individualMaxBoostValueMax = 6;
     this.overallBoostValue = ko.observable(3);
