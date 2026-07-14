@@ -14,7 +14,7 @@ class GeneticAlgorithm {
   constructor(config) {
     this.config = {
       ...config,
-      allPass: { enabled: false, ...(config?.allPass ?? {}) },
+      allPass: { enabled: false, ...config?.allPass },
     };
     this.validateConfig();
     // Owned by this class; MultiSubOptimizer proxies _random through get/set

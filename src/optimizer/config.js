@@ -100,22 +100,22 @@ export function normalizeConfig(config = {}) {
   const globalRefinement =
     typeof optimization.globalRefinement === 'boolean'
       ? { enabled: optimization.globalRefinement }
-      : (optimization.globalRefinement ?? {});
+      : optimization.globalRefinement;
   const multiStart =
     typeof optimization.multiStart === 'boolean'
       ? { enabled: optimization.multiStart }
-      : (optimization.multiStart ?? {});
+      : optimization.multiStart;
   const joint = optimization.joint ?? {};
 
   return {
-    frequency: { ...DEFAULT_CONFIG.frequency, ...(source.frequency ?? {}) },
-    gain: { ...DEFAULT_CONFIG.gain, ...(source.gain ?? {}) },
-    delay: { ...DEFAULT_CONFIG.delay, ...(source.delay ?? {}) },
+    frequency: { ...DEFAULT_CONFIG.frequency, ...source.frequency },
+    gain: { ...DEFAULT_CONFIG.gain, ...source.gain },
+    delay: { ...DEFAULT_CONFIG.delay, ...source.delay },
     allPass: {
       ...DEFAULT_CONFIG.allPass,
       ...allPass,
-      frequency: { ...DEFAULT_CONFIG.allPass.frequency, ...(allPass.frequency ?? {}) },
-      q: { ...DEFAULT_CONFIG.allPass.q, ...(allPass.q ?? {}) },
+      frequency: { ...DEFAULT_CONFIG.allPass.frequency, ...allPass.frequency },
+      q: { ...DEFAULT_CONFIG.allPass.q, ...allPass.q },
     },
     optimization: {
       ...DEFAULT_CONFIG.optimization,
@@ -133,27 +133,27 @@ export function normalizeConfig(config = {}) {
         ...joint,
         filterGain: {
           ...DEFAULT_CONFIG.optimization.joint.filterGain,
-          ...(joint.filterGain ?? {}),
+          ...joint.filterGain,
         },
         filterQ: {
           ...DEFAULT_CONFIG.optimization.joint.filterQ,
-          ...(joint.filterQ ?? {}),
+          ...joint.filterQ,
         },
         filterFrequency: {
           ...DEFAULT_CONFIG.optimization.joint.filterFrequency,
-          ...(joint.filterFrequency ?? {}),
+          ...joint.filterFrequency,
         },
         gain: {
           ...DEFAULT_CONFIG.optimization.joint.gain,
-          ...(joint.gain ?? {}),
+          ...joint.gain,
         },
         allPassFrequency: {
           ...DEFAULT_CONFIG.optimization.joint.allPassFrequency,
-          ...(joint.allPassFrequency ?? {}),
+          ...joint.allPassFrequency,
         },
         allPassQ: {
           ...DEFAULT_CONFIG.optimization.joint.allPassQ,
-          ...(joint.allPassQ ?? {}),
+          ...joint.allPassQ,
         },
       },
     },
@@ -325,7 +325,7 @@ export function validateOptimizerConfig(config) {
     throw new Error('joint filterQ and filterFrequency ranges must be positive');
   }
   if (typeof joint.allPassPerSub !== 'boolean') {
-    throw new Error('optimization joint.allPassPerSub must be a boolean');
+    throw new TypeError('optimization joint.allPassPerSub must be a boolean');
   }
   validateBounds(joint.allPassFrequency, 'joint allPassFrequency', false);
   validateBounds(joint.allPassQ, 'joint allPassQ', false);

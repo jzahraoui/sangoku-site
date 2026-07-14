@@ -960,7 +960,7 @@ class MeasurementViewModel {
       const bestRow = table.find(row => row.fc === bestFrequency);
       for (const member of members) {
         const entry = bestRow?.perMember.find(m => m.uuid === member.uuid);
-        const shiftDelay = entry && entry.withinBounds ? entry.delayMs / 1000 : Infinity;
+        const shiftDelay = entry?.withinBounds ? entry.delayMs / 1000 : Infinity;
         member.update({ shiftDelay });
         if (entry?.invertB) {
           await member.toggleInversion();

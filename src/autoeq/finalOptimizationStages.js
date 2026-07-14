@@ -55,7 +55,7 @@ export async function runFinalOptimizationStages({
       logOverride: onLog,
       runAllOptions: {
         useDecimated: true,
-        ...(options.runAllOptions ?? {}),
+        ...options.runAllOptions,
       },
     });
   }
@@ -72,7 +72,7 @@ export async function runFinalOptimizationStages({
       maxIter: options.maxIter ?? 500,
       runAllOptions: {
         useDecimated: true,
-        ...(options.runAllOptions ?? {}),
+        ...options.runAllOptions,
       },
     },
   });
@@ -151,7 +151,7 @@ export async function pruneCounterproductiveFilters({
       equalizerAdapter,
       maxIter: options.maxIter ?? 500,
       logOverride: onLog,
-      runAllOptions: options.runAllOptions ?? {},
+      runAllOptions: options.runAllOptions,
     });
   } else {
     onLog('  Aucun filtre contre-productif');
