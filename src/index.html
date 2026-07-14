@@ -785,6 +785,58 @@
                       class="autoeq-val"
                       data-bind="text: autoEqConfig.maxAllowedOvershoot()"
                     ></span>
+
+                    <label for="autoeq-low-band-max-q" data-i18n="autoeq_low_band_max_q"
+                      >Max Q below 200 Hz (0 = off)</label
+                    >
+                    <input
+                      id="autoeq-low-band-max-q"
+                      type="range"
+                      min="0"
+                      max="8"
+                      step="0.1"
+                      data-bind="value: autoEqConfig.lowBandMaxQ, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.lowBandMaxQ()"
+                    ></span>
+
+                    <label
+                      for="autoeq-high-band-max-q"
+                      data-i18n="autoeq_high_band_max_q"
+                      >Max Q in high band (0 = off)</label
+                    >
+                    <input
+                      id="autoeq-high-band-max-q"
+                      type="range"
+                      min="0"
+                      max="8"
+                      step="0.1"
+                      data-bind="value: autoEqConfig.highBandMaxQ, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.highBandMaxQ()"
+                    ></span>
+
+                    <label
+                      for="autoeq-high-band-start-freq"
+                      data-i18n="autoeq_high_band_start_freq"
+                      >High band starts at (Hz)</label
+                    >
+                    <input
+                      id="autoeq-high-band-start-freq"
+                      type="range"
+                      min="200"
+                      max="16000"
+                      step="100"
+                      data-bind="value: autoEqConfig.highBandStartFreq, valueUpdate: 'input'"
+                    />
+                    <span
+                      class="autoeq-val"
+                      data-bind="text: autoEqConfig.highBandStartFreq()"
+                    ></span>
                   </div>
 
                   <label class="checkbox-container">

@@ -70,10 +70,10 @@ export const DEFAULT_CONFIG = {
   // Limites de gain - REW utilise jusqu'à -15.2 dB (exemple3)
   maxCutDb: 20,
 
-  // Q maximum par zone de fréquence — non consommé par le moteur à ce jour
-  // (plafonds de Q par bande, câblage à décider)
-  maxQLowFreq: 6,
-  maxQHighFreq: 4,
+  // Plafonds de Q utilisateur par bande (<200 Hz / ≥3 kHz), 0 = inactif.
+  // Goldens en config neutre : ne pas activer sans décision tracée.
+  lowBandMaxQ: 0,
+  highBandMaxQ: 0,
 
   // Pénalité d'overshoot - faible pour permettre les boosts agressifs
   overshootPenaltyWeight: 0.2,

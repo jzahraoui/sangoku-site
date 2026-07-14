@@ -14,6 +14,9 @@ test('createFilterOptimizerConfig maps AutoEQ config to FilterParameterOptimizer
     allowNarrowFiltersBelow200Hz: false,
     gainSignLockThreshold: 0.5,
     maxBoostFreq: 50,
+    lowBandMaxQ: 6,
+    highBandMaxQ: 2,
+    highBandStartFreq: 2000,
     overshootPenaltyWeight: 0.3,
   };
 
@@ -34,6 +37,9 @@ test('createFilterOptimizerConfig maps AutoEQ config to FilterParameterOptimizer
     maxBoostDb: 5,
     maxCutDb: 12,
     maxQ: 10,
+    lowBandMaxQ: 6,
+    highBandMaxQ: 2,
+    highBandStartFreq: 2000,
     varyQAbove200Hz: true,
     allowNarrowFiltersBelow200Hz: false,
     gainSignLockThreshold: 0.5,

@@ -49,6 +49,9 @@ export class FilterParameterOptimizer {
     this.maxBoostFreq = config.maxBoostFreq ?? 0;
     this.overshootPenaltyWeight = config.overshootPenaltyWeight ?? 0.3;
     this.maxQ = config.maxQ ?? 10;
+    this.lowBandMaxQ = config.lowBandMaxQ ?? 0;
+    this.highBandMaxQ = config.highBandMaxQ ?? 0;
+    this.highBandStartFreq = config.highBandStartFreq ?? 3000;
 
     this._freqs = null;
     this._weights = null;
@@ -272,6 +275,9 @@ export class FilterParameterOptimizer {
       allowNarrowFiltersBelow200Hz: this.allowNarrowFiltersBelow200Hz,
       gainSignLockThreshold: this.gainSignLockThreshold,
       maxBoostFreq: this.maxBoostFreq,
+      lowBandMaxQ: this.lowBandMaxQ,
+      highBandMaxQ: this.highBandMaxQ,
+      highBandStartFreq: this.highBandStartFreq,
     });
 
     const decode = createOptimizationDecoder({
@@ -281,6 +287,9 @@ export class FilterParameterOptimizer {
       maxQ: this.maxQ,
       varyQAbove200Hz: this.varyQAbove200Hz,
       allowNarrowFiltersBelow200Hz: this.allowNarrowFiltersBelow200Hz,
+      lowBandMaxQ: this.lowBandMaxQ,
+      highBandMaxQ: this.highBandMaxQ,
+      highBandStartFreq: this.highBandStartFreq,
     });
 
     decode(state.initT);

@@ -16,6 +16,9 @@ import { getOptimizedQBounds } from './filterParameterBounds.js';
  * @param {number}  params.maxQ
  * @param {boolean} params.varyQAbove200Hz
  * @param {boolean} [params.allowNarrowFiltersBelow200Hz=true]
+ * @param {number}  [params.lowBandMaxQ=0]  - User Q cap below 200 Hz (0 = off)
+ * @param {number}  [params.highBandMaxQ=0] - User Q cap in the high band (0 = off)
+ * @param {number}  [params.highBandStartFreq=3000] - Start of the high band (Hz)
  * @returns {(t: number[]) => void}
  */
 export function createOptimizationDecoder({
@@ -25,6 +28,9 @@ export function createOptimizationDecoder({
   maxQ,
   varyQAbove200Hz,
   allowNarrowFiltersBelow200Hz = true,
+  lowBandMaxQ = 0,
+  highBandMaxQ = 0,
+  highBandStartFreq = 3000,
 }) {
   return t => {
     if (optimizeFc) {
@@ -53,6 +59,9 @@ export function createOptimizationDecoder({
           baseMaxQ: maxQ,
           varyQAbove200Hz,
           allowNarrowFiltersBelow200Hz,
+          lowBandMaxQ,
+          highBandMaxQ,
+          highBandStartFreq,
         });
         state.workingFilters[i].Q = cosInverse(t[state.nG + i], bounds.lo, bounds.hi);
       }

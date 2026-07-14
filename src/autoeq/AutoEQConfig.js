@@ -67,6 +67,18 @@ export function createAutoEQConfig(config = {}) {
   // Protection ampli/enceintes (spec FR-032) : aucun boost sous cette
   // fréquence. 0 (défaut) ou toute valeur ≤ matchRangeStart = inactif.
   const maxBoostFreq = validateNumber(config.maxBoostFreq, 'maxBoostFreq', 0, 500, 0);
+  // Plafonds de Q utilisateur par bande, appliqués en plus des lois REW :
+  // lowBandMaxQ sous 200 Hz, highBandMaxQ à partir de highBandStartFreq.
+  // 0 = inactif. Plafond ≤ 8 : au-delà, un filtre sonne (ringing audible).
+  const lowBandMaxQ = validateNumber(config.lowBandMaxQ, 'lowBandMaxQ', 0, 8, 0);
+  const highBandMaxQ = validateNumber(config.highBandMaxQ, 'highBandMaxQ', 0, 8, 0);
+  const highBandStartFreq = validateNumber(
+    config.highBandStartFreq,
+    'highBandStartFreq',
+    200,
+    20000,
+    3000,
+  );
   // Poids de la pénalité douce d'overshoot dans le MSE (au-delà de +1 dB).
   const overshootPenaltyWeight = validateNumber(
     config.overshootPenaltyWeight,
@@ -291,6 +303,9 @@ export function createAutoEQConfig(config = {}) {
     flatnessTarget,
     notchExclusionThreshold,
     maxBoostFreq,
+    lowBandMaxQ,
+    highBandMaxQ,
+    highBandStartFreq,
     overshootPenaltyWeight,
     maxAllowedOvershoot,
     equalizerFreqStep,

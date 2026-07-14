@@ -23,6 +23,9 @@ import { getOptimizedQBounds } from './filterParameterBounds.js';
  * @param {boolean} params.allowNarrowFiltersBelow200Hz - Modal-narrow cuts below 200 Hz
  * @param {number}  params.gainSignLockThreshold - |gain| above which the sign is locked
  * @param {number}  params.maxBoostFreq - No boost allowed below this frequency (0 = off)
+ * @param {number}  params.lowBandMaxQ - User Q cap below 200 Hz (0 = off)
+ * @param {number}  params.highBandMaxQ - User Q cap in the high band (0 = off)
+ * @param {number}  params.highBandStartFreq - Start of the high band (Hz)
  * @returns {state}
  */
 export function buildOptimizationState({
@@ -38,6 +41,9 @@ export function buildOptimizationState({
   allowNarrowFiltersBelow200Hz = true,
   gainSignLockThreshold = 0.5,
   maxBoostFreq = 0,
+  lowBandMaxQ = 0,
+  highBandMaxQ = 0,
+  highBandStartFreq = 3000,
 }) {
   const { gainLowerBounds, gainUpperBounds } = _buildGainBounds(
     filters,
@@ -46,13 +52,14 @@ export function buildOptimizationState({
     gainSignLockThreshold,
     maxBoostFreq,
   );
-  const { qLowerBounds, qUpperBounds } = _buildQBounds(
-    filters,
-    optimizeQ,
+  const { qLowerBounds, qUpperBounds } = _buildQBounds(filters, optimizeQ, {
     maxQ,
     varyQAbove200Hz,
     allowNarrowFiltersBelow200Hz,
-  );
+    lowBandMaxQ,
+    highBandMaxQ,
+    highBandStartFreq,
+  });
   const { frequencyLowerBounds, frequencyUpperBounds } = _buildFrequencyBounds(
     filters,
     optimizeFc,
@@ -125,13 +132,7 @@ function _buildGainBounds(
   return { gainLowerBounds, gainUpperBounds };
 }
 
-function _buildQBounds(
-  filters,
-  optimizeQ,
-  maxQ,
-  varyQAbove200Hz,
-  allowNarrowFiltersBelow200Hz,
-) {
+function _buildQBounds(filters, optimizeQ, qBoundsConfig) {
   const qLowerBounds = new Float64Array(filters.length);
   const qUpperBounds = new Float64Array(filters.length);
 
@@ -143,9 +144,12 @@ function _buildQBounds(
     const bounds = getOptimizedQBounds({
       fc: filters[i].fc,
       gain: filters[i].gain,
-      baseMaxQ: maxQ,
-      varyQAbove200Hz,
-      allowNarrowFiltersBelow200Hz,
+      baseMaxQ: qBoundsConfig.maxQ,
+      varyQAbove200Hz: qBoundsConfig.varyQAbove200Hz,
+      allowNarrowFiltersBelow200Hz: qBoundsConfig.allowNarrowFiltersBelow200Hz,
+      lowBandMaxQ: qBoundsConfig.lowBandMaxQ,
+      highBandMaxQ: qBoundsConfig.highBandMaxQ,
+      highBandStartFreq: qBoundsConfig.highBandStartFreq,
     });
     qLowerBounds[i] = bounds.lo;
     qUpperBounds[i] = bounds.hi;

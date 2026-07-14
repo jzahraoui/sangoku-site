@@ -103,6 +103,11 @@ const DEFAULT_AUTOEQ_CONFIG = {
   maxBoostFreq: 50,
   overshootPenaltyWeight: 0.3,
   maxAllowedOvershoot: 1.5,
+  // Plafonds de Q par bande (sous 200 Hz / à partir de highBandStartFreq).
+  // 0 = inactif.
+  lowBandMaxQ: 0,
+  highBandMaxQ: 0,
+  highBandStartFreq: 3000,
 };
 
 /**

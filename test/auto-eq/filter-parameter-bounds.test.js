@@ -95,6 +95,127 @@ test('lo <= hi always', () => {
   }
 });
 
+test('user band caps: lowBandMaxQ tightens hi below 200 Hz only', () => {
+  const below = getOptimizedQBounds({
+    fc: 80,
+    gain: -6,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    lowBandMaxQ: 6,
+  });
+  assert.equal(below.hi, 6); // fc/2 = 40 capped to 6
+
+  const mid = getOptimizedQBounds({
+    fc: 1000,
+    gain: -3,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    lowBandMaxQ: 6,
+  });
+  assert.equal(mid.hi, 5); // unchanged: low cap does not reach the mid band
+});
+
+test('user band caps: highBandMaxQ tightens hi from 3 kHz up, cuts and boosts', () => {
+  const cut = getOptimizedQBounds({
+    fc: 8000,
+    gain: -3,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    highBandMaxQ: 2,
+  });
+  assert.equal(cut.hi, 2); // REW cap 5 tightened to 2
+
+  const boost = getOptimizedQBounds({
+    fc: 8000,
+    gain: 3,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    highBandMaxQ: 2,
+  });
+  assert.equal(boost.hi, 2); // boost law 7.5 tightened to 2
+
+  const mid = getOptimizedQBounds({
+    fc: 1000,
+    gain: -3,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    highBandMaxQ: 2,
+  });
+  assert.equal(mid.hi, 5); // unchanged below the default 3 kHz boundary
+});
+
+test('user band caps: highBandStartFreq moves the high-band boundary', () => {
+  const inBand = getOptimizedQBounds({
+    fc: 1500,
+    gain: -3,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    highBandMaxQ: 2,
+    highBandStartFreq: 1000,
+  });
+  assert.equal(inBand.hi, 2); // 1500 ≥ 1000: capped
+
+  const belowBand = getOptimizedQBounds({
+    fc: 800,
+    gain: -3,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    highBandMaxQ: 2,
+    highBandStartFreq: 1000,
+  });
+  assert.equal(belowBand.hi, 5); // 800 < 1000: REW law untouched
+
+  const defaultBoundary = getOptimizedQBounds({
+    fc: 1500,
+    gain: -3,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    highBandMaxQ: 2,
+  });
+  assert.equal(defaultBoundary.hi, 5); // default boundary stays at 3 kHz
+});
+
+test('user band caps: 0 (default) is a no-op and never loosens the REW laws', () => {
+  for (const gain of [-3, 3]) {
+    for (const fc of [80, 1000, 8000]) {
+      const base = getOptimizedQBounds({ fc, gain, baseMaxQ: 50, varyQAbove200Hz: true });
+      const withOff = getOptimizedQBounds({
+        fc,
+        gain,
+        baseMaxQ: 50,
+        varyQAbove200Hz: true,
+        lowBandMaxQ: 0,
+        highBandMaxQ: 0,
+      });
+      assert.deepEqual(withOff, base, `fc=${fc} gain=${gain}`);
+
+      // A cap above the law's own bound must not raise it.
+      const withLoose = getOptimizedQBounds({
+        fc,
+        gain,
+        baseMaxQ: 50,
+        varyQAbove200Hz: true,
+        lowBandMaxQ: 8,
+        highBandMaxQ: 8,
+      });
+      assert.ok(withLoose.hi <= base.hi, `fc=${fc} gain=${gain}: hi loosened`);
+    }
+  }
+});
+
+test('user band caps: cap below lo collapses to a valid degenerate range', () => {
+  const { lo, hi } = getOptimizedQBounds({
+    fc: 80,
+    gain: -6,
+    baseMaxQ: 50,
+    varyQAbove200Hz: false,
+    lowBandMaxQ: 1.5, // below the modal lo of 2
+  });
+  assert.ok(lo <= hi);
+  assert.ok(hi <= 1.5);
+  assert.ok(lo >= 0.1);
+});
+
 test('result is finite for extreme inputs', () => {
   const { lo, hi } = getOptimizedQBounds({
     fc: 20,
