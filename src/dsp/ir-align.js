@@ -78,7 +78,7 @@ function applySecondOrder({ g, a1, a2 }, input, reversed) {
   const start = reversed ? input.length - 1 : 0;
   const end = reversed ? -1 : input.length;
   const step = reversed ? -1 : 1;
-  for (let i = start; i !== end; i += step) {
+  for (let i = start; reversed ? i > end : i < end; i += step) {
     // section bandpass b = g·(1, 0, −1)
     let w = input[i] - a1 * y1 - a2 * y2;
     if (Math.abs(w) < DENORMAL_FLUSH) w = 0;
@@ -100,7 +100,7 @@ function applyFourthOrder({ g, a1, a2, a3, a4 }, input, reversed) {
   const start = reversed ? input.length - 1 : 0;
   const end = reversed ? -1 : input.length;
   const step = reversed ? -1 : 1;
-  for (let i = start; i !== end; i += step) {
+  for (let i = start; reversed ? i > end : i < end; i += step) {
     // section bandpass b = g·(1, 0, −2, 0, 1) (forme directe II)
     let w = input[i] - a1 * w1 - a2 * w2 - a3 * w3 - a4 * w4;
     if (Math.abs(w) < DENORMAL_FLUSH) w = 0;
@@ -295,10 +295,10 @@ export function alignImpulseResponses(irA, irB, params) {
   if (!irA?.data?.length || !irB?.data?.length) {
     throw new TypeError('alignImpulseResponses needs two impulse responses');
   }
-  if (irA.sampleRate !== irB.sampleRate || !(irA.sampleRate > 0)) {
+  if (irA.sampleRate !== irB.sampleRate || irA.sampleRate <= 0) {
     throw new RangeError('alignImpulseResponses needs a common positive sampleRate');
   }
-  if (!(frequency >= 20)) {
+  if (!Number.isFinite(frequency) || frequency < 20) {
     throw new RangeError(`Alignment frequency must be ≥ 20 Hz (got ${frequency})`);
   }
   const sampleRate = irA.sampleRate;
@@ -416,7 +416,7 @@ export function alignImpulseResponses(irA, irB, params) {
  * @returns {{ minMs: number, maxMs: number }}
  */
 export function crossoverAlignmentWindowMs(frequency, { forward = false } = {}) {
-  if (!(frequency > 0)) {
+  if (!Number.isFinite(frequency) || frequency <= 0) {
     throw new RangeError(
       `crossoverAlignmentWindowMs needs a positive frequency (got ${frequency})`,
     );

@@ -214,11 +214,12 @@ class MeasurementRecord {
   }
 
   /**
-   * No-op teardown. Unlike the Knockout MeasurementItem (which disposes its
-   * computed observables), the flat record has nothing to release; the method
-   * exists so the shared persistence service can call `item.dispose()` on both.
+   * Releases record listeners so shared services can dispose MeasurementItem
+   * and MeasurementRecord uniformly without retaining stale subscriptions.
    */
-  dispose() {}
+  dispose() {
+    this.#listeners.clear();
+  }
 }
 
 export default MeasurementRecord;

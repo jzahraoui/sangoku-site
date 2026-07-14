@@ -363,7 +363,7 @@ export function computeShelfCoefficients({
  */
 export function computeModalCoefficients({ fc, gain, t60Target, sampleRate }) {
   assertBelowNyquist(fc, sampleRate);
-  if (!(t60Target > 0)) {
+  if (!Number.isFinite(t60Target) || t60Target <= 0) {
     throw new RangeError(`Invalid t60Target: ${t60Target}`);
   }
   const omega = ((Math.PI * 2) / sampleRate) * fc;

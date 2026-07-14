@@ -85,7 +85,7 @@ export function peakTimeSeconds({ data, sampleRate, startTime = 0 }) {
       peakIndex = i;
     }
   }
-  if (!(peak > 0)) {
+  if (peak <= 0) {
     throw new Error('Empty impulse response');
   }
 
@@ -172,7 +172,7 @@ export function computeNormalizedBankImpulseResponse(filters, sampleCount) {
     const magnitude = Math.abs(impulseResponse[i]);
     if (magnitude > peak) peak = magnitude;
   }
-  if (!(peak > 0)) {
+  if (peak <= 0) {
     throw new Error('Empty impulse response');
   }
 
