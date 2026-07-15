@@ -890,6 +890,19 @@ describe('multiSubOptimizer joint route (target-match)', () => {
     expect(sub1.setTargetLevel).toHaveBeenCalledWith(75);
     expect(sub1.getTargetResponse).toHaveBeenCalledWith('SPL', 96);
 
+    // Règle métier (2026-07-15) : les captures du solveur et du Theo sont
+    // BRUTES — working settings retirés avant la capture, restaurés après
+    // (l'affichage de l'utilisateur est préservé, la physique non lissée).
+    for (const sub of [sub1, sub2]) {
+      expect(sub.removeWorkingSettings).toHaveBeenCalled();
+      const capture = sub.getFrequencyResponse.mock.invocationCallOrder[0];
+      expect(sub.removeWorkingSettings.mock.invocationCallOrder[0]).toBeLessThan(
+        capture,
+      );
+      const restores = sub.applyWorkingSettings.mock.invocationCallOrder;
+      expect(restores.some(order => order > capture)).toBe(true);
+    }
+
     // Every sub (reference included) receives its alignment writes.
     for (const sub of [sub1, sub2]) {
       expect(sub.addIROffsetSeconds).toHaveBeenCalled();

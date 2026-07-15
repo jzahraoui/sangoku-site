@@ -953,10 +953,18 @@ function createSubOptimizationService({
 
     const frequencyResponses = [];
     for (const measurement of subsMeasurements) {
-      // Filters and inversion were reset before the gap measurement; only
-      // the working settings remain to apply before capturing the responses.
-      await mops.applyWorkingSettings(measurement);
+      // Règle métier (2026-07-15) : les calculs de PHYSIQUE capturent en
+      // BRUT — dé-fenêtré, non lissé. Le solveur somme des réponses
+      // complexes (magnitude + phase) : lisser/fenêtrer avant la somme
+      // biaise la structure d'interférence qui est l'objet même de
+      // l'optimisation, et un preset MTW peut réduire la capture à ~15
+      // points utiles dans la bande (constaté sur REW réel). Ces réponses
+      // alimentent le solveur ET le Theo. Les réglages utilisateur restent
+      // l'entrée de la chaîne EQ, et sont restaurés juste après pour
+      // l'affichage — même motif que captureResponses du sub virtuel.
+      await mops.removeWorkingSettings(measurement);
       const frequencyResponse = await mops.getFrequencyResponse(measurement);
+      await mops.applyWorkingSettings(measurement);
       frequencyResponse.measurement = measurement.uuid;
       frequencyResponse.name = labelOf(measurement);
       frequencyResponse.position = unwrap(measurement.position);
