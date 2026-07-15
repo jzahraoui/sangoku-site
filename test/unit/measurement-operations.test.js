@@ -862,6 +862,40 @@ describe('runPhaseMatchFilter', () => {
     expect(Array.from(targetPassed.magnitude)).toEqual([73, 73, 73]);
   });
 
+  it('borne le profil D(f) au domaine optimisé — le hors-bande ne fuit pas dans la cible', async () => {
+    // En bande [20-200] : brute − travail = +2 dB. Hors bande (20 kHz) :
+    // +14 dB (plancher de bruit intégré par la brute là où le haut-parleur ne
+    // rend plus rien). Sans le bornage, la moyenne de la dernière bande
+    // d'octave ferait fuir ces +14 dB dans la cible recalée (vécu : cuts
+    // ~15.6 kHz sur tous les canaux, creux ~7 dB dans les previews).
+    const windows = { leftWindowType: 'Rectangular', addFDW: false, addMTW: true };
+    const freqs = [50, 100, 200, 20000];
+    const working = { freqs, magnitude: [73, 73, 73, 60] };
+    const raw = { freqs, magnitude: [75, 75, 75, 74] };
+
+    const { rew, ctx } = phaseMatchHarness({
+      bank: bankWithReservations(),
+      computed: [{ filterType: 'PEAKING', fc: 40, Q: 4, gain: -3 }],
+    });
+    rew.getFrequencyResponse = vi
+      .fn()
+      .mockResolvedValueOnce(working)
+      .mockResolvedValueOnce(raw);
+    rew.getTargetResponse = vi
+      .fn()
+      .mockResolvedValue({ freqs, magnitude: [75, 75, 75, 75] });
+    rew.getIRWindows = vi.fn().mockResolvedValue(windows);
+    rew.setIRWindows = vi.fn().mockResolvedValue(true);
+
+    await ops.runPhaseMatchFilter(rew, record({ sampleRate: 48000 }), ctx, 20, 200);
+
+    const calculator = ctx.createCalculator.mock.results[0].value;
+    const targetPassed = calculator.calculate.mock.calls[0][1];
+    // En bande : cible abaissée du D en bande (+2 dB) ; le point hors bande
+    // suit le plateau du profil borné (+2 dB aussi) — jamais les +14 dB.
+    expect(Array.from(targetPassed.magnitude)).toEqual([73, 73, 73, 73]);
+  });
+
   it('ne compense pas quand aucune fenêtre MTW/FDW n’est active', async () => {
     const freqs = [50, 100];
     const { rew, ctx } = phaseMatchHarness({

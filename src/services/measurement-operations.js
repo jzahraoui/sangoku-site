@@ -309,6 +309,20 @@ async function getBandwidth(rew, m) {
  * Use the current target curve frequency response to detect the frequency
  * cutoff points.
  */
+/** Restreint une réponse en fréquence au domaine [startFreq, endFreq]. */
+function sliceResponseToRange(response, startFreq, endFreq) {
+  const freqs = [];
+  const magnitude = [];
+  for (let i = 0; i < response.freqs.length; i++) {
+    const freq = response.freqs[i];
+    if (freq >= startFreq && freq <= endFreq) {
+      freqs.push(freq);
+      magnitude.push(response.magnitude[i]);
+    }
+  }
+  return { freqs, magnitude };
+}
+
 async function detectFallOff(rew, m, { threshold = -3, ppo = 12 } = {}) {
   const measurementData = await getFrequencyResponse(rew, m, {
     smoothing: '1/6',
@@ -943,7 +957,14 @@ function createMeasurementOperations({ log = noopLog } = {}) {
    * Retourne null (aucune compensation) si aucune fenêtre n'est active ou si
    * la lecture échoue — la création de filtre ne doit jamais échouer pour ça.
    */
-  async function measurePhaseMatchReferenceProfile(rew, m, ctx, workingResponse) {
+  async function measurePhaseMatchReferenceProfile(
+    rew,
+    m,
+    ctx,
+    workingResponse,
+    startFreq,
+    endFreq,
+  ) {
     let windows;
     try {
       windows = await rew.getIRWindows(m.uuid);
@@ -960,7 +981,17 @@ function createMeasurementOperations({ log = noopLog } = {}) {
         smoothing: ctx.smoothingMethod,
         ppo: 96,
       });
-      return computeReferenceProfile(rawResponse, workingResponse);
+      // Profil borné au domaine OPTIMISÉ : au-delà (>16 kHz typiquement),
+      // brute − fenêtrée explose (la brute intègre le plancher de bruit là où
+      // le haut-parleur ne rend plus rien — mesuré : +14 dB sur 20-23.7 kHz)
+      // et la moyenne de la dernière bande d'octave ferait fuir cet écart
+      // dans l'octave audible via l'interpolation (mesuré : profil +5.3 dB à
+      // 15.6 kHz pour un D local réel de +1.2 dB → cuts ~15.6 kHz sur tous
+      // les canaux, creux ~7 dB dans les previews).
+      return computeReferenceProfile(
+        sliceResponseToRange(rawResponse, startFreq, endFreq),
+        sliceResponseToRange(workingResponse, startFreq, endFreq),
+      );
     } catch (error) {
       log.warn(
         `${labelOf(m)}: mesure de l'écart de référentiel impossible (${error.message}) — pas de compensation`,
@@ -1004,6 +1035,8 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       m,
       ctx,
       sourceFreqResponse,
+      customStartFrequency,
+      customEndFrequency,
     );
 
     let targetFreqResponse = await getTargetResponse(rew, m, { ppo: 96 });
