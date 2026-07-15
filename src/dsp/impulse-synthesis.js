@@ -1,4 +1,4 @@
-import { complex, ifft } from 'mathjs';
+import { fftInPlace } from './fft.js';
 
 /**
  * Impulse-response synthesis from a frequency response (ADR 003).
@@ -19,7 +19,11 @@ import { complex, ifft } from 'mathjs';
 
 const DEFAULT_SAMPLE_RATE = 48000;
 const MIN_FFT_LENGTH = 4096;
-const MAX_FFT_LENGTH = 65536;
+// 2^18 à 48 kHz = 5,46 s d'impulsion, soit Δf = 0,183 Hz : une résolution
+// d'affichage 1/48 d'octave tenue jusqu'à ~13 Hz — les mesures réelles de
+// balayage font mieux, les projections ne doivent pas être le maillon
+// faible dans le grave. Payload d'import REW : ~1,4 Mo en base64.
+const MAX_FFT_LENGTH = 262144;
 
 const nextPowerOfTwo = value => 2 ** Math.ceil(Math.log2(value));
 
@@ -82,17 +86,28 @@ function synthesizeImpulseFromResponse(
     throw new Error('freqs/magnitude/phase lengths differ');
   }
 
-  // FFT length: aim at the response's own resolution, bounded for cost.
-  const gridStep =
-    response.freqStep ||
-    (freqs[freqs.length - 1] - freqs[0]) / Math.max(1, freqs.length - 1);
-  const wanted = nextPowerOfTwo(sampleRate / Math.max(gridStep, 1e-6));
+  // FFT length: resolve the response's own grid at its FINEST spacing — the
+  // first interval. On a linear grid it is the constant step; on a log (PPO)
+  // grid it is the spacing at the lowest frequency, where the resolution
+  // demand is highest. The former sizing read `response.freqStep`, which is
+  // a step in Hz on linear REW exports but ABSENT on the log (96-ppo)
+  // exports REW also produces: the fallback then averaged a log grid
+  // linearly (~20 Hz over a full-range export) and every projection
+  // collapsed to the 4096-sample floor — first usable bin ~12 Hz, nothing
+  // below ~23 Hz on screen (observed on a live REW 5.40).
+  const dfLow = freqs.length > 1 ? freqs[1] - freqs[0] : response.freqStep || 0;
+  const wanted = nextPowerOfTwo(sampleRate / Math.max(dfLow, 1e-6));
   const fftLength = Math.min(Math.max(wanted, MIN_FFT_LENGTH), maxLength);
   const binHz = sampleRate / fftLength;
 
   const unwrappedPhase = unwrapPhaseDegrees(phase);
   const centerSeconds = center ? fftLength / (2 * sampleRate) : 0;
-  const spectrum = new Array(fftLength).fill(complex(0, 0));
+  // FFT locale sur tableaux typés (src/dsp/fft.js) : la variante mathjs
+  // allouait un objet Complex par échantillon (~300 ms et des centaines de
+  // milliers d'objets par transformée 32k) — prohibitif pour les buffers
+  // longs qu'exige la résolution basse fréquence des projections.
+  const re = new Float64Array(fftLength);
+  const im = new Float64Array(fftLength);
   const cursor = { index: 0 };
   for (let bin = 1; bin < fftLength / 2; bin++) {
     const frequency = bin * binHz;
@@ -103,15 +118,19 @@ function synthesizeImpulseFromResponse(
       360 * frequency * centerSeconds;
     const linear = 10 ** (magnitudeDb / 20);
     const radians = (phaseDegrees * Math.PI) / 180;
-    const value = complex(linear * Math.cos(radians), linear * Math.sin(radians));
-    spectrum[bin] = value;
-    spectrum[fftLength - bin] = complex(value.re, -value.im);
+    const valueRe = linear * Math.cos(radians);
+    const valueIm = linear * Math.sin(radians);
+    re[bin] = valueRe;
+    im[bin] = valueIm;
+    // Symétrie hermitienne : impulsion réelle.
+    re[fftLength - bin] = valueRe;
+    im[fftLength - bin] = -valueIm;
   }
 
-  const timeDomain = ifft(spectrum);
+  fftInPlace(re, im, true);
   const data = new Float32Array(fftLength);
   for (let i = 0; i < fftLength; i++) {
-    data[i] = timeDomain[i].re;
+    data[i] = re[i];
   }
   return { data, sampleRate, startTimeSeconds: -centerSeconds };
 }
