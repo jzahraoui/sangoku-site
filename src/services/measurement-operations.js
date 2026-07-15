@@ -16,6 +16,7 @@ import {
 } from '../measurement/reference-compensation.js';
 import { applyBankAndCrossoverToIr } from '../measurement/rew-filter-bank.js';
 import { combineImpulseResponses } from '../dsp/impulseResponse.js';
+import { PK_MAX_Q } from '../autoeq/optimizerConfig.js';
 
 /**
  * Simple REW wrappers extracted from MeasurementItem
@@ -402,8 +403,9 @@ async function checkFilterGain(rew, m) {
         )}dB. Please add High Pass to X1 or X2 filter`,
       );
     }
-    // check if PK filters are inside limits 0.1 to 20
-    if (filter.q < 0.1 || filter.q > 20) {
+    // check if PK filters are inside limits 0.1 to PK_MAX_Q — même plafond
+    // que l'espace de recherche de l'optimiseur (optimizerConfig)
+    if (filter.q < 0.1 || filter.q > PK_MAX_Q) {
       throw new Error(
         `${labelOf(m)} Filter ${filter.index} Q is out of limits: ${filter.q}.`,
       );
@@ -1132,6 +1134,17 @@ function createMeasurementOperations({ log = noopLog } = {}) {
       operationError = new Error(`Filter creation failed: ${error.message}`, {
         cause: error,
       });
+      // Ne pas laisser le bank refusé posé sur la mesure : relu tel quel par
+      // les chemins suivants (export OCA, previews), il embarquerait les
+      // filtres mêmes que la garde vient de refuser.
+      try {
+        await resetFilters(rew, m);
+      } catch (cleanupError) {
+        log.warn(
+          `${labelOf(m)}: unable to reset the filters left by the failed ` +
+            `generation (${cleanupError.message})`,
+        );
+      }
     } finally {
       operationError = await restoreWorkingSettings(
         rew,

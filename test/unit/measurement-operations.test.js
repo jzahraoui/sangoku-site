@@ -629,6 +629,60 @@ describe('checkFilterGain', () => {
     // non-PK filters are ignored
     await expect(ops.checkFilterGain(rew, record())).resolves.toBeUndefined();
   });
+
+  it('borne le Q des PK au même plafond que l’optimiseur (PK_MAX_Q = 20)', async () => {
+    // Cas vécu : l'optimiseur produisait Q=20.07 (borne équaliseur 50) et la
+    // garde refusait après coup — l'espace de recherche est désormais borné à
+    // 20 (optimizerConfig.PK_MAX_Q), la garde reste le filet de sécurité.
+    const rew = {
+      getFilters: vi
+        .fn()
+        .mockResolvedValueOnce([{ index: 1, type: 'PK', gaindB: -4, q: 20.07 }])
+        .mockResolvedValueOnce([{ index: 1, type: 'PK', gaindB: -4, q: 20 }]),
+    };
+
+    await expect(ops.checkFilterGain(rew, record())).rejects.toThrow(
+      /Q is out of limits: 20.07/,
+    );
+    await expect(ops.checkFilterGain(rew, record())).resolves.toBeUndefined();
+  });
+});
+
+describe('createFilter', () => {
+  it('nettoie le bank posé sur la mesure quand la génération échoue', async () => {
+    // Sans nettoyage, un échec (garde Q, erreur REW…) laissait les filtres
+    // fraîchement posés sur la mesure — relus tels quels par les chemins
+    // suivants (export OCA, previews).
+    const flatResponse = {
+      freqs: [20, 100, 1000, 10000, 20000],
+      magnitude: [75, 75, 75, 75, 75],
+      phase: [0, 0, 0, 0, 0],
+    };
+    const dirtyBank = createEmptyFilters().map(filter =>
+      filter.index === 1
+        ? { ...filter, type: 'PK', enabled: true, frequency: 40, q: 20.07, gaindB: -4 }
+        : filter,
+    );
+    const rew = {
+      getFilters: vi
+        .fn()
+        .mockImplementation(async () => dirtyBank.map(filter => ({ ...filter }))),
+      postFilters: vi.fn().mockResolvedValue(true),
+      resetTargetSettings: vi.fn().mockResolvedValue(true),
+      getFrequencyResponse: vi.fn().mockResolvedValue(flatResponse),
+      getTargetResponse: vi.fn().mockResolvedValue(flatResponse),
+    };
+    // workingConfig absent → applyWorkingSettings échoue DANS le try, après
+    // le reset initial du bank (même point de sortie qu'une garde Q).
+    const ctx = { bounds: { lower: 20, upper: 20000 } };
+
+    await expect(
+      ops.createFilter(rew, koRecord(), ctx, 'phase', true, false),
+    ).rejects.toThrow(/Filter creation failed/);
+
+    // reset initial + nettoyage du bank en échec
+    expect(rew.postFilters).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('arithmetic operations', () => {
