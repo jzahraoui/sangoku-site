@@ -1,13 +1,16 @@
 import Polar from '../Polar.js';
 import FrequencyResponseProcessor from '../frequency-response-processor.js';
 import { computePeakingCoefficients } from '../dsp/biquadCoefficients.js';
-import { getComplexResponseWithTrig } from '../dsp/biquadResponse.js';
+import {
+  getComplexResponseFromNormalizedInto,
+  normalizeBiquadCoefficients,
+} from '../dsp/biquadResponse.js';
 import { normalizeParam } from './config.js';
 
 // Sample rate used to realize the per-sub peaking biquads. Only affects the
 // bilinear warp of the biquad response, which is negligible in the subwoofer
 // band (< 500 Hz vs 24 kHz Nyquist); the product DSP chain runs at 48 kHz.
-const FILTER_SAMPLE_RATE = 48000;
+export const FILTER_SAMPLE_RATE = 48000;
 
 // Per-grid trigonometry for the biquad evaluation, keyed by the freqs array
 // itself: a prepared sub keeps the same grid for thousands of candidate
@@ -15,20 +18,25 @@ const FILTER_SAMPLE_RATE = 48000;
 // are paid once per grid instead of once per (candidate × bin × filter).
 const filterTrigTables = new WeakMap();
 
-function getFilterTrigTable(freqs) {
+export function getFilterTrigTable(freqs) {
   let table = filterTrigTables.get(freqs);
   if (table) return table;
 
+  // Struct-of-arrays layout: the four values of a bin are read together in
+  // the hot loop, and typed arrays keep them contiguous in memory.
   const size = freqs.length;
-  table = new Array(size);
+  table = {
+    cosW: new Float64Array(size),
+    sinW: new Float64Array(size),
+    cos2W: new Float64Array(size),
+    sin2W: new Float64Array(size),
+  };
   for (let i = 0; i < size; i++) {
     const omega = (Polar.TWO_PI * freqs[i]) / FILTER_SAMPLE_RATE;
-    table[i] = {
-      cosW: Math.cos(omega),
-      sinW: Math.sin(omega),
-      cos2W: Math.cos(2 * omega),
-      sin2W: Math.sin(2 * omega),
-    };
+    table.cosW[i] = Math.cos(omega);
+    table.sinW[i] = Math.sin(omega);
+    table.cos2W[i] = Math.cos(2 * omega);
+    table.sin2W[i] = Math.sin(2 * omega);
   }
   filterTrigTables.set(freqs, table);
   return table;
@@ -263,19 +271,25 @@ export function calculateResponseWithParams(sub, { validate = true } = {}) {
   }
 
   // Peaking biquad coefficients are param-dependent but frequency-independent:
-  // compute them once per call, evaluate per bin below. Near-zero gains are
-  // acoustically neutral and skipped.
+  // compute and a0-normalize them once per call, evaluate per bin below.
+  // Near-zero gains are acoustically neutral and skipped.
   const filterCoefficients = (filters ?? [])
     .filter(filter => Math.abs(filter.gain) >= 0.01)
     .map(filter =>
-      computePeakingCoefficients({
-        fc: filter.frequency,
-        Q: filter.q,
-        gain: filter.gain,
-        sampleRate: FILTER_SAMPLE_RATE,
-      }),
+      normalizeBiquadCoefficients(
+        computePeakingCoefficients({
+          fc: filter.frequency,
+          Q: filter.q,
+          gain: filter.gain,
+          sampleRate: FILTER_SAMPLE_RATE,
+        }),
+      ),
     );
   const trigTable = filterCoefficients.length > 0 ? getFilterTrigTable(sub.freqs) : null;
+  // Scratch réutilisé sur tous les bins de l'appel : le solveur joint passe
+  // ici ~filtres × bins fois par candidat, un objet frais par bin est du pur
+  // churn d'allocation.
+  const h = { re: 1, im: 0 };
 
   for (let freqIndex = 0; freqIndex < size; freqIndex++) {
     let magnitudeLinear = Polar.DbToLinearGain(sub.magnitude[freqIndex]) * gainLinear;
@@ -290,7 +304,14 @@ export function calculateResponseWithParams(sub, { validate = true } = {}) {
     }
 
     for (const coefficients of filterCoefficients) {
-      const h = getComplexResponseWithTrig(coefficients, trigTable[freqIndex]);
+      getComplexResponseFromNormalizedInto(
+        coefficients,
+        trigTable.cosW[freqIndex],
+        trigTable.sinW[freqIndex],
+        trigTable.cos2W[freqIndex],
+        trigTable.sin2W[freqIndex],
+        h,
+      );
       magnitudeLinear *= Math.hypot(h.re, h.im);
       phaseRadians += Math.atan2(h.im, h.re);
     }

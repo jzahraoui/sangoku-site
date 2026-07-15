@@ -8,10 +8,13 @@
  * but cannot touch the interference structure, whereas a per-sub filter can
  * remove a destructive interference at its source.
  *
- * Two differential-evolution phases:
+ * Three differential-evolution phases:
  *   1. alignment only (delay/polarity/gain — small space, fast), then
  *   2. the full space, seeded with the phase-1 winner carrying neutral
- *      filters, so the solver can never do worse than alignment alone.
+ *      filters, so the solver can never do worse than alignment alone, then
+ *   3. re-alignment with the filter dimensions frozen at the winner (the
+ *      filters changed each sub's phase, so the optimal delays/polarities
+ *      may have moved).
  *
  * The cost is the target-match score (asymmetric deviation from the target
  * + group-delay guard) minus the delay and filter-effort regularizers, all
@@ -26,6 +29,15 @@ import {
   calculateOptimizationScoreDetails,
 } from './evaluation.js';
 import { buildParameterizedSubResponses, calculateCombinedResponse } from './response.js';
+import {
+  clearFrozenFilters,
+  createJointEvaluationContext,
+  decimateArray,
+  decimatePreparedSubs,
+  evaluateCombinedResponse,
+  setFrozenFilters,
+} from './joint-evaluator.js';
+import Scorer from './scoring.js';
 
 const NEUTRAL_FILTER_GAIN = 0;
 
@@ -59,10 +71,7 @@ export async function runJointOptimization(optimizer, options = {}) {
   const baselineScore = scoreParams(optimizer, preparedSubs, baselineParams);
 
   const random = () => optimizer._random();
-  const cost = genome => {
-    const params = decodeGenome(layout, genome);
-    return -scoreParams(optimizer, preparedSubs, params);
-  };
+  const { cost, evaluationContext } = createSolverCost(optimizer, preparedSubs, layout, joint);
 
   // --- Phase 1 : alignment only. The filter dimensions are frozen at
   // neutral by shrinking their bounds to a point, which keeps a single
@@ -72,14 +81,24 @@ export async function runJointOptimization(optimizer, options = {}) {
   );
   const neutralGenome = buildNeutralGenome(layout);
 
+  // Budgets des phases d'alignement (1 et 3) : espace libre réduit (3 dims
+  // par sub non-référence) — population et patience dédiées, bornées par le
+  // budget principal pour ne jamais gonfler un budget de test réduit.
+  const alignmentPopulationSize = Math.min(
+    joint.alignmentPopulationSize,
+    joint.populationSize,
+  );
+  const alignmentPatience = Math.min(joint.alignmentPatience, joint.patience);
+
   const phase1Start = performance.now();
   const phase1 = await runDifferentialEvolution({
     bounds: alignmentBounds,
     cost,
     seeds: [neutralGenome],
-    populationSize: joint.populationSize,
+    populationSize: alignmentPopulationSize,
     generations: joint.alignmentGenerations,
-    patience: joint.patience,
+    patience: alignmentPatience,
+    patienceEpsilon: joint.patienceEpsilon,
     random,
     shouldCancel,
     onGeneration: progress =>
@@ -110,6 +129,7 @@ export async function runJointOptimization(optimizer, options = {}) {
       populationSize: joint.populationSize,
       generations: joint.generations,
       patience: joint.patience,
+      patienceEpsilon: joint.patienceEpsilon,
       random,
       shouldCancel,
       onGeneration: progress =>
@@ -130,20 +150,26 @@ export async function runJointOptimization(optimizer, options = {}) {
     const realignBounds = layout.bounds.map((range, dim) =>
       dim < layout.alignmentDims ? range : [winnerSoFar.best[dim], winnerSoFar.best[dim]],
     );
+    // Les dimensions filtres étant bornées au vainqueur, la contribution de
+    // chaque filtre est constante sur toute la phase : précomputée une fois
+    // (bit-identique à la cascade vivante), plus de biquads par évaluation.
+    setFrozenFilters(evaluationContext, decodeGenome(layout, winnerSoFar.best));
     const phase3Start = performance.now();
     phase3 = await runDifferentialEvolution({
       bounds: realignBounds,
       cost,
       seeds: [winnerSoFar.best],
-      populationSize: joint.populationSize,
+      populationSize: alignmentPopulationSize,
       generations: joint.alignmentGenerations,
-      patience: joint.patience,
+      patience: alignmentPatience,
+      patienceEpsilon: joint.patienceEpsilon,
       random,
       shouldCancel,
       onGeneration: progress =>
         reportProgress(optimizer, onProgress, 'realign', progress, joint),
     });
     phase3.timeMs = performance.now() - phase3Start;
+    clearFrozenFilters(evaluationContext);
   }
 
   const candidates = [phase1, phase2, phase3].filter(Boolean);
@@ -309,6 +335,114 @@ export function decodeGenome(layout, genome) {
   }
 
   return params;
+}
+
+/**
+ * Fonction de coût du solveur : évaluateur fusionné lin/rad sur buffers
+ * réutilisés (joint-evaluator.js), sur une grille éventuellement décimée
+ * (joint.solverGridStride) — cible et poids décimés par LES MÊMES indices,
+ * donc cohérents bin à bin ; le scorer solveur applique exactement le calcul
+ * target-match de calculateOptimizationScoreDetails. Le score de baseline,
+ * le bestSum final (buildScoredSum), le rapport et le targetRms restent sur
+ * le chemin classique PLEINE grille.
+ */
+function createSolverCost(optimizer, preparedSubs, layout, joint) {
+  const solverStride = joint.solverGridStride;
+  const solverSubs = decimatePreparedSubs(preparedSubs, solverStride);
+  const evaluationContext = createJointEvaluationContext(solverSubs);
+  const solverTarget =
+    solverStride > 1
+      ? decimateArray(optimizer.targetMagnitude, solverStride)
+      : optimizer.targetMagnitude;
+  const solverScorer =
+    solverStride > 1
+      ? new Scorer(Scorer.buildWeights(solverSubs[0].freqs))
+      : optimizer._scorer;
+  const scratchParams = createScratchParams(layout);
+
+  const cost = genome => {
+    const params = decodeGenomeInto(layout, genome, scratchParams);
+    const response = evaluateCombinedResponse(evaluationContext, params);
+    let score = solverScorer.calculateTargetMatchScore(response, solverTarget);
+    for (let subIndex = 0; subIndex < params.length; subIndex++) {
+      score -= calculateDelayPenalty(optimizer, params[subIndex]);
+      score -= calculateFilterEffortPenalty(optimizer, params[subIndex]);
+    }
+    return -score;
+  };
+
+  return { cost, evaluationContext };
+}
+
+/**
+ * Params scratch pour decodeGenomeInto : la structure complète (référence
+ * incluse) est allouée une fois, les évaluations du solveur ne font plus que
+ * muter les valeurs. Le sub de référence garde delay 0 / polarity 1 / gain 0
+ * (jamais réécrits) mais porte ses filtres comme les autres.
+ */
+function createScratchParams(layout) {
+  const params = [];
+  for (let k = 0; k < layout.subCount; k++) {
+    params.push({
+      delay: 0,
+      polarity: 1,
+      gain: 0,
+      allPass: { frequency: 0, q: 0, enabled: false },
+      filters: Array.from({ length: layout.filtersPerSub }, () => ({
+        frequency: 0,
+        gain: 0,
+        q: 0,
+      })),
+    });
+  }
+  return params;
+}
+
+/**
+ * Variante mutation-en-place de decodeGenome pour le chemin chaud du
+ * solveur : mêmes règles de décodage, zéro allocation. `decodeGenome` reste
+ * la voie du résultat final (objets frais, clonés vers preparedSubs).
+ */
+export function decodeGenomeInto(layout, genome, params) {
+  decodeAlignmentInto(layout, genome, params);
+  decodeFiltersInto(layout, genome, params);
+  return params;
+}
+
+function decodeAlignmentInto(layout, genome, params) {
+  const { subCount, allPassPerSub } = layout;
+  let index = 0;
+
+  for (let k = 1; k < subCount; k++) {
+    const param = params[k];
+    param.delay = genome[index++];
+    param.polarity = genome[index++] >= 0 ? 1 : -1;
+    param.gain = genome[index++];
+    if (allPassPerSub) {
+      const enabled = genome[index++] > 0;
+      const frequency = Math.pow(10, genome[index++]);
+      const q = Math.pow(10, genome[index++]);
+      param.allPass.enabled = enabled;
+      param.allPass.frequency = enabled ? frequency : 0;
+      param.allPass.q = enabled ? q : 0;
+    }
+  }
+}
+
+function decodeFiltersInto(layout, genome, params) {
+  const { alignmentDims, subCount, filtersPerSub } = layout;
+  if (filtersPerSub === 0) return;
+
+  let index = alignmentDims;
+  for (let k = 0; k < subCount; k++) {
+    const filters = params[k].filters;
+    for (let f = 0; f < filtersPerSub; f++) {
+      const filter = filters[f];
+      filter.frequency = Math.pow(10, genome[index++]);
+      filter.gain = genome[index++];
+      filter.q = Math.pow(10, genome[index++]);
+    }
+  }
 }
 
 /**

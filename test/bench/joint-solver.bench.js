@@ -16,6 +16,8 @@
  *     [--json]                     JSON complet sur stdout (logs sur stderr)
  *     [--compare <ref.json>]       compare au run de référence, exit ≠ 0 si écart
  *     [--mode strict|quality]      (défaut : strict)
+ *     [--seed <n>]                 seed du solveur (défaut : 42) — pour les
+ *                                  études de variance multi-seeds
  *       strict  : empreinte déterministe identique (scores, params au bit près)
  *       quality : ΔtargetRms ≤ 0,05 dB et Δscore ≥ −0,2 par fixture
  *
@@ -28,7 +30,7 @@ import { readFileSync } from 'node:fs';
 import MultiSubOptimizer from '../../src/multi-sub-optimizer.js';
 import Scorer from '../../src/optimizer/scoring.js';
 
-const SEED = 42;
+const DEFAULT_SEED = 42;
 
 const FIXTURE_PATHS = {
   'data.test': new URL('../fixtures/multi-sub-optimizer/data.test.js', import.meta.url),
@@ -71,6 +73,7 @@ function parseArgs(argv) {
     json: false,
     compare: null,
     mode: 'strict',
+    seed: DEFAULT_SEED,
   };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -82,6 +85,8 @@ function parseArgs(argv) {
     else if (arg === '--compare') options.compare = argv[++i];
     else if (arg === '--mode') options.mode = argv[++i];
     else if (arg.startsWith('--mode=')) options.mode = arg.slice('--mode='.length);
+    else if (arg === '--seed') options.seed = Number(argv[++i]);
+    else if (arg.startsWith('--seed=')) options.seed = Number(arg.slice('--seed='.length));
     else throw new Error(`Argument inconnu : ${arg}`);
   }
   validateOptions(options);
@@ -99,6 +104,9 @@ function validateOptions(options) {
   }
   if (options.mode !== 'strict' && options.mode !== 'quality') {
     throw new Error('--mode doit être strict ou quality');
+  }
+  if (!Number.isInteger(options.seed) || options.seed <= 0) {
+    throw new Error('--seed doit être un entier positif');
   }
 }
 
@@ -127,13 +135,13 @@ function computeFlatTargetLevel(frequencyResponses, band) {
   return 10 * Math.log10(Math.max(meanPower, Number.EPSILON));
 }
 
-function buildBenchConfig(optimizerConfig, targetLevel, budgetOverrides) {
+function buildBenchConfig(optimizerConfig, targetLevel, budgetOverrides, seed) {
   const config = structuredClone(optimizerConfig);
   config.optimization = {
     ...config.optimization,
     objective: 'target-match',
     targetCurve: { freqs: [5, 500], magnitude: [targetLevel, targetLevel] },
-    joint: { seed: SEED, ...budgetOverrides },
+    joint: { seed, ...budgetOverrides },
   };
   return config;
 }
@@ -153,7 +161,7 @@ function splitPhases(reportPhases) {
   return { deterministic, timings };
 }
 
-async function runFixture(name, budgetName) {
+async function runFixture(name, budgetName, seed) {
   const { frequencyResponses, optimizerConfig } = await import(
     FIXTURE_PATHS[name].href
   );
@@ -161,7 +169,12 @@ async function runFixture(name, budgetName) {
     frequencyResponses,
     optimizerConfig.frequency,
   );
-  const config = buildBenchConfig(optimizerConfig, targetLevel, BUDGETS[budgetName]);
+  const config = buildBenchConfig(
+    optimizerConfig,
+    targetLevel,
+    BUDGETS[budgetName],
+    seed,
+  );
   const optimizer = new MultiSubOptimizer(frequencyResponses, config, lm);
 
   const started = performance.now();
@@ -180,7 +193,7 @@ async function runFixture(name, budgetName) {
   const { deterministic, timings } = splitPhases(optimizationReport.phases);
   return {
     fixture: name,
-    seed: SEED,
+    seed,
     budget: budgetName,
     targetLevelDb: targetLevel,
     // Partie déterministe à seed égal : l'empreinte de parité stricte.
@@ -280,9 +293,9 @@ const names = options.fixture === 'all' ? Object.keys(FIXTURE_PATHS) : [options.
 
 const records = [];
 for (const name of names) {
-  records.push(await runFixture(name, options.budget));
+  records.push(await runFixture(name, options.budget, options.seed));
 }
-const payload = { seed: SEED, budget: options.budget, fixtures: records };
+const payload = { seed: options.seed, budget: options.budget, fixtures: records };
 
 printHumanReport(records);
 if (options.json) {

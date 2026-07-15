@@ -55,8 +55,12 @@ test('align sub joint : filtres PK par sub + projection, cible target-match', as
           // parfois vers le génome neutre (tous les gains PK à 0 dB) et
           // l'assertion « au moins un gain non nul » tombait au hasard.
           // Seedé, le run est déterministe et ce seed produit des gains
-          // non nuls — vérifié sur plusieurs exécutions.
-          seed: 2,
+          // non nuls — vérifié sur plusieurs exécutions. Re-seedé (2 → 3)
+          // au chantier perf du solveur (grille décimée du Lot 6) : la
+          // trajectoire a changé et le génome neutre gagnait avec le seed 2
+          // (CLAUDE.md invariant 3 — balayage prévu à chaque changement de
+          // trajectoire).
+          seed: 3,
         });
         globalThis.viewModel.useJointSubOptimization(true);
       });

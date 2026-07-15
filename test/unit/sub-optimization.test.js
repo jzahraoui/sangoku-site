@@ -933,6 +933,21 @@ describe('multiSubOptimizer joint route (target-match)', () => {
     }
   });
 
+  it('forwards the cooperative shouldCancel hook to the joint solver', async () => {
+    const spy = vi.spyOn(MultiSubOptimizer.prototype, 'optimizeSubwoofersJoint');
+    try {
+      const { service } = createJointHarness();
+      const shouldCancel = () => false;
+      await service.multiSubOptimizer(
+        { lowFrequency: 20, highFrequency: 150 },
+        { shouldCancel },
+      );
+      expect(spy.mock.calls[0][0].shouldCancel).toBe(shouldCancel);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('keeps the legacy path when the joint toggle is off', async () => {
     const sub1 = jointSub('sw1', syntheticFrequencyResponse());
     const sub2 = jointSub('sw2', syntheticFrequencyResponse({ delayMs: 2 }));

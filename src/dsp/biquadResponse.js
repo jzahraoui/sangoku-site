@@ -123,6 +123,60 @@ export function getComplexResponseWithTrig(coeffs, trig) {
 }
 
 /**
+ * Hoists the a0 normalization out of the per-bin loop: the five divisions of
+ * getComplexResponseWithTrig produce the same values for every bin of a
+ * grid, so hot loops normalize once per filter and evaluate with the
+ * *Normalized variant below. Bit-identical by construction.
+ *
+ * @param {{ a0,a1,a2,b0,b1,b2 }} coeffs
+ * @returns {{ b0n,b1n,b2n,a1n,a2n }}
+ */
+export function normalizeBiquadCoefficients({ a0, a1, a2, b0, b1, b2 }) {
+  return { b0n: b0 / a0, b1n: b1 / a0, b2n: b2 / a0, a1n: a1 / a0, a2n: a2 / a0 };
+}
+
+/**
+ * Same computation as getComplexResponseWithTrig from pre-normalized
+ * coefficients, writing into a caller-owned {re, im} object. The joint
+ * solver evaluates ~filters × bins × candidates biquad responses per run —
+ * a fresh return object per bin is pure allocator churn there.
+ *
+ * @param {{ b0n,b1n,b2n,a1n,a2n }} n - normalizeBiquadCoefficients output
+ * @param {number} cosW  - cos(ω) at the target frequency
+ * @param {number} sinW  - sin(ω)
+ * @param {number} cos2W - cos(2ω)
+ * @param {number} sin2W - sin(2ω)
+ * @param {{ re: number, im: number }} out - overwritten with H(e^jω)
+ * @returns {{ re: number, im: number }} out
+ */
+export function getComplexResponseFromNormalizedInto(n, cosW, sinW, cos2W, sin2W, out) {
+  const numRe = n.b0n + n.b1n * cosW + n.b2n * cos2W;
+  const numIm = -n.b1n * sinW - n.b2n * sin2W;
+
+  const denRe = 1 + n.a1n * cosW + n.a2n * cos2W;
+  const denIm = -n.a1n * sinW - n.a2n * sin2W;
+
+  const denMagSq = denRe * denRe + denIm * denIm;
+  if (denMagSq < 1e-30) {
+    out.re = 1;
+    out.im = 0;
+    return out;
+  }
+
+  const re = (numRe * denRe + numIm * denIm) / denMagSq;
+  const im = (numIm * denRe - numRe * denIm) / denMagSq;
+
+  if (Number.isFinite(re) && Number.isFinite(im)) {
+    out.re = re;
+    out.im = im;
+  } else {
+    out.re = 1;
+    out.im = 0;
+  }
+  return out;
+}
+
+/**
  * Réponse complexe d'une cascade de biquads : produit des réponses de chaque
  * étage (getComplexResponseFromCoefficients). Les coefficients doivent avoir
  * été calculés au `sampleRate` fourni.

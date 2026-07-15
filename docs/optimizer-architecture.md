@@ -756,6 +756,78 @@ structure d'interférence).
 
 Reste : Lot 4 (objectif multi-positions).
 
+### Session 8 — Accélération du solveur joint (2026-07-15)
+
+Le run joint de production durait ~120 s de calcul pur (JS mono-thread,
+94 % du temps du bouton) sur une machine rapide — plusieurs minutes sur
+laptop. Chantier en 7 commits, mesuré sur un banc dédié :
+
+- **Banc** : `npm run bench:joint` (`test/bench/joint-solver.bench.js`) —
+  runner Node autonome sur les 3 fixtures réelles, seed fixe, cible plate
+  ancrée au plafond théorique pondéré. `--json` produit une empreinte
+  déterministe (scores, générations, params sérialisés — timings exclus) ;
+  `--compare <ref> --mode strict|quality` pour les non-régressions ;
+  `--seed` pour les études de variance. `timeMs` par phase ajouté au
+  rapport (`optimizationReport.phases`).
+- **Early-stop utile** (`patienceEpsilon`, watermark) : la patience du DE
+  n'est réarmée que si l'amélioration **cumulée** depuis le dernier
+  réarmement dépasse 1e-4 point. ⚠️ Deux pièges mesurés : (a) un epsilon
+  par amélioration *unitaire* coupe du vrai travail — la progression DE est
+  un flux de gains individuellement sous-epsilon qui s'accumulent (−2,3
+  points mesurés sur data.bug avec la première variante, rejetée) ; (b) tout
+  early-stop change `phase1.best` de quelques ULP → la phase 2 diverge
+  chaotiquement → **la qualité d'un levier à trajectoire modifiée ne se juge
+  qu'en multi-seeds** (la variance seed-à-seed du solveur est de ±0,2-0,4 dB
+  de targetRms, bien au-dessus de tout seuil mono-seed raisonnable).
+  Critère adopté : Δ targetRms moyen sur ≥ 9 cellules (3 seeds × 3 fixtures)
+  ≤ +0,05 dB et aucune fixture dégradée sur tous les seeds. Yield
+  `setTimeout(0)` gaté sur 50 ms écoulées ; `shouldCancel` câblé depuis le
+  service.
+- **Biquad sans allocation** (bit-strict) : `normalizeBiquadCoefficients`
+  (divisions par a0 hoistées hors de la boucle par bin) +
+  `getComplexResponseFromNormalizedInto` (écrit dans un objet fourni — la
+  variante historique allouait un objet par filtre × bin × candidat) ;
+  table trig par grille en struct-of-arrays.
+- **Évaluateur fusionné lin/rad** (`joint-evaluator.js`) — le plus gros
+  levier (~22 % du run partait en conversions dB↔linéaire pures, profil
+  `--cpu-prof`) : contexte créé une fois par run (invariants de mesure
+  précalculés : magnitude linéaire, phase radians, 2π·f ; buffers
+  réutilisés), somme vectorielle complexe en une passe sans jamais
+  matérialiser les réponses par sub en dB/degrés ; `decodeGenomeInto`
+  (décodage en place). Le chemin classique reste la référence : baseline,
+  `bestSum` final, rapports et tous ses autres consommateurs. Écart
+  numérique : la quantification Float32 dB intermédiaire disparaît →
+  trajectoires DE différentes à seed égal, qualité validée multi-seeds.
+- **Scoring sans allocation** (bit-strict) : somme des poids précalculée au
+  constructeur du Scorer (même ordre d'accumulation), scratch pour le
+  group delay et les indices de la médiane pondérée (l'accumulation de la
+  médiane reste dans l'ordre trié — ordre de sommation flottante).
+- **Realign gelé** (bit-strict) : en phase 3 les dimensions filtres sont
+  bornées au vainqueur → contribution de chaque filtre précalculée par bin
+  et appliquée dans l'ordre de la cascade ; plus aucun biquad évalué.
+- **Budgets d'alignement** : `joint.alignmentPopulationSize: 40` et
+  `joint.alignmentPatience: 200` pour les phases 1/3 (9 dims libres sur
+  4 subs vs 45 au total), appliqués en `min()` avec le budget principal
+  (un budget de test réduit n'est jamais gonflé).
+- **Grille décimée locale au solveur** : `joint.solverGridStride: 2`
+  (~96 → 48 ppo pour la fonction de coût seulement) — subs, cible et poids
+  décimés par les mêmes indices, scorer dédié ; baseline/bestSum/rapport/
+  targetRms restent pleine grille (métriques commensurables, et un null
+  étroit invisible de la grille décimée y serait détecté).
+
+**Résultats** (budget prod, seed 42, targetRms pleine grille) :
+data.test 151,8 → 32,7 s, data.bug 82,6 → 18,9 s, data.bis 118,2 → 26,8 s
+(**−77 à −78 %**) ; qualité multi-seeds : Δ targetRms moyen **−0,152 dB**
+(amélioration), aucune dégradation systématique. Le parcours e2e
+`sub-align-joint` a été re-seedé (2 → 3, le génome neutre gagnait sur les
+subs jouets après changement de trajectoire — comportement documenté du
+seed).
+
+**Non fait (décision ultérieure)** : Web Workers — imposerait un DE
+générationnel (le steady-state actuel remplace `population[i]`
+immédiatement), un fallback synchrone Node et un re-seed e2e ; à
+réévaluer seulement si le temps laptop reste insuffisant.
+
 ### Résultats finaux (efficiency ratio)
 
 | Fixture       | Baseline | Final (sans all-pass) | Final (avec all-pass) |

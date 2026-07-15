@@ -89,6 +89,48 @@ describe('differential evolution', () => {
     expect(first.bestCost).toBeCloseTo(second.bestCost, 12);
   });
 
+  it('cuts float-noise plateaus but keeps accumulating real progress (patienceEpsilon)', async () => {
+    // Coût artificiel : chaque évaluation « améliore » le best d'un pas
+    // fixe. Un pas ~1e-9 modélise le bruit flottant qui, sans epsilon,
+    // réarme la patience indéfiniment ; un pas de quelques 1e-5 modélise un
+    // vrai travail en flux de petites améliorations.
+    const run = (patienceEpsilon, step) => {
+      let calls = 0;
+      return runDifferentialEvolution({
+        bounds: [[0, 1]],
+        cost: () => 1 - ++calls * step,
+        populationSize: 8,
+        generations: 200,
+        patience: 5,
+        patienceEpsilon,
+        random: (() => {
+          let state = 42;
+          return () => {
+            state = (state * 1664525 + 1013904223) >>> 0;
+            return state / 4294967296;
+          };
+        })(),
+      });
+    };
+
+    // Bruit sous-epsilon même en cumul : la patience coupe, mais le best
+    // continue de suivre le minimum rencontré.
+    const noise = await run(1e-4, 1e-9);
+    expect(noise.generationsRun).toBe(5);
+    expect(noise.bestCost).toBeLessThan(1);
+
+    // Flux de gains individuellement < epsilon mais dont le CUMUL le
+    // dépasse (sémantique watermark) : la phase reste vivante — couper ici
+    // sacrifierait du vrai travail (mesuré : -2,3 points sur une fixture).
+    const trickle = await run(1e-4, 5e-5);
+    expect(trickle.generationsRun).toBe(200);
+
+    // Défaut (epsilon absent → 0) = comportement historique : toute
+    // amélioration strictement positive réarme, le budget est consommé.
+    const historical = await run(undefined, 1e-9);
+    expect(historical.generationsRun).toBe(200);
+  });
+
   it('honours cooperative cancellation and returns the best so far', async () => {
     let calls = 0;
     const result = await runDifferentialEvolution({
@@ -227,6 +269,27 @@ describe('optimizeSubwoofersJoint', () => {
     expect(() => makeJointOptimizer({ jointExtras: { seed: 1.5 } })).toThrow(
       /joint\.seed/,
     );
+  });
+
+  it('rejects invalid alignment-phase budgets', () => {
+    expect(() =>
+      makeJointOptimizer({ jointExtras: { alignmentPopulationSize: 2 } }),
+    ).toThrow(/alignmentPopulationSize/);
+    expect(() =>
+      makeJointOptimizer({ jointExtras: { alignmentPatience: 0 } }),
+    ).toThrow(/alignmentPatience/);
+  });
+
+  it('rejects an invalid solver grid stride, and solves with stride 1 (disabled)', async () => {
+    expect(() => makeJointOptimizer({ jointExtras: { solverGridStride: 0 } })).toThrow(
+      /solverGridStride/,
+    );
+
+    // stride 1 = décimation désactivée : le flux doit rester fonctionnel
+    // (chemin scorer/cible pleine grille du solveur).
+    const optimizer = makeJointOptimizer({ jointExtras: { solverGridStride: 1 } });
+    const result = await optimizer.optimizeSubwoofersJoint();
+    expect(result.bestSum.targetRms).toBeLessThan(1.5);
   });
 
   it('reports progress for both phases', async () => {

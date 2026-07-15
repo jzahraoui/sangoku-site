@@ -34,6 +34,19 @@ class Scorer {
    */
   constructor(frequencyWeights) {
     this.frequencyWeights = frequencyWeights;
+    // Somme des poids en ordre d'index (le même ordre d'accumulation que la
+    // boucle de coût historique — valeur bit-identique), précalculée : le
+    // solveur joint appelle calculateTargetMatchScore à chaque évaluation.
+    let weightSum = 0;
+    for (let i = 0; i < frequencyWeights.length; i++) {
+      weightSum += frequencyWeights[i];
+    }
+    this._totalWeightSum = weightSum;
+    // Buffers scratch des chemins chauds (médiane pondérée, group delay) :
+    // réutilisés entre évaluations, redimensionnés si la grille change.
+    this._medianIndices = [];
+    this._gdUnwrapped = null;
+    this._gdTau = null;
   }
 
   // =========================================================
@@ -285,14 +298,19 @@ class Scorer {
       throw new Error('Target curve must be on the same grid as the response');
     }
 
-    let weightSum = 0;
     let cost = 0;
     for (let i = 0; i < len; i++) {
       const w = this.frequencyWeights[i];
       const deviation = magnitude[i] - targetMagnitude[i];
-      weightSum += w;
       cost += (deviation < 0 ? TARGET_BELOW_WEIGHT : 1) * deviation * deviation * w;
     }
+    // Somme des poids précalculée au constructeur (même ordre d'accumulation
+    // → même valeur) ; repli en boucle si la réponse ne couvre pas toute la
+    // grille du scorer.
+    const weightSum =
+      len === this.frequencyWeights.length
+        ? this._totalWeightSum
+        : this._sumWeights(len);
     const asymmetricError = weightSum > 0 ? cost / weightSum : 0;
 
     const groupDelayPenalty = this._calculateGroupDelayExcessPenalty(
@@ -466,9 +484,21 @@ class Scorer {
     return penalty / levelWeightSum;
   }
 
+  _sumWeights(len) {
+    let weightSum = 0;
+    for (let i = 0; i < len; i++) {
+      weightSum += this.frequencyWeights[i];
+    }
+    return weightSum;
+  }
+
   /** Group delay (seconds) via central difference on the unwrapped phase. */
   _groupDelaySeconds(freqs, phase, len) {
-    const unwrapped = new Float64Array(len);
+    if (!this._gdUnwrapped || this._gdUnwrapped.length !== len) {
+      this._gdUnwrapped = new Float64Array(len);
+      this._gdTau = new Float64Array(len);
+    }
+    const unwrapped = this._gdUnwrapped;
     unwrapped[0] = phase[0];
     let offset = 0;
     for (let i = 1; i < len; i++) {
@@ -478,12 +508,14 @@ class Scorer {
       unwrapped[i] = phase[i] + offset;
     }
 
-    const tau = new Float64Array(len);
+    const tau = this._gdTau;
     for (let i = 0; i < len; i++) {
       const lo = i === 0 ? 0 : i - 1;
       const hi = i === len - 1 ? len - 1 : i + 1;
       tau[i] = -(unwrapped[hi] - unwrapped[lo]) / (freqs[hi] - freqs[lo]) / 360;
     }
+    // Buffer réutilisé : consommé synchronement par l'appelant avant la
+    // prochaine évaluation, jamais stocké.
     return tau;
   }
 
@@ -495,7 +527,12 @@ class Scorer {
    */
   _weightedMedian(values, len) {
     const stride = Math.max(1, Math.ceil(len / MEDIAN_MAX_SAMPLES));
-    const indices = [];
+    // Scratch réutilisé, rempli dans le même ordre que le tableau frais
+    // historique (0, stride, 2·stride…) avant le tri — mêmes comparaisons,
+    // même résultat. `total` reste accumulé dans l'ordre TRIÉ à chaque appel
+    // (le précalculer changerait l'ordre de sommation flottante).
+    const indices = this._medianIndices;
+    indices.length = 0;
     for (let i = 0; i < len; i += stride) indices.push(i);
     indices.sort((a, b) => values[a] - values[b]);
 

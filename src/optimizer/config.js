@@ -78,6 +78,27 @@ export const DEFAULT_CONFIG = {
       alignmentGenerations: 800,
       generations: 2500,
       patience: 400,
+      // Budgets dédiés aux phases d'alignement (1 et 3) : leur espace libre
+      // est petit (3 dims par sub non-référence vs 45 dims au total pour
+      // 4 subs) — pop 80 et patience 400 y sont calibrées pour la phase
+      // filters. Appliqués en min() avec populationSize/patience : un budget
+      // de test réduit (e2e, harnais) n'est jamais gonflé par ces valeurs.
+      alignmentPopulationSize: 40,
+      alignmentPatience: 200,
+      // Décimation de la grille de fréquences LOCALE au solveur (1 bin sur
+      // N pour la fonction de coût uniquement) : les subs sont lisses sous
+      // 250 Hz et la grille REW (~96 ppo) sur-résout le problème. Le score
+      // de baseline, le bestSum final, le rapport et le targetRms restent
+      // sur la grille pleine. 1 = désactivé.
+      solverGridStride: 2,
+      // Minimum CUMULATIVE best-score improvement (since the last rearm)
+      // that rearms the patience counter — watermark semantics: a stream of
+      // individually tiny but real gains accumulates and keeps the phase
+      // alive, pure float noise does not. The target-match score lives on a
+      // 0-100 scale: 1e-4 is far below any audible gain but far above the
+      // ~1e-9 noise that otherwise keeps plateaued phases running to their
+      // full generation budget.
+      patienceEpsilon: 1e-4,
     },
   },
 };
@@ -246,19 +267,19 @@ function validateTargetCurve(objective, targetCurve) {
   }
 }
 
-export function validateOptimizerConfig(config) {
-  const validateBounds = (range, name, requireStep = true) => {
-    if (!Number.isFinite(range.min) || !Number.isFinite(range.max)) {
-      throw new TypeError(`${name} range must contain finite min and max values`);
-    }
-    if (range.min > range.max) {
-      throw new Error(`Invalid ${name} range parameters`);
-    }
-    if (requireStep && (!Number.isFinite(range.step) || range.step <= 0)) {
-      throw new Error(`Invalid ${name} step parameter`);
-    }
-  };
+function validateBounds(range, name, requireStep = true) {
+  if (!Number.isFinite(range.min) || !Number.isFinite(range.max)) {
+    throw new TypeError(`${name} range must contain finite min and max values`);
+  }
+  if (range.min > range.max) {
+    throw new Error(`Invalid ${name} range parameters`);
+  }
+  if (requireStep && (!Number.isFinite(range.step) || range.step <= 0)) {
+    throw new Error(`Invalid ${name} step parameter`);
+  }
+}
 
+export function validateOptimizerConfig(config) {
   validateBounds(config.frequency, 'frequency', false);
   validateBounds(config.delay, 'delay');
   validateBounds(config.gain, 'gain');
@@ -313,7 +334,10 @@ export function validateOptimizerConfig(config) {
     );
   }
 
-  const { joint } = config.optimization;
+  validateJointConfig(config.optimization.joint);
+}
+
+function validateJointConfig(joint) {
   if (
     !Number.isInteger(joint.filtersPerSub) ||
     joint.filtersPerSub < 0 ||
@@ -355,5 +379,21 @@ export function validateOptimizerConfig(config) {
     throw new Error(
       'optimization joint populationSize/generations/alignmentGenerations/patience are invalid',
     );
+  }
+  if (!Number.isFinite(joint.patienceEpsilon) || joint.patienceEpsilon < 0) {
+    throw new Error('optimization joint.patienceEpsilon must be a non-negative number');
+  }
+  if (
+    !Number.isInteger(joint.alignmentPopulationSize) ||
+    joint.alignmentPopulationSize < 4 ||
+    !Number.isInteger(joint.alignmentPatience) ||
+    joint.alignmentPatience < 1
+  ) {
+    throw new Error(
+      'optimization joint alignmentPopulationSize/alignmentPatience are invalid',
+    );
+  }
+  if (!Number.isInteger(joint.solverGridStride) || joint.solverGridStride < 1) {
+    throw new Error('optimization joint.solverGridStride must be a positive integer');
   }
 }

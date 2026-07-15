@@ -11,6 +11,10 @@
  */
 
 const YIELD_EVERY_GENERATIONS = 10;
+// The setTimeout(0) yield is clamped to ~4 ms by browsers; gating it on
+// wall-clock keeps the UI repaint guarantee while removing most of the
+// ~410 forced pauses of a production run.
+const YIELD_MIN_INTERVAL_MS = 50;
 
 /**
  * @param {Object} options
@@ -22,6 +26,16 @@ const YIELD_EVERY_GENERATIONS = 10;
  * @param {number} [options.generations]
  * @param {number} [options.patience] - Generations without improvement
  *   before early stop
+ * @param {number} [options.patienceEpsilon] - Minimum CUMULATIVE best-cost
+ *   improvement (since the last rearm) for the patience counter to rearm.
+ *   0 (default) keeps the historical behaviour where any strictly positive
+ *   float improvement rearms it — including ~1e-9 numerical noise that can
+ *   hold a plateaued phase alive until its full generation budget. The
+ *   cumulative (watermark) semantics matter: real DE progress often flows as
+ *   a stream of individually sub-epsilon improvements, and a per-improvement
+ *   threshold would cut a phase that is still gaining whole points. The best
+ *   itself always updates on a strict `<` so the final result of a given
+ *   trajectory is unchanged.
  * @param {number} [options.mutationFactor] - DE F
  * @param {number} [options.crossoverRate] - DE CR
  * @param {() => number} options.random - Uniform [0,1) source (seedable)
@@ -34,6 +48,7 @@ const YIELD_EVERY_GENERATIONS = 10;
 export async function runDifferentialEvolution(options) {
   const state = createSolverState(options);
   const { generations, patience, onGeneration, shouldCancel } = state;
+  let lastYield = performance.now();
 
   for (let generation = 0; generation < generations; generation++) {
     runSingleGeneration(state);
@@ -47,7 +62,11 @@ export async function runDifferentialEvolution(options) {
         break;
       }
       // Yield so a host UI can repaint between batches of generations.
-      await new Promise(resolve => setTimeout(resolve, 0));
+      const now = performance.now();
+      if (now - lastYield >= YIELD_MIN_INTERVAL_MS) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        lastYield = performance.now();
+      }
     }
 
     if (state.sinceImprovement >= patience) {
@@ -70,6 +89,7 @@ function createSolverState({
   populationSize = 64,
   generations = 1000,
   patience = 300,
+  patienceEpsilon = 0,
   mutationFactor = 0.7,
   crossoverRate = 0.9,
   random,
@@ -105,6 +125,7 @@ function createSolverState({
     populationSize,
     generations,
     patience,
+    patienceEpsilon,
     mutationFactor,
     crossoverRate,
     random,
@@ -114,6 +135,7 @@ function createSolverState({
     fitness,
     best,
     bestCost,
+    patienceWatermark: bestCost,
     trial: new Float64Array(bounds.length),
     generationsRun: 0,
     sinceImprovement: 0,
@@ -190,7 +212,15 @@ function runSingleGeneration(state) {
       if (trialCost < state.bestCost) {
         state.bestCost = trialCost;
         state.best.set(trial);
-        state.sinceImprovement = -1;
+        // Watermark semantics: rearm the patience only when the CUMULATIVE
+        // improvement since the last rearm exceeds epsilon, so a stream of
+        // individually tiny but real gains keeps the phase alive while pure
+        // float noise does not. With the default epsilon of 0 the watermark
+        // tracks every improvement — historical behaviour.
+        if (state.patienceWatermark - trialCost > state.patienceEpsilon) {
+          state.sinceImprovement = -1;
+          state.patienceWatermark = trialCost;
+        }
       }
     }
   }

@@ -1041,7 +1041,7 @@ function createSubOptimizationService({
    */
   async function runJointMultiSubOptimizer(
     { subsMeasurements, optimizerConfig, frequencyResponses },
-    { onProgress = null } = {},
+    { onProgress = null, shouldCancel = null } = {},
   ) {
     // The target curve (house curve at the configured target level) anchors
     // the absolute goal, exactly like equalize-sub anchors its RCH calculation.
@@ -1098,6 +1098,9 @@ function createSubOptimizationService({
     log.info(`Starting joint lookup (target-match)...`);
     const optimizer = new MultiSubOptimizer(frequencyResponses, optimizerConfig, log);
     const optimizerResults = await optimizer.optimizeSubwoofersJoint({
+      // Cooperative cancellation: the solver honours it every few
+      // generations and returns its best-so-far (report.cancelled = true).
+      shouldCancel,
       onProgress: progress => {
         onProgress?.(progress);
         if (progress.generation % 200 === 0) {
