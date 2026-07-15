@@ -10,6 +10,7 @@ import {
   peakTimeSeconds,
   processThroughCascade,
 } from '../../src/dsp/impulseResponse.js';
+import { getCascadeComplexResponse } from '../../src/dsp/biquadResponse.js';
 
 describe('buildCrossoverCascade', () => {
   it('realises the two simulated bass-management filters', () => {
@@ -34,6 +35,38 @@ describe('buildCrossoverCascade', () => {
         48000,
       ),
     ).toThrow('Unsupported crossover filter');
+    expect(() =>
+      buildCrossoverCascade(
+        { type: 'High pass', frequency: 80, shape: 'L-R', slopedBPerOctave: 12 },
+        48000,
+      ),
+    ).toThrow('Unsupported crossover filter');
+  });
+
+  it('realises High pass L-R 24 as two cascaded BW12 (electrical high-pass option)', () => {
+    const cascade = buildCrossoverCascade(
+      { type: 'High pass', frequency: 80, shape: 'L-R', slopedBPerOctave: 24 },
+      48000,
+    );
+    expect(cascade).toHaveLength(2);
+
+    // −6.02 dB à fc (chaque BW2 HP vaut −3.01 dB à fc)
+    const atFc = getCascadeComplexResponse(cascade, 80, 48000);
+    const magDbAtFc = 20 * Math.log10(Math.hypot(atFc.re, atFc.im));
+    expect(magDbAtFc).toBeCloseTo(-6.02, 1);
+
+    // Propriété Linkwitz-Riley : LR24 HP + LR24 LP en phase partout →
+    // |HP(f) + LP(f)| = 1 sur toute la bande.
+    const lowPass = buildCrossoverCascade(
+      { type: 'Low pass', frequency: 80, shape: 'L-R', slopedBPerOctave: 24 },
+      48000,
+    );
+    for (const freq of [20, 40, 80, 160, 320, 1000]) {
+      const hp = getCascadeComplexResponse(cascade, freq, 48000);
+      const lp = getCascadeComplexResponse(lowPass, freq, 48000);
+      const sum = Math.hypot(hp.re + lp.re, hp.im + lp.im);
+      expect(sum).toBeCloseTo(1, 6);
+    }
   });
 });
 

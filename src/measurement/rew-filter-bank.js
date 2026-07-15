@@ -114,10 +114,43 @@ export function buildBiquadCascadeFromRewBank(bank, sampleRate) {
 }
 
 /**
- * Réalise en interne les deux filtres de raccord posés par le bass management
+ * Spec du raccord (décision 2026-07-15) — SOURCE UNIQUE de l'invariant qui
+ * lie l'export OCA aux simulations : l'export cuit le passe-haut ÉLECTRIQUE
+ * (BU 12) dans la FIR de chaque enceinte bass-managée ; cascadé au BW12 que
+ * l'AVR applique lui-même au crossover, le passe-haut TOTAL de la chaîne
+ * devient le L-R 24 de simulation (bit-exact 2× BU 12 dans REW, sondé
+ * 5.40 B128 — test/auto-eq/rew/probe-hp-lr24.mjs), symétrique et en phase
+ * avec le passe-bas L-R 24 du sub. Preview et Find Best LFE Low-Pass doivent
+ * simuler avec CES constructeurs : changer l'un sans les autres ferait
+ * valider une preview qui ne correspond plus au fichier exporté.
+ */
+export const electricalSpeakerHighPassSetting = frequency => ({
+  type: 'High pass',
+  frequency,
+  shape: 'BU',
+  slopedBPerOctave: 12,
+});
+export const simulationSpeakerHighPassSetting = frequency => ({
+  type: 'High pass',
+  frequency,
+  shape: 'L-R',
+  slopedBPerOctave: 24,
+});
+export const subLowPassSetting = frequency => ({
+  type: 'Low pass',
+  frequency,
+  shape: 'L-R',
+  slopedBPerOctave: 24,
+});
+
+/**
+ * Réalise en interne les filtres de raccord posés par le bass management
  * simulé (applyCutOffFilter) : « Low pass » L-R 24 dB/oct sur le sub
- * (2 Butterworth LP 12 dB en cascade) et « High pass » BU 12 dB/oct sur
- * l'enceinte. Tout autre couple shape/pente lève une erreur explicite —
+ * (2 Butterworth LP 12 dB en cascade), « High pass » BU 12 dB/oct sur
+ * l'enceinte, et « High pass » L-R 24 dB/oct (2 Butterworth HP 12 dB —
+ * REW rend ce filtre bit-exact identique à la cascade, sondé sur 5.40 B128)
+ * pour l'option « BW12 électrique » où l'enceinte totale (FIR OCA × AVR)
+ * devient LR24. Tout autre couple shape/pente lève une erreur explicite —
  * même philosophie que la génération OCA : sur le chemin audio-critique, un
  * filtre approximé en silence serait pire qu'un échec net.
  *
@@ -141,10 +174,18 @@ export function buildCrossoverCascade(setting, sampleRate) {
     highPass.setHighPass(frequency);
     return [highPass];
   }
+  if (type === 'High pass' && shape === 'L-R' && slopedBPerOctave === 24) {
+    const first = new BiquadFilter(sampleRate);
+    first.setHighPass(frequency);
+    const second = new BiquadFilter(sampleRate);
+    second.setHighPass(frequency);
+    return [first, second];
+  }
 
   throw new Error(
     `Unsupported crossover filter "${type}" ${shape} ${slopedBPerOctave}dB/oct: ` +
-      `the internal realisation covers Low pass L-R 24 and High pass BU 12 only.`,
+      `the internal realisation covers Low pass L-R 24, High pass BU 12 ` +
+      `and High pass L-R 24 only.`,
   );
 }
 
