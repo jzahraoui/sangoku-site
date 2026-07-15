@@ -14,6 +14,7 @@
     "test:genetic-algorithm": "vitest run test/unit/genetic-algorithm.test.js",
     "test:multi-sub-optimizer-general": "vitest run test/unit/multi-sub-optimizer-general.test.js",
     "test:multi-sub-optimizer-all": "node test/integration/multi-sub-optimizer.all.test.js",
+    "bench:joint": "node test/bench/joint-solver.bench.js",
     "test:rew-api": "vitest run test/unit/rew-api.test.js",
     "test:scorer": "vitest run test/unit/scorer.test.js",
     "test:watch": "vitest",

@@ -72,6 +72,7 @@ export async function runJointOptimization(optimizer, options = {}) {
   );
   const neutralGenome = buildNeutralGenome(layout);
 
+  const phase1Start = performance.now();
   const phase1 = await runDifferentialEvolution({
     bounds: alignmentBounds,
     cost,
@@ -84,6 +85,7 @@ export async function runJointOptimization(optimizer, options = {}) {
     onGeneration: progress =>
       reportProgress(optimizer, onProgress, 'alignment', progress, joint),
   });
+  phase1.timeMs = performance.now() - phase1Start;
 
   // --- Phase 2 : full space. Half the population starts as focused
   // perturbations of the alignment winner (plus the winner and the neutral
@@ -100,6 +102,7 @@ export async function runJointOptimization(optimizer, options = {}) {
       Math.floor(joint.populationSize / 2),
       random,
     );
+    const phase2Start = performance.now();
     phase2 = await runDifferentialEvolution({
       bounds: layout.bounds,
       cost,
@@ -112,6 +115,7 @@ export async function runJointOptimization(optimizer, options = {}) {
       onGeneration: progress =>
         reportProgress(optimizer, onProgress, 'filters', progress, joint),
     });
+    phase2.timeMs = performance.now() - phase2Start;
   }
 
   // --- Phase 3 : re-alignment polish. Once the filters exist, the optimal
@@ -126,6 +130,7 @@ export async function runJointOptimization(optimizer, options = {}) {
     const realignBounds = layout.bounds.map((range, dim) =>
       dim < layout.alignmentDims ? range : [winnerSoFar.best[dim], winnerSoFar.best[dim]],
     );
+    const phase3Start = performance.now();
     phase3 = await runDifferentialEvolution({
       bounds: realignBounds,
       cost,
@@ -138,6 +143,7 @@ export async function runJointOptimization(optimizer, options = {}) {
       onGeneration: progress =>
         reportProgress(optimizer, onProgress, 'realign', progress, joint),
     });
+    phase3.timeMs = performance.now() - phase3Start;
   }
 
   const candidates = [phase1, phase2, phase3].filter(Boolean);
@@ -171,12 +177,21 @@ export async function runJointOptimization(optimizer, options = {}) {
       alignment: {
         generations: phase1.generationsRun,
         score: -phase1.bestCost,
+        timeMs: phase1.timeMs,
       },
       filters: phase2
-        ? { generations: phase2.generationsRun, score: -phase2.bestCost }
+        ? {
+            generations: phase2.generationsRun,
+            score: -phase2.bestCost,
+            timeMs: phase2.timeMs,
+          }
         : null,
       realign: phase3
-        ? { generations: phase3.generationsRun, score: -phase3.bestCost }
+        ? {
+            generations: phase3.generationsRun,
+            score: -phase3.bestCost,
+            timeMs: phase3.timeMs,
+          }
         : null,
     },
   };
