@@ -30,9 +30,9 @@ polarité/inversions) priment sur toute déduction du code.
 
 Le crossover est une propriété de **groupe** (FL/FR partagent une valeur, stockée
 dans `_crossoverMap[groupName]`). Le *required shift* d'une enceinte à un crossover
-donné est le décalage temporel nécessaire pour aligner son IR predicted filtrée au
-raccord avec la « somme vraie » des subs — exactement ce que calcule
-`checkAlignment`.
+donné est le décalage temporel nécessaire pour aligner son IR predicted **brute**
+avec la « somme vraie » des subs, mesuré dans la bande du candidat (passe-bande
+zéro-phase interne de l'aligneur) — exactement ce que calcule `checkAlignment`.
 
 **Critère retenu : la moyenne des `|required shift|`** des membres du groupe
 (valeur absolue prise *avant* la moyenne — deux shifts opposés ne s'annulent pas),
@@ -80,10 +80,16 @@ d'appel → parité golden `test:align-sub-parity` inchangée.
    (`getPredictedImpulseResponseInfo`) et la « somme vraie » pondérée `splOffsetdB`
    des subs de la position (`combineImpulseResponses`), ou la projection LFE
    predicted en repli.
-2. Pour chaque candidat `fc` : réapplique **localement** le raccord
-   (`applyBankAndCrossoverToIr` : BU12 HP sur l'enceinte, LR24 LP sur les subs) —
-   pas de régénération de filtres ni d'aller-retour REW par crossover.
-3. `alignImpulseResponses(subFiltered, speakerFiltered, { frequency, fenêtre ±T/4 })`.
+2. Pour chaque candidat `fc` :
+   `alignImpulseResponses(subRaw, speakerRaw, { frequency, fenêtre ±T/4 })` —
+   les courbes sont alignées **brutes** (doctrine « mesures sur courbes
+   brutes », 2026-07-15) : aucun filtre de raccord n'est appliqué, la
+   sélectivité au candidat vient du passe-bande 1/3 d'octave à phase nulle
+   interne de l'aligneur. Ces mesures restent valides pour le système réel
+   car l'export OCA ajoute un BW12 électrique côté enceinte : le bass
+   management devient LR24|LR24, une paire en phase à toutes les fréquences
+   qui n'introduit aucune phase relative. Pas de régénération de filtres ni
+   d'aller-retour REW par crossover.
 
 Renvoie par candidat `{ frequency, requiredDelayMs, delayMs, withinBounds, invertB }`.
 **Aucune écriture REW, aucune mutation** (ni inversion, ni filtres).

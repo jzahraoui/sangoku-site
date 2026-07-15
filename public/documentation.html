@@ -489,6 +489,24 @@
       d'ecoute principale, refaites la verification en conservant aussi la position 1 au
       moment du moyennage.
     </p>
+    <p>
+      Note sur le raccord : le bass management de l'ampli est asymetrique — il applique
+      un passe-bas LR24 au sub mais seulement un passe-haut BW12 a l'enceinte, en
+      pariant que la decroissance naturelle de l'enceinte complete ce BW12 — or
+      l'egalisation a justement aplani cette decroissance, ce qui ferait depasser la
+      cible d'environ 2 dB autour du crossover. RCH corrige cela d'office : un second
+      BW12 est integre aux filtres OCA de chaque enceinte avec bass management, si
+      bien que le raccord reel devient symetrique LR24|LR24, en phase a toutes les
+      frequences. Les previews et Find Best LFE Low-Pass simulent cette chaine
+      complete : ce que montre la preview est ce qui sortira de l'ampli. Les
+      mesures d'alignement (Check, Find Sub Alignment, Find Best Crossover)
+      travaillent, elles, sur les courbes egalisees brutes — la paire LR24|LR24
+      etant en phase a toutes les frequences, elle n'invalide pas ces mesures.
+      Point a surveiller dans les previews : sous le crossover, la ou l'enceinte
+      decroit naturellement sans que l'egalisation ait pu compenser, le second BW12
+      accentue legerement les creux — c'est la zone ou les subs dominent, et un
+      crossover bien choisi (Find Best Crossover) evite les cas defavorables.
+    </p>
   </section>
 
   <section id="autoeq">
@@ -1091,6 +1109,19 @@
     </p>
 
     <img src="img/doc/finalization-box.png" alt="Zone de finalisation" />
+
+    <p>
+      L'export integre d'office aux filtres OCA de chaque enceinte avec bass
+      management un passe-haut electrique Butterworth 12 dB/oct a la frequence de son
+      crossover. Cascade avec le BW12 applique par l'ampli, le raccord avec le sub
+      devient un couple LR24|LR24 symetrique et en phase — la bosse d'environ 2 dB au
+      raccord disparait (voir l'etape 9). Les subs et les enceintes Large ne sont pas
+      modifies, et le niveau exporte de chaque canal est preserve. Les canaux
+      concernes sont listes dans les logs a chaque export. Note pour MultEQ (non
+      XT/XT32) : avec un crossover sous 60 Hz, la reponse du filtre est legerement
+      tronquee par la longueur limitee des filtres de l'ampli (un avertissement
+      apparait dans les logs).
+    </p>
 
     <ul>
       <li>Choisissez le LPF for LFE.</li>

@@ -469,6 +469,24 @@
       If the previews look good on the average but less convincing at the main listening
       position, repeat the check while also keeping position 1 when creating averages.
     </p>
+    <p>
+      Note on the handoff: the AVR's bass management is asymmetric — it applies an
+      LR24 low-pass to the subwoofer but only a BW12 high-pass to the speaker,
+      betting that the speaker's natural roll-off completes that BW12 — yet the EQ
+      has just flattened that roll-off, which would push the sum about 2 dB above
+      the target around the crossover. RCH corrects this by design: a second BW12 is
+      baked into the OCA filters of every bass-managed speaker, so the real junction
+      becomes a symmetric LR24|LR24 pair, in phase at every frequency. Previews and
+      Find Best LFE Low-Pass simulate that complete chain: what the preview shows is
+      what will come out of the AVR. The alignment measurements (Check, Find Sub
+      Alignment, Find Best Crossover) work on the raw equalized curves — the
+      LR24|LR24 pair being in phase at every frequency, it does not invalidate those
+      measurements. Point to watch in the previews: below
+      the crossover, where the speaker rolls off naturally and the EQ could not
+      compensate, the second BW12 slightly deepens the dips — that is the region
+      where the subs dominate, and a well-chosen crossover (Find Best Crossover)
+      avoids the unfavourable pairings.
+    </p>
   </section>
 
   <section id="autoeq">
@@ -1038,6 +1056,18 @@
     </p>
 
     <img src="img/doc/finalization-box.png" alt="Finalization area" />
+
+    <p>
+      The export bakes an electrical Butterworth 12 dB/oct high-pass at the
+      channel's crossover frequency into the OCA filters of every bass-managed
+      speaker. Cascaded with the BW12 the AVR applies, the junction with the
+      subwoofer becomes a symmetric, in-phase LR24|LR24 pair — the ~2 dB bump at the
+      handoff disappears (see step 9). Subwoofers and Large speakers are untouched,
+      and each channel's exported level is preserved. The affected channels are
+      listed in the logs on every export. Note for MultEQ (non XT/XT32): with a
+      crossover below 60 Hz the filter response is slightly truncated by the AVR's
+      limited filter length (a warning is logged).
+    </p>
 
     <ul>
       <li>Choose the LPF for LFE value.</li>
