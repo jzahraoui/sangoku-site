@@ -14,7 +14,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-import { alignImpulseResponses } from '../../src/dsp/ir-align.js';
+import {
+  alignImpulseResponses,
+  crossoverAlignmentWindowMs,
+} from '../../src/dsp/ir-align.js';
 import { applyBankAndCrossoverToIr } from '../../src/measurement/rew-filter-bank.js';
 import { combineImpulseResponses } from '../../src/dsp/impulseResponse.js';
 
@@ -92,6 +95,64 @@ for (const { speaker, sub, fc, speakerBank, subBank, rew } of golden.cases) {
         FINAL_TOLERANCE_MS,
       `${label}: distance finale interne ${(finalDistanceSeconds * 1000).toFixed(3)} ms ` +
         `vs chemin REW ${(rew.finalDistanceSeconds * 1000).toFixed(3)} ms`,
+    );
+  });
+}
+
+// ─── Propriété de la doctrine « mesures sur courbes brutes » ────────────────
+//
+// La paire LR24|LR24 est EN PHASE à toutes les fréquences (propriété
+// Linkwitz-Riley) : dans la corrélation croisée de l'aligneur, H_hp·conj(H_lp)
+// est réel positif partout — la structure de phase est identique en brut et
+// en filtré, seule l'enveloppe (pondération d'amplitude, donc le choix du
+// LOBE) change. DANS la fenêtre d'un lobe (±T/4, celle de checkAlignment et
+// du sweep), aligner les courbes brutes ≡ aligner les courbes LR24|LR24 :
+// même polarité, même délai à ~0.14 ms près (re-pondération des jupes du
+// passe-bande, ≈4° à 80 Hz — mesuré à la création sur les 10 cas). HORS
+// fenêtre l'équivalence ne tient PAS (pic libre : saut de lobe sur 4 cas
+// sur 10) — d'où « delayMs borné, jamais requiredDelayMs » (REGLES-METIER
+// §2) et l'ancre de pré-positionnement filtrée au raccord
+// (junctionPeakSeconds) qui choisit le cycle.
+const EQUIVALENCE_TOLERANCE_MS = 0.2;
+
+for (const { speaker, sub, fc, speakerBank, subBank } of golden.cases) {
+  test(`doctrine — brut ≡ LR24|LR24 en fenêtre ±T/4 : ${speaker}↔${sub} @${fc} Hz`, () => {
+    const speakerRaw = applyBankAndCrossoverToIr(golden.irs[speaker], speakerBank, null);
+    const subRaw = applyBankAndCrossoverToIr(golden.irs[sub], subBank, null);
+    const speakerLr = applyBankAndCrossoverToIr(golden.irs[speaker], speakerBank, {
+      type: 'High pass',
+      frequency: fc,
+      shape: 'L-R',
+      slopedBPerOctave: 24,
+    });
+    const subLr = applyBankAndCrossoverToIr(golden.irs[sub], subBank, {
+      type: 'Low pass',
+      frequency: fc,
+      shape: 'L-R',
+      slopedBPerOctave: 24,
+    });
+
+    const { minMs, maxMs } = crossoverAlignmentWindowMs(fc);
+    const raw = alignImpulseResponses(subRaw, speakerRaw, {
+      frequency: fc,
+      minDelayMs: minMs,
+      maxDelayMs: maxMs,
+    });
+    const filtered = alignImpulseResponses(subLr, speakerLr, {
+      frequency: fc,
+      minDelayMs: minMs,
+      maxDelayMs: maxMs,
+    });
+
+    assert.equal(
+      raw.invertB,
+      filtered.invertB,
+      `${speaker}↔${sub} @${fc}: polarité brut ${raw.invertB} vs LR24|LR24 ${filtered.invertB}`,
+    );
+    assert.ok(
+      Math.abs(raw.delayMs - filtered.delayMs) <= EQUIVALENCE_TOLERANCE_MS,
+      `${speaker}↔${sub} @${fc}: delay brut ${raw.delayMs.toFixed(4)} ms vs ` +
+        `LR24|LR24 ${filtered.delayMs.toFixed(4)} ms`,
     );
   });
 }
