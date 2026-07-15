@@ -266,8 +266,12 @@
     <h3>Step 3. Set speaker calculation options</h3>
     <p>
       In Speaker Tools, you can configure smoothing, windowing, boost limits, and
-      frequency range. These settings determine how RCH and REW will prepare the next
-      calculations.
+      frequency range. Smoothing and windowing drive the level of detail of the
+      equalization — light smoothing produces detailed corrections with many filters,
+      heavy smoothing subtle corrections with few filters — as well as how the curves
+      are displayed. Subwoofer alignment computations (Align Sub, predicted sum,
+      theoretical ceiling) always measure the raw response, regardless of these
+      settings: your display choices cannot degrade alignment accuracy.
     </p>
     <p>
       The <strong>Optimized MTW</strong> windowing isolates the direct sound and the
@@ -841,7 +845,7 @@
 
     <h3>Joint optimization: per-sub filters</h3>
     <p>
-      With several subwoofers, the "Joint optimization: per-sub filters (minutes)"
+      With several subwoofers, the "Joint optimization: per-sub filters"
       checkbox changes what Align Sub computes. Instead of aligning the subs first and
       copying one shared EQ onto all of them afterwards, the joint optimizer searches
       delays, polarities, per-sub level trims and up to three per-sub filters at the same
@@ -856,8 +860,9 @@
     </p>
     <ul>
       <li>
-        The search takes a few minutes; a progress indicator next to the button shows the
-        current phase and percentage.
+        The search typically takes under a minute on a recent PC, a few minutes on a
+        modest laptop; a progress indicator next to the button shows the current phase
+        and percentage.
       </li>
       <li>
         Individual max boost and Overall max boost are honoured by the per-sub filters,

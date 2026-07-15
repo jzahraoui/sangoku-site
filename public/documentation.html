@@ -2,7 +2,7 @@
   <ul class="documentation-nav">
     <li><a href="#introduction">Introduction</a></li>
     <li><a href="#prerequisites">Avant de commencer</a></li>
-    <li><a href="#entry-points">Choisir votre point de départ</a></li>
+    <li><a href="#entry-points">Choisir votre point de depart</a></li>
     <li><a href="#workflow">Parcours recommande</a></li>
     <li><a href="#autoeq">Le calcul des filtres (AutoEQ)</a></li>
     <li><a href="#subwoofers">Caissons et MSO</a></li>
@@ -279,8 +279,13 @@
     <h3>Etape 3. Regler les options de calcul pour les enceintes</h3>
     <p>
       Dans Speaker Tools, vous pouvez regler le lissage, le fenetrage, les limites de
-      boost et la plage de frequence. Ces reglages determinent la facon dont RCH et REW
-      prepareront les calculs suivants.
+      boost et la plage de frequence. Le lissage et le fenetrage pilotent la finesse de
+      l'egalisation — un lissage leger produit des corrections detaillees avec beaucoup
+      de filtres, un lissage fort des corrections subtiles avec peu de filtres — ainsi
+      que l'affichage des courbes. Les calculs d'alignement des caissons (Align Sub,
+      somme predite, plafond theorique) mesurent quant a eux toujours la reponse brute,
+      independamment de ces reglages : vos choix d'affichage ne peuvent pas degrader la
+      precision de l'alignement.
     </p>
     <p>
       Le fenetrage <strong>Optimized MTW</strong> isole le son direct et les resonances :
@@ -883,7 +888,7 @@
 
     <h3>Optimisation jointe : filtres par sub</h3>
     <p>
-      Avec plusieurs caissons, la case "Optimisation jointe : filtres par sub (minutes)"
+      Avec plusieurs caissons, la case "Optimisation jointe : filtres par sub"
       change ce que calcule Align Sub. Au lieu d'aligner d'abord les subs puis de copier
       une meme EQ commune sur chacun, l'optimiseur joint cherche en meme temps les
       delais, les polarites, les niveaux par sub et jusqu'a trois filtres par sub,
@@ -898,7 +903,8 @@
     </p>
     <ul>
       <li>
-        La recherche prend quelques minutes ; un indicateur de progression a cote du
+        La recherche prend typiquement moins d'une minute sur un PC recent, quelques
+        minutes sur un portable modeste ; un indicateur de progression a cote du
         bouton affiche la phase en cours et le pourcentage.
       </li>
       <li>
