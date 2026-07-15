@@ -114,8 +114,8 @@ class BusinessTools {
     return this.tools.produceAligned(speakerItem, subResponses);
   }
 
-  async crossoverFilteredIrPair(sub, speaker, cutOffFrequency, subResponses = null) {
-    return this.tools.crossoverFilteredIrPair(sub, speaker, cutOffFrequency, subResponses);
+  async predictedIrPair(sub, speaker, subResponses = null) {
+    return this.tools.predictedIrPair(sub, speaker, subResponses);
   }
 
   async crossoverRequiredShiftSweep(speaker, lfe, subs, candidateFrequencies) {

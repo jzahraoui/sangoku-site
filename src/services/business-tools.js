@@ -29,10 +29,15 @@ import {
   secondsToMeters,
 } from '../measurement/measurement-calculations.js';
 import {
-  applyBankAndCrossoverToIr,
   buildCrossoverCascade,
+  simulationSpeakerHighPassSetting,
+  subLowPassSetting,
 } from '../measurement/rew-filter-bank.js';
-import { combineImpulseResponses } from '../dsp/impulseResponse.js';
+import {
+  combineImpulseResponses,
+  peakTimeSeconds,
+  processThroughCascade,
+} from '../dsp/impulseResponse.js';
 import {
   alignImpulseResponses,
   crossoverAlignmentWindowMs,
@@ -52,7 +57,51 @@ const LFE_EVALUATION_POINTS_PER_OCTAVE = 16;
 // ne sont jamais nulles sur la bande, le garde ne sert qu'aux cas dégénérés.
 const MAGNITUDE_EPSILON = 1e-12;
 
+/**
+ * Perte de sommation moyenne (dB) d'un candidat : la voie LFE (spectre des
+ * subs × LR24 candidat) est sommée en complexe avec la voie du canal front
+ * complet, puis comparée point à point à la référence cohérente non filtrée.
+ */
+function candidateSummationLoss(fc, grid, sampleRate, frontSpec, subSpec, refDb) {
+  const cascade = buildCrossoverCascade(subLowPassSetting(fc), sampleRate);
+  let lossSum = 0;
+  let worstLossDb = 0;
+  for (let i = 0; i < grid.length; i++) {
+    const lp = getCascadeComplexResponse(cascade, grid[i], sampleRate);
+    const lfeRe = subSpec.re[i] * lp.re - subSpec.im[i] * lp.im;
+    const lfeIm = subSpec.re[i] * lp.im + subSpec.im[i] * lp.re;
+    const sumMagnitude = Math.hypot(frontSpec.re[i] + lfeRe, frontSpec.im[i] + lfeIm);
+    const lossDb = refDb[i] - 20 * Math.log10(sumMagnitude + MAGNITUDE_EPSILON);
+    lossSum += lossDb;
+    worstLossDb = Math.max(worstLossDb, lossDb);
+  }
+  return { summationLossDb: lossSum / grid.length, worstLossDb };
+}
 
+/**
+ * Instant du pic |max| de l'IR brute vue à travers son filtre de raccord
+ * LR24 (subLowPassSetting côté LFE, simulationSpeakerHighPassSetting côté
+ * enceinte) — l'ANCRE du pré-positionnement. Chaque côté est réduit à sa
+ * bande utile : pic d'énergie du grave pour la somme des subs, son direct
+ * large bande pour l'enceinte. La paire LR24|LR24 étant EN PHASE à toutes
+ * les fréquences, elle n'ajoute aucune phase relative : l'écart de pics
+ * reste celui des courbes brutes (doctrine intacte, rotation du BU12 de
+ * l'ancien raccord toujours hors mesure). Écartés, mesuré sur système réel :
+ * le pic large bande brut (dominé par le contenu hors bande — optimum
+ * possiblement hors de la fenêtre avant [0, T/2], « Delay too large ») et le
+ * passe-bande étroit 1/3 d'octave à fc (côté enceinte, son enveloppe culmine
+ * dans la traînée modale de la pièce → sub décalé d'un cycle entier, grave
+ * en retard au spectrogramme). Même ancre que le chemin historique à parité
+ * golden align-sub, au BU12 près.
+ */
+function junctionPeakSeconds(ir, crossoverSetting) {
+  const cascade = buildCrossoverCascade(crossoverSetting, ir.sampleRate);
+  return peakTimeSeconds({
+    data: processThroughCascade(ir.data, cascade),
+    sampleRate: ir.sampleRate,
+    startTime: ir.startTime ?? 0,
+  });
+}
 
 function createBusinessTools({
   operations,
@@ -302,10 +351,7 @@ function createBusinessTools({
           index: subIndex,
           enabled: true,
           isAuto: false,
-          type: 'Low pass',
-          frequency: cutOffFrequency,
-          shape: 'L-R',
-          slopedBPerOctave: 24,
+          ...subLowPassSetting(cutOffFrequency),
         },
       );
       await operations.setSingleFilter(
@@ -315,12 +361,27 @@ function createBusinessTools({
           index: speakerIndex,
           enabled: true,
           isAuto: false,
-          type: 'High pass',
-          frequency: cutOffFrequency,
-          shape: 'BU',
-          slopedBPerOctave: 12,
+          ...simulationSpeakerHighPassSetting(cutOffFrequency),
         },
       );
+      // Le shape « L-R » d'un High pass du Generic equaliser n'est sondé que
+      // sur REW 5.40 B128 : on relit le filtre posé et on échoue net si REW
+      // l'a refusé ou dégradé — une preview générée sans passe-haut enceinte
+      // serait silencieusement fausse.
+      const appliedHighPass = (await operations.getFilters(rew(), speaker)).find(
+        filter => filter.index === speakerIndex,
+      );
+      if (
+        appliedHighPass?.type !== 'High pass' ||
+        appliedHighPass?.shape !== 'L-R' ||
+        appliedHighPass?.slopedBPerOctave !== 24
+      ) {
+        throw new Error(
+          `REW did not accept the High pass L-R 24 crossover filter ` +
+            `(got "${appliedHighPass?.type ?? 'none'}") — the simulated ` +
+            `junction needs it, please update REW (probed on 5.40 B128)`,
+        );
+      }
 
       const PredictedLfeFiltered = await operations.producePredictedMeasurement(
         rew(),
@@ -374,70 +435,56 @@ function createBusinessTools({
     }
   }
 
-  // Filtres de raccord du bass management simulé (mêmes valeurs que
-  // applyCutOffFilter) — réalisés en interne par buildCrossoverCascade.
-  const subLowPassSetting = frequency => ({
-    type: 'Low pass',
-    frequency,
-    shape: 'L-R',
-    slopedBPerOctave: 24,
-  });
-  const speakerHighPassSetting = frequency => ({
-    type: 'High pass',
-    frequency,
-    shape: 'BU',
-    slopedBPerOctave: 12,
-  });
+  // Doctrine du raccord (décision Jaoued 2026-07-15) :
+  // - Les MESURES internes (checkAlignment, produceAligned, find best
+  //   crossover) se font sur les courbes égalisées BRUTES — aucun filtre de
+  //   raccord. La sélectivité au crossover vient du passe-bande 1/3 d'octave
+  //   à PHASE NULLE interne de l'aligneur (alignImpulseResponses). Ces
+  //   mesures restent valides pour le système réel parce que l'export OCA
+  //   ajoute un BW12 électrique côté enceinte : le bass management devient
+  //   LR24|LR24, une paire EN PHASE à toutes les fréquences (propriété
+  //   Linkwitz-Riley) qui n'introduit aucune phase relative.
+  // - Les SIMULATIONS de la réalité (preview via applyCutOffFilter, Find
+  //   Best LFE Low-Pass) appliquent la chaîne complète : enceinte × L-R 24
+  //   (BW12 de la FIR OCA × BW12 de l'AVR — REW rend le High pass L-R 24
+  //   bit-exact identique à 2× BU 12, sondé 5.40 B128) et sub × LR24.
 
   /**
-   * IR filtrées au raccord de l'enceinte et du LFE, calculées en interne —
-   * plus aucune mesure predicted temporaire dans REW. L'IR predicted de
-   * chaque mesure est lue telle que REW la calcule (/eq/impulse-response,
-   * identique bit à bit au eqGenerate) ; seul le raccord est réalisé en
-   * local. Côté LFE : la « somme vraie » pondérée des subs réels quand la
-   * liste est fournie (référentiel canonique — le même état des subs donne
-   * toujours le même résultat, quelle que soit l'histoire de la projection),
-   * sinon la projection. Parité golden REW réel : npm run
-   * test:align-sub-parity.
+   * IR predicted BRUTES de la paire enceinte/LFE — aucun filtre de raccord
+   * (doctrine « mesures sur courbes brutes » : la paire LR24|LR24 réalisée
+   * par l'OCA + l'ampli étant en phase partout, elle n'invalide pas les
+   * mesures faites en brut ; la sélectivité au crossover vient du passe-bande
+   * zéro-phase interne de l'aligneur). L'IR predicted de chaque mesure est
+   * lue telle que REW la calcule (/eq/impulse-response, identique bit à bit
+   * au eqGenerate). Côté LFE : la « somme vraie » pondérée des subs réels
+   * quand la liste est fournie (référentiel canonique — le même état des
+   * subs donne toujours le même résultat, quelle que soit l'histoire de la
+   * projection), sinon la projection. Mécanique d'alignement à parité golden
+   * REW réel : npm run test:align-sub-parity.
    */
-  async function crossoverFilteredIrPair(
-    PredictedLfe,
-    speakerItem,
-    cuttOffFrequency,
-    subResponses = null,
-  ) {
-    // 0 Hz (enceinte full range) : pas de filtre de raccord, IR predicted
-    // seules — parité avec le court-circuit à 0 de applyCutOffFilter
-    // (responseCopy).
-    const speakerCrossover = cuttOffFrequency
-      ? speakerHighPassSetting(cuttOffFrequency)
-      : null;
-    const subCrossover = cuttOffFrequency ? subLowPassSetting(cuttOffFrequency) : null;
-    const speakerFiltered = await operations.getCrossoverFilteredIr(
+  async function predictedIrPair(PredictedLfe, speakerItem, subResponses = null) {
+    const speakerRaw = await operations.getCrossoverFilteredIr(
       rew(),
       speakerItem,
-      speakerCrossover,
+      null,
     );
-    const PredictedLfeFiltered = subResponses?.length
-      ? await operations.getCombinedSubsCrossoverFilteredIr(
-          rew(),
-          subResponses,
-          subCrossover,
-        )
-      : await operations.getCrossoverFilteredIr(rew(), PredictedLfe, subCrossover);
-    return { PredictedLfeFiltered, speakerFiltered };
+    const lfeRaw = subResponses?.length
+      ? await operations.getCombinedSubsCrossoverFilteredIr(rew(), subResponses, null)
+      : await operations.getCrossoverFilteredIr(rew(), PredictedLfe, null);
+    return { lfeRaw, speakerRaw };
   }
 
   /**
    * Balaie une liste de crossovers candidats et renvoie, pour UNE enceinte, le
-   * required shift à chacun. Les IR predicted (enceinte + « somme vraie »
-   * pondérée des subs, ou LFE prédictif en repli) sont lues **une seule fois** ;
-   * seul le filtre de raccord (BU12 HP / LR24 LP) est réappliqué localement par
-   * candidat (cascade de biquads) — donc pas de régénération de filtres ni
-   * d'aller-retour REW par crossover (perf). Aucune écriture REW, aucune mutation
-   * (ni inversion, ni filtres). Même calcul que checkAlignment :
-   * `alignImpulseResponses(subFiltered, speakerFiltered, {frequency, fenêtre ±T/4})`
-   * (via crossoverAlignmentWindowMs, source unique partagée).
+   * required shift à chacun. Les IR predicted BRUTES (enceinte + « somme
+   * vraie » pondérée des subs, ou LFE prédictif en repli) sont lues **une
+   * seule fois** et alignées telles quelles par candidat (doctrine « mesures
+   * sur courbes brutes » — la sélectivité vient du passe-bande zéro-phase de
+   * l'aligneur centré sur chaque candidat) — donc pas de régénération de
+   * filtres ni d'aller-retour REW par crossover (perf). Aucune écriture REW,
+   * aucune mutation (ni inversion, ni filtres). Même calcul que
+   * checkAlignment : `alignImpulseResponses(subRaw, speakerRaw, {frequency,
+   * fenêtre ±T/4})` (via crossoverAlignmentWindowMs, source unique partagée).
    * La valeur de référence pour le classement est le **`delayMs` borné** (identique
    * à ce que checkAlignment / l'UI affiche) — PAS `requiredDelayMs`, le pic libre
    * non borné, sujet aux sauts de cycle (REGLES-METIER §2). `requiredDelayMs` est
@@ -455,13 +502,10 @@ function createBusinessTools({
    */
   async function predictedSubSumIr(lfe, subs) {
     if (subs?.length) {
-      const irs = [];
-      const weightsDb = [];
-      for (const sub of subs) {
-        irs.push(await operations.getPredictedImpulseResponseInfo(rew(), sub));
-        weightsDb.push(unwrap(sub.splOffsetdB) ?? 0);
-      }
-      return combineImpulseResponses(irs, weightsDb);
+      // Somme vraie pondérée splOffsetdB réalisée par la couche operations
+      // (getCombinedSubsCrossoverFilteredIr, lecture brute) — source unique
+      // de la convention de niveau, partagée avec predictedIrPair.
+      return operations.getCombinedSubsCrossoverFilteredIr(rew(), subs, null);
     }
     if (!lfe) {
       throw new Error('Cannot find predicted LFE for the sweep');
@@ -476,7 +520,9 @@ function createBusinessTools({
   }
 
   async function crossoverRequiredShiftSweep(speaker, lfe, subs, candidateFrequencies) {
-    // Lecture UNE fois des IR predicted brutes (avant raccord).
+    // Lecture UNE fois des IR predicted brutes — le sweep aligne les courbes
+    // brutes (doctrine) : la dépendance au candidat vient du passe-bande
+    // zéro-phase interne de l'aligneur, centré sur chaque fréquence.
     const speakerRaw = await operations.getPredictedImpulseResponseInfo(rew(), speaker);
     const subSumRaw = await predictedSubSumIr(lfe, subs);
 
@@ -487,21 +533,11 @@ function createBusinessTools({
       let withinBounds = false;
       let invertB = false;
       try {
-        const speakerFiltered = applyBankAndCrossoverToIr(
-          speakerRaw,
-          [],
-          speakerHighPassSetting(frequency),
-        );
-        const subFiltered = applyBankAndCrossoverToIr(
-          subSumRaw,
-          [],
-          subLowPassSetting(frequency),
-        );
         // Même ordre A=sub, B=enceinte et MÊME fenêtre centrée ±T/4 que
         // checkAlignment (source unique crossoverAlignmentWindowMs) — évite toute
         // divergence bouton/auto et les sauts de cycle du grave.
         const { minMs, maxMs } = crossoverAlignmentWindowMs(frequency);
-        const res = alignImpulseResponses(subFiltered, speakerFiltered, {
+        const res = alignImpulseResponses(subSumRaw, speakerRaw, {
           frequency,
           minDelayMs: minMs,
           maxDelayMs: maxMs,
@@ -521,27 +557,6 @@ function createBusinessTools({
       results.push({ frequency, requiredDelayMs, delayMs, withinBounds, invertB });
     }
     return results;
-  }
-
-  /**
-   * Perte de sommation moyenne (dB) d'un candidat : la voie LFE (spectre des
-   * subs × LR24 candidat) est sommée en complexe avec la voie du canal front
-   * complet, puis comparée point à point à la référence cohérente non filtrée.
-   */
-  function candidateSummationLoss(fc, grid, sampleRate, frontSpec, subSpec, refDb) {
-    const cascade = buildCrossoverCascade(subLowPassSetting(fc), sampleRate);
-    let lossSum = 0;
-    let worstLossDb = 0;
-    for (let i = 0; i < grid.length; i++) {
-      const lp = getCascadeComplexResponse(cascade, grid[i], sampleRate);
-      const lfeRe = subSpec.re[i] * lp.re - subSpec.im[i] * lp.im;
-      const lfeIm = subSpec.re[i] * lp.im + subSpec.im[i] * lp.re;
-      const sumMagnitude = Math.hypot(frontSpec.re[i] + lfeRe, frontSpec.im[i] + lfeIm);
-      const lossDb = refDb[i] - 20 * Math.log10(sumMagnitude + MAGNITUDE_EPSILON);
-      lossSum += lossDb;
-      worstLossDb = Math.max(worstLossDb, lossDb);
-    }
-    return { summationLossDb: lossSum / grid.length, worstLossDb };
   }
 
   /**
@@ -596,9 +611,10 @@ function createBusinessTools({
     );
 
     // Voie du canal front COMPLET — ce que le canal fait réellement entendre
-    // en bass management (décision 2026-07-15, simulation REW à l'appui) :
-    // enceinte predicted (égalisée) × HP BW12 au crossover du groupe + grave
-    // redirigé (somme des subs × LR24 au MÊME crossover). Une enceinte Large
+    // en bass management (décision 2026-07-15, simulation de la chaîne
+    // réelle) : enceinte predicted (égalisée) × HP L-R 24 (BW12 de la FIR OCA
+    // × BW12 de l'AVR) au crossover du groupe + grave redirigé (somme des
+    // subs × LR24 au MÊME crossover). Une enceinte Large
     // (crossover 0) joue sa réponse complète, sans redirection. Dans le grave
     // profond, le grave redirigé sort des mêmes subs que le LFE : un candidat
     // égal au crossover y est en phase à l'identique — l'intuition
@@ -612,7 +628,7 @@ function createBusinessTools({
     const speakerGain = 10 ** ((unwrap(speaker.splOffsetdB) ?? 0) / 20);
     const crossover = crossoverForSpeaker(speaker) ?? 0;
     const hpCascade = crossover
-      ? buildCrossoverCascade(speakerHighPassSetting(crossover), sampleRate)
+      ? buildCrossoverCascade(simulationSpeakerHighPassSetting(crossover), sampleRate)
       : [];
     const redirectCascade = crossover
       ? buildCrossoverCascade(subLowPassSetting(crossover), sampleRate)
@@ -644,23 +660,22 @@ function createBusinessTools({
   }
 
   /**
-   * Measured alignment gap (seconds) between the predicted LFE and a speaker,
-   * both crossover-filtered — the exact quantity produceAligned starts from.
-   * Used to size the optimizer's alignment reserve. Returns null when the
-   * context (predicted LFE, crossover) is not available.
+   * Measured alignment gap (seconds) between the predicted LFE and a speaker:
+   * difference of their junction-filtered peak times (junctionPeakSeconds —
+   * LR24|LR24 pair over the RAW predicted IRs, no relative phase added) —
+   * the exact pre-positioning quantity produceAligned starts from. Used to
+   * size the optimizer's alignment reserve. Returns null when the context
+   * (predicted LFE, crossover) is not available.
    */
   async function alignmentGapSeconds(speakerItem) {
     const cuttOffFrequency = crossoverForSpeaker(speakerItem);
     const PredictedLfe = relatedLfeFor(speakerItem);
     if (!PredictedLfe || !cuttOffFrequency) return null;
 
-    const { PredictedLfeFiltered, speakerFiltered } = await crossoverFilteredIrPair(
-      PredictedLfe,
-      speakerItem,
-      cuttOffFrequency,
-    );
+    const { lfeRaw, speakerRaw } = await predictedIrPair(PredictedLfe, speakerItem);
     return (
-      PredictedLfeFiltered.timeOfIRPeakSeconds - speakerFiltered.timeOfIRPeakSeconds
+      junctionPeakSeconds(lfeRaw, subLowPassSetting(cuttOffFrequency)) -
+      junctionPeakSeconds(speakerRaw, simulationSpeakerHighPassSetting(cuttOffFrequency))
     );
   }
 
@@ -676,10 +691,9 @@ function createBusinessTools({
     validateInputs(PredictedLfe, speakerItem, cuttOffFrequency);
 
     const speed = speedOfSound();
-    const { PredictedLfeFiltered, speakerFiltered } = await crossoverFilteredIrPair(
+    const { lfeRaw, speakerRaw } = await predictedIrPair(
       PredictedLfe,
       speakerItem,
-      cuttOffFrequency,
       subResponses,
     );
 
@@ -691,9 +705,15 @@ function createBusinessTools({
     const { maxMs } = crossoverAlignmentWindowMs(cuttOffFrequency, { forward: true });
     const maxForwardSearchMs = Math.round(maxMs * 100) / 100;
 
-    // get the sub impulse closer to the front left, better method than cross corr align
+    // Pré-positionnement du sub sur l'écart des pics FILTRÉS AU RACCORD
+    // (junctionPeakSeconds, paire LR24|LR24 en phase partout — aucune phase
+    // relative ajoutée, doctrine « mesures en brut » intacte) : c'est l'ancre
+    // qui choisit le CYCLE, la recherche XCORR n'affinant que dans [0, T/2].
+    // La recherche XCORR, elle, reste sur les IR brutes : l'aligneur filtre
+    // en interne.
     const distanceToSpeakerPeak =
-      PredictedLfeFiltered.timeOfIRPeakSeconds - speakerFiltered.timeOfIRPeakSeconds;
+      junctionPeakSeconds(lfeRaw, subLowPassSetting(cuttOffFrequency)) -
+      junctionPeakSeconds(speakerRaw, simulationSpeakerHighPassSetting(cuttOffFrequency));
     let finalDistance = distanceToSpeakerPeak - delay;
 
     const neededDistanceMeter = secondsToMeters(finalDistance, speed);
@@ -709,13 +729,13 @@ function createBusinessTools({
       finalDistance += metersToSeconds(overheadOffset, speed);
     }
 
-    // Équivalent interne de l'offsetTZero temporaire sur la mesure filtrée.
-    PredictedLfeFiltered.startTime -= finalDistance;
+    // Équivalent interne de l'offsetTZero temporaire sur la mesure interne.
+    lfeRaw.startTime -= finalDistance;
 
     const speakerLabel = `predicted ${unwrap(speakerItem.title)}`;
     const { shiftDelay, isBInverted } = await findAligment(
-      { ir: speakerFiltered, title: speakerLabel },
-      { ir: PredictedLfeFiltered, title: unwrap(PredictedLfe.title) },
+      { ir: speakerRaw, title: speakerLabel },
+      { ir: lfeRaw, title: unwrap(PredictedLfe.title) },
       cuttOffFrequency,
       maxForwardSearchMs,
       false,
@@ -807,7 +827,7 @@ function createBusinessTools({
     revertLfeFilterProccess,
     revertLfeFilterProccessList,
     applyCutOffFilter,
-    crossoverFilteredIrPair,
+    predictedIrPair,
     crossoverRequiredShiftSweep,
     lfeLowPassSummationSweep,
     produceAligned,

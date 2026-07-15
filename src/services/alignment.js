@@ -14,9 +14,9 @@ import { getAlignSPLOffsetdBByUUID } from './measurement-operations.js';
  * Construction dependencies:
  * - `session`: the RewSession instance (rewMeasurements, rewAlignmentTool,
  *   loadData, removeMeasurements, analyseApiResponse).
- * - `crossoverFilteredIrPair(lfe, speaker, frequency)`: BusinessTools bridge —
- *   IR filtrées au raccord calculées en interne (getCrossoverFilteredIr), sans
- *   mesure predicted temporaire dans REW.
+ * - `predictedIrPair(lfe, speaker, subs)`: BusinessTools bridge — IR predicted
+ *   brutes lues en interne (aucun filtre de raccord, doctrine « mesures sur
+ *   courbes brutes »), sans mesure predicted temporaire dans REW.
  * - `setTargetLevelFromMeasurement(measurement)`: target-curve service bridge.
  * - `getPredictedLfeMeasurements()`: current predicted-LFE list.
  * - `operations`: (optional) createMeasurementOperations instance. When absent
@@ -152,7 +152,7 @@ function buildMeasurementApi({
 
 function createAlignmentService({
   session,
-  crossoverFilteredIrPair,
+  predictedIrPair,
   // Balayage du required shift sur les crossovers candidats (une enceinte) —
   // pont BusinessTools (crossoverRequiredShiftSweep). Injecté par la couche UI ;
   // le stub échoue à l'appel si non câblé (chemins de tests sans find-best-crossover).
@@ -176,7 +176,7 @@ function createAlignmentService({
   crossoverFor = m => unwrap(m.crossover),
   relatedLfeFor = m => unwrap(m.relatedLfeMeasurement),
   // Real subs at the speaker's position — their weighted « somme vraie » is the
-  // deterministic référentiel checkAlignment aligns against (voir crossoverFilteredIrPair).
+  // deterministic référentiel checkAlignment aligns against (voir predictedIrPair).
   // Empty → fallback sur la projection LFE predicted.
   relatedSubsFor = () => [],
   log = noopLog,
@@ -521,18 +521,17 @@ function createAlignmentService({
         throw new Error(`No LFE found, please use sum subs button`);
       }
 
-      // IR filtrées au raccord calculées en interne (getCrossoverFilteredIr) —
-      // plus de mesures predicted temporaires dans REW (eqGenerate ×3 +
-      // suppressions). L'IR predicted de l'enceinte et du LFE est lue telle que
-      // REW la calcule (bit-exact eqGenerate) ; seul le raccord est réalisé en
-      // local. Côté LFE : la « somme vraie » pondérée splOffsetdB des subs réels
-      // de la position (référentiel canonique déterministe, indépendant de l'état
-      // de la projection), avec repli sur la projection LFE predicted si la liste
-      // est vide. Parité golden REW : test:ir-align-parity / test:align-sub-parity.
-      const { PredictedLfeFiltered, speakerFiltered } = await crossoverFilteredIrPair(
+      // IR predicted BRUTES lues en interne — aucune mesure temporaire dans
+      // REW, aucun filtre de raccord (doctrine « mesures sur courbes brutes » :
+      // la paire LR24|LR24 réalisée par l'OCA + l'ampli est en phase partout ;
+      // la sélectivité au crossover vient du passe-bande zéro-phase interne de
+      // l'aligneur). Côté LFE : la « somme vraie » pondérée splOffsetdB des
+      // subs réels de la position (référentiel canonique déterministe), avec
+      // repli sur la projection LFE predicted si la liste est vide. Mécanique
+      // à parité golden REW : test:ir-align-parity / test:align-sub-parity.
+      const { lfeRaw, speakerRaw } = await predictedIrPair(
         PredictedLfe,
         speakerItem,
-        cuttOffFrequency,
         relatedSubsFor(speakerItem),
       );
 
@@ -541,8 +540,8 @@ function createAlignmentService({
       // sweep « find best crossover ») — un demi-cycle de large, sans saut de cycle.
       const { minMs, maxMs } = crossoverAlignmentWindowMs(cuttOffFrequency);
       const { shiftDelay, isBInverted } = await findAligment(
-        { ir: PredictedLfeFiltered, title: unwrap(PredictedLfe.title) },
-        { ir: speakerFiltered, title: `predicted ${labelOf(speakerItem)}` },
+        { ir: lfeRaw, title: unwrap(PredictedLfe.title) },
+        { ir: speakerRaw, title: `predicted ${labelOf(speakerItem)}` },
         cuttOffFrequency,
         maxMs,
         false,

@@ -53,15 +53,15 @@ function createHarness(overrides = {}) {
     removeMeasurements: vi.fn().mockResolvedValue(true),
     analyseApiResponse: vi.fn(),
   };
-  const crossoverFilteredIrPair = vi.fn();
+  const predictedIrPair = vi.fn();
   const service = createAlignmentService({
     session,
-    crossoverFilteredIrPair,
+    predictedIrPair,
     setTargetLevelFromMeasurement: vi.fn().mockResolvedValue(75),
     getPredictedLfeMeasurements: () => [],
     ...overrides,
   });
-  return { session, service, crossoverFilteredIrPair };
+  return { session, service, predictedIrPair };
 }
 
 describe('setSameDelayToAll', () => {
@@ -112,7 +112,7 @@ describe('findBestCrossover (choix du crossover par groupe)', () => {
   const makeService = sweepByMember =>
     createAlignmentService({
       session: { rewMeasurements: {} },
-      crossoverFilteredIrPair: vi.fn(),
+      predictedIrPair: vi.fn(),
       setTargetLevelFromMeasurement: vi.fn(),
       relatedLfeFor: () => ({ uuid: 'lfe' }),
       relatedSubsFor: () => [{ uuid: 'sub', splOffsetdB: 0 }],
@@ -281,7 +281,7 @@ describe('findBestLfeLowPass (choix du passe-bas LFE)', () => {
   const makeService = sweepByMember =>
     createAlignmentService({
       session: { rewMeasurements: {} },
-      crossoverFilteredIrPair: vi.fn(),
+      predictedIrPair: vi.fn(),
       setTargetLevelFromMeasurement: vi.fn(),
       relatedLfeFor: () => ({ uuid: 'lfe' }),
       relatedSubsFor: () => [{ uuid: 'sub', splOffsetdB: 0 }],
@@ -655,7 +655,7 @@ describe('operations bridge (flat records, no methods)', () => {
     const service = createAlignmentService({
       session,
       operations,
-      crossoverFilteredIrPair: vi.fn(),
+      predictedIrPair: vi.fn(),
       setTargetLevelFromMeasurement: vi.fn(),
       getPredictedLfeMeasurements: () => [],
     });
@@ -692,7 +692,7 @@ describe('operations bridge (flat records, no methods)', () => {
 
 describe('checkAlignment', () => {
   it('resets the shift delay and warns instead of failing', async () => {
-    const { service, crossoverFilteredIrPair } = createHarness();
+    const { service, predictedIrPair } = createHarness();
     const speakerItem = {
       crossover: () => 80,
       relatedLfeMeasurement: () => null, // triggers the tolerated failure
@@ -704,21 +704,21 @@ describe('checkAlignment', () => {
 
     expect(speakerItem.update).toHaveBeenCalledWith({ shiftDelay: Infinity });
     // No LFE: bails out before computing any filtered IR — no REW work at all.
-    expect(crossoverFilteredIrPair).not.toHaveBeenCalled();
+    expect(predictedIrPair).not.toHaveBeenCalled();
   });
 
-  it('aligns the internally-filtered IRs and toggles inversion when required', async () => {
-    const { service, crossoverFilteredIrPair } = createHarness();
+  it('aligns the raw predicted IRs and toggles inversion when required', async () => {
+    const { service, predictedIrPair } = createHarness();
     const PredictedLfe = { title: () => 'LFE predicted' };
     // Speaker IR is the LFE with inverted polarity (same arrival), so the
     // internal aligner must request a polarity toggle regardless of band.
-    crossoverFilteredIrPair.mockResolvedValue({
-      PredictedLfeFiltered: {
+    predictedIrPair.mockResolvedValue({
+      lfeRaw: {
         data: alignmentBurst(480),
         sampleRate: 48000,
         startTime: 0,
       },
-      speakerFiltered: {
+      speakerRaw: {
         data: alignmentBurst(480).map(v => -v),
         sampleRate: 48000,
         startTime: 0,
@@ -736,7 +736,7 @@ describe('checkAlignment', () => {
     await service.checkAlignment(speakerItem);
 
     // No injected subs → projection LFE fallback (empty subResponses).
-    expect(crossoverFilteredIrPair).toHaveBeenCalledWith(PredictedLfe, speakerItem, 80, []);
+    expect(predictedIrPair).toHaveBeenCalledWith(PredictedLfe, speakerItem, []);
     expect(speakerItem.update).toHaveBeenCalledWith(
       expect.objectContaining({ shiftDelay: expect.any(Number) }),
     );
@@ -747,13 +747,13 @@ describe('checkAlignment', () => {
 
   it('feeds the position real subs as the somme-vraie référentiel', async () => {
     const subs = [{ uuid: 'SW1' }, { uuid: 'SW2' }];
-    const { service, crossoverFilteredIrPair } = createHarness({
+    const { service, predictedIrPair } = createHarness({
       relatedSubsFor: () => subs,
     });
     const PredictedLfe = { title: () => 'LFE predicted' };
-    crossoverFilteredIrPair.mockResolvedValue({
-      PredictedLfeFiltered: { data: alignmentBurst(480), sampleRate: 48000, startTime: 0 },
-      speakerFiltered: { data: alignmentBurst(480), sampleRate: 48000, startTime: 0 },
+    predictedIrPair.mockResolvedValue({
+      lfeRaw: { data: alignmentBurst(480), sampleRate: 48000, startTime: 0 },
+      speakerRaw: { data: alignmentBurst(480), sampleRate: 48000, startTime: 0 },
     });
     const speakerItem = {
       crossover: () => 80,
@@ -766,8 +766,8 @@ describe('checkAlignment', () => {
 
     await service.checkAlignment(speakerItem);
 
-    // The real subs of the position are passed through as subResponses (4th arg).
-    expect(crossoverFilteredIrPair).toHaveBeenCalledWith(PredictedLfe, speakerItem, 80, subs);
+    // The real subs of the position are passed through as subResponses (3rd arg).
+    expect(predictedIrPair).toHaveBeenCalledWith(PredictedLfe, speakerItem, subs);
     // Identical IRs → aligned, no inversion.
     expect(speakerItem.toggleInversion).not.toHaveBeenCalled();
     expect(speakerItem.update).toHaveBeenCalledWith(

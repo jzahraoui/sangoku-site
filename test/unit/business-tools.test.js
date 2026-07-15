@@ -9,6 +9,19 @@ const makeDeltaIr = (peakSample = 200) => {
   return { data, sampleRate: SWEEP_SR, startTime: 0 };
 };
 
+// IR pour les chemins band-passés (bandPassedPeakSeconds) : delta éloigné des
+// bords — le passe-bande zéro-phase étale l'énergie de part et d'autre du pic.
+const alignDeltaIr = peakSample => {
+  const data = new Float64Array(16384);
+  data[peakSample] = 1;
+  return {
+    data,
+    sampleRate: SWEEP_SR,
+    startTime: 0,
+    timeOfIRPeakSeconds: peakSample / SWEEP_SR,
+  };
+};
+
 describe('createBusinessTools.createsSum', () => {
   function harness() {
     let uuidCounter = 0;
@@ -80,6 +93,11 @@ describe('createBusinessTools.crossoverRequiredShiftSweep', () => {
         .mockImplementation(async (_rew, m) =>
           makeDeltaIr(m.uuid === 'sub' ? 260 : 200),
         ),
+      // Somme vraie des subs — déléguée à la couche operations (source unique
+      // de la convention splOffsetdB).
+      getCombinedSubsCrossoverFilteredIr: vi
+        .fn()
+        .mockImplementation(async () => makeDeltaIr(260)),
     };
     const session = { rewMeasurements: { id: 'rew' } };
     const tools = createBusinessTools({ operations, session });
@@ -98,8 +116,10 @@ describe('createBusinessTools.crossoverRequiredShiftSweep', () => {
       [60, 80, 100],
     );
 
-    // 1 lecture pour l'enceinte + 1 pour le sub — PAS une lecture par candidat.
-    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(2);
+    // 1 lecture pour l'enceinte + 1 somme vraie pour les subs — PAS une
+    // lecture par candidat.
+    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(1);
+    expect(operations.getCombinedSubsCrossoverFilteredIr).toHaveBeenCalledTimes(1);
     expect(results).toHaveLength(3);
     for (const r of results) {
       expect([60, 80, 100]).toContain(r.frequency);
@@ -117,6 +137,7 @@ describe('createBusinessTools.crossoverRequiredShiftSweep', () => {
     const results = await tools.crossoverRequiredShiftSweep(speaker, lfe, [], [80]);
 
     expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(2);
+    expect(operations.getCombinedSubsCrossoverFilteredIr).not.toHaveBeenCalled();
     expect(results).toHaveLength(1);
   });
 
@@ -132,6 +153,9 @@ describe('createBusinessTools.lfeLowPassSummationSweep', () => {
   function harness() {
     const operations = {
       getPredictedImpulseResponseInfo: vi
+        .fn()
+        .mockImplementation(async () => makeDeltaIr(200)),
+      getCombinedSubsCrossoverFilteredIr: vi
         .fn()
         .mockImplementation(async () => makeDeltaIr(200)),
     };
@@ -152,8 +176,10 @@ describe('createBusinessTools.lfeLowPassSummationSweep', () => {
       [80, 120, 250],
     );
 
-    // 1 lecture pour l'enceinte + 1 pour le sub — PAS une lecture par candidat.
-    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(2);
+    // 1 lecture pour l'enceinte + 1 somme vraie pour les subs — PAS une
+    // lecture par candidat.
+    expect(operations.getPredictedImpulseResponseInfo).toHaveBeenCalledTimes(1);
+    expect(operations.getCombinedSubsCrossoverFilteredIr).toHaveBeenCalledTimes(1);
     expect(results.map(r => r.frequency)).toEqual([80, 120, 250]);
     for (const r of results) {
       expect(Number.isFinite(r.summationLossDb)).toBe(true);
@@ -186,7 +212,7 @@ describe('createBusinessTools.lfeLowPassSummationSweep', () => {
     expect(byFreq.get(250)).toBeGreaterThan(0);
   });
 
-  it('applique le HP BW12 de l’enceinte : résultat différent du cas Large', async () => {
+  it('applique le HP LR24 de l’enceinte (chaîne réelle) : résultat différent du cas Large', async () => {
     const { tools } = harness();
     const subs = [{ uuid: 'sub', title: 'SW', splOffsetdB: 0 }];
     const large = { uuid: 'FL', title: 'FL', crossover: () => 0 };
@@ -364,20 +390,30 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
       setSingleFilter: vi.fn().mockResolvedValue(true),
       addIROffsetSeconds: vi.fn().mockResolvedValue(true),
       toggleInversion: vi.fn().mockResolvedValue(true),
-      // IR filtrée interne : le LFE pique un peu après l'enceinte
-      getCrossoverFilteredIr: vi.fn().mockImplementation(async (_rew, m) => ({
-        data: new Float64Array(8),
-        sampleRate: 48000,
-        startTime: 0,
-        timeOfIRPeakSeconds: m.role === 'lfe' ? 0.002 : 0.001,
-      })),
+      // IR brute interne : le LFE pique 1 ms après l'enceinte (0.101 s vs
+      // 0.100 s) — deltas réels, le pré-positionnement passe par le pic
+      // band-passé (bandPassedPeakSeconds), plus par timeOfIRPeakSeconds.
+      getCrossoverFilteredIr: vi
+        .fn()
+        .mockImplementation(async (_rew, m) =>
+          alignDeltaIr(m.role === 'lfe' ? 4848 : 4800),
+        ),
       // somme vraie des subs (même pic que le LFE projeté dans ces tests)
-      getCombinedSubsCrossoverFilteredIr: vi.fn().mockResolvedValue({
-        data: new Float64Array(8),
-        sampleRate: 48000,
-        startTime: 0,
-        timeOfIRPeakSeconds: 0.002,
-      }),
+      getCombinedSubsCrossoverFilteredIr: vi
+        .fn()
+        .mockResolvedValue(alignDeltaIr(4848)),
+      // relecture du High pass L-R 24 posé par la preview (garde REW)
+      getFilters: vi.fn().mockImplementation(async () => [
+        {
+          index: 20,
+          enabled: true,
+          isAuto: false,
+          type: 'High pass',
+          frequency: 80,
+          shape: 'L-R',
+          slopedBPerOctave: 24,
+        },
+      ]),
     };
     const session = {
       rewMeasurements: { id: 'rew' },
@@ -400,25 +436,43 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     return { operations, session, tools, findAligment, predictedLfe };
   }
 
-  it('alignmentGapSeconds measures the crossover-filtered peak gap internally', async () => {
+  it('alignmentGapSeconds measures the junction-filtered peak gap on raw IRs', async () => {
     const { operations, tools, session } = harness();
     const speaker = { uuid: 'fl', title: 'FL', role: 'spk' };
 
     const gap = await tools.alignmentGapSeconds(speaker);
 
-    // filtered LFE peak (0.002) minus filtered speaker peak (0.001)
-    expect(gap).toBeCloseTo(0.001, 6);
-    // internal path: HP BU12 on the speaker, LP LR24 on the LFE — no REW
-    // temporary measurement, nothing to clean up.
+    // Ancre = pics des IR brutes vues à travers la paire LR24|LR24 (aucune
+    // phase relative ajoutée) — même formule que la parité golden align-sub.
+    const { buildCrossoverCascade, subLowPassSetting, simulationSpeakerHighPassSetting } =
+      await import('../../src/measurement/rew-filter-bank.js');
+    const { processThroughCascade, peakTimeSeconds } = await import(
+      '../../src/dsp/impulseResponse.js'
+    );
+    const peakThrough = (ir, setting) =>
+      peakTimeSeconds({
+        data: processThroughCascade(ir.data, buildCrossoverCascade(setting, SWEEP_SR)),
+        sampleRate: SWEEP_SR,
+        startTime: 0,
+      });
+    const expected =
+      peakThrough(alignDeltaIr(4848), subLowPassSetting(80)) -
+      peakThrough(alignDeltaIr(4800), simulationSpeakerHighPassSetting(80));
+    expect(gap).toBeCloseTo(expected, 9);
+    // Deltas espacés de 1 ms : le LP retarde le pic du grave (retard de
+    // groupe du LR24), le HP garde le front — le gap dépasse l'écart brut.
+    expect(gap).toBeGreaterThan(0.001);
+    // internal path: IR predicted BRUTES (doctrine « mesures sur courbes
+    // brutes » — aucun filtre de raccord), no REW temporary measurement.
     expect(operations.getCrossoverFilteredIr).toHaveBeenCalledWith(
       session.rewMeasurements,
       speaker,
-      expect.objectContaining({ type: 'High pass', frequency: 80, shape: 'BU' }),
+      null,
     );
     expect(operations.getCrossoverFilteredIr).toHaveBeenCalledWith(
       session.rewMeasurements,
       expect.objectContaining({ uuid: 'lfe' }),
-      expect.objectContaining({ type: 'Low pass', frequency: 80, shape: 'L-R' }),
+      null,
     );
     expect(session.removeMeasurements).not.toHaveBeenCalled();
   });
@@ -448,14 +502,16 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     expect(operations.setSingleFilter).not.toHaveBeenCalled();
   });
 
-  it('applyCutOffFilter sets the LR24/BU12 pair then restores to None', async () => {
+  it('applyCutOffFilter (preview) sets the LR24/LR24 pair then restores to None', async () => {
     const { operations, tools } = harness();
     const sub = { uuid: 's', role: 'lfe' };
     const speaker = { uuid: 'fl', role: 'spk' };
 
     await tools.applyCutOffFilter(sub, speaker, 80);
 
-    // Low pass on the sub + High pass on the speaker, then two None resets
+    // Low pass on the sub + High pass L-R 24 on the speaker — la preview
+    // simule la chaîne ampli complète (BW12 de la FIR OCA × BW12 AVR),
+    // then two None resets
     expect(operations.setSingleFilter).toHaveBeenCalledTimes(4);
     expect(operations.setSingleFilter.mock.calls[0][2]).toMatchObject({
       type: 'Low pass',
@@ -466,11 +522,31 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     expect(operations.setSingleFilter.mock.calls[1][2]).toMatchObject({
       type: 'High pass',
       frequency: 80,
-      shape: 'BU',
-      slopedBPerOctave: 12,
+      shape: 'L-R',
+      slopedBPerOctave: 24,
     });
     expect(operations.setSingleFilter.mock.calls[2][2]).toMatchObject({ type: 'None' });
     expect(operations.setSingleFilter.mock.calls[3][2]).toMatchObject({ type: 'None' });
+  });
+
+  it('applyCutOffFilter échoue net si REW dégrade le High pass L-R 24', async () => {
+    // Shape « L-R » sondé sur 5.40 B128 uniquement : un build REW qui le
+    // refuse laisserait la preview sans passe-haut enceinte — l'échec doit
+    // être explicite, pas silencieux.
+    const { operations, tools } = harness();
+    operations.getFilters.mockResolvedValue([{ index: 20, type: 'None' }]);
+
+    await expect(
+      tools.applyCutOffFilter({ uuid: 's', role: 'lfe' }, { uuid: 'fl', role: 'spk' }, 80),
+    ).rejects.toThrow(/did not accept the High pass L-R 24/);
+
+    // les filtres temporaires sont tout de même remis à None (finally)
+    expect(operations.setSingleFilter.mock.calls.at(-1)[2]).toMatchObject({
+      type: 'None',
+    });
+    expect(operations.setSingleFilter.mock.calls.at(-2)[2]).toMatchObject({
+      type: 'None',
+    });
   });
 
   it('produceAligned aligns the LFE and subs without REW temporaries', async () => {
@@ -517,11 +593,12 @@ describe('createBusinessTools.produceAligned / applyCutOffFilter', () => {
     // internal path: no predicted measurement generated, nothing removed
     expect(operations.producePredictedMeasurement).not.toHaveBeenCalled();
     expect(session.removeMeasurements).not.toHaveBeenCalled();
-    // the LFE side is the TRUE weighted sum of the real subs, not the projection
+    // the LFE side is the TRUE weighted sum of the real subs, not the
+    // projection — read RAW (doctrine « mesures sur courbes brutes »)
     expect(operations.getCombinedSubsCrossoverFilteredIr).toHaveBeenCalledWith(
       session.rewMeasurements,
       subs,
-      expect.objectContaining({ type: 'Low pass', frequency: 80 }),
+      null,
     );
   });
 

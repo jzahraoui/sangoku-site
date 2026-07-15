@@ -1632,8 +1632,8 @@ class MeasurementViewModel {
 
     this.alignmentService = createAlignmentService({
       session: this.rewSession,
-      crossoverFilteredIrPair: (lfe, speaker, frequency, subs) =>
-        this.businessTools.crossoverFilteredIrPair(lfe, speaker, frequency, subs),
+      predictedIrPair: (lfe, speaker, subs) =>
+        this.businessTools.predictedIrPair(lfe, speaker, subs),
       crossoverRequiredShiftSweep: (speaker, lfe, subs, frequencies) =>
         this.businessTools.crossoverRequiredShiftSweep(speaker, lfe, subs, frequencies),
       lfeLowPassSummationSweep: (speaker, lfe, subs, frequencies) =>
