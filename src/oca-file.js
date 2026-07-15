@@ -1,7 +1,14 @@
 import { CHANNEL_TYPES } from './audyssey.js';
 import ampAssignType from './amp-type.js';
-import { buildBiquadCascadeFromRewBank } from './measurement/rew-filter-bank.js';
-import { computeNormalizedBankImpulseResponse } from './dsp/impulseResponse.js';
+import {
+  buildBiquadCascadeFromRewBank,
+  buildCrossoverCascade,
+  electricalSpeakerHighPassSetting,
+} from './measurement/rew-filter-bank.js';
+import {
+  computeNormalizedBankImpulseResponse,
+  processThroughCascade,
+} from './dsp/impulseResponse.js';
 
 export default class OCAFileGenerator {
   static GAIN_ADJUSTMENT_EXP = -0.44999998807907104;
@@ -33,6 +40,9 @@ export default class OCAFileGenerator {
     this.numberOfSubwoofers = 1;
     this.subwooferOutput = 'LFE';
     this.lpfForLFE = 250;
+    // Canaux dont la FIR a reçu le BW12 électrique lors du dernier
+    // createsFilters — source unique pour les logs de l'appelant.
+    this.electricalHighPassChannels = [];
   }
 
   // Method to get data for saving
@@ -89,6 +99,7 @@ export default class OCAFileGenerator {
     this._validateCrossoverConsistency(allResponses);
     this._validateMeasurementLimits(allResponses);
 
+    this.electricalHighPassChannels = [];
     const channels = [];
     // creates a for loop on dataArray
     for (const item of Object.values(allResponses)) {
@@ -98,49 +109,102 @@ export default class OCAFileGenerator {
       }
 
       try {
-        const filterCaracteristics = item.isSub()
-          ? this.avrFileContent.avr.multEQSpecs.subFilter
-          : this.avrFileContent.avr.multEQSpecs.speakerFilter;
-
-        // Génération interne : les filtres présents dans REW (GET filters)
-        // font foi ; l'IR de la cascade de biquads est calculée directement au
-        // taux AVR — équivalence au bit près avec l'ancien chemin REW
-        // (generateFilterMeasurement → fenêtres → trim → getImpulseResponse),
-        // vérifiée contre test/fixtures/oca (test:oca-internal).
-        const bank = await item.getFilters();
-        const cascade = buildBiquadCascadeFromRewBank(
-          bank,
-          filterCaracteristics.frequency
-        );
-        const impulseResponse = computeNormalizedBankImpulseResponse(
-          cascade,
-          filterCaracteristics.samples
-        );
-        const filter = this.transformIR(
-          Float32Array.from(impulseResponse),
-          filterCaracteristics.samples,
-          item.inverted()
-        );
-
-        const filterString = Array.from(filter, v => Number(v.toFixed(7)));
-
-        channels.push({
-          channelType: item.channelDetails().channelIndex,
-          speakerType: item.speakerType(),
-          distanceInMeters: item.distanceInMeters(),
-          trimAdjustmentInDbs: item.splForAvr(),
-          filter: filterString,
-          ...(this.fileFormat === 'a1' && {
-            filterLV: filterString,
-            commandId: item.channelName(),
-          }),
-          ...(item.crossover() !== 0 && { xover: item.crossover() }),
-        });
+        channels.push(await this._buildChannel(item));
       } catch (error) {
         throw new Error(`Creates filters failed: ${error.message}`, { cause: error });
       }
     }
     return channels;
+  }
+
+  async _buildChannel(item) {
+    const filterCaracteristics = item.isSub()
+      ? this.avrFileContent.avr.multEQSpecs.subFilter
+      : this.avrFileContent.avr.multEQSpecs.speakerFilter;
+
+    // Génération interne : les filtres présents dans REW (GET filters)
+    // font foi ; l'IR de la cascade de biquads est calculée directement au
+    // taux AVR — équivalence au bit près avec l'ancien chemin REW
+    // (generateFilterMeasurement → fenêtres → trim → getImpulseResponse),
+    // vérifiée contre test/fixtures/oca (test:oca-internal).
+    const bank = await item.getFilters();
+    const cascade = buildBiquadCascadeFromRewBank(bank, filterCaracteristics.frequency);
+    let impulseResponse = computeNormalizedBankImpulseResponse(
+      cascade,
+      filterCaracteristics.samples
+    );
+    // Un crossover non numérique (map corrompue, appelant sans repli) est
+    // traité comme Large : pas de BW12, pas de champ xover — même tolérance
+    // que l'export d'avant le BW12 électrique, où la valeur ne nourrissait
+    // que le champ optionnel xover.
+    const crossover = Number.isFinite(item.crossover()) ? item.crossover() : 0;
+    const bassManaged = !item.isSub() && crossover !== 0;
+    if (bassManaged) {
+      impulseResponse = this._applyElectricalHighPass(
+        item,
+        impulseResponse,
+        crossover,
+        filterCaracteristics.frequency
+      );
+    }
+    const filter = this.transformIR(
+      Float32Array.from(impulseResponse),
+      filterCaracteristics.samples,
+      item.inverted()
+    );
+
+    const filterString = Array.from(filter, v => Number(v.toFixed(7)));
+
+    return {
+      channelType: item.channelDetails().channelIndex,
+      speakerType: item.speakerType(),
+      distanceInMeters: item.distanceInMeters(),
+      trimAdjustmentInDbs: item.splForAvr(),
+      filter: filterString,
+      ...(this.fileFormat === 'a1' && {
+        filterLV: filterString,
+        commandId: item.channelName(),
+      }),
+      ...(bassManaged && { xover: crossover }),
+    };
+  }
+
+  /**
+   * Passe-haut électrique BW12 au crossover, réalisé dans la FIR de chaque
+   * enceinte avec bass management : cascadé au BW12 appliqué par l'AVR, le
+   * raccord devient LR24|LR24, symétrique du passe-bas du sub et en phase
+   * avec lui — l'EQ ayant aplani la décroissance acoustique que le BW12 seul
+   * de l'AVR pariait de trouver. Appliqué APRÈS la normalisation pic=1, sans
+   * re-normaliser — le passe-haut est à gain unitaire dans la bande passante,
+   * le niveau exporté (calé sur trimAdjustmentInDbs) est donc préservé ;
+   * renormaliser remonterait le passband (jusqu'à ~+1.6 dB sur les FIR
+   * 6 kHz) et fausserait le niveau réel du canal.
+   */
+  _applyElectricalHighPass(item, impulseResponse, crossover, sampleRate) {
+    const electricalCascade = buildCrossoverCascade(
+      electricalSpeakerHighPassSetting(crossover),
+      sampleRate
+    );
+    const processed = processThroughCascade(impulseResponse, electricalCascade);
+    // La convolution du BW12 peut en théorie dépasser le pic=1 de la
+    // normalisation ; au-delà de 1.0 après GAIN_ADJUSTMENT, le coefficient
+    // déborderait le format virgule fixe des AVR — échec net plutôt qu'un
+    // filtre corrompu en silence.
+    let peak = 0;
+    for (const value of processed) {
+      peak = Math.max(peak, Math.abs(value));
+    }
+    if (peak * OCAFileGenerator.GAIN_ADJUSTMENT > 1) {
+      throw new Error(
+        `FIR peak ${peak.toFixed(3)} after the electrical BW12 exceeds ` +
+          `the fixed-point bound for ${item.channelName()}`
+      );
+    }
+    this.electricalHighPassChannels.push({
+      channelName: item.channelName(),
+      crossover,
+    });
+    return processed;
   }
 
   _validateChannels(allResponses) {

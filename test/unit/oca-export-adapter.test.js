@@ -38,9 +38,10 @@ function harness() {
     operations,
     session,
     derived,
+    crossoverByGroup: { Front: 80 },
     speedOfSound: 343,
   });
-  return { adapter, operations, session };
+  return { adapter, operations, session, record, derived };
 }
 
 describe('createOcaMeasurement', () => {
@@ -67,5 +68,24 @@ describe('createOcaMeasurement', () => {
       session.rewMeasurements,
       expect.objectContaining({ uuid: 'fl1' }),
     );
+  });
+
+  it('refuse un groupe non-sub sans crossover ni defaultCrossover explicite', () => {
+    // Le BW12 électrique étant cuit dans la FIR, un défaut silencieux (80)
+    // mettrait en passe-haut permanent des canaux configurés Large.
+    const { record, derived, operations, session } = harness();
+
+    expect(() =>
+      buildOcaMeasurements([record], { operations, session, derived }),
+    ).toThrow(/No crossover provided for group\(s\) Front/);
+
+    // Un defaultCrossover EXPLICITE reste accepté (opt-in assumé).
+    const [adapter] = buildOcaMeasurements([record], {
+      operations,
+      session,
+      derived,
+      defaultCrossover: 90,
+    });
+    expect(adapter.crossover()).toBe(90);
   });
 });

@@ -4,13 +4,19 @@ vi.mock('../../src/oca-file.js', () => ({
   default: class FakeOcaFileGenerator {
     static lastInstance = null;
 
+    // Canaux que le faux générateur déclarera avoir traités (BW12 cuit) au
+    // prochain createOCAFile — même contrat que le vrai générateur.
+    static bakedChannels = [];
+
     constructor(avrData) {
       this.avrData = avrData;
+      this.electricalHighPassChannels = [];
       FakeOcaFileGenerator.lastInstance = this;
     }
 
     async createOCAFile(measurements) {
       this.measurements = measurements;
+      this.electricalHighPassChannels = FakeOcaFileGenerator.bakedChannels;
       return JSON.stringify({ ok: true });
     }
   },
@@ -106,6 +112,30 @@ describe('generateOcaExport', () => {
       new RegExp(`^${TIMESTAMP_PATTERN}_odd_harman_Denon-X3800H\\.oca$`),
     );
     expect(JSON.parse(await blob.text())).toEqual({ ok: true });
+  });
+
+  it('logs the BW12 bake from what the generator actually processed', async () => {
+    const log = { info: vi.fn(), warn: vi.fn(), debug: vi.fn(), error: vi.fn() };
+    const service = createExportsService({ log });
+    FakeOcaFileGenerator.bakedChannels = [{ channelName: 'FL', crossover: 40 }];
+
+    try {
+      await service.generateOcaExport({
+        avrData: {
+          targetModelName: 'Denon X3800H',
+          // FIR enceinte de 704/48000 ≈ 14.7 ms (< 50 ms) + fc 40 Hz (< 60)
+          // → le warn de troncature doit sortir, alimenté par la même liste.
+          avr: { multEQSpecs: { speakerFilter: { samples: 704, frequency: 48000 } } },
+        },
+        measurements: [{ hasErrors: () => false }],
+        config,
+      });
+    } finally {
+      FakeOcaFileGenerator.bakedChannels = [];
+    }
+
+    expect(log.info).toHaveBeenCalledWith(expect.stringContaining('FL@40Hz'));
+    expect(log.warn).toHaveBeenCalledWith(expect.stringContaining('truncated'));
   });
 });
 

@@ -251,6 +251,31 @@ function createExportsService({ log = noopLog } = {}) {
 
     const jsonData = await OCAFile.createOCAFile(measurements);
 
+    // Logs alimentés par ce que le générateur a RÉELLEMENT fait (liste
+    // remplie pendant createsFilters) — pas de seconde copie du prédicat
+    // « bass managed », pas de log émis avant une génération qui peut échouer.
+    const baked = OCAFile.electricalHighPassChannels;
+    if (baked.length) {
+      log.info(
+        `Electrical BW12 high-pass baked into the OCA filters (LR24|LR24 ` +
+          `junction): ${baked
+            .map(({ channelName, crossover }) => `${channelName}@${crossover}Hz`)
+            .join(', ')}`,
+      );
+      const speakerFilterSpec = avrData.avr?.multEQSpecs?.speakerFilter;
+      const filterDurationMs = speakerFilterSpec
+        ? (speakerFilterSpec.samples / speakerFilterSpec.frequency) * 1000
+        : Infinity;
+      const lowCrossovers = baked.filter(({ crossover }) => crossover < 60);
+      if (filterDurationMs < 50 && lowCrossovers.length) {
+        log.warn(
+          `Speaker FIR is only ${filterDurationMs.toFixed(0)} ms on this MultEQ ` +
+            `type: the electrical BW12 tail is truncated (~-33 dB) below 60 Hz ` +
+            `(${lowCrossovers.map(({ channelName }) => channelName).join(', ')})`,
+        );
+      }
+    }
+
     // Validate input
     if (!jsonData) {
       throw new Error('No data to save');

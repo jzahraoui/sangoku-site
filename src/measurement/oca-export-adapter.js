@@ -76,10 +76,34 @@ function buildOcaMeasurements(
     session,
     derived,
     crossoverByGroup = {},
-    defaultCrossover = 80,
+    defaultCrossover,
     speedOfSound = 343,
   },
 ) {
+  // Depuis que le BW12 électrique est cuit dans la FIR de chaque enceinte
+  // bass-managée (oca-file.js), un crossover par défaut silencieux serait
+  // destructif : il mettrait en passe-haut permanent des canaux configurés
+  // Large — irrécupérable depuis le menu de l'AVR. Chaque groupe non-sub doit
+  // être couvert par crossoverByGroup (0 = Large) ou par un defaultCrossover
+  // EXPLICITE.
+  if (defaultCrossover === undefined) {
+    const missingGroups = [
+      ...new Set(
+        records
+          .map(record => derived.byRecord.get(record))
+          .filter(descriptor => descriptor && !descriptor.isSub)
+          .map(descriptor => descriptor.channelDetails?.group)
+          .filter(group => crossoverByGroup[group] === undefined),
+      ),
+    ];
+    if (missingGroups.length) {
+      throw new Error(
+        `No crossover provided for group(s) ${missingGroups.join(', ')}: the ` +
+          `electrical BW12 is baked into every bass-managed speaker FIR — pass ` +
+          `crossoverByGroup (0 = Large) or an explicit defaultCrossover`,
+      );
+    }
+  }
   const distanceCtx = distanceContext(records, speedOfSound);
   return records.map((record, position) =>
     createOcaMeasurement(record, {
