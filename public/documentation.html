@@ -745,6 +745,17 @@
       c'est pourquoi c'est active par defaut.
     </p>
 
+    <h4>Amorcage modal LPC (decoche par defaut)</h4>
+    <p>
+      Analyse les modes de la piece sous 400 Hz (les resonances qui creent les bosses
+      du grave) et rejoue le placement des filtres en posant les frequences centrales
+      exactement sur ces modes, avec une largeur initiale mesuree sur la bosse reelle.
+      Le resultat n'est adopte que s'il bat le calcul standard : cette option ne peut
+      pas degrader le resultat, elle ajoute seulement du temps de calcul. Sur les
+      exemples de reference, elle ameliore certains canaux (moins de depassements,
+      RMS un peu meilleur) et n'a aucun effet sur les autres.
+    </p>
+
     <h4>Refinement (decoche par defaut)</h4>
     <p>
       Passe finale de polissage sur la grille complete, alors que le reste du calcul

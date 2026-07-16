@@ -53,6 +53,7 @@ function createPhaseMatchCalculator({
     minFilterGain: +cfg('minFilterGain'),
     enableBeatRewOptimization: cfg('enableBeatRewOptimization'),
     enableCandidatePlacement: cfg('enableCandidatePlacement'),
+    enableModalSeeding: cfg('enableModalSeeding'),
     enableReduceRepair: cfg('enableReduceRepair'),
     enableCriticalBandRefinement: cfg('enableCriticalBandRefinement'),
     refinementIterations: +cfg('refinementIterations'),

@@ -716,6 +716,16 @@
       by default.
     </p>
 
+    <h4>Modal seeding (LPC) (off by default)</h4>
+    <p>
+      Analyses the room modes below 400 Hz (the resonances that create bass bumps) and
+      reruns the filter placement with centre frequencies pinned exactly on those modes,
+      with an initial width measured on the actual bump. The result is only adopted if
+      it beats the standard calculation: this option cannot degrade the result, it only
+      adds computation time. On the reference examples it improves some channels (fewer
+      overshoots, slightly better RMS) and has no effect on the others.
+    </p>
+
     <h4>Refinement (off by default)</h4>
     <p>
       A final polishing pass on the full grid, whereas the rest of the calculation works

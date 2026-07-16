@@ -111,6 +111,9 @@ const DEFAULT_AUTOEQ_CONFIG = {
   minFilterGain: 0.4,
   enableBeatRewOptimization: false,
   enableCandidatePlacement: true,
+  // Challenger modal (LPC) : seeds fc/Q sur les modes sous 400 Hz, adoptés
+  // seulement s'ils battent le placement standard. Opt-in (écoute en attente).
+  enableModalSeeding: false,
   enableReduceRepair: true,
   enableCriticalBandRefinement: true,
   enableRefinement: false,

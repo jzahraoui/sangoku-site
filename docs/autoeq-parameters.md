@@ -38,6 +38,7 @@ persistance et l'activation appartiennent aux services et à l'UI.
 | 2 | **Phase 1 — placement itératif** : boucle sur `numFilters` slots (résiduel → recherche de span → filtre candidat → `optimizeGainAndQ`), puis `ensureHFCoverage` | `placementPipeline.js`, `hfCoverage.js` |
 | 3 | **Phases 2 & 4 — nettoyage + réoptimisation** : boucle `numOptimizationPasses`, élagage des filtres contre-productifs, réduction des overshoots | `finalOptimizationStages.js` |
 | 4 | **Challenger de placement** (si `enableCandidatePlacement`) : rejoue les étapes 2+3 en mode multi-candidats, remplace si meilleur | `candidatePlacementChallenger.js` |
+| 4b | **Challenger modal** (si `enableModalSeeding`) : rejoue le placement avec les seeds LPC (voir §3.7), remplace si meilleur | `candidatePlacementChallenger.js`, `math/modalAnalyzer.js` |
 | 5 | **Phase 6 — Beat REW** (si `enableBeatRewOptimization`) : reduce/repair → raffinement par bandes → régularisation | `beatRewEnhancements.js` |
 | 6 | **Raffinement final** (si `enableRefinement`) : `optimizeAllParameters` sur grille pleine, `refinementIterations` itérations | `AutoEQCalculator.js` |
 | 7 | **Nettoyage final** : `removeFinalDeadFilters` (plancher fixe 0.1 dB) | `filterCleanup.js` |
@@ -75,6 +76,7 @@ Validation : `createAutoEQConfig` (`src/autoeq/AutoEQConfig.js`). `validateNumbe
 | `highBandStartFreq` | 200-20000 | 3000 | 3000 | Début de la bande haute (UI plafonnée à 16000) |
 | `enableBeatRewOptimization` | booléen | false | false | Verrou maître de la phase 6 (voir §5.1) |
 | `enableCandidatePlacement` | booléen | false | true | Challenger multi-candidats |
+| `enableModalSeeding` | booléen | false | false | Challenger modal LPC (voir §3.7) |
 | `enableReduceRepair` | booléen | true | true | Reduce/repair — **gated par Beat REW** |
 | `enableCriticalBandRefinement` | booléen | true | true | Raffinement par bandes — **gated par Beat REW** |
 | `enableRefinement` | booléen | false | false | Passe finale sur grille pleine |
@@ -178,7 +180,28 @@ La pénalité **dure** est un troisième mécanisme, sur le gain cumulé :
 `if (fdb − boostPenaltyThresholdDb > 0) f3 += 10 × boostOvershoot`, où
 `boostPenaltyThresholdDb = overallMaxBoostDb`.
 
-### 3.6 Suppression des filtres
+### 3.6 Le challenger modal ne peut pas régresser
+
+`enableModalSeeding` (§3.7) n'injecte **pas** ses seeds dans le pipeline
+standard : il rejoue le placement dans un challenger séparé et le résultat
+n'est adopté que s'il passe `acceptCandidate` (gardes fullRms/criticalRms/
+maxOvershoot **plus** `positiveRegression: 0.01` — l'énergie au-dessus de la
+cible prime, SC-008). Verdict visible dans les logs moteur :
+`Challenger modal (LPC) accepté/rejeté`.
+
+### 3.7 Seeds modaux (LPC)
+
+Quand `enableModalSeeding` est actif, une analyse all-pole du résiduel
+initial (Levinson-Durbin, bande 20-400 Hz, constantes moteur dans
+`MODAL_SEEDING_DEFAULTS`) détecte les modes ; au placement du challenger
+modal, un span dont le pic coïncide (±1/6 d'octave) avec un mode voit son
+`fc` posé sur la fréquence modale (précision sub-bin) et son Q initial
+dérivé de la **largeur du pic au niveau G/√2.5** (casuistique des pics
+noyés : miroir de demi-largeur, repli creux-à-creux). Le gain reste
+entièrement optimisé ; les bornes de Q (§3.3) s'appliquent inchangées.
+Décision de conception et chiffres : banc du 2026-07-16 (notes de travail).
+
+### 3.8 Suppression des filtres
 
 Cinq mécanismes cumulés, dont un seul hors moteur :
 

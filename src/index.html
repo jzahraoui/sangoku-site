@@ -886,6 +886,14 @@
                   <label class="checkbox-container">
                     <input
                       type="checkbox"
+                      data-bind="checked: autoEqConfig.enableModalSeeding"
+                    />
+                    <span data-i18n="autoeq_modal_seeding">Modal seeding (LPC)</span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
                       data-bind="checked: autoEqConfig.enableRefinement"
                     />
                     <span data-i18n="autoeq_refinement">Refinement</span>
