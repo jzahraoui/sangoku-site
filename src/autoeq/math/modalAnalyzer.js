@@ -246,6 +246,12 @@ export const MODAL_SEEDING_DEFAULTS = {
   // Which seed components are applied (decomposable on the bench).
   applyFc: true,
   applyQ: true,
+  // 'seed-spans' : les modes raffinent les candidats de la boucle de spans.
+  // 'modal-first' : un filtre est pré-placé par mode (fc figée, Q seedé,
+  // gain = −résiduel plafonné), puis le placement standard complète.
+  strategy: 'seed-spans',
+  // Plafond de filtres pré-placés en 'modal-first' (null = tous les modes).
+  initialCap: null,
 };
 
 /**
@@ -300,7 +306,54 @@ export function buildModalSeeds({
     snapOctaves: MODAL_SEEDING_DEFAULTS.snapOctaves,
     applyFc: MODAL_SEEDING_DEFAULTS.applyFc,
     applyQ: MODAL_SEEDING_DEFAULTS.applyQ,
+    strategy: MODAL_SEEDING_DEFAULTS.strategy,
+    initialCap: MODAL_SEEDING_DEFAULTS.initialCap,
   };
+}
+
+/**
+ * Builds the pre-placed cut filters of the 'modal-first' strategy: one
+ * peaking cut per detected mode (most prominent first, capped to maxCount),
+ * fc pinned on the mode, Q seeded from the peak width, gain = the residual
+ * height clamped to maxCutDb. Modes whose residual is too small to act on
+ * are skipped. Gains and Qs are meant to be re-optimized afterwards; fc is
+ * deliberately left where the mode is.
+ *
+ * @param {Object} options
+ * @param {Array<{fc:number,prominenceDb:number}>} options.modes
+ * @param {ArrayLike<number>} options.freqs
+ * @param {ArrayLike<number>} options.residuals - Initial residual (dB above target)
+ * @param {number} options.minFreq
+ * @param {number} options.maxFreq
+ * @param {number} options.maxCount
+ * @param {number} options.maxCutDb
+ * @returns {Array<{fc:number,Q:number,gain:number}>} sorted by ascending fc
+ */
+export function buildModalInitialFilters({
+  modes,
+  freqs,
+  residuals,
+  minFreq,
+  maxFreq,
+  maxCount,
+  maxCutDb,
+}) {
+  const picked = [...modes]
+    .sort((a, b) => b.prominenceDb - a.prominenceDb)
+    .slice(0, Math.max(maxCount, 0));
+  const filters = [];
+  for (const mode of picked) {
+    const height = interpolateAt(freqs, residuals, mode.fc);
+    if (!Number.isFinite(height) || height < MIN_SEED_GAIN_DB) continue;
+    const q =
+      seedQFromPeakWidth({ freqs, residuals, fc: mode.fc, minFreq, maxFreq }) ?? 2;
+    filters.push({
+      fc: mode.fc,
+      Q: Math.max(1, q),
+      gain: -Math.min(height, maxCutDb),
+    });
+  }
+  return filters.sort((a, b) => a.fc - b.fc);
 }
 
 /**
