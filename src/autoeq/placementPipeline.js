@@ -9,62 +9,6 @@
 import { buildResiduals } from './residuals.js';
 import { selectPlacementCandidate } from './placementCandidateSelector.js';
 import { ensureHFCoverage } from './hfCoverage.js';
-import { buildModalInitialFilters } from './math/modalAnalyzer.js';
-import { getFilterBandwidthSpans } from './filterUtils.js';
-import { initializeOptimizer } from './optimizerRunner.js';
-
-/**
- * 'modal-first' strategy: pre-places one cut filter per detected mode (fc
- * pinned on the mode) and runs a gain+Q optimization pass on that initial
- * set. The regular per-slot placement then completes the remaining slots.
- */
-async function placeModalInitialFilters({
-  filters,
-  scanFreqs,
-  measuredArr,
-  targetArr,
-  calculationContext,
-  placementOptimizer,
-  config,
-  equalizerAdapter,
-  modalSeeds,
-  onLog,
-}) {
-  const residuals = buildResiduals(scanFreqs, measuredArr, targetArr, [], config.sampleRate);
-  const initial = buildModalInitialFilters({
-    modes: modalSeeds.modes,
-    freqs: scanFreqs,
-    residuals,
-    minFreq: modalSeeds.minFreq,
-    maxFreq: modalSeeds.maxFreq,
-    maxCount: Math.min(config.numFilters, modalSeeds.initialCap ?? Infinity),
-    maxCutDb: config.maxCutDb,
-  });
-  if (initial.length === 0) return;
-
-  filters.push(
-    ...initial.map(f => ({
-      fc: equalizerAdapter.quantizeFrequency(
-        Math.max(config.matchRangeStart, Math.min(config.matchRangeEnd, f.fc)),
-      ),
-      Q: f.Q,
-      gain: f.gain,
-    })),
-  );
-  const bandwidthSpans = getFilterBandwidthSpans(
-    filters,
-    config.matchRangeStart,
-    config.matchRangeEnd,
-  );
-  initializeOptimizer(placementOptimizer, calculationContext, bandwidthSpans);
-  await placementOptimizer.optimizeGainAndQ(filters, null, 100);
-  equalizerAdapter.adaptFilters(filters);
-  onLog(
-    `  Placement modal initial: ${filters.length} filtre(s) sur modes (${filters
-      .map(f => f.fc.toFixed(1))
-      .join(', ')} Hz)`,
-  );
-}
 
 export async function placeIterativeFilters({
   scanFreqs,
@@ -83,25 +27,8 @@ export async function placeIterativeFilters({
   checkCancellation,
 }) {
   const filters = [];
-  const modalFirst = modalSeeds?.strategy === 'modal-first';
-  const selectorSeeds = modalFirst ? null : modalSeeds;
 
-  if (modalFirst) {
-    await placeModalInitialFilters({
-      filters,
-      scanFreqs,
-      measuredArr,
-      targetArr,
-      calculationContext,
-      placementOptimizer,
-      config,
-      equalizerAdapter,
-      modalSeeds,
-      onLog,
-    });
-  }
-
-  for (let slot = filters.length; slot < config.numFilters; slot++) {
+  for (let slot = 0; slot < config.numFilters; slot++) {
     checkCancellation();
 
     const residuals = buildResiduals(
@@ -123,7 +50,7 @@ export async function placeIterativeFilters({
       spanFinder,
       qualityEvaluator,
       equalizerAdapter,
-      modalSeeds: selectorSeeds,
+      modalSeeds,
     });
 
     if (!placement) {

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   detectModalFrequencies,
   seedQFromPeakWidth,
-  buildModalInitialFilters,
 } from '../../src/autoeq/math/modalAnalyzer.js';
 import {
   createPeakingProfiles,
@@ -140,36 +139,5 @@ describe('seedQFromPeakWidth', () => {
     const freqs = makeGrid();
     const residuals = makeResidual(freqs, [{ fc: 80, Q: 3, gain: -6 }]);
     expect(seedQ(freqs, residuals, 80)).toBeNull();
-  });
-});
-
-describe('buildModalInitialFilters (modal-first strategy)', () => {
-  it('builds capped, sorted cut filters and skips unactionable modes', () => {
-    const freqs = makeGrid();
-    const residuals = makeResidual(freqs, [
-      { fc: 60, Q: 5, gain: 8 },
-      { fc: 110, Q: 4, gain: 5 },
-      { fc: 200, Q: 4, gain: 3 },
-    ]);
-    const modes = [
-      { fc: 60, prominenceDb: 8 },
-      { fc: 110, prominenceDb: 5 },
-      { fc: 200, prominenceDb: 3 },
-      { fc: 280, prominenceDb: 1 }, // résiduel quasi nul à 280 Hz → écarté
-    ];
-    const filters = buildModalInitialFilters({
-      modes,
-      freqs,
-      residuals,
-      ...BAND,
-      maxCount: 2,
-      maxCutDb: 6,
-    });
-    expect(filters).toHaveLength(2);
-    expect(filters[0].fc).toBe(60);
-    expect(filters[1].fc).toBe(110);
-    expect(filters[0].gain).toBe(-6); // plafonné à maxCutDb
-    expect(filters[1].gain).toBeLessThan(0);
-    expect(filters.every(f => f.Q >= 1)).toBe(true);
   });
 });
