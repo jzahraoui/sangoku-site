@@ -29,6 +29,7 @@ import { applyFiltersToFilterSet } from './filterSetAdapter.js';
 import { removeFinalDeadFilters } from './filterCleanup.js';
 import { createFilterOptimizerConfig } from './optimizerConfig.js';
 import { createInitialMetrics } from './initialMetrics.js';
+import { buildModalSeeds } from './math/modalAnalyzer.js';
 import { runAllIfNeeded } from './optimizerRunner.js';
 import {
   buildRunReport,
@@ -110,6 +111,23 @@ export class AutoEQCalculator {
 
       this._checkCancellation();
 
+      // Seeding modal opt-in : modes détectés une fois sur le résiduel
+      // initial (propriété de la mesure), consommés par le placement.
+      let modalSeeds = null;
+      if (this.enableModalSeeding) {
+        modalSeeds = buildModalSeeds({
+          scanFreqs,
+          measuredArr,
+          targetArr,
+          matchRangeStart: this.matchRangeStart,
+          matchRangeEnd: this.matchRangeEnd,
+        });
+        const modesLabel = modalSeeds
+          ? modalSeeds.modes.map(m => `${m.fc.toFixed(1)} Hz`).join(', ')
+          : 'aucun';
+        this.onLog(`  Seeds modaux (LPC): ${modesLabel}`);
+      }
+
       // ── 2. Placement per-slot
       this.onLog('\n--- Phase 1: Placement itératif ---');
       this.onProgress(10, 'Placement itératif…');
@@ -166,6 +184,33 @@ export class AutoEQCalculator {
         onLog: this.onLog,
         checkCancellation: () => this._checkCancellation(),
       });
+
+      // Challenger modal (opt-in) : rejoue le placement avec les seeds LPC
+      // et n'adopte le résultat que s'il bat le meilleur courant — les seeds
+      // ne peuvent qu'améliorer, jamais dégrader.
+      if (modalSeeds) {
+        filters = await selectCandidatePlacementChallenger({
+          baselineFilters: filters,
+          scanFreqs,
+          measuredArr,
+          targetArr,
+          calculationContext,
+          spanAnalyzer,
+          optimizerConfig,
+          config: this,
+          spanFinder: this.spanFinder,
+          qualityEvaluator: this.qualityEvaluator,
+          equalizerAdapter: this.equalizerAdapter,
+          modalSeeds,
+          forceRun: true,
+          label: 'Challenger modal (LPC)',
+          // Les overshoots priment (SC-008) : pas d'échange RMS contre
+          // énergie au-dessus de la cible.
+          acceptOverrides: { positiveRegression: 0.01 },
+          onLog: this.onLog,
+          checkCancellation: () => this._checkCancellation(),
+        });
+      }
 
       await runBeatRewEnhancements({
         filters,

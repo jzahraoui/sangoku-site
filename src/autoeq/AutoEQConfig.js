@@ -156,6 +156,14 @@ export function createAutoEQConfig(config = {}) {
   // Negative residual spans are only tracked when allowBoosts is true.
   const allowBoosts = validateBoolean(config.allowBoosts, 'allowBoosts', true);
 
+  // Seeding modal (LPC) des candidats de placement sous ~300 Hz : fc posées
+  // sur les modes détectés, Q initial par largeur du pic à G/√2.5.
+  const enableModalSeeding = validateBoolean(
+    config.enableModalSeeding,
+    'enableModalSeeding',
+    false,
+  );
+
   const enableBeatRewOptimization = validateBoolean(
     config.enableBeatRewOptimization,
     'enableBeatRewOptimization',
@@ -320,6 +328,7 @@ export function createAutoEQConfig(config = {}) {
     varyQAbove200Hz,
     allowNarrowFiltersBelow200Hz,
     allowBoosts,
+    enableModalSeeding,
     enableBeatRewOptimization,
     enableCandidatePlacement,
     placementCandidateCount,

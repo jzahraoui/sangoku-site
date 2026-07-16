@@ -142,6 +142,13 @@ export class FilterQualityEvaluator {
     if (candidateQuality.maxOvershoot > baselineQuality.maxOvershoot + overshootLimit) {
       return false;
     }
+    if (
+      options.positiveRegression != null &&
+      candidateQuality.positiveRms >
+        baselineQuality.positiveRms + options.positiveRegression
+    ) {
+      return false;
+    }
     if (candidateQuality.score < baselineQuality.score - (options.scoreMargin ?? 1e-4)) {
       return true;
     }

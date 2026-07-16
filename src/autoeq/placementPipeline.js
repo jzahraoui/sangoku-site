@@ -21,6 +21,7 @@ export async function placeIterativeFilters({
   spanFinder,
   qualityEvaluator,
   equalizerAdapter,
+  modalSeeds = null,
   onLog,
   onProgress,
   checkCancellation,
@@ -49,6 +50,7 @@ export async function placeIterativeFilters({
       spanFinder,
       qualityEvaluator,
       equalizerAdapter,
+      modalSeeds,
     });
 
     if (!placement) {

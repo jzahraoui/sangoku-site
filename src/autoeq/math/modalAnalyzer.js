@@ -235,6 +235,74 @@ export function detectModalFrequencies({
   return modes;
 }
 
+/** Engine defaults for modal seeding (not user-exposed — bench-tuned). */
+export const MODAL_SEEDING_DEFAULTS = {
+  maxFreq: 400,
+  lpcOrder: 64,
+  prominenceDb: 1,
+  // The modal fc only refines a span peak it agrees with (within this many
+  // octaves) — it never hijacks a span whose peak lies elsewhere.
+  snapOctaves: 1 / 6,
+  // Which seed components are applied (decomposable on the bench).
+  applyFc: true,
+  applyQ: true,
+};
+
+/**
+ * Builds the modal seeds consumed by candidate placement: modal frequencies
+ * detected on the initial residual (measured − target), restricted to the
+ * low-frequency band. Returns null when seeding is not applicable (band
+ * outside the match range, or no mode found).
+ *
+ * @param {Object} options
+ * @param {ArrayLike<number>} options.scanFreqs
+ * @param {ArrayLike<number>} options.measuredArr
+ * @param {ArrayLike<number>} options.targetArr
+ * @param {number} options.matchRangeStart
+ * @param {number} options.matchRangeEnd
+ * @param {number} [options.maxFreq]
+ * @param {number} [options.lpcOrder]
+ * @param {number} [options.prominenceDb]
+ * @returns {{modes:Array<{fc:number,prominenceDb:number}>, minFreq:number, maxFreq:number}|null}
+ */
+export function buildModalSeeds({
+  scanFreqs,
+  measuredArr,
+  targetArr,
+  matchRangeStart,
+  matchRangeEnd,
+  maxFreq = MODAL_SEEDING_DEFAULTS.maxFreq,
+  lpcOrder = MODAL_SEEDING_DEFAULTS.lpcOrder,
+  prominenceDb = MODAL_SEEDING_DEFAULTS.prominenceDb,
+}) {
+  const minFreq = Math.max(20, matchRangeStart);
+  const bandMax = Math.min(maxFreq, matchRangeEnd);
+  if (bandMax <= minFreq) return null;
+
+  const residuals = new Float64Array(scanFreqs.length);
+  for (let i = 0; i < scanFreqs.length; i++) {
+    residuals[i] = measuredArr[i] - targetArr[i];
+  }
+
+  const modes = detectModalFrequencies({
+    freqs: scanFreqs,
+    residuals,
+    minFreq,
+    maxFreq: bandMax,
+    lpcOrder,
+    prominenceDb,
+  });
+  if (modes.length === 0) return null;
+  return {
+    modes,
+    minFreq,
+    maxFreq: bandMax,
+    snapOctaves: MODAL_SEEDING_DEFAULTS.snapOctaves,
+    applyFc: MODAL_SEEDING_DEFAULTS.applyFc,
+    applyQ: MODAL_SEEDING_DEFAULTS.applyQ,
+  };
+}
+
 /**
  * Walks the residual away from a peak looking for the width-level crossing,
  * stopping at the first valley (curve rising again) or the band edge.

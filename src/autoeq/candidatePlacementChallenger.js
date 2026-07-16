@@ -23,10 +23,14 @@ export async function selectCandidatePlacementChallenger({
   spanFinder,
   qualityEvaluator,
   equalizerAdapter,
+  modalSeeds = null,
+  forceRun = false,
+  label = 'Placement challenger',
+  acceptOverrides = null,
   onLog,
   checkCancellation,
 }) {
-  if (!config.enableCandidatePlacement) {
+  if (!forceRun && !config.enableCandidatePlacement) {
     return baselineFilters;
   }
 
@@ -46,6 +50,7 @@ export async function selectCandidatePlacementChallenger({
     spanFinder,
     qualityEvaluator,
     equalizerAdapter,
+    modalSeeds,
     onLog: noop,
     onProgress: noop,
     checkCancellation,
@@ -80,16 +85,17 @@ export async function selectCandidatePlacementChallenger({
       midRegression: 0.01,
       overshootRegression: 0.1,
       scoreMargin: 0.02,
+      ...acceptOverrides,
     })
   ) {
     onLog(
-      `  Placement challenger accepté: score ${baselineQuality.score.toFixed(3)} → ${challengerQuality.score.toFixed(3)}`,
+      `  ${label} accepté: score ${baselineQuality.score.toFixed(3)} → ${challengerQuality.score.toFixed(3)}`,
     );
     return challengerFilters;
   }
 
   onLog(
-    `  Placement challenger rejeté: score ${challengerQuality.score.toFixed(3)} (baseline ${baselineQuality.score.toFixed(3)})`,
+    `  ${label} rejeté: score ${challengerQuality.score.toFixed(3)} (baseline ${baselineQuality.score.toFixed(3)})`,
   );
 
   return baselineFilters;

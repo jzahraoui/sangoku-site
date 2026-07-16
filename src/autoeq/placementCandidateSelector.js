@@ -22,6 +22,7 @@ export async function selectPlacementCandidate({
   spanFinder,
   qualityEvaluator,
   equalizerAdapter,
+  modalSeeds = null,
 }) {
   const candidateLimit = useCandidatePlacement ? config.placementCandidateCount : 1;
   const spans = spanFinder.findCandidateSpans(
@@ -48,6 +49,9 @@ export async function selectPlacementCandidate({
       matchRangeEnd: config.matchRangeEnd,
       varyQAbove200Hz: config.varyQAbove200Hz,
       equalizerAdapter,
+      modalSeeds,
+      scanFreqs,
+      residuals,
     });
     const trialFilters = cloneFilters(filters);
     trialFilters.push({ fc: candidate.fc, Q: candidate.Q, gain: 0 });
