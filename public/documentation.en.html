@@ -1013,6 +1013,12 @@
       also direct you toward a manual REW method or an odd.wtf workflow variant for that
       model.
     </p>
+    <p>
+      Directional bass mode is only needed for taking the measurements: leave the AVR in
+      that mode until the OCA file has been loaded. The transfer sets the subwoofer mode
+      back to Standard by itself — Standard is the listening mode the settings produced
+      by RCH are built for.
+    </p>
   </section>
 
   <section id="finalization">
@@ -1086,6 +1092,14 @@
       odd.wtf or another tool that matches your workflow.
     </p>
     <p>
+      Multi-sub sessions measured in Directional bass mode: load the OCA file while the
+      AVR is still in Directional mode, the state the measurements were taken in. The
+      transfer tool checks that the AVR amplifier configuration matches the file, then
+      sets the subwoofer mode back to Standard by itself at the end of the transfer. Do
+      not switch back to Standard manually before loading: the check would fail with an
+      Amp Assign mismatch message.
+    </p>
+    <p>
       For a standard workflow, Subwoofer Output in LFE mode is the recommended baseline.
       Use LFE + Main only if you explicitly know why you need it.
     </p>
@@ -1146,6 +1160,20 @@
         If RCH asks for it, switch to the manual REW method or to the odd.wtf workflow
         variant that matches your AVR.
       </li>
+    </ul>
+
+    <h3>The OCA transfer reports an Amp Assign mismatch</h3>
+    <ul>
+      <li>
+        If the measurements were taken in Directional bass mode, put the AVR back in that
+        mode before retrying the transfer: the OCA file carries the configuration of the
+        measurement session.
+      </li>
+      <li>
+        Otherwise, check that the amplifier assignment (Amp Assign) has not changed since
+        the measurements and restore it in the AVR menu.
+      </li>
+      <li>The transfer sets the subwoofer mode back to Standard by itself at the end.</li>
     </ul>
 
     <h3>An action is disabled or fails immediately</h3>

@@ -1065,6 +1065,12 @@
       d'AVR, RCH peut aussi vous renvoyer vers une methode manuelle REW ou vers un flux
       odd.wtf adapte a votre modele.
     </p>
+    <p>
+      Le mode Directional bass ne sert qu'a la prise de mesures : laissez ensuite l'ampli
+      dans ce mode jusqu'au chargement du fichier OCA. Le transfert remet de lui-meme le
+      mode subwoofer sur Standard, qui est le mode d'ecoute vise par les reglages produits
+      par RCH.
+    </p>
   </section>
 
   <section id="finalization">
@@ -1140,6 +1146,14 @@
       votre AVR avec odd.wtf ou un outil compatible avec votre flux de travail.
     </p>
     <p>
+      Cas des mesures multi-sub en Directional bass : chargez le fichier OCA en laissant
+      l'ampli en mode Directional, l'etat dans lequel les mesures ont ete faites. L'outil
+      de transfert verifie que la configuration d'amplification de l'ampli correspond a
+      celle du fichier, puis remet lui-meme le mode subwoofer sur Standard en fin de
+      transfert. Ne repassez pas en Standard a la main avant le chargement : la
+      verification echouerait avec un message de type Amp Assign mismatch.
+    </p>
+    <p>
       Pour un flux standard, Subwoofer Output en mode LFE est la base recommandee.
       N'utilisez LFE + Main que si vous savez exactement pourquoi vous le voulez.
     </p>
@@ -1203,6 +1217,20 @@
         Si RCH vous le demande, basculez vers la methode manuelle REW ou vers le flux
         odd.wtf adapte a votre AVR.
       </li>
+    </ul>
+
+    <h3>Le transfert OCA signale un Amp Assign mismatch</h3>
+    <ul>
+      <li>
+        Si les mesures ont ete faites en Directional bass, remettez l'ampli dans ce mode
+        avant de relancer le chargement : le fichier OCA porte la configuration de la
+        session de mesures.
+      </li>
+      <li>
+        Sinon, verifiez que l'assignation d'amplis (Amp Assign) n'a pas change depuis les
+        mesures et restaurez-la dans le menu de l'ampli.
+      </li>
+      <li>Le transfert remet lui-meme le mode subwoofer sur Standard a la fin.</li>
     </ul>
 
     <h3>Une action est grisee ou echoue immediatement</h3>
