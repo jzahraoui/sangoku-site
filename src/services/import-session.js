@@ -112,10 +112,12 @@ function standardSubwooferChannelType(enChannelType, log) {
  * import — everything downstream (channelDetailsFor, OCA channelType) reads
  * the normalized detectedChannels.
  *
- * Note: the ampAssignInfo blob still carries the Directional configuration
- * taken for the measurements and is exported as-is — reverting the AVR to
- * Standard mode on OCA import is a known pending limitation (its encoding
- * in the blob is not documented).
+ * Note: the ampAssignInfo blob keeps the Directional configuration taken
+ * for the measurements and is exported as-is — by design. The OCA importer
+ * (A1 Evo lineage) only uses it as a strict equality check against the live
+ * AVR state, sends the live AssignBin, and always forces the sub mode back
+ * to Standard through an explicit SWSetup message; the import must happen
+ * while the AVR is still in Directional mode.
  */
 function normalizeChannelMapping(data, log = noopLog) {
   data.detectedChannels = data.detectedChannels.map(channel => ({
