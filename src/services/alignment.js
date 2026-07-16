@@ -418,7 +418,11 @@ function createAlignmentService({
       bassManagementSlopedBPerOctave: 24,
       bassManagementCutoffHz: 150,
     });
-    // TODO check target level calculation sometime is too high
+    // La forme « Bass limited » 24 dB/oct @ 150 Hz doit coller au repli réel
+    // du bass management de l'enceinte de référence : avec une forme trop
+    // haute (48 dB/oct @ 800 Hz à l'origine), l'énergie mesurée entre le
+    // crossover réel et le cutoff se retrouve au-dessus de la cible et le fit
+    // remonte le target level (biais corrigé le 2025-11-12).
     await session.rewMeasurements.calculateTargetLevel(firstWorkingMeasurement.uuid);
     await mops.resetTargetSettings(firstWorkingMeasurement);
 
@@ -559,8 +563,10 @@ function createAlignmentService({
       } else {
         log.info(`No inversion needed for ${labelOf(speakerItem)}`);
       }
-    } catch {
-      log.warn(`Unable to determine inversion for ${labelOf(speakerItem)}`);
+    } catch (error) {
+      log.warn(
+        `Unable to determine inversion for ${labelOf(speakerItem)}: ${error.message}`,
+      );
       speakerItem.update({ shiftDelay: Infinity });
     }
   }
