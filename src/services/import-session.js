@@ -1,3 +1,4 @@
+import { CHANNEL_TYPES } from '../audyssey.js';
 import MqxTools from '../mqx-tools.js';
 
 /**
@@ -82,25 +83,44 @@ function parseSessionFile(fileContent, filename) {
   return JSON.parse(fileContent);
 }
 
-// TODO check if this is needed
-function normalizeChannelMapping(data) {
-  const StandardChannelMapping = {
-    59: 54,
-    60: 55,
-    62: 56,
-    63: 57,
-    58: 54,
-    61: 55,
-    64: 56,
-    47: 54,
-    49: 55,
-  };
+/**
+ * Standard SWMix1-4 channel type for a directional-layout subwoofer ID;
+ * anything else (speakers, SWLFE*, already-SWMix, unknown IDs) is returned
+ * unchanged. Directional entries are recognized in CHANNEL_TYPES by their
+ * Subwoofer group and a directional position; their SW1..SW4 code names the
+ * matching SWMix entry.
+ */
+function standardSubwooferChannelType(enChannelType, log) {
+  const details = CHANNEL_TYPES.getByChannelIndex(enChannelType);
+  if (details?.group !== 'Subwoofer' || details.position === 'None') {
+    return enChannelType;
+  }
+  if (!details.code) {
+    log.warn(
+      `Subwoofer channel type ${enChannelType} has no standard SW code, keeping it as-is`,
+    );
+    return enChannelType;
+  }
+  return CHANNEL_TYPES.getByCode(details.code).channelIndex;
+}
 
-  // TODO: ampassign can be directionnal must be converted to standard
-  // convert directionnal bass to standard
+/**
+ * Normalize the subwoofer channel IDs of the measurement file. Measured in
+ * Directional bass mode, the AVR tags each sub with a layout-specific
+ * enChannelType (SWFrontLeft4sp, SWBack2sp, …) while the app and the OCA
+ * export work with the generic numbered SWMix1-4 IDs. Applied once at
+ * import — everything downstream (channelDetailsFor, OCA channelType) reads
+ * the normalized detectedChannels.
+ *
+ * Note: the ampAssignInfo blob still carries the Directional configuration
+ * taken for the measurements and is exported as-is — reverting the AVR to
+ * Standard mode on OCA import is a known pending limitation (its encoding
+ * in the blob is not documented).
+ */
+function normalizeChannelMapping(data, log = noopLog) {
   data.detectedChannels = data.detectedChannels.map(channel => ({
     ...channel,
-    enChannelType: StandardChannelMapping[channel.enChannelType] || channel.enChannelType,
+    enChannelType: standardSubwooferChannelType(channel.enChannelType, log),
   }));
 }
 
@@ -184,7 +204,7 @@ function createImportSession({ log = noopLog } = {}) {
     findClosingBrace,
     importAdyImpulses,
     importImpulseResponse,
-    normalizeChannelMapping,
+    normalizeChannelMapping: data => normalizeChannelMapping(data, log),
     parseSessionFile,
     processMqxFile,
     validateFile,

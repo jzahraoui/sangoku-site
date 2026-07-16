@@ -70,6 +70,17 @@ describe('parseSessionFile', () => {
 });
 
 describe('normalizeChannelMapping', () => {
+  const normalized = ids => {
+    const data = {
+      detectedChannels: ids.map((enChannelType, i) => ({
+        commandId: `CH${i}`,
+        enChannelType,
+      })),
+    };
+    normalizeChannelMapping(data);
+    return data.detectedChannels.map(c => c.enChannelType);
+  };
+
   it('converts directional bass channel types to standard ones', () => {
     const data = {
       detectedChannels: [
@@ -81,6 +92,65 @@ describe('normalizeChannelMapping', () => {
     normalizeChannelMapping(data);
 
     expect(data.detectedChannels.map(c => c.enChannelType)).toEqual([54, 1]);
+  });
+
+  it('reproduces the legacy hardcoded table exactly', () => {
+    // 2sp Front/Back, 3sp FL/FR/Rear, 4sp FL/FR/BL/BR — the table shipped
+    // before the CHANNEL_TYPES derivation.
+    const legacyTable = {
+      59: 54,
+      60: 55,
+      62: 56,
+      63: 57,
+      58: 54,
+      61: 55,
+      64: 56,
+      47: 54,
+      49: 55,
+    };
+
+    const input = Object.keys(legacyTable).map(Number);
+    expect(normalized(input)).toEqual(input.map(id => legacyTable[id]));
+  });
+
+  it('fills the layouts the legacy table missed', () => {
+    // 2sp/3sp Left/Right and 3sp Front/Back directional layouts.
+    expect(normalized([43, 44, 45, 46, 48, 50])).toEqual([54, 54, 55, 55, 54, 56]);
+  });
+
+  it('keeps speakers, SWLFE, SWMix and unknown types unchanged', () => {
+    const untouched = [0, 1, 2, 42, 52, 53, 65, 54, 55, 56, 57, 999];
+    expect(normalized(untouched)).toEqual(untouched);
+  });
+
+  it('keeps a codeless directional sub unchanged and warns through the injected log', () => {
+    const warn = vi.fn();
+    const session = createImportSession({
+      log: { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
+    });
+    const data = {
+      // 51 = SWMiddle2sp: directional position but no SW code to map to.
+      detectedChannels: [{ commandId: 'SW2', enChannelType: 51 }],
+    };
+
+    session.normalizeChannelMapping(data);
+
+    expect(data.detectedChannels[0].enChannelType).toBe(51);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('51'));
+  });
+
+  it('preserves the other channel fields', () => {
+    const data = {
+      detectedChannels: [{ commandId: 'SW1', enChannelType: 59, responseData: { 0: [1] } }],
+    };
+
+    normalizeChannelMapping(data);
+
+    expect(data.detectedChannels[0]).toEqual({
+      commandId: 'SW1',
+      enChannelType: 54,
+      responseData: { 0: [1] },
+    });
   });
 });
 
