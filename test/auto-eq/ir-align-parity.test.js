@@ -6,6 +6,14 @@
  * Mesuré à la création (2026-07-13, REW 5.40 B128, 21 cas sur 2 systèmes) :
  * Δ délai max 0.062 ms sur les 15 cas acceptés, 0 désaccord d'inversion, et
  * refus des 6 mêmes cas (« Delay too large ») que REW.
+ *
+ * Divergence ASSUMÉE depuis le clamp du repli contraint (2026-07-16) : les
+ * 6 refus de REW venaient tous d'un débordement d'interpolation ≤ 3
+ * échantillons du repli contraint (plage du raffineur sinc) — l'interne
+ * rend désormais le meilleur alignement de la fenêtre, clampé à la borne,
+ * au lieu d'échouer. Sur ces cas le test vérifie la divergence : résultat
+ * exactement à la borne, withinBounds true, et pic libre hors fenêtre
+ * (la raison du refus REW, conservée dans requiredDelayMs).
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -31,11 +39,21 @@ for (const { a, b, fc, bounds, rew } of golden.cases) {
     });
 
     if (rew.error) {
-      // REW a refusé (« Delay too large ») : l'interne doit refuser aussi.
+      // REW a refusé (« Delay too large ») : divergence assumée (clamp du
+      // repli contraint, 2026-07-16) — l'interne rend la borne exacte au
+      // lieu d'échouer, et le pic libre reste hors fenêtre (trace du refus).
       assert.equal(
         internal.withinBounds,
-        false,
-        `${label}: REW refuse mais l'interne accepte ${internal.delayMs.toFixed(3)} ms`,
+        true,
+        `${label}: résultat clampé attendu, withinBounds=false`,
+      );
+      assert.ok(
+        internal.delayMs === bounds[0] || internal.delayMs === bounds[1],
+        `${label}: délai ${internal.delayMs.toFixed(4)} ms attendu exactement à une borne [${bounds.join(', ')}]`,
+      );
+      assert.ok(
+        internal.requiredDelayMs < bounds[0] || internal.requiredDelayMs > bounds[1],
+        `${label}: pic libre ${internal.requiredDelayMs.toFixed(3)} ms attendu hors fenêtre (raison du refus REW)`,
       );
       return;
     }

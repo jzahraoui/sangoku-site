@@ -9,8 +9,9 @@
  * extraction en référentiel commun (pic de A à l'origine, décalage
  * fractionnaire exact) → CARRÉ SIGNÉ → corrélation croisée FFT → pic |max|
  * affiné (suréchantillonnage sinc ×8 + parabole) → bornes min/max avec
- * recherche contrainte en repli → polarité par le signe du produit des IR
- * filtrées au pic de A.
+ * recherche contrainte en repli (clampée aux bornes — divergence assumée
+ * avec le refus REW sur débordement d'interpolation, 2026-07-16) → polarité
+ * par le signe du produit des IR filtrées au pic de A.
  *
  * Ne bascule les appelants (findAligment) qu'à parité démontrée contre
  * l'outil réel (harnais golden).
@@ -287,15 +288,26 @@ function refinePeak(corr, index) {
  * @param {number} [params.order=6]
  * @returns {{ delayMs: number, invertB: boolean, withinBounds: boolean,
  *   requiredDelayMs: number }} `requiredDelayMs` = délai libre (celui que REW
- *   affiche dans « Delay too large ») ; `delayMs` = résultat contraint.
+ *   affiche dans « Delay too large ») ; `delayMs` = résultat contraint,
+ *   garanti dans les bornes depuis le clamp du repli (2026-07-16) —
+ *   `withinBounds` ne peut donc plus être false par ce chemin (champ conservé
+ *   pour le contrat d'API : findAligment, sweeps FBC).
  * @throws {TypeError|RangeError} Entrées invalides.
  */
 /**
  * Recherche contrainte du pic de corrélation dans [minDelayMs, maxDelayMs]
  * quand le pic libre sort des bornes (étape 5 d'alignImpulseResponses) —
- * même affinage parabolique que le pic libre.
- * @returns {number} délai en ms (peut déborder légèrement des bornes après
- *   affinage ; l'appelant re-vérifie withinBounds)
+ * même affinage parabolique que le pic libre, résultat CLAMPÉ aux bornes.
+ *
+ * Le lag entier retenu est par construction dans les bornes ; seul
+ * l'affinage sous-échantillon (sinc ×8 ± 3 échantillons + parabole) peut en
+ * déborder — un artefact d'interpolation, pas un alignement hors fenêtre.
+ * REW, lui, abandonne sur ce débordement (« Delay too large » — les 6 refus
+ * du golden ir-align débordaient tous d'exactement ≤ 3 échantillons) ;
+ * divergence ASSUMÉE (décision 2026-07-16) : on rend le meilleur alignement
+ * de la fenêtre, borné au bord, plutôt qu'un échec — `requiredDelayMs`
+ * conserve le pic libre pour le diagnostic.
+ * @returns {number} délai en ms, garanti dans [minDelayMs, maxDelayMs]
  */
 function constrainedCorrelationDelayMs(corr, size, samplePeriod, minDelayMs, maxDelayMs) {
   const lo = Math.ceil((minDelayMs * 0.001) / samplePeriod);
@@ -311,7 +323,7 @@ function constrainedCorrelationDelayMs(corr, size, samplePeriod, minDelayMs, max
   }
   let refined = refinePeak(corr, ((bestLag % size) + size) % size);
   if (refined > size / 2) refined -= size;
-  return refined * samplePeriod * 1000;
+  return Math.min(maxDelayMs, Math.max(minDelayMs, refined * samplePeriod * 1000));
 }
 
 export function alignImpulseResponses(irA, irB, params) {

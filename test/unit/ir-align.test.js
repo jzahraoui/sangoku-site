@@ -90,9 +90,43 @@ describe('alignImpulseResponses', () => {
       maxDelayMs: 3,
     });
     expect(Math.abs(Math.abs(result.requiredDelayMs) - 10)).toBeLessThan(0.2);
-    // le résultat contraint reste dans les bornes
-    expect(result.delayMs).toBeGreaterThanOrEqual(-0.5 - 0.13);
-    expect(result.delayMs).toBeLessThanOrEqual(3 + 0.13);
+    // depuis le clamp du repli contraint : STRICTEMENT dans les bornes
+    expect(result.delayMs).toBeGreaterThanOrEqual(-0.5);
+    expect(result.delayMs).toBeLessThanOrEqual(3);
+    expect(result.withinBounds).toBe(true);
+  });
+
+  it('clamps the constrained refinement overshoot to the max bound', () => {
+    // B en AVANCE de 148 échantillons → délai requis +3.0833 ms, juste
+    // au-delà de la borne haute : le repli contraint retient le lag entier à
+    // la borne (l'épaule du vrai lobe), l'affinage sinc tire vers le vrai
+    // pic et débordait avant le clamp — le mécanisme des 6 refus « Delay too
+    // large » du golden ir-align (≤ 3 échantillons).
+    const a = burst(16384, 2000);
+    const b = burst(16384, 2000 - 148); // délai requis : +148/48 = 3.0833 ms
+    const result = alignImpulseResponses(makeIr(a), makeIr(b), {
+      frequency: 80,
+      minDelayMs: -0.5,
+      maxDelayMs: 3,
+    });
+    expect(Math.abs(result.requiredDelayMs - 3.0833)).toBeLessThan(0.05);
+    expect(result.delayMs).toBe(3);
+    expect(result.withinBounds).toBe(true);
+  });
+
+  it('clamps the constrained refinement overshoot to the min bound', () => {
+    // Symétrique côté bas : B en RETARD de 28 échantillons → délai requis
+    // −0.5833 ms, juste sous la borne basse −0.5 ms.
+    const a = burst(16384, 2000);
+    const b = burst(16384, 2000 + 28); // délai requis : −28/48 = −0.5833 ms
+    const result = alignImpulseResponses(makeIr(a), makeIr(b), {
+      frequency: 80,
+      minDelayMs: -0.5,
+      maxDelayMs: 3,
+    });
+    expect(Math.abs(result.requiredDelayMs - -0.5833)).toBeLessThan(0.05);
+    expect(result.delayMs).toBe(-0.5);
+    expect(result.withinBounds).toBe(true);
   });
 
   it('honours differing start times through the common reference', () => {

@@ -489,7 +489,8 @@ function createBusinessTools({
    * à ce que checkAlignment / l'UI affiche) — PAS `requiredDelayMs`, le pic libre
    * non borné, sujet aux sauts de cycle (REGLES-METIER §2). `requiredDelayMs` est
    * renvoyé à titre indicatif. `withinBounds === false` = « Delay too large » ⇒
-   * l'appelant traite le membre comme Infinity (écarté).
+   * l'appelant traite le membre comme Infinity (écarté) — cas devenu défensif
+   * depuis le clamp du repli contraint de l'aligneur (2026-07-16).
    *
    * @returns {Promise<Array<{ frequency:number, requiredDelayMs:number,
    *   delayMs:number, withinBounds:boolean, invertB:boolean }>>}

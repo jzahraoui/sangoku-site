@@ -76,10 +76,13 @@ for (const { speaker, sub, fc, speakerBank, subBank, rew } of golden.cases) {
     });
 
     if (rew.align.error) {
+      // Refus REW = débordement d'interpolation du repli contraint ; depuis
+      // le clamp (2026-07-16) l'interne rend la borne au lieu d'échouer
+      // (aucun cas dans le golden actuel — branche défensive).
       assert.equal(
         align.withinBounds,
-        false,
-        `${label}: le chemin REW refuse mais l'interne accepte`,
+        true,
+        `${label}: résultat clampé attendu là où le chemin REW refusait`,
       );
       return;
     }
@@ -196,7 +199,8 @@ for (const { label, fc, subCount, weightsDb, rew } of golden.sumCases ?? []) {
     });
 
     if (rew.align.error) {
-      assert.equal(align.withinBounds, false, `${label}: refus attendu`);
+      // Branche défensive — même divergence assumée que ci-dessus (clamp).
+      assert.equal(align.withinBounds, true, `${label}: résultat clampé attendu`);
       return;
     }
     assert.equal(align.invertB, rew.align.invertB, `${label}: inversion`);

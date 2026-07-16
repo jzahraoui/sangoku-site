@@ -407,22 +407,25 @@ describe('findAligment (aligneur interne, parité Align IRs)', () => {
     expect(result.isBInverted).toBe(true);
   });
 
-  it('throws the explicit Delay too large error with the required delay', async () => {
+  it('clamps the boundary refinement instead of throwing Delay too large', async () => {
     const { service } = createHarness();
     // vrai délai 0.5 ms, bornes ±0.1 ms : la corrélation monte vers 0.5 ms,
-    // le max contraint colle à la borne et l'affinage dérive dehors — le même
-    // motif que le refus observé au golden (FL↔SW1@80, bornes serrées)
-    await expect(
-      service.findAligment(
-        channel(alignBurst(2000)),
-        channel(alignBurst(2024)),
-        80,
-        0.1,
-        false,
-        null,
-        -0.1,
-      ),
-    ).rejects.toThrow(/Delay too large.*80 Hz.*ms/);
+    // le max contraint colle à la borne et l'affinage dérivait dehors — le
+    // motif des refus du golden (FL↔SW1@80, bornes serrées). Depuis le clamp
+    // du repli contraint (2026-07-16), le service rend la borne exacte au
+    // lieu d'échouer (divergence assumée avec le refus REW) ; la garde
+    // « Delay too large » de findAligment est devenue défensive.
+    const result = await service.findAligment(
+      channel(alignBurst(2000)),
+      channel(alignBurst(2024)),
+      80,
+      0.1,
+      false,
+      null,
+      -0.1,
+    );
+    expect(result.shiftDelay).toBeCloseTo(-0.0001, 9); // −0.1 ms, la borne
+    expect(result.isBInverted).toBe(false);
   });
 
   it('refuses the aligned-sum option (unused in production)', async () => {

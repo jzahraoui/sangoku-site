@@ -484,7 +484,9 @@ function createAlignmentService({
 
       if (!result.withinBounds) {
         // Même contrat d'erreur que l'outil REW, mais avec le délai requis
-        // toujours présent et exploitable par l'appelant.
+        // toujours présent et exploitable par l'appelant. Garde devenue
+        // défensive : depuis le clamp du repli contraint (ir-align,
+        // 2026-07-16), l'aligneur ne rend plus de résultat hors bornes.
         throw new Error(
           `Delay too large. The delay required to align the responses at ` +
             `${frequency} Hz is too large, ${result.requiredDelayMs.toFixed(2)} ms`,
@@ -626,7 +628,8 @@ function createAlignmentService({
     // (fenêtre ±T/4) et non le pic libre `requiredDelayMs` (sujet aux sauts de
     // cycle, REGLES-METIER §2). Un membre hors bornes (`withinBounds === false`,
     // = le « Delay too large » qui met checkAlignment à Infinity) rend la moyenne
-    // non finie → candidat écarté.
+    // non finie → candidat écarté — cas devenu défensif depuis le clamp du
+    // repli contraint de l'aligneur (2026-07-16).
     const table = frequencies.map(fc => {
       const perMember = perMemberSweeps.map(({ member, byFreq }) => {
         const entry = byFreq.get(fc) ?? {};
