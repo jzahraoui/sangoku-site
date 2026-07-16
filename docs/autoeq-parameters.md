@@ -186,8 +186,13 @@ La pénalité **dure** est un troisième mécanisme, sur le gain cumulé :
 standard : il rejoue le placement dans un challenger séparé et le résultat
 n'est adopté que s'il passe `acceptCandidate` (gardes fullRms/criticalRms/
 maxOvershoot **plus** `positiveRegression: 0.01` — l'énergie au-dessus de la
-cible prime, SC-008). Verdict visible dans les logs moteur :
-`Challenger modal (LPC) accepté/rejeté`.
+cible prime, SC-008). La décision est **visible dans le log utilisateur**
+(les logs moteur étant jetés en production, §5.4) : `logPhaseMatchReport`
+publie une ligne `challenger modal (LPC): accepté/rejeté/sans objet` avec
+les fréquences modales détectées, à partir de `report.modalSeeding`. Un
+verdict « rejeté » signifie des filtres **strictement identiques** au
+calcul sans l'option — c'est le comportement nominal sur les canaux où le
+placement standard était déjà optimal.
 
 ### 3.7 Seeds modaux (LPC)
 
@@ -226,6 +231,8 @@ Cinq mécanismes cumulés, dont un seul hors moteur :
   before: { fullRms, criticalRms, positiveRms, maxOvershoot },
   after:  { fullRms, criticalRms, positiveRms, maxOvershoot },
   maxCombinedBoostDb: number,
+  // présent uniquement si enableModalSeeding :
+  modalSeeding: { outcome: 'accepté'|'rejeté'|'aucun-mode', modes: number[] },
   filters: [{ fc, Q, gain, verdict, warnings[] }]
 }
 ```

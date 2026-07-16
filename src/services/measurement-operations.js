@@ -521,6 +521,18 @@ function logPhaseMatchReport(log, report) {
   } else {
     log.info(reportMessage);
   }
+  if (report.modalSeeding) {
+    const { outcome, modes } = report.modalSeeding;
+    const outcomeLabels = {
+      accepté: 'accepté — le placement seedé bat le standard',
+      rejeté: 'rejeté — le placement standard reste meilleur',
+      'aucun-mode': 'sans objet — aucun mode détecté dans la bande',
+    };
+    const modesText = modes.length ? ` (modes: ${modes.join(', ')} Hz)` : '';
+    log.info(
+      `[createPhaseMatchFilter] challenger modal (LPC): ${outcomeLabels[outcome] ?? outcome}${modesText}`,
+    );
+  }
 }
 
 function createMeasurementOperations({ log = noopLog } = {}) {

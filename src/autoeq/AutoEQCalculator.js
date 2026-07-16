@@ -188,7 +188,12 @@ export class AutoEQCalculator {
       // Challenger modal (opt-in) : rejoue le placement avec les seeds LPC
       // et n'adopte le résultat que s'il bat le meilleur courant — les seeds
       // ne peuvent qu'améliorer, jamais dégrader.
+      let modalOutcome = null;
+      if (this.enableModalSeeding && !modalSeeds) {
+        modalOutcome = 'aucun-mode';
+      }
       if (modalSeeds) {
+        const baselineBeforeModal = filters;
         filters = await selectCandidatePlacementChallenger({
           baselineFilters: filters,
           scanFreqs,
@@ -210,6 +215,7 @@ export class AutoEQCalculator {
           onLog: this.onLog,
           checkCancellation: () => this._checkCancellation(),
         });
+        modalOutcome = filters === baselineBeforeModal ? 'rejeté' : 'accepté';
       }
 
       await runBeatRewEnhancements({
@@ -269,6 +275,17 @@ export class AutoEQCalculator {
         overallMaxBoostDb: this.overallMaxBoostDb,
         maxAllowedOvershoot: this.maxAllowedOvershoot,
       });
+
+      // Décision automatique → doit être visible dans le log utilisateur
+      // (via logPhaseMatchReport), pas seulement dans onLog moteur.
+      if (modalOutcome !== null) {
+        report.modalSeeding = {
+          outcome: modalOutcome,
+          modes: modalSeeds
+            ? modalSeeds.modes.map(m => Math.round(m.fc * 10) / 10)
+            : [],
+        };
+      }
 
       applyFiltersToFilterSet(this.filterSet, filters, {
         equalizerAdapter: this.equalizerAdapter,

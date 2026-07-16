@@ -64,12 +64,16 @@ describe('modal seeding integration (enableModalSeeding)', () => {
     const onCalc = new AutoEQCalculator(
       makeConfig({ enableModalSeeding: true }, logs),
     );
-    await onCalc.calculate(measuredSPL, targetCurve);
+    const result = await onCalc.calculate(measuredSPL, targetCurve);
     const on = onCalc.lastQualityReport;
 
     // The modal challenger must have run and logged its seeds and verdict.
     expect(logs.some((m) => m.includes('Seeds modaux (LPC)'))).toBe(true);
     expect(logs.some((m) => m.includes('Challenger modal (LPC)'))).toBe(true);
+
+    // The automatic decision must surface on the run report (user log).
+    expect(['accepté', 'rejeté']).toContain(result.report.modalSeeding?.outcome);
+    expect(result.report.modalSeeding.modes.length).toBeGreaterThan(0);
 
     // Structural guarantee of the acceptance gate: no regression beyond the
     // challenger margins, whichever way the challenger verdict went.
@@ -86,8 +90,9 @@ describe('modal seeding integration (enableModalSeeding)', () => {
     const a = new AutoEQCalculator(makeConfig());
     await a.calculate(measuredSPL, targetCurve);
     const b = new AutoEQCalculator(makeConfig({ enableModalSeeding: false }));
-    await b.calculate(measuredSPL, targetCurve);
+    const result = await b.calculate(measuredSPL, targetCurve);
 
     expect(b.filterSet.getActiveFilters()).toEqual(a.filterSet.getActiveFilters());
+    expect(result.report.modalSeeding).toBeUndefined();
   });
 });
