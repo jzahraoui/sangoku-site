@@ -78,6 +78,25 @@ export function nextPowerOfTwo(n) {
 }
 
 /**
+ * IFFT d'un spectre complexe **hermitien** (celui d'un signal réel), et retour
+ * des `n` premiers échantillons réels. Équivalent de `numpy.fft.irfft` quand on
+ * travaille sur le spectre complet plutôt qu'un demi-spectre : toutes les
+ * opérations en amont (division de Kirkeby, gain de calibration réel) doivent
+ * préserver l'hermiticité pour que la partie imaginaire du résultat soit ≈ 0.
+ *
+ * `re`/`im` sont consommés en place par la transformée inverse.
+ *
+ * @param {Float64Array} re - Parties réelles du spectre (longueur = puissance de 2)
+ * @param {Float64Array} im - Parties imaginaires
+ * @param {number} n - Nombre d'échantillons temporels à retourner (≤ re.length)
+ * @returns {Float64Array}
+ */
+export function realInverseFft(re, im, n) {
+  fftInPlace(re, im, true);
+  return re.slice(0, n);
+}
+
+/**
  * Spectre complexe d'un signal réel, zéro-paddé à `size` (puissance de 2).
  *
  * @param {ArrayLike<number>} samples
