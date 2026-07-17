@@ -74,8 +74,9 @@
     <img src="img/doc/rew-api-preferences.png" alt="REW API server configuration" />
 
     <p>
-      Practical advice: keep a clean working folder with your ADY, MQX, AVR, MDAT, OCA,
-      and target curve files. This avoids many protocol and file-handling mistakes.
+      Practical advice: keep a clean working folder with your ADY, MQX, liveproject, AVR,
+      MDAT, OCA, and target curve files. This avoids many protocol and file-handling
+      mistakes.
     </p>
     <p>
       If you use a custom target curve, prepare it in advance as well. You will need it in
@@ -221,6 +222,42 @@
     </p>
 
     <img src="img/doc/rch-avr-configuration.png" alt="AVR configuration details" />
+
+    <h3>4. Dirac Live import (.liveproject file)</h3>
+    <p>
+      RCH can also import <strong>Dirac Live</strong> projects exported as
+      <code>.liveproject</code>. Load the file just like an ADY (drag and drop, or click
+      the drop zone on the Application page). As with ADY, the automatic import into REW
+      only happens when RCH is connected to REW.
+    </p>
+    <p>
+      Unlike an ADY, a <code>.liveproject</code> does not contain ready-to-use impulse
+      responses. RCH <strong>reconstructs the true impulse responses</strong> (with phase
+      and inter-channel delays) from the raw microphone recordings stored in the file, by
+      deconvolution. The microphone calibration embedded in the project is
+      <strong>already applied</strong> during reconstruction: do not load a microphone
+      calibration file into REW for these measurements, or you will double-correct the
+      treble.
+    </p>
+    <p>
+      The file may contain several measurement positions; RCH recovers all of them and
+      names each measurement by channel and position. This processing is
+      <strong>heavier</strong> than an ADY import, especially for a multi-position
+      project: it runs in the background and can take from a few seconds to about a
+      minute. Progress is shown in the log.
+    </p>
+    <p>
+      The <strong>relative levels and delays between channels are preserved</strong> (the
+      closest speaker sits at time zero, the others offset by their real delay). The
+      <em>absolute</em> distance is not recoverable, and subwoofers appear farther away
+      because their delay includes the subwoofer DSP latency: this is normal.
+    </p>
+    <p>
+      Important: a <code>.liveproject</code> does not provide a companion AVR file. RCH
+      synthesizes the minimum needed to import and display the measurements on the correct
+      channels. For OCA export or full optimization, you may also need to load an AVR (or
+      ADY) file matching your device.
+    </p>
   </section>
 
   <section id="workflow">

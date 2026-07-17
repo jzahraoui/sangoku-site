@@ -83,8 +83,8 @@
 
     <p>
       Conseil pratique : gardez un dossier de travail propre avec vos fichiers ADY, MQX,
-      AVR, MDAT, OCA et courbes cibles. Cela evite beaucoup d'erreurs de protocole et
-      de manipulation de fichiers.
+      liveproject, AVR, MDAT, OCA et courbes cibles. Cela evite beaucoup d'erreurs de
+      protocole et de manipulation de fichiers.
     </p>
     <p>
       Si vous utilisez une courbe cible personnalisee, preparez-la a l'avance. Vous en
@@ -234,6 +234,44 @@
     </p>
 
     <img src="img/doc/rch-avr-configuration.png" alt="Details de configuration AVR" />
+
+    <h3>4. Import Dirac Live (fichier .liveproject)</h3>
+    <p>
+      RCH sait aussi importer les projets <strong>Dirac Live</strong> exportes au format
+      <code>.liveproject</code>. Chargez le fichier comme un ADY (glisser-deposer ou clic
+      dans la zone de depot de la page Application). Comme pour l'ADY, l'import automatique
+      dans REW n'a lieu que si RCH est connecte a REW.
+    </p>
+    <p>
+      A la difference d'un ADY, un <code>.liveproject</code> ne contient pas de reponses
+      impulsionnelles pretes a l'emploi. RCH <strong>reconstruit les vraies reponses
+      impulsionnelles</strong> (avec la phase et les delais entre canaux) a partir des
+      enregistrements micro bruts stockes dans le fichier, par deconvolution. La
+      calibration du micro embarquee dans le projet est <strong>deja appliquee</strong>
+      pendant la reconstruction : ne rechargez donc pas de fichier de calibration micro
+      dans REW pour ces mesures, sous peine de double correction dans l'aigu.
+    </p>
+    <p>
+      Le fichier peut contenir plusieurs positions de mesure ; RCH les retrouve toutes et
+      nomme chaque mesure par canal et par position. Ce traitement est <strong>plus
+      lourd</strong> que l'import ADY, surtout pour un projet a plusieurs positions : il
+      se fait en arriere-plan et peut prendre de quelques secondes a environ une minute.
+      La progression s'affiche dans le journal.
+    </p>
+    <p>
+      Les <strong>niveaux et delais relatifs entre canaux sont preserves</strong>
+      (l'enceinte la plus proche est a l'instant zero, les autres decalees de leur delai
+      reel). La distance <em>absolue</em> n'est pas recuperable, et les caissons
+      apparaissent plus loin car leur delai inclut la latence DSP du caisson : c'est
+      normal.
+    </p>
+    <p>
+      Point important : un <code>.liveproject</code> n'apporte pas de fichier AVR
+      compagnon. RCH synthetise le minimum necessaire pour importer et afficher les
+      mesures avec les bons canaux. Pour l'export OCA ou l'optimisation complete, il peut
+      etre necessaire de charger en plus un fichier AVR (ou ADY) correspondant a votre
+      appareil.
+    </p>
   </section>
 
   <section id="workflow">
