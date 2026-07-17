@@ -25,7 +25,7 @@ const importSession = createImportSession();
 describe('validateFile', () => {
   it('rejects unsupported extensions', () => {
     expect(() => validateFile({ name: 'session.txt', size: 10 })).toThrow(
-      'Please select a .avr, .ady, or .mqx file',
+      'Please select a .avr, .ady, .mqx or .liveproject file',
     );
   });
 
