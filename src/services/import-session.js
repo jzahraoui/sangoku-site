@@ -15,14 +15,21 @@ import MqxTools from '../mqx-tools.js';
  */
 
 const MAX_FILE_SIZE_BYTES = 209715200; // 200 MB
-const VALID_FILE_EXTENSIONS = ['.avr', '.ady', '.mqx'];
+const VALID_FILE_EXTENSIONS = ['.avr', '.ady', '.mqx', '.liveproject'];
+// Extensions lues comme binaire (arrayBuffer) plutot que texte JSON.
+const BINARY_FILE_EXTENSIONS = ['.liveproject'];
 
 const noopLog = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+
+/** Vrai si le fichier de session est binaire (Dirac `.liveproject`). */
+function isBinarySessionFile(filename) {
+  return BINARY_FILE_EXTENSIONS.some(ext => filename.toLowerCase().endsWith(ext));
+}
 
 function validateFile(file) {
   const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
   if (!VALID_FILE_EXTENSIONS.includes(ext)) {
-    throw new Error('Please select a .avr, .ady, or .mqx file');
+    throw new Error('Please select a .avr, .ady, .mqx or .liveproject file');
   }
   if (file.size > MAX_FILE_SIZE_BYTES) {
     throw new Error(`File size exceeds ${MAX_FILE_SIZE_BYTES / 1024 / 1024} MB limit`);
@@ -141,7 +148,7 @@ function createImportSession({ log = noopLog } = {}) {
    * Import one impulse response into REW through the session service and tag
    * the created measurement with its IR peak value.
    */
-  async function importImpulseResponse(session, processedResponse, { sampleRate, splOffset }) {
+  async function importImpulseResponse(session, processedResponse, { sampleRate, splOffset, startTime = 0 }) {
     const identifier = processedResponse.name;
     const response = processedResponse.data;
     let max = 0;
@@ -153,7 +160,7 @@ function createImportSession({ log = noopLog } = {}) {
     }
     const options = {
       identifier,
-      startTime: 0,
+      startTime,
       sampleRate,
       splOffset,
       applyCal: false,
@@ -201,11 +208,41 @@ function createImportSession({ log = noopLog } = {}) {
     }
   }
 
+  /**
+   * Import all reconstructed impulse responses of a decoded Dirac `.liveproject`
+   * into REW. Mirrors `importAdyImpulses`, but the IRs carry a common non-zero
+   * `startTime` so their relative arrival delays (hence distances) survive.
+   */
+  async function importLiveprojectImpulses(session, decoded, { splOffset }) {
+    // if not connected, do not import measurements in REW
+    if (!session.state.isPolling) {
+      log.warn('Not connected to REW, skipping measurements import');
+      return;
+    }
+
+    try {
+      await session.setProcessing(true);
+      // sort by name to keep each channel's positions grouped and ordered
+      const measurements = [...decoded.measurements].sort((a, b) => a.name.localeCompare(b.name));
+      for (const measurement of measurements) {
+        await importImpulseResponse(session, measurement, {
+          sampleRate: decoded.sampleRate,
+          splOffset: splOffset ?? decoded.splOffset,
+          startTime: decoded.startTime,
+        });
+      }
+    } finally {
+      await session.setProcessing(false);
+    }
+  }
+
   return {
     cleanJSON,
     findClosingBrace,
     importAdyImpulses,
     importImpulseResponse,
+    importLiveprojectImpulses,
+    isBinarySessionFile: filename => isBinarySessionFile(filename),
     normalizeChannelMapping: data => normalizeChannelMapping(data, log),
     parseSessionFile,
     processMqxFile,
@@ -216,9 +253,11 @@ function createImportSession({ log = noopLog } = {}) {
 export {
   MAX_FILE_SIZE_BYTES,
   VALID_FILE_EXTENSIONS,
+  BINARY_FILE_EXTENSIONS,
   cleanJSON,
   createImportSession,
   findClosingBrace,
+  isBinarySessionFile,
   normalizeChannelMapping,
   parseSessionFile,
   processMqxFile,

@@ -25,6 +25,7 @@ import {
   createImportSession,
 } from './services/import-session.js';
 import { createExportsService } from './services/exports.js';
+import { decodeLiveprojectViaWorker } from './dirac/liveproject-client.js';
 import {
   DEFAULT_IR_WINDOW_CHOICE,
   IR_WINDOW_PRESETS,
@@ -528,6 +529,54 @@ class MeasurementViewModel {
       }
     };
 
+    // Reconstruct a Dirac Live `.liveproject`: decode + rebuild IRs in a Web
+    // Worker, synthesize a minimal AVR context (no companion .avr file), then
+    // push the impulse responses into REW.
+    this.onLiveprojectLoaded = async (decoded, filename) => {
+      lm.info('Loading Dirac Live file: ' + filename);
+
+      const results = document.getElementById('resultsAvr');
+      if (results) results.innerHTML = '';
+
+      // Reset before importing so previous measurements/state are cleared.
+      this.resetApplicationState();
+
+      // Synthesize a minimal jsonAvrData: MeasurementItem requires avr data
+      // (speed of sound) and detectedChannels (channel identity) to build.
+      const seen = new Set();
+      const detectedChannels = [];
+      for (const c of decoded.channelTable) {
+        if (seen.has(c.code) || c.channelIndex == null) continue;
+        seen.add(c.code);
+        detectedChannels.push({
+          commandId: c.code,
+          enChannelType: c.channelIndex,
+          channelReport: {},
+        });
+      }
+      const modelName = [decoded.source.vendor, decoded.source.model]
+        .filter(Boolean)
+        .join(' ') || 'Dirac Live';
+      this.jsonAvrData({
+        targetModelName: modelName,
+        detectedChannels,
+        avr: {
+          speedOfSound: 343,
+          splOffset: decoded.splOffset,
+          multiSubwoofers: detectedChannels.filter(c => c.commandId.startsWith('SW')).length > 1,
+        },
+      });
+
+      await importSession.importLiveprojectImpulses(this.rewSession, decoded, {
+        splOffset: decoded.splOffset,
+      });
+
+      this.handleSuccess(
+        `Dirac Live file loaded: ${decoded.numPositions} position(s), ` +
+          `${decoded.measurements.length} measurements`,
+      );
+    };
+
     // Handle file reading — DOM File access stays here, parsing is service-side
     this.readFile = async file => {
       if (this.isProcessing()) return;
@@ -538,10 +587,28 @@ class MeasurementViewModel {
         }
 
         this.validateFile(file);
+        this.loadedFileName(file.name);
+
+        if (importSession.isBinarySessionFile(file.name)) {
+          // Dirac `.liveproject`: binary, decoded/reconstructed off-thread.
+          const buffer = await file.arrayBuffer();
+          lm.info('Reconstructing Dirac Live impulse responses…');
+          const decoded = await decodeLiveprojectViaWorker(buffer, {
+            irLen: 1,
+            onProgress: p => {
+              if (p.phase === 'decode') {
+                lm.info(`Decoding recording ${p.index + 1}/${p.total}…`);
+              } else if (p.phase === 'reconstruct') {
+                lm.info(`Reconstructing recording ${p.index + 1}/${p.total}…`);
+              }
+            },
+          });
+          await this.onLiveprojectLoaded(decoded, file.name);
+          return;
+        }
 
         const fileContent = await file.text();
         const data = importSession.parseSessionFile(fileContent, file.name);
-        this.loadedFileName(file.name);
         // Handle successful load
         await this.onFileLoaded(data, file.name);
       } catch (error) {

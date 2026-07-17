@@ -172,14 +172,14 @@
               }, css: { 'dragover': isDragging }"
             >
               <span id="dropzoneAvrText" class="dropzone-text" data-i18n="drop_avr">
-                Drop .avr or .ady file here or click to select
+                Drop .avr, .ady, .mqx or .liveproject file here or click to select
               </span>
               <input
                 type="file"
                 class="dropzone-input"
                 id="fileInputAvr"
                 data-testid="avr-file-input"
-                accept=".avr,.ady,.mqx"
+                accept=".avr,.ady,.mqx,.liveproject"
                 data-bind="event: { change: handleFileSelect }"
               />
             </label>
