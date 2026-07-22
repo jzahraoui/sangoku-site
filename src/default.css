@@ -1022,6 +1022,58 @@ textarea {
   cursor: pointer;
 }
 
+/* RCH 2.0 — operational chain gating: while REW + bridge + AVR are not all
+   available, everything but the connection panel is inert. */
+.app-gated .control-group:not(.connection-group),
+#measurements-container.app-gated {
+  pointer-events: none;
+  opacity: 0.45;
+  filter: grayscale(0.4);
+}
+
+.chain-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-color, #888);
+  border-radius: 6px;
+}
+
+.chain-item {
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.chain-item.ok {
+  opacity: 1;
+  color: var(--connection-active-color);
+}
+
+.chain-hint {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.bridge-avr-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.discovered-avrs {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  margin: 6px 0;
+}
+
 /* Indicators */
 .polling-indicator {
   transition: color 0.3s ease;

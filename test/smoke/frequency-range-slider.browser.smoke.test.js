@@ -198,6 +198,14 @@ async function main() {
       () => globalThis.viewModel && globalThis.frequencyRangeSlider,
       { timeout: STARTUP_TIMEOUT_MS },
     );
+    // The operational-chain gating (REW + bridge + AVR) makes the slider's
+    // control-group inert on a bare boot; this smoke exercises the slider
+    // component itself, so unlock the chain flags directly.
+    await page.evaluate(() => {
+      globalThis.viewModel.isPolling(true);
+      globalThis.viewModel.bridgeConnected(true);
+      globalThis.viewModel.avrRegistered(true);
+    });
     await page.locator('.dual-range-input').first().scrollIntoViewIfNeeded();
 
     failIfRuntimeErrors(pageErrors, consoleErrors);

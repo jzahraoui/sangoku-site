@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   assertMockClean,
   clickAndDownload,
+  connectBridge,
   startHarness,
   stopHarness,
   waitForStatus,
@@ -23,10 +24,11 @@ const ADY_FIXTURE = path.join(FIXTURES_DIR, 'sample.ady');
  */
 test('basic workflow: connect, import .ady, average, align, export OCA', async t => {
   const harness = await startHarness();
-  const { page, rew } = harness;
+  const { page, rew, bridge } = harness;
 
   try {
     await t.test('connect to REW (mock)', async () => {
+      await connectBridge(page);
       await page.getByTestId('rew-connect').click();
       await page
         .getByTestId('rew-version')
@@ -143,7 +145,7 @@ test('basic workflow: connect, import .ady, average, align, export OCA', async t
     });
 
     assert.deepEqual(harness.pageErrors, []);
-    assertMockClean(rew);
+    assertMockClean(rew, bridge);
   } finally {
     await stopHarness(harness);
   }

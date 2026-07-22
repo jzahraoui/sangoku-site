@@ -125,7 +125,7 @@
         <section
           id="RewCommands"
           class="controls-section"
-          data-bind="css: { 'error-border': hasError() }"
+          data-bind="css: { 'error-border': hasError(), 'app-gated': !operationalChain() }"
         >
           <!-- Add this HTML for the popup -->
           <dialog
@@ -560,8 +560,43 @@
           </div>
           <!-- /ko -->
 
-          <div class="control-group">
+          <div class="control-group connection-group">
             <h2 data-i18n="main_commands">Main commands</h2>
+
+            <div
+              class="chain-banner"
+              data-testid="chain-banner"
+              data-bind="css: { complete: operationalChain() }"
+            >
+              <span
+                class="chain-item"
+                data-testid="chain-rew"
+                data-bind="css: { ok: isPolling() }"
+              >
+                <i class="fas fa-plug" aria-hidden="true"></i> REW
+              </span>
+              <span
+                class="chain-item"
+                data-testid="chain-bridge"
+                data-bind="css: { ok: bridgeConnected() }"
+              >
+                <i class="fas fa-network-wired" aria-hidden="true"></i> Bridge
+              </span>
+              <span
+                class="chain-item"
+                data-testid="chain-avr"
+                data-bind="css: { ok: avrRegistered() && avrReachable() !== false }"
+              >
+                <i class="fas fa-tv" aria-hidden="true"></i> AVR
+              </span>
+              <!-- ko ifnot: operationalChain -->
+              <span
+                class="chain-hint"
+                data-testid="chain-blockers"
+                data-bind="text: translations().chain_locked + ' ' + chainBlockers().join(' · ')"
+              ></span>
+              <!-- /ko -->
+            </div>
 
             <div class="main-commands-toolbar"></div>
 
@@ -589,6 +624,15 @@
                   placeholder="http://localhost:4735"
                   data-i18n="rew_api_placeholder"
                   data-bind="value: apiBaseUrl"
+                />
+                <label for="bridge-api-base-url" data-i18n="bridge_api_address">
+                  Bridge API Address:
+                </label>
+                <input
+                  type="text"
+                  id="bridge-api-base-url"
+                  placeholder="http://127.0.0.1:7735"
+                  data-bind="value: bridgeBaseUrl"
                 />
                 <div>
                   <label class="checkbox-container">
@@ -958,6 +1002,27 @@
               >
             </button>
             <button
+              class="button"
+              data-testid="bridge-connect"
+              data-bind="
+              click: buttonConnectBridge,
+              disable: isProcessing(),
+              css: { disabled: isProcessing, loading: isProcessing },
+              attr: { 'data-tooltip': translations().bridge_connect_tooltip }"
+            >
+              <i
+                class="fas fa-network-wired polling-indicator"
+                data-bind="css: { active: bridgeConnected }"
+                aria-hidden="true"
+              ></i>
+              <span data-bind="visible: !bridgeConnected()" data-i18n="bridge_connect"
+                >Connect Bridge</span
+              >
+              <span data-bind="visible: bridgeConnected()" data-i18n="bridge_disconnect"
+                >Disconnect Bridge</span
+              >
+            </button>
+            <button
               type="button"
               id="rewSettingsButton"
               class="button rch-settings-trigger"
@@ -1028,6 +1093,125 @@
                   ⟳
                 </button>
               </p>
+            </div>
+            <!-- /ko -->
+            <!-- ko if: bridgeConnected -->
+            <div data-testid="bridge-panel" class="bridge-panel">
+              <p>
+                <strong data-i18n="bridge_version">Bridge Version:</strong>
+                <span data-testid="bridge-version" data-bind="text: bridgeVersion()"></span>
+              </p>
+              <p>
+                <strong data-i18n="bridge_avr">AVR:</strong>
+                <span
+                  data-testid="bridge-avr-state"
+                  data-bind="text: avrRegistered() ? avrIp() + (avrModelName() ? ' — ' + avrModelName() : '') : translations().avr_not_registered"
+                ></span>
+                <span
+                  class="warning"
+                  data-bind="visible: avrBusyReason(), text: avrBusyReason() ? '(' + avrBusyReason() + ')' : ''"
+                ></span>
+                <span
+                  class="warning"
+                  data-testid="avr-unreachable"
+                  data-bind="visible: avrReachable() === false"
+                  data-i18n="avr_unreachable"
+                  >unreachable</span
+                >
+              </p>
+              <div class="bridge-avr-form">
+                <input
+                  type="text"
+                  data-testid="avr-ip-input"
+                  placeholder="192.168.1.x"
+                  data-bind="value: avrIpAddress, attr: { 'aria-label': translations().avr_ip_label }"
+                />
+                <input
+                  type="text"
+                  data-testid="avr-model-input"
+                  data-bind="value: avrModelName, attr: { placeholder: translations().avr_model_placeholder, 'aria-label': translations().avr_model_placeholder }"
+                />
+                <button
+                  class="button"
+                  data-testid="avr-register"
+                  data-bind="click: buttonRegisterAvr, attr: { 'data-tooltip': translations().avr_register_tooltip }"
+                >
+                  <span data-i18n="avr_register">Register AVR</span>
+                </button>
+                <button
+                  class="button"
+                  data-testid="avr-discover"
+                  data-bind="click: buttonDiscoverAvr, attr: { 'data-tooltip': translations().avr_discover_tooltip }"
+                >
+                  <span data-i18n="avr_discover">Discover</span>
+                </button>
+                <button
+                  class="button"
+                  data-testid="avr-probe"
+                  data-bind="click: buttonProbeAvr, visible: avrRegistered(), attr: { 'data-tooltip': translations().avr_probe_tooltip }"
+                >
+                  <span data-i18n="avr_probe">Check AVR</span>
+                </button>
+                <button
+                  class="button"
+                  data-testid="avr-unregister"
+                  data-bind="click: buttonUnregisterAvr, visible: avrRegistered()"
+                >
+                  <span data-i18n="avr_unregister">Unregister</span>
+                </button>
+              </div>
+              <!-- ko if: discoveredAvrs().length -->
+              <ul class="discovered-avrs" data-testid="discovered-avrs" data-bind="foreach: discoveredAvrs">
+                <li>
+                  <button
+                    class="button"
+                    data-bind="click: $root.useDiscoveredAvr, text: ($data.name || $data.model || 'AVR') + ' (' + $data.ip + ')'"
+                  ></button>
+                </li>
+              </ul>
+              <!-- /ko -->
+              <details class="bridge-actions">
+                <summary data-i18n="bridge_actions">AVR / Bridge actions</summary>
+                <div class="bridge-avr-form">
+                  <button
+                    class="button"
+                    data-testid="avr-zone-on"
+                    data-bind="click: buttonZoneMain.bind(null, 'on')"
+                  >
+                    <span data-i18n="zone_on">Main zone ON</span>
+                  </button>
+                  <button
+                    class="button"
+                    data-bind="click: buttonZoneMain.bind(null, 'off')"
+                  >
+                    <span data-i18n="zone_off">Main zone OFF</span>
+                  </button>
+                  <button
+                    class="button"
+                    data-bind="click: buttonSetPreset.bind(null, 1)"
+                  >
+                    <span data-i18n="preset_1">Preset 1</span>
+                  </button>
+                  <button
+                    class="button"
+                    data-bind="click: buttonSetPreset.bind(null, 2)"
+                  >
+                    <span data-i18n="preset_2">Preset 2</span>
+                  </button>
+                  <button
+                    class="button"
+                    data-bind="click: buttonResetBridge, attr: { 'data-tooltip': translations().bridge_reset_tooltip }"
+                  >
+                    <span data-i18n="bridge_reset">Reset bridge</span>
+                  </button>
+                  <button
+                    class="button danger"
+                    data-bind="click: buttonShutdownBridge, attr: { 'data-tooltip': translations().bridge_shutdown_tooltip }"
+                  >
+                    <span data-i18n="bridge_shutdown">Stop bridge</span>
+                  </button>
+                </div>
+              </details>
             </div>
             <!-- /ko -->
             <div style="display: flex; gap: 20px; flex-wrap: wrap">
@@ -1801,7 +1985,10 @@
             </div>
           </div>
         </div>
-        <div id="measurements-container">
+        <div
+          id="measurements-container"
+          data-bind="css: { 'app-gated': !operationalChain() }"
+        >
           <!-- Content -->
           <div class="table-wrapper">
             <table class="measurements-table">

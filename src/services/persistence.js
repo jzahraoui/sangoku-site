@@ -48,6 +48,7 @@ function createPersistenceService({
   crossovers,
   autoEq,
   applyPolling,
+  applyBridgeConnection = () => {},
 }) {
   function saveMeasurements() {
     // Save to persistent store
@@ -75,6 +76,9 @@ function createPersistenceService({
       apiBaseUrl: settings.get('apiBaseUrl'),
       ocaFileFormat: settings.get('ocaFileFormat'),
       avrIpAddress: settings.get('avrIpAddress'),
+      bridgeBaseUrl: settings.get('bridgeBaseUrl'),
+      avrModelName: settings.get('avrModelName'),
+      isBridgeConnected: settings.get('bridgeConnected'),
       inhibitGraphUpdates: settings.get('inhibitGraphUpdates'),
       selectedRoomCurve: settings.get('selectedRoomCurve'),
       measurementsByGroup: crossovers.toJSON(),
@@ -135,6 +139,7 @@ function createPersistenceService({
       settings.set('lowerFrequencyBoundSub', data.lowerFrequencyBoundSub);
     data.ocaFileFormat && settings.set('ocaFileFormat', data.ocaFileFormat);
     data.avrIpAddress && settings.set('avrIpAddress', data.avrIpAddress);
+    restoreBridgeSettings(data);
     data.inhibitGraphUpdates !== undefined &&
       settings.set('inhibitGraphUpdates', data.inhibitGraphUpdates);
     restoreRoomCurveChoice(data);
@@ -144,6 +149,12 @@ function createPersistenceService({
     }
     data.SubsFrequencyBands &&
       settings.set('SubsFrequencyBands', data.SubsFrequencyBands);
+  }
+
+  function restoreBridgeSettings(data) {
+    data.bridgeBaseUrl && settings.set('bridgeBaseUrl', data.bridgeBaseUrl);
+    data.avrModelName && settings.set('avrModelName', data.avrModelName);
+    applyBridgeConnection(Boolean(data.isBridgeConnected));
   }
 
   function restoreRoomCurveChoice(data) {

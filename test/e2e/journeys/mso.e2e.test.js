@@ -7,6 +7,7 @@ import JSZip from 'jszip';
 import {
   assertMockClean,
   clickAndDownload,
+  connectBridge,
   startHarness,
   stopHarness,
   waitForStatus,
@@ -22,10 +23,11 @@ const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..
  */
 test('MSO workflow: export sub package, import Equalizer APO config', async t => {
   const harness = await startHarness();
-  const { page, rew } = harness;
+  const { page, rew, bridge } = harness;
 
   try {
     await t.test('prepare session (connect, import .ady, averages)', async () => {
+      await connectBridge(page);
       await page.getByTestId('rew-connect').click();
       await page
         .getByTestId('rew-version')
@@ -102,7 +104,7 @@ test('MSO workflow: export sub package, import Equalizer APO config', async t =>
     });
 
     assert.deepEqual(harness.pageErrors, []);
-    assertMockClean(rew);
+    assertMockClean(rew, bridge);
   } finally {
     await stopHarness(harness);
   }

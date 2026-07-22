@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { startHarness, stopHarness, waitForStatus } from '../support/harness.js';
+import { connectBridge, startHarness, stopHarness, waitForStatus } from '../support/harness.js';
 
 const FIXTURES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'fixtures');
 const ADY_FIXTURE = path.join(FIXTURES_DIR, 'sample.ady');
@@ -12,6 +12,7 @@ test('align sub joint : filtres PK par sub + projection, cible target-match', as
   const { page, rew } = harness;
 
   try {
+    await connectBridge(page);
     await page.getByTestId('rew-connect').click();
     await page
       .getByTestId('rew-version')

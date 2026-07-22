@@ -19,6 +19,8 @@ import {
   positionChoices,
 } from './measurement/measurement-selection.js';
 import { createRewSession } from './services/rew-session.js';
+import BridgeApi from './bridge/bridge-api.js';
+import { createBridgeSession } from './services/bridge-session.js';
 import {
   MAX_FILE_SIZE_BYTES,
   VALID_FILE_EXTENSIONS,
@@ -226,6 +228,23 @@ class MeasurementViewModel {
     this.rewAlignmentTool = null;
     this.maxMeasurements = ko.observable(0);
 
+    // RCH Bridge connection state (RCH 2.0)
+    this.bridgeBaseUrl = ko.observable('http://127.0.0.1:7735');
+    this.bridgeBaseUrl.subscribe(newValue => {
+      if (this.bridgeSession?.api) {
+        this.bridgeSession.api.setBaseURL(newValue);
+      }
+    });
+    this.bridgeConnected = ko.observable(false);
+    this.bridgeVersion = ko.observable('');
+    this.avrRegistered = ko.observable(false);
+    this.avrIp = ko.observable('');
+    this.avrModelName = ko.observable('');
+    // null = pas encore sonde ; false = sonde en echec (bloque la chaine)
+    this.avrReachable = ko.observable(null);
+    this.avrBusyReason = ko.observable('');
+    this.discoveredAvrs = ko.observableArray([]);
+
     this.businessTools = new BusinessTools(this);
 
     // index.html binds the log panel (lm.autoScroll / logLevel / filteredLogs /
@@ -248,6 +267,30 @@ class MeasurementViewModel {
     this.hasStatus = ko.pureComputed(() => !this.error() && this.status() !== '');
     this.hasError = ko.pureComputed(() => this.error() !== '');
     this.hasItems = ko.pureComputed(() => this.measurements().length > 0);
+
+    // Chaine operationnelle RCH 2.0 : l'application est verrouillee tant que
+    // REW, le bridge et un AVR enregistre (non repute injoignable) ne sont
+    // pas tous disponibles — les informations AVR live sont indispensables.
+    this.operationalChain = ko.pureComputed(
+      () =>
+        this.isPolling() &&
+        this.bridgeConnected() &&
+        this.avrRegistered() &&
+        this.avrReachable() !== false,
+    );
+    this.chainBlockers = ko.pureComputed(() => {
+      const t = this.translations();
+      const blockers = [];
+      if (!this.isPolling()) blockers.push(t.chain_need_rew);
+      if (!this.bridgeConnected()) {
+        blockers.push(t.chain_need_bridge);
+      } else if (!this.avrRegistered()) {
+        blockers.push(t.chain_need_avr);
+      } else if (this.avrReachable() === false) {
+        blockers.push(t.chain_avr_unreachable);
+      }
+      return blockers;
+    });
 
     this.handleError = (message, error) => {
       if (!message) message = 'An unknown error occurred';
@@ -717,6 +760,100 @@ class MeasurementViewModel {
         await this.toggleBackgroundPolling();
       } catch (error) {
         this.handleError(`Pulling failed: ${error.message}`, error);
+      }
+    };
+
+    this.buttonConnectBridge = async () => {
+      if (this.isProcessing()) return;
+      this.error('');
+      await this.bridgeSession.toggleConnection();
+    };
+
+    this.buttonRegisterAvr = async () => {
+      try {
+        const ip = this.avrIpAddress().trim();
+        await this.bridgeSession.registerAvr(ip, this.avrModelName().trim() || null);
+        this.handleSuccess(`AVR registered at ${ip}`);
+      } catch (error) {
+        this.handleError(`Failed to register AVR: ${error.message}`, error);
+      }
+    };
+
+    this.buttonUnregisterAvr = async () => {
+      try {
+        await this.bridgeSession.unregisterAvr();
+        this.handleSuccess('AVR unregistered');
+      } catch (error) {
+        this.handleError(`Failed to unregister AVR: ${error.message}`, error);
+      }
+    };
+
+    this.buttonDiscoverAvr = async () => {
+      try {
+        const avrs = await this.bridgeSession.discover();
+        this.handleSuccess(`Discovery finished: ${avrs.length} AVR(s) found`);
+      } catch (error) {
+        this.handleError(`AVR discovery failed: ${error.message}`, error);
+      }
+    };
+
+    this.useDiscoveredAvr = avr => {
+      if (!avr?.ip) return;
+      this.avrIpAddress(avr.ip);
+      const modelName = avr.model ?? avr.name;
+      if (modelName) {
+        this.avrModelName(modelName);
+      }
+    };
+
+    this.buttonProbeAvr = async () => {
+      const refreshed = await this.bridgeSession.probeAvr();
+      if (refreshed) {
+        this.handleSuccess('AVR data refreshed');
+      } else if (this.avrBusyReason()) {
+        this.handleSuccess(`AVR busy (${this.avrBusyReason()})`);
+      } else {
+        this.handleError('AVR is not reachable: check its power and network, then retry');
+      }
+    };
+
+    this.buttonZoneMain = async stateValue => {
+      try {
+        const result = await this.bridgeSession.setZoneMain(stateValue);
+        this.handleSuccess(`Main zone ${result.state ?? stateValue}`);
+      } catch (error) {
+        this.handleError(`Main zone command failed: ${error.message}`, error);
+      }
+    };
+
+    this.buttonSetPreset = async preset => {
+      try {
+        const result = await this.bridgeSession.setPreset(preset);
+        if (result.supported === false) {
+          this.handleSuccess('This AVR has no speaker presets');
+        } else {
+          this.handleSuccess(`Speaker preset ${result.preset ?? preset} selected`);
+        }
+      } catch (error) {
+        this.handleError(`Preset command failed: ${error.message}`, error);
+      }
+    };
+
+    this.buttonResetBridge = async () => {
+      try {
+        await this.bridgeSession.resetBridge();
+        this.handleSuccess('Bridge state reset');
+      } catch (error) {
+        this.handleError(`Bridge reset failed: ${error.message}`, error);
+      }
+    };
+
+    this.buttonShutdownBridge = async () => {
+      try {
+        await this.bridgeSession.shutdownBridge();
+        this.handleSuccess('Bridge stopped');
+      } catch (error) {
+        this.handleError(`Bridge shutdown failed: ${error.message}`, error);
       }
     };
 
@@ -1683,6 +1820,31 @@ class MeasurementViewModel {
       log: lm,
     });
 
+    // Bridge session service (RCH 2.0) — owns the bridge connection
+    // lifecycle and the AVR registration state feeding the operational chain.
+    this.bridgeSession = createBridgeSession({
+      state: observableProxy(this, [
+        'bridgeConnected',
+        'bridgeVersion',
+        'avrRegistered',
+        'avrIp',
+        'avrModelName',
+        'avrReachable',
+        'avrBusyReason',
+        'bridgeBaseUrl',
+        'discoveredAvrs',
+        'isProcessing',
+      ]),
+      createApi: baseUrl => new BridgeApi(baseUrl),
+      onAvrDataAvailable: payload => {
+        lm.debug(
+          `Live AVR data received (EQType ${payload?.info?.EQType ?? 'unknown'})`,
+        );
+      },
+      onError: (message, error) => this.handleError(message, error),
+      log: lm,
+    });
+
     // Target curve / alignment services.
     this.targetCurveService = createTargetCurveService({
       session: this.rewSession,
@@ -1814,6 +1976,11 @@ class MeasurementViewModel {
       },
       applyPolling: shouldPoll =>
         shouldPoll ? this.startBackgroundPolling() : this.stopBackgroundPolling(),
+      applyBridgeConnection: shouldConnect => {
+        if (shouldConnect) {
+          this.bridgeSession.connect();
+        }
+      },
     });
   }
 
