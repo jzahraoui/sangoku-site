@@ -34,6 +34,12 @@ async function startHarness(options = {}) {
     const pageErrors = [];
     page.on('pageerror', error => pageErrors.push(error?.stack ?? String(error)));
 
+    // The change-log page fetches the GitHub commits API at boot: stub it so
+    // the journeys never depend on external network nor its rate limit (403).
+    await page.route('**/api.github.com/**', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
+
     const rew = new RewMock();
     await rew.attach(page);
 

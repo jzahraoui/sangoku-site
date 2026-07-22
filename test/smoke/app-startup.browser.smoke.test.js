@@ -104,6 +104,11 @@ async function main() {
 
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
+    // Stub the GitHub commits API fetched by the change-log page at boot:
+    // no external network dependency, no rate-limit 403 flakes.
+    await page.route('**/api.github.com/**', route =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }),
+    );
 
     const pageErrors = [];
     const consoleErrors = [];
