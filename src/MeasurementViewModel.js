@@ -283,6 +283,7 @@ class MeasurementViewModel {
     this.sublevelSub = ko.observable(null);
     this.sublevelSpl = ko.observable(null);
     this.measureSessionActive = ko.pureComputed(() => this.measureState() !== 'idle');
+    this.measureRunning = ko.pureComputed(() => this.measureState() === 'measuring');
     // Per-channel selection for positions >= 2 — presentation state over the
     // service-owned plan (position 1 always measures the full detected plan).
     this._measureChannelSelected = {};
