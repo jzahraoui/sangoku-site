@@ -51,6 +51,29 @@ test('gating: app locked until REW + bridge + AVR are all green', async t => {
       await page.locator('#RewCommands.app-gated').waitFor({ state: 'attached' });
     });
 
+    await t.test('main zone toggle mirrors the API state', async () => {
+      await page.locator('.bridge-actions summary').click();
+      // The probe read the zone state (on in the mock): the switch is checked.
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="avr-zone-toggle-input"]').checked ===
+          true,
+      );
+      await page.getByTestId('avr-zone-toggle').click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="avr-zone-toggle-input"]').checked ===
+          false,
+      );
+      // Back on — the mock re-probe path runs and the switch settles checked.
+      await page.getByTestId('avr-zone-toggle').click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="avr-zone-toggle-input"]').checked ===
+          true,
+      );
+    });
+
     await t.test('REW connect completes the chain and unlocks the app', async () => {
       await page.getByTestId('rew-connect').click();
       await page

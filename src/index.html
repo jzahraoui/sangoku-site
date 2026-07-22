@@ -1150,19 +1150,15 @@
               <details class="bridge-actions">
                 <summary data-i18n="bridge_actions">AVR / Bridge actions</summary>
                 <div class="bridge-avr-form">
-                  <button
-                    class="button"
-                    data-testid="avr-zone-on"
-                    data-bind="click: buttonZoneMain.bind(null, 'on')"
-                  >
-                    <span data-i18n="zone_on">Main zone ON</span>
-                  </button>
-                  <button
-                    class="button"
-                    data-bind="click: buttonZoneMain.bind(null, 'off')"
-                  >
-                    <span data-i18n="zone_off">Main zone OFF</span>
-                  </button>
+                  <label class="toggle-switch" data-testid="avr-zone-toggle">
+                    <input
+                      type="checkbox"
+                      data-testid="avr-zone-toggle-input"
+                      data-bind="checked: zoneMainToggle"
+                    />
+                    <span class="toggle-slider" aria-hidden="true"></span>
+                    <span data-i18n="zone_main">Main zone</span>
+                  </label>
                   <button
                     class="button"
                     data-bind="click: buttonResetBridge, attr: { 'data-tooltip': translations().bridge_reset_tooltip }"

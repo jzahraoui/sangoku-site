@@ -11,7 +11,7 @@
  *   bridgeConnected (rw), bridgeVersion (w), avrRegistered (rw), avrIp (w),
  *   avrModelName (rw), avrReachable (rw), avrBusyReason (rw),
  *   bridgeBaseUrl (r), discoveredAvrs (w), avrPreset (w),
- *   avrPresetSupported (w).
+ *   avrPresetSupported (w), zoneMainOn (w).
  * - `createApi(baseUrl)`: BridgeApi factory.
  * - hooks: `onConnected` (after the initial handshake), `onAvrDataAvailable`
  *   ({info, status, ip, model} — live synthesis input), `onError` (UI error
@@ -157,6 +157,7 @@ class BridgeSession {
       this.state.avrReachable = true;
       this.state.avrBusyReason = '';
       await this.refreshPreset();
+      await this.refreshZoneMain();
       await this.onAvrDataAvailable({
         info,
         status,
@@ -173,6 +174,9 @@ class BridgeSession {
       }
       this.state.avrReachable = false;
       this.log.warn(`AVR probe failed: ${error.message}`);
+      // A receiver in network standby still answers telnet: read the zone
+      // power state anyway so the user can switch it back on from the UI.
+      await this.refreshZoneMain();
       return false;
     }
   }
@@ -206,6 +210,7 @@ class BridgeSession {
     this.state.avrBusyReason = '';
     this.state.avrPreset = null;
     this.state.avrPresetSupported = null;
+    this.state.zoneMainOn = null;
   }
 
   async discover() {
@@ -242,9 +247,27 @@ class BridgeSession {
     return this.api.getZoneMain();
   }
 
+  // Reads the main zone power state into the state — probe-time only, never
+  // polled (telnet round-trip). Failures are tolerated: the last known state
+  // is kept.
+  async refreshZoneMain() {
+    try {
+      const result = await this.api.getZoneMain();
+      if (result?.state === 'on' || result?.state === 'off') {
+        this.state.zoneMainOn = result.state === 'on';
+      }
+    } catch (error) {
+      if (!isBusyError(error)) {
+        this.log.warn(`Main zone read failed: ${error.message}`);
+      }
+    }
+  }
+
   async setZoneMain(stateValue) {
     this.assertConnected();
     const result = await this.api.setZoneMain(stateValue);
+    const applied = result?.state ?? stateValue;
+    this.state.zoneMainOn = applied === 'on';
     if (stateValue === 'on') {
       // The amp just woke up: refresh the live AVR data.
       await this.probeAvr();

@@ -501,6 +501,49 @@ describe('BridgeSession', () => {
       session.disconnect();
     });
 
+    it('reads the zone power state during the probe', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        getZoneMain: vi.fn().mockResolvedValue({ state: 'off' }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+
+      expect(state.zoneMainOn).toBe(false);
+      session.disconnect();
+    });
+
+    it('updates the zone state from the switch answer', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        setZoneMain: vi.fn().mockResolvedValue({ success: true, state: 'off' }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+      expect(state.zoneMainOn).toBe(true);
+
+      await session.setZoneMain('off');
+
+      expect(state.zoneMainOn).toBe(false);
+      session.disconnect();
+    });
+
+    it('still reads the zone state when the probe fails on transport', async () => {
+      // A receiver in network standby: the data port is down but telnet
+      // answers — the UI must still know the zone is off to power it on.
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        getAvrInfo: vi.fn().mockRejectedValue(new Error('connect ECONNREFUSED')),
+        getZoneMain: vi.fn().mockResolvedValue({ state: 'off' }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+
+      expect(state.avrReachable).toBe(false);
+      expect(state.zoneMainOn).toBe(false);
+      session.disconnect();
+    });
+
     it('disconnects after asking the bridge to shut down', async () => {
       const { session, state, api } = makeSession();
       await session.connect();

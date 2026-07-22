@@ -271,6 +271,8 @@ class MeasurementViewModel {
     // and whether the model supports presets (null until first read).
     this.avrPreset = ko.observable(null);
     this.avrPresetSupported = ko.observable(null);
+    // Main zone power state (from GET /avr/zonemain): true | false | null.
+    this.zoneMainOn = ko.observable(null);
     this.discoveredAvrs = ko.observableArray([]);
 
     // Audyssey measurement assistant state (written by bridge-measurement.js).
@@ -923,9 +925,22 @@ class MeasurementViewModel {
         const result = await this.bridgeSession.setZoneMain(stateValue);
         this.handleSuccess(`Main zone ${result.state ?? stateValue}`);
       } catch (error) {
+        // The observable did not move: force a re-notification so the toggle
+        // switch snaps back to the real state instead of the clicked one.
+        this.zoneMainOn.valueHasMutated();
         this.handleError(`Main zone command failed: ${error.message}`, error);
       }
     };
+
+    // Main zone power as a controlled toggle: the checkbox mirrors the state
+    // read from the API and every user flip goes through the bridge — the
+    // observable only moves on API answers, so a failed call snaps back.
+    this.zoneMainToggle = ko.pureComputed({
+      read: () => this.zoneMainOn() === true,
+      write: value => {
+        this.buttonZoneMain(value ? 'on' : 'off');
+      },
+    });
 
     this.buttonSetPreset = async preset => {
       try {
@@ -2129,6 +2144,7 @@ class MeasurementViewModel {
         'avrBusyReason',
         'avrPreset',
         'avrPresetSupported',
+        'zoneMainOn',
         'bridgeBaseUrl',
         'discoveredAvrs',
         'isProcessing',
