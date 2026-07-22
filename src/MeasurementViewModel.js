@@ -58,6 +58,7 @@ import {
   selectMeasurementsForBulkApply,
 } from './services/filters.js';
 import { createPersistenceService } from './services/persistence.js';
+import { createSessionFile } from './services/session-file.js';
 import { createVirtualSubwooferService } from './services/virtual-subwoofer.js';
 
 import { ConfirmDialogManager, confirmMessages } from './js/confirmDialog.js';
@@ -2081,6 +2082,11 @@ class MeasurementViewModel {
         this.rewAlignmentTool = this.rewSession.rewAlignmentTool;
       },
       onError: (message, error) => this.handleError(message, error),
+      onRestoredMeasurementsDiscarded: labels => {
+        const message = `${labels.length} ${this.translations().session_missing_measurements}`;
+        lm.warn(message);
+        this.status(message);
+      },
       pollingInterval: this.pollingInterval,
       log: lm,
     });
@@ -2281,7 +2287,76 @@ class MeasurementViewModel {
           this.bridgeSession.connect();
         }
       },
+      // Reference/Flat filter banks are part of the session (file: always;
+      // localStorage: best-effort under the quota guard).
+      banks: {
+        toJSON: () => this.filterBanks.toJSON(),
+        restore: data => {
+          this.filterBanks.restore(data);
+          this.refreshBankSummary();
+        },
+      },
+      // Restore sync report: the next REW merge lists the restored
+      // measurements it cannot re-attach (uuid not found in REW).
+      onMeasurementsRestored: items =>
+        this.rewSession.trackRestoredMeasurements(items),
+      onAutoSaveBanksDropped: () =>
+        lm.warn(this.translations().session_quota_warning),
+      log: lm,
     });
+
+    // Session file export/import (LOT 6) — same payload as the auto-save.
+    this.sessionFileService = createSessionFile({
+      persistence: this.persistenceService,
+      appVersion: this.currentVersion,
+      log: lm,
+    });
+
+    this.buttonExportSession = () => {
+      if (this.isProcessing()) return;
+      try {
+        const { json, filename } = this.sessionFileService.exportSessionFile();
+        const blob = new Blob([json], { type: 'application/json' });
+        saveAs(blob, filename);
+        this.handleSuccess(this.translations().session_export_success);
+      } catch (error) {
+        this.handleError(
+          `${this.translations().session_export_failed}: ${error.message}`,
+          error,
+        );
+      }
+    };
+
+    this.importSessionText = jsonText => {
+      try {
+        this.sessionFileService.importSessionFile(jsonText);
+        this.handleSuccess(this.translations().session_import_success);
+      } catch (error) {
+        const translated = error.code ? this.translations()[error.code] : undefined;
+        this.handleError(
+          translated ?? `${this.translations().session_import_failed}: ${error.message}`,
+          error,
+        );
+      }
+    };
+
+    this.handleSessionFileSelect = async (_, event) => {
+      const file = event.target.files?.[0];
+      // Reset the input so re-selecting the same file fires `change` again.
+      event.target.value = '';
+      if (!file || this.isProcessing()) return;
+      let jsonText;
+      try {
+        jsonText = await file.text();
+      } catch (error) {
+        this.handleError(
+          `${this.translations().session_import_failed}: ${error.message}`,
+          error,
+        );
+        return;
+      }
+      this.importSessionText(jsonText);
+    };
   }
 
   getIrWindowConfig(presetName = this.selectedIrWindows()) {

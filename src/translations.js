@@ -75,6 +75,28 @@ const translations = {
     transfer_failed_channels: 'Failed channels:',
     archive_download: 'Download .rch.json',
     archive_download_tooltip: 'Save the calibration archive as a file (debug / backup)',
+    session_title: 'Session',
+    session_intro:
+      'Save your work to resume it later: the session file keeps the settings, the measurement state and the filter banks. The measurements themselves live in REW — save them there as a .mdat file and reload it before importing the session.',
+    session_export: 'Export session',
+    session_export_tooltip:
+      'Download the whole session (settings, measurement state, filter banks) as a .json file',
+    session_import: 'Import session',
+    session_import_tooltip:
+      'Restore a session from a .json file exported by RCH (reload the matching .mdat in REW first)',
+    session_export_success: 'Session file downloaded',
+    session_export_failed: 'Session export failed',
+    session_import_success: 'Session imported successfully',
+    session_import_failed: 'Session import failed',
+    session_import_invalid_json: 'Invalid session file: this is not a valid JSON file',
+    session_import_invalid_format:
+      'Invalid session file: this file is not an RCH session export',
+    session_import_unsupported_schema:
+      'This session file was created by a newer version of RCH and cannot be imported: update RCH first',
+    session_missing_measurements:
+      'measurement(s) from the session were not found in REW — load the matching .mdat file in REW',
+    session_quota_warning:
+      'Filter banks were not included in the auto-save (browser storage quota): export the session to a file to keep them',
     connect: 'Connect',
     disconnect: 'Disconnect',
     bridge_connect: 'Connect Bridge',
@@ -387,6 +409,29 @@ const translations = {
     transfer_failed_channels: 'Canaux en échec :',
     archive_download: 'Télécharger le .rch.json',
     archive_download_tooltip: 'Enregistrer l’archive de calibration en fichier (debug / sauvegarde)',
+    session_title: 'Session',
+    session_intro:
+      'Sauvegardez votre travail pour le reprendre plus tard : le fichier de session conserve les réglages, l’état des mesures et les banques de filtres. Les mesures elles-mêmes vivent dans REW — sauvegardez-les en fichier .mdat et rechargez-le avant d’importer la session.',
+    session_export: 'Exporter la session',
+    session_export_tooltip:
+      'Télécharger la session complète (réglages, état des mesures, banques de filtres) en fichier .json',
+    session_import: 'Importer une session',
+    session_import_tooltip:
+      'Restaurer une session depuis un fichier .json exporté par RCH (rechargez d’abord le .mdat correspondant dans REW)',
+    session_export_success: 'Fichier de session téléchargé',
+    session_export_failed: 'Échec de l’export de session',
+    session_import_success: 'Session importée avec succès',
+    session_import_failed: 'Échec de l’import de session',
+    session_import_invalid_json:
+      'Fichier de session invalide : ce n’est pas un fichier JSON valide',
+    session_import_invalid_format:
+      'Fichier de session invalide : ce fichier n’est pas un export de session RCH',
+    session_import_unsupported_schema:
+      'Ce fichier de session provient d’une version plus récente de RCH et ne peut pas être importé : mettez d’abord RCH à jour',
+    session_missing_measurements:
+      'mesure(s) de la session non retrouvée(s) dans REW — rechargez le fichier .mdat correspondant dans REW',
+    session_quota_warning:
+      'Les banques de filtres n’ont pas été incluses dans la sauvegarde automatique (quota de stockage du navigateur) : exportez la session en fichier pour les conserver',
     connect: 'Connecter',
     disconnect: 'Déconnecter',
     bridge_connect: 'Connecter le bridge',

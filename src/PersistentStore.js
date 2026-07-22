@@ -6,23 +6,30 @@ class PersistentStore {
       throw new Error('Storage key must be a non-empty string');
     }
     this.storageKey = storageKey;
+    // Last failure of save(), null after a success — lets callers implement
+    // fallbacks (e.g. retry without the heavy filter banks on quota errors).
+    this.lastSaveError = null;
   }
 
-  // Save data
-  save(data) {
+  // Save data. `quiet` demotes the failure logs to debug for callers that
+  // handle the failure themselves (their retry logs the final outcome).
+  save(data, { quiet = false } = {}) {
     try {
       // Remove circular references before stringifying
       const sanitizedData = this.removeCircularReferences(data);
 
       // Store the sanitized data
       localStorage.setItem(this.storageKey, sanitizedData);
+      this.lastSaveError = null;
       lm.debug('Saved data');
       return true;
     } catch (error) {
+      this.lastSaveError = error;
+      const report = message => (quiet ? lm.debug(message) : lm.error(message));
       if (error.name === 'QuotaExceededError') {
-        lm.error('Storage quota exceeded - unable to save data');
+        report('Storage quota exceeded - unable to save data');
       } else {
-        lm.error(`Error saving data: ${error.message}`);
+        report(`Error saving data: ${error.message}`);
       }
       return false;
     }

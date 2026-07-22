@@ -2161,6 +2161,47 @@
             </div>
             <!-- /ko -->
           </div>
+
+          <div class="control-group" data-testid="session-panel">
+            <h2 class="section-title" data-i18n="session_title">Session</h2>
+            <p class="info-text" data-i18n="session_intro">
+              Save your work to resume it later: the session file keeps the
+              settings, the measurement state and the filter banks. The
+              measurements themselves live in REW — save them there as a .mdat
+              file and reload it before importing the session.
+            </p>
+            <div class="button-container">
+              <button
+                class="button"
+                data-testid="session-export"
+                data-bind="
+                click: buttonExportSession,
+                disable: isProcessing(),
+                css: { disabled: isProcessing },
+                attr: { 'data-tooltip': translations().session_export_tooltip }"
+              >
+                <i class="fas fa-file-export" aria-hidden="true"></i>
+                <span data-i18n="session_export">Export session</span>
+              </button>
+              <label
+                class="button"
+                data-testid="session-import"
+                data-bind="
+                css: { disabled: isProcessing },
+                attr: { 'data-tooltip': translations().session_import_tooltip }"
+              >
+                <i class="fas fa-file-import" aria-hidden="true"></i>
+                <span data-i18n="session_import">Import session</span>
+                <input
+                  type="file"
+                  class="dropzone-input"
+                  data-testid="session-import-input"
+                  accept=".json,application/json"
+                  data-bind="event: { change: handleSessionFileSelect }, disable: isProcessing()"
+                />
+              </label>
+            </div>
+          </div>
         </section>
         <!-- Result Status -->
         <div id="status" data-bind="visible: hasStatus()" class="status-message success">

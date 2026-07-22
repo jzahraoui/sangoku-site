@@ -17,7 +17,9 @@
  * - `createApi(baseUrl)`: REW API factory (RewApi).
  * - hooks: `onConnected` (after the initial load), `onProcessingEnded`
  *   (persistence), `onApiServicesChanged` (mirrors on the viewmodel),
- *   `onError(message, error)` (UI error channel).
+ *   `onError(message, error)` (UI error channel),
+ *   `onRestoredMeasurementsDiscarded(labels)` (restore sync report — see
+ *   `trackRestoredMeasurements`).
  *
  * The `apiService` / `rewEq` / `rewMeasurements` / `rewImport` /
  * `rewAlignmentTool` fields are plain writable properties so callers (and
@@ -41,6 +43,7 @@ class RewSession {
     onProcessingEnded = () => {},
     onApiServicesChanged = () => {},
     onError = () => {},
+    onRestoredMeasurementsDiscarded = () => {},
     pollingInterval = 1000,
     // renameMeasurements context. Defaults read the item getters / call
     // setTitle (Knockout path — unchanged); record-based callers inject derivation-
@@ -63,6 +66,7 @@ class RewSession {
     this.onProcessingEnded = onProcessingEnded;
     this.onApiServicesChanged = onApiServicesChanged;
     this.onError = onError;
+    this.onRestoredMeasurementsDiscarded = onRestoredMeasurementsDiscarded;
     this.pollingInterval = pollingInterval;
     this.renameDescriptorFor = renameDescriptorFor;
     this.titleWriter = titleWriter;
@@ -75,6 +79,9 @@ class RewSession {
     this.rewAlignmentTool = null;
     this.pollerId = null;
     this.processingTimeout = null;
+    // Labels of session-restored measurements awaiting their first REW sync
+    // (uuid → display label). See trackRestoredMeasurements.
+    this.restoredMeasurementLabels = new Map();
   }
 
   // --- Connection lifecycle --------------------------------------------------
@@ -193,6 +200,50 @@ class RewSession {
 
   // --- Measurement list synchronisation ------------------------------------------
 
+  /**
+   * Registers session-restored measurements (localStorage or session file)
+   * so their first REW sync can REPORT the ones not found in REW instead of
+   * discarding them silently — the user probably has not (re)loaded the
+   * matching `.mdat`. Attachment itself is unchanged (by uuid, in
+   * mergeMeasurements); this only adds the report.
+   */
+  trackRestoredMeasurements(items) {
+    this.restoredMeasurementLabels = new Map(
+      items
+        .filter(item => item?.uuid)
+        .map(item => {
+          const position = unwrap(item.position);
+          const label = position
+            ? `${labelOf(item)} (position ${position})`
+            : labelOf(item);
+          return [item.uuid, label];
+        }),
+    );
+  }
+
+  /**
+   * Non-blocking restore report: the first sync after a restore resolves
+   * every tracked measurement — attached (uuid found in REW) or discarded
+   * (reported here).
+   */
+  reportDiscardedRestoredMeasurements(deletedMeasurements) {
+    if (this.restoredMeasurementLabels.size === 0) return;
+    const labels = deletedMeasurements
+      .map(item => this.restoredMeasurementLabels.get(item.uuid))
+      .filter(Boolean);
+    this.restoredMeasurementLabels.clear();
+    if (labels.length === 0) return;
+    this.log.warn(
+      `${labels.length} restored measurement(s) not found in REW ` +
+        `(load the matching .mdat file in REW): ${labels.join(', ')}`,
+    );
+    try {
+      this.onRestoredMeasurementsDiscarded(labels);
+    } catch (error) {
+      this.log.warn(`Restore report handler failed: ${error.message}`);
+    }
+  }
+
   async loadData() {
     if (!this.state.isPolling) {
       this.log.warn('Please connect to REW to load measurements');
@@ -258,6 +309,8 @@ class RewSession {
     for (const item of deletedMeasurements) {
       item.dispose?.();
     }
+
+    this.reportDiscardedRestoredMeasurements(deletedMeasurements);
 
     if (deletedMeasurements.length) {
       this.log.debug(
