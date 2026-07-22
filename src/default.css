@@ -1083,6 +1083,14 @@ textarea {
   cursor: pointer;
 }
 
+/* `.control-group label` (block, bottom margin) is more specific than
+   `.toggle-switch` alone and would break the slider layout — restore the
+   inline-flex row inside control groups. */
+.control-group label.toggle-switch {
+  display: inline-flex;
+  margin-bottom: 0;
+}
+
 .toggle-switch input {
   position: absolute;
   opacity: 0;
@@ -1091,6 +1099,9 @@ textarea {
 }
 
 .toggle-slider {
+  /* inline-block: keeps its dimensions even when the parent label is not a
+     flex container (a span would otherwise ignore width/height). */
+  display: inline-block;
   position: relative;
   width: 40px;
   height: 22px;
