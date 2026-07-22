@@ -10,7 +10,8 @@
  * - `state`: accessor object over the app state (getters/setters) —
  *   bridgeConnected (rw), bridgeVersion (w), avrRegistered (rw), avrIp (w),
  *   avrModelName (rw), avrReachable (rw), avrBusyReason (rw),
- *   bridgeBaseUrl (r), discoveredAvrs (w).
+ *   bridgeBaseUrl (r), discoveredAvrs (w), avrPreset (w),
+ *   avrPresetSupported (w).
  * - `createApi(baseUrl)`: BridgeApi factory.
  * - hooks: `onConnected` (after the initial handshake), `onAvrDataAvailable`
  *   ({info, status, ip, model} — live synthesis input), `onError` (UI error
@@ -155,6 +156,7 @@ class BridgeSession {
       const { status } = await this.api.getAvrStatus();
       this.state.avrReachable = true;
       this.state.avrBusyReason = '';
+      await this.refreshPreset();
       await this.onAvrDataAvailable({
         info,
         status,
@@ -202,6 +204,8 @@ class BridgeSession {
     this.state.avrModelName = '';
     this.state.avrReachable = null;
     this.state.avrBusyReason = '';
+    this.state.avrPreset = null;
+    this.state.avrPresetSupported = null;
   }
 
   async discover() {
@@ -253,9 +257,35 @@ class BridgeSession {
     return this.api.getPreset();
   }
 
+  // Reads the active speaker preset into the state — called at probe time,
+  // never polled (each call is a telnet round-trip to the AVR). Failures are
+  // tolerated: the last known preset state is kept.
+  async refreshPreset() {
+    try {
+      const result = await this.api.getPreset();
+      this.applyPresetResult(result, null);
+    } catch (error) {
+      if (!isBusyError(error)) {
+        this.log.warn(`Speaker preset read failed: ${error.message}`);
+      }
+    }
+  }
+
   async setPreset(preset) {
     this.assertConnected();
-    return this.api.setPreset(preset);
+    const result = await this.api.setPreset(preset);
+    this.applyPresetResult(result, preset);
+    return result;
+  }
+
+  applyPresetResult(result, requestedPreset) {
+    if (result?.supported === false) {
+      this.state.avrPresetSupported = false;
+      this.state.avrPreset = null;
+      return;
+    }
+    this.state.avrPresetSupported = true;
+    this.state.avrPreset = result?.preset ?? requestedPreset ?? null;
   }
 
   async resetBridge() {

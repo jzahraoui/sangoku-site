@@ -394,6 +394,83 @@ describe('BridgeSession', () => {
     });
   });
 
+  describe('speaker preset', () => {
+    it('reads the active preset during the probe', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        getPreset: vi.fn().mockResolvedValue({ preset: 2, supported: true }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+
+      expect(state.avrPreset).toBe(2);
+      expect(state.avrPresetSupported).toBe(true);
+      session.disconnect();
+    });
+
+    it('updates the state when switching preset', async () => {
+      const api = makeApi({
+        setPreset: vi.fn().mockResolvedValue({ supported: true, preset: 2, success: true }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+
+      await session.setPreset(2);
+
+      expect(api.setPreset).toHaveBeenCalledWith(2);
+      expect(state.avrPreset).toBe(2);
+      expect(state.avrPresetSupported).toBe(true);
+      session.disconnect();
+    });
+
+    it('marks presets unsupported from the API answer', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        getPreset: vi.fn().mockResolvedValue({ supported: false }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+
+      expect(state.avrPresetSupported).toBe(false);
+      expect(state.avrPreset).toBeNull();
+      session.disconnect();
+    });
+
+    it('keeps the last known preset when the read fails', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        getPreset: vi
+          .fn()
+          .mockResolvedValueOnce({ preset: 1, supported: true })
+          .mockRejectedValue(new Error('telnet timeout')),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+      expect(state.avrPreset).toBe(1);
+
+      await expect(session.probeAvr()).resolves.toBe(true);
+
+      expect(state.avrPreset).toBe(1);
+      expect(state.avrPresetSupported).toBe(true);
+      session.disconnect();
+    });
+
+    it('clears the preset state on unregister', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+      expect(state.avrPreset).toBe(1);
+
+      await session.unregisterAvr();
+
+      expect(state.avrPreset).toBeNull();
+      expect(state.avrPresetSupported).toBeNull();
+      session.disconnect();
+    });
+  });
+
   describe('annex actions', () => {
     it('re-probes the AVR after powering the zone on', async () => {
       const api = makeApi({

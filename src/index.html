@@ -1165,18 +1165,6 @@
                   </button>
                   <button
                     class="button"
-                    data-bind="click: buttonSetPreset.bind(null, 1)"
-                  >
-                    <span data-i18n="preset_1">Preset 1</span>
-                  </button>
-                  <button
-                    class="button"
-                    data-bind="click: buttonSetPreset.bind(null, 2)"
-                  >
-                    <span data-i18n="preset_2">Preset 2</span>
-                  </button>
-                  <button
-                    class="button"
                     data-bind="click: buttonResetBridge, attr: { 'data-tooltip': translations().bridge_reset_tooltip }"
                   >
                     <span data-i18n="bridge_reset">Reset bridge</span>
@@ -1924,6 +1912,42 @@
             <h2 class="section-title" data-i18n="finalization">Finalization</h2>
 
             <div class="settings-grid">
+              <label class="setting-label" data-i18n="preset_label">Speaker Preset</label>
+              <div class="control-row" data-testid="avr-preset-row">
+                <span
+                  data-testid="avr-preset-state"
+                  data-bind="text: avrPresetSupported() === false
+                    ? translations().preset_not_supported
+                    : (avrPreset()
+                      ? translations().preset_current + ' ' + avrPreset()
+                      : translations().preset_unknown)"
+                ></span>
+                <!-- ko if: avrPresetSupported() !== false -->
+                <button
+                  class="button"
+                  data-testid="avr-preset-1"
+                  data-bind="
+                    click: buttonSetPreset.bind(null, 1),
+                    disable: isProcessing() || avrPreset() === 1,
+                    css: { disabled: isProcessing() || avrPreset() === 1 },
+                    attr: { 'data-tooltip': translations().preset_tooltip }"
+                >
+                  <span data-i18n="preset_1">Preset 1</span>
+                </button>
+                <button
+                  class="button"
+                  data-testid="avr-preset-2"
+                  data-bind="
+                    click: buttonSetPreset.bind(null, 2),
+                    disable: isProcessing() || avrPreset() === 2,
+                    css: { disabled: isProcessing() || avrPreset() === 2 },
+                    attr: { 'data-tooltip': translations().preset_tooltip }"
+                >
+                  <span data-i18n="preset_2">Preset 2</span>
+                </button>
+                <!-- /ko -->
+              </div>
+
               <label
                 for="lfeCrossoverSelect"
                 data-i18n="lfe_crossover"

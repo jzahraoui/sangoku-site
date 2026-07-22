@@ -267,6 +267,10 @@ class MeasurementViewModel {
     // null = pas encore sonde ; false = sonde en echec (bloque la chaine)
     this.avrReachable = ko.observable(null);
     this.avrBusyReason = ko.observable('');
+    // Active speaker preset of the AVR (from GET /avr/preset): 1 | 2 | null,
+    // and whether the model supports presets (null until first read).
+    this.avrPreset = ko.observable(null);
+    this.avrPresetSupported = ko.observable(null);
     this.discoveredAvrs = ko.observableArray([]);
 
     // Audyssey measurement assistant state (written by bridge-measurement.js).
@@ -2123,6 +2127,8 @@ class MeasurementViewModel {
         'avrModelName',
         'avrReachable',
         'avrBusyReason',
+        'avrPreset',
+        'avrPresetSupported',
         'bridgeBaseUrl',
         'discoveredAvrs',
         'isProcessing',

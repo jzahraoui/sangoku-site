@@ -41,6 +41,23 @@ test('transfer: bank gating, validate dry-run, deferred cancellation', async t =
       await waitForStatus(page, 'Average calculations completed successfully', 180000);
     });
 
+    await t.test('speaker preset is shown and switchable', async () => {
+      // The probe at connect time read the active preset (1 in the mock):
+      // the Finalization row shows it and the active button is disabled.
+      await page
+        .getByTestId('avr-preset-state')
+        .filter({ hasText: 'active preset: 1' })
+        .waitFor({ state: 'attached' });
+      assert.equal(await page.getByTestId('avr-preset-1').isDisabled(), true);
+
+      await page.getByTestId('avr-preset-2').click();
+      await page
+        .getByTestId('avr-preset-state')
+        .filter({ hasText: 'active preset: 2' })
+        .waitFor({ state: 'attached' });
+      assert.equal(await page.getByTestId('avr-preset-2').isDisabled(), true);
+    });
+
     await t.test('transfer is gated until both banks are saved', async () => {
       assert.equal(
         await page.getByTestId('transfer-start').isDisabled(),
