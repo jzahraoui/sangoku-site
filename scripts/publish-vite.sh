@@ -39,7 +39,10 @@ export AWS_PROFILE AWS_DEFAULT_REGION
 # Function to sync files to S3
 sync_to_s3() {
   echo "Syncing files to S3 bucket..."
-  local cmd="aws s3 sync --delete --no-progress --size-only --cache-control \"max-age=3600\" \"$HOME_DIR/\" \"$S3_BUCKET\""
+  # --exclude "binaries/*": the RCH Bridge binaries live only in the bucket
+  # (not in dist/) — without this exclude, --delete would wipe them on every
+  # deployment.
+  local cmd="aws s3 sync --delete --exclude \"binaries/*\" --no-progress --size-only --cache-control \"max-age=3600\" \"$HOME_DIR/\" \"$S3_BUCKET\""
 
   if [[ "$DRYRUN" = 1 ]]; then
     cmd="$cmd --dryrun"

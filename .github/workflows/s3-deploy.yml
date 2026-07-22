@@ -40,6 +40,9 @@ jobs:
       - name: Copy files to S3
         env:
           S3_BUCKET: 's3-apo-to-camilla-cloudfront-ec1'
+        # --exclude "binaries/*" : les binaires RCH Bridge vivent uniquement
+        # dans le bucket (absents de dist/) — sans cet exclude, --delete les
+        # effacerait à chaque déploiement.
         run: |
           aws s3 sync \
             --no-progress \
@@ -47,6 +50,7 @@ jobs:
             --exclude "ressources/*" \
             --exclude "img/*" \
             --exclude "css/*" \
+            --exclude "binaries/*" \
             --cache-control "max-age=3600" \
             --delete \
             dist/ s3://${S3_BUCKET}/

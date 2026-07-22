@@ -2,8 +2,8 @@
 
 <nav class="documentation-sidebar">
   <ul class="documentation-nav">
+    <li><a href="#rch-bridge">RCH Bridge</a></li>
     <li><a href="#rew">Room EQ Wizard</a></li>
-    <li><a href="#odd-programs">ODD Programs</a></li>
     <li><a href="#vlc">VideoLAN</a></li>
     <li><a href="#audio-files">Audio Files</a></li>
     <li><a href="#target-curves">Target Curves</a></li>
@@ -11,19 +11,99 @@
 </nav>
 
 <main class="documentation-content">
-  <section id="A1-evo-acoustica">
-    <h2>A1 Evo Acoustica</h2>
-    <p>To use A1 Evo Acoustica to upload the .oca file to your AVR</p>
-    <a href="https://www.youtube.com/watch?v=wQHF0-MOMMY" target="_blank" rel="nofollow"
-      >Youtube Video Tutorial
-    </a>
-    <p>google drive link to download A1 Evo Acoustica software and user manual:</p>
-    <a
-      href="https://drive.google.com/drive/folders/1O-KcP9jfBYZePW9lGPE2sbqrx_x96Vrr"
-      target="_blank"
-      rel="nofollow"
-      >Files Download
-    </a>
+  <section id="rch-bridge">
+    <h2>RCH Bridge</h2>
+    <p>
+      The RCH Bridge is a small local program that connects RCH to your Denon or
+      Marantz AVR: receiver discovery, Audyssey measurement and calibration
+      transfer. It replaces the .avr/OCA files and the odd.wtf / A1 Evo
+      Acoustica programs. Download the binary for your system, launch it, then
+      connect from RCH.
+    </p>
+
+    <div class="resources-grid">
+      <div class="resource-card">
+        <div class="resource-icon"><i class="fab fa-windows"></i></div>
+        <div class="resource-details">
+          <h3>Windows</h3>
+          <p>RCH Bridge for Windows x64</p>
+          <a href="binaries/rch-bridge-win-x64.exe" class="download-button" download>
+            <i class="fas fa-download"></i> Download
+          </a>
+        </div>
+      </div>
+
+      <div class="resource-card">
+        <div class="resource-icon"><i class="fab fa-apple"></i></div>
+        <div class="resource-details">
+          <h3>macOS Apple Silicon</h3>
+          <p>RCH Bridge for Mac with Apple Silicon</p>
+          <a href="binaries/rch-bridge-macos-arm64" class="download-button" download>
+            <i class="fas fa-download"></i> Download
+          </a>
+        </div>
+      </div>
+
+      <div class="resource-card">
+        <div class="resource-icon"><i class="fab fa-apple"></i></div>
+        <div class="resource-details">
+          <h3>macOS Intel</h3>
+          <p>RCH Bridge for Intel-based Mac</p>
+          <a href="binaries/rch-bridge-macos-x64" class="download-button" download>
+            <i class="fas fa-download"></i> Download
+          </a>
+        </div>
+      </div>
+
+      <div class="resource-card">
+        <div class="resource-icon"><i class="fab fa-linux"></i></div>
+        <div class="resource-details">
+          <h3>Linux</h3>
+          <p>RCH Bridge for Linux x64</p>
+          <a href="binaries/rch-bridge-linux-x64" class="download-button" download>
+            <i class="fas fa-download"></i> Download
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <h3>First launch</h3>
+    <ul>
+      <li>
+        <strong>Windows:</strong> SmartScreen may block the program — click
+        "More info" then "Run anyway".
+      </li>
+      <li>
+        <strong>macOS:</strong> the binary is not signed. Remove the quarantine
+        flag with
+        <code>xattr -d com.apple.quarantine ./rch-bridge-macos-arm64</code> (or
+        <code>./rch-bridge-macos-x64</code>), make it executable with
+        <code>chmod +x</code>, then run it — or right-click the file and choose
+        "Open".
+      </li>
+      <li>
+        <strong>Linux:</strong> make the binary executable with
+        <code>chmod +x ./rch-bridge-linux-x64</code>, then run it in a terminal.
+      </li>
+    </ul>
+    <p>
+      The bridge listens on <code>http://127.0.0.1:7735</code>. Just leave it
+      running while you use RCH.
+    </p>
+
+    <h3>Browser support</h3>
+    <ul>
+      <li>
+        Recent Chrome and Edge (about version 141 and later) ask for a "local
+        network" permission the first time RCH connects to the bridge — accept
+        it.
+      </li>
+      <li>Firefox works without any extra step.</li>
+      <li>
+        Safari is not supported with the https site (WebKit limitation) — use
+        Chrome, Edge or Firefox instead.
+      </li>
+    </ul>
   </section>
   <section id="rew">
     <h2>Room EQ Wizard</h2>
@@ -36,57 +116,6 @@
       rel="nofollow"
       >REW Beta
     </a>
-  </section>
-
-  <section id="odd-programs">
-    <h2>ODD Programs</h2>
-    <p>Download the ODD program for your operating system:</p>
-
-    <div class="resources-grid">
-      <div class="resource-card">
-        <div class="resource-icon"><i class="fab fa-windows"></i></div>
-        <div class="resource-details">
-          <h3>Windows</h3>
-          <p>ODD program for Windows systems</p>
-          <a href="ressources/odd.wtf" class="download-button" download>
-            <i class="fas fa-download"></i> Download
-          </a>
-        </div>
-      </div>
-
-      <div class="resource-card">
-        <div class="resource-icon"><i class="fab fa-apple"></i></div>
-        <div class="resource-details">
-          <h3>macOS</h3>
-          <p>ODD program for Mac systems</p>
-          <a href="ressources/odd.mac" class="download-button" download>
-            <i class="fas fa-download"></i> Download
-          </a>
-        </div>
-      </div>
-
-      <div class="resource-card">
-        <div class="resource-icon"><i class="fab fa-linux"></i></div>
-        <div class="resource-details">
-          <h3>Linux</h3>
-          <p>ODD program for Linux systems</p>
-          <a href="ressources/odd.linux" class="download-button" download>
-            <i class="fas fa-download"></i> Download
-          </a>
-        </div>
-      </div>
-
-      <div class="resource-card">
-        <div class="resource-icon"><i class="fas fa-terminal"></i></div>
-        <div class="resource-details">
-          <h3>Menu Helper</h3>
-          <p>Batch script for Windows users</p>
-          <a href="ressources/odd_menu.bat" class="download-button" download>
-            <i class="fas fa-download"></i> Download
-          </a>
-        </div>
-      </div>
-    </div>
   </section>
 
   <section id="vlc">
