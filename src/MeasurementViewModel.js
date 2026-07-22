@@ -881,9 +881,12 @@ class MeasurementViewModel {
       try {
         const avrs = await this.bridgeSession.discover();
         if (avrs.length === 1) {
-          // A single AVR on the network: fill the IP field directly (the
-          // list is only shown when a choice is needed).
+          // A single AVR on the network: fill the IP field and register it
+          // right away (the list is only shown when a choice is needed; the
+          // register handler reports its own success/failure).
           this.useDiscoveredAvr(avrs[0]);
+          await this.buttonRegisterAvr();
+          return;
         }
         this.handleSuccess(`Discovery finished: ${avrs.length} AVR(s) found`);
       } catch (error) {

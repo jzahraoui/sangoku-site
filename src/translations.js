@@ -116,7 +116,7 @@ const translations = {
     avr_unregister: 'Unregister',
     avr_discover: 'Discover',
     avr_discover_tooltip:
-      'Scan the local network for Denon/Marantz AVRs and fill the IP field',
+      'Scan the local network for Denon/Marantz AVRs — a single match is registered automatically',
     avr_probe: 'Check AVR',
     avr_probe_tooltip: 'Read the AVR configuration through the bridge',
     bridge_actions: 'AVR / Bridge actions',
@@ -453,7 +453,7 @@ const translations = {
     avr_unregister: 'Désenregistrer',
     avr_discover: 'Découvrir',
     avr_discover_tooltip:
-      'Rechercher les amplis Denon/Marantz sur le réseau local et remplir le champ IP',
+      'Rechercher les amplis Denon/Marantz sur le réseau local — un ampli unique est enregistré automatiquement',
     avr_probe: 'Vérifier l’ampli',
     avr_probe_tooltip: 'Lire la configuration de l’ampli via le bridge',
     bridge_actions: 'Actions ampli / bridge',
