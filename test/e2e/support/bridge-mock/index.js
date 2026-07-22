@@ -1,3 +1,5 @@
+import { MeasureMock } from './measure.js';
+
 const BRIDGE_PORT = '7735';
 
 // Aligned with the e2e fixture `sample.ady` (Denon AVC-A1H, XT32,
@@ -51,6 +53,8 @@ const DEFAULT_STATUS = Object.freeze({
  *   bridge restarted with a persisted `state.json`.
  * - `busyReason` (null | 'measurement' | 'transfer'): makes the AVR-bound
  *   endpoints answer `409 BUSY` to exercise the busy semantics.
+ * - `measureSteps` / `sublevelSpls` / `sessionPrecondition` /
+ *   `completeExitOk`: scripted `/measure/*` behaviour (see MeasureMock).
  */
 class BridgeMock {
   constructor({
@@ -63,6 +67,11 @@ class BridgeMock {
     status = DEFAULT_STATUS,
     // Nombre de polls "in-progress" avant completed (fenetre d'annulation).
     transferSteps = 2,
+    // Nombre de polls GET /measure/session avant qu'une position soit done.
+    measureSteps = 3,
+    sublevelSpls,
+    sessionPrecondition = null,
+    completeExitOk = true,
   } = {}) {
     this.state = {
       registered,
@@ -78,6 +87,16 @@ class BridgeMock {
     // Transfert scripte : chaque GET /transfer avance d'un cran.
     this.transferSteps = transferSteps;
     this.transfer = { state: 'idle', script: null, step: 0, archive: null };
+    // Endpoints /measure/* scriptes (plan de canaux aligne sur `status`).
+    this.measure = new MeasureMock({
+      measureSteps,
+      ...(sublevelSpls && { sublevelSpls }),
+      sessionPrecondition,
+      completeExitOk,
+      info,
+      status,
+      model,
+    });
     this.lastArchive = null;
     this.discoverResults = [{ ip: DEFAULT_AVR.ip, name: DEFAULT_AVR.model, model: DEFAULT_AVR.model }];
     this.unknownRequests = [];
@@ -265,6 +284,9 @@ class BridgeMock {
   }
 
   dispatch(method, pathname, searchParams, body) {
+    if (pathname.startsWith('/measure')) {
+      return this.measure.dispatch(method, pathname, searchParams, body);
+    }
     const key = `${method} ${pathname}`;
     switch (key) {
       case 'GET /health':

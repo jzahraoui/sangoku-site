@@ -1237,6 +1237,181 @@
             </div>
           </div>
 
+          <!-- Audyssey measurement assistant (RCH 2.0): the bridge drives the AVR sweeps -->
+          <div class="control-group" data-testid="measure-panel">
+            <h2 data-i18n="measure_title">Audyssey Measurement</h2>
+            <p data-i18n="measure_intro">
+              The bridge drives the amplifier: it plays the Audyssey sweeps on
+              every speaker and RCH imports each impulse response into REW.
+              Place the microphone at ear height at the listening position
+              before each measurement.
+            </p>
+            <div class="bridge-avr-form">
+              <button
+                class="button primary-button"
+                data-testid="measure-start-session"
+                data-bind="
+                  click: buttonStartMeasureSession,
+                  visible: measureState() === 'idle',
+                  disable: isProcessing(),
+                  css: { disabled: isProcessing, loading: measureState() === 'starting' }"
+              >
+                <i class="fas fa-microphone" aria-hidden="true"></i>
+                <span data-i18n="measure_start_session">Start measurement session</span>
+              </button>
+              <p>
+                <strong data-i18n="measure_state_label">Session state:</strong>
+                <span data-testid="measure-state" data-bind="text: measureState()"></span>
+              </p>
+            </div>
+
+            <!-- ko if: measureSessionActive -->
+            <div class="measure-session">
+              <p>
+                <strong data-i18n="measure_next_position">Next position:</strong>
+                <span
+                  data-testid="measure-next-position"
+                  data-bind="text: measureNextPosition() + ' / ' + measureMaxPositions()"
+                ></span>
+                <span
+                  data-bind="visible: measurePositionsDone().length,
+                    text: measurePositionsDone().length
+                      ? '(' + translations().measure_positions_done + ' ' + measurePositionsDone().join(', ') + ')'
+                      : ''"
+                ></span>
+              </p>
+              <p
+                class="warning"
+                data-i18n="measure_position1_note"
+                data-bind="visible: measureNextPosition() === 1"
+              >
+                Position 1 measures the full detected channel plan (detection
+                pass) — channel selection applies from position 2.
+              </p>
+
+              <div data-testid="measure-channels">
+                <h3 data-i18n="measure_channels">Channels to measure</h3>
+                <div class="bridge-avr-form">
+                  <!-- ko foreach: measureChannelItems -->
+                  <label
+                    class="checkbox-container"
+                    data-bind="attr: { 'data-testid': 'measure-channel-' + commandId }"
+                  >
+                    <input
+                      type="checkbox"
+                      data-bind="checked: selected, enable: $root.measureChannelsSelectable()"
+                    />
+                    <span data-bind="text: commandId"></span>
+                    <span class="checkmark"></span>
+                  </label>
+                  <!-- /ko -->
+                </div>
+              </div>
+
+              <div class="bridge-avr-form">
+                <button
+                  class="button primary-button"
+                  data-testid="measure-position"
+                  data-bind="
+                    click: buttonMeasurePosition,
+                    disable: isProcessing() || measureState() !== 'ready',
+                    css: { disabled: isProcessing() || measureState() !== 'ready', loading: measureState() === 'measuring' }"
+                >
+                  <i
+                    data-bind="css: measureState() === 'measuring' ? 'fas fa-spinner' : 'fas fa-play'"
+                    aria-hidden="true"
+                  ></i>
+                  <span data-i18n="measure_position_button">Measure position</span>
+                  <span data-bind="text: measureNextPosition()"></span>
+                </button>
+                <button
+                  class="button"
+                  data-testid="measure-complete"
+                  data-bind="
+                    click: buttonCompleteMeasureSession,
+                    disable: isProcessing() || measureState() !== 'ready',
+                    css: { disabled: isProcessing() || measureState() !== 'ready' }"
+                >
+                  <i class="fas fa-flag-checkered" aria-hidden="true"></i>
+                  <span data-i18n="measure_complete">Complete session</span>
+                </button>
+                <button
+                  class="button danger"
+                  data-testid="measure-cancel"
+                  data-bind="click: confirmCancelMeasureSession"
+                >
+                  <span data-i18n="measure_cancel">Cancel session</span>
+                </button>
+              </div>
+              <p data-i18n="measure_mdat_hint">
+                When all positions are measured, complete the session and save
+                your measurements as a .mdat file in REW (File > Save all
+                measurements).
+              </p>
+
+              <!-- ko if: measureState() === 'measuring' -->
+              <div class="transfer-progress" data-testid="measure-progress">
+                <span
+                  data-bind="text: translations().measure_measuring_position + ' ' + measurePosition() + (measurePhase() ? ' — ' + measurePhase() : '')"
+                ></span>
+                <progress max="100" data-bind="attr: { value: measureProgress() }"></progress>
+                <span
+                  data-testid="measure-progress-value"
+                  data-bind="text: measureProgress() + '%'"
+                ></span>
+              </div>
+              <!-- /ko -->
+
+              <!-- ko if: measureWarnings().length -->
+              <ul data-testid="measure-warnings" data-bind="foreach: measureWarnings">
+                <li class="warning" data-bind="text: $data"></li>
+              </ul>
+              <!-- /ko -->
+
+              <!-- ko if: measureSwLvlMatch() && measureSubChannels().length -->
+              <div data-testid="measure-sublevel">
+                <h3 data-i18n="measure_sublevel_title">Subwoofer level matching</h3>
+                <p data-i18n="measure_sublevel_hint">
+                  Adjust the gain knob of the subwoofer until the live SPL reads
+                  about 75 dB, then stop.
+                </p>
+                <!-- ko foreach: measureSubChannels -->
+                <div class="bridge-avr-form">
+                  <strong data-bind="text: commandId"></strong>
+                  <button
+                    class="button"
+                    data-bind="
+                      click: $root.buttonStartSublevel,
+                      attr: { 'data-testid': 'measure-sublevel-start-' + commandId },
+                      disable: $root.isProcessing() || $root.measureState() !== 'ready',
+                      css: { disabled: $root.isProcessing() || $root.measureState() !== 'ready' }"
+                  >
+                    <span data-i18n="measure_sublevel_start">Match level</span>
+                  </button>
+                  <!-- ko if: $root.sublevelSub() === commandId -->
+                  <span>
+                    <strong data-i18n="measure_sublevel_spl">Live SPL:</strong>
+                    <span
+                      data-bind="attr: { 'data-testid': 'measure-sublevel-spl-' + commandId },
+                        text: $root.sublevelSpl() === null ? '—' : $root.sublevelSpl().toFixed(1) + ' dB'"
+                    ></span>
+                  </span>
+                  <button
+                    class="button danger"
+                    data-bind="click: $root.buttonStopSublevel,
+                      attr: { 'data-testid': 'measure-sublevel-stop-' + commandId }"
+                  >
+                    <span data-i18n="measure_sublevel_stop">Stop</span>
+                  </button>
+                  <!-- /ko -->
+                </div>
+                <!-- /ko -->
+              </div>
+              <!-- /ko -->
+            </div>
+            <!-- /ko -->
+          </div>
+
           <!-- Speakers Controls -->
           <div class="control-group">
             <h2 data-i18n="speakers_tools">Speaker Tools</h2>

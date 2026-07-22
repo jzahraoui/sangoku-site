@@ -109,6 +109,49 @@ const translations = {
     chain_need_bridge: 'connect the RCH Bridge',
     chain_need_avr: 'register your AVR',
     chain_avr_unreachable: 'AVR unreachable — check power/network then use "Check AVR"',
+    measure_title: 'Audyssey Measurement',
+    measure_intro:
+      'The bridge drives the amplifier: it plays the Audyssey sweeps on every speaker and RCH imports each impulse response into REW. Place the microphone at ear height at the listening position before each measurement.',
+    measure_start_session: 'Start measurement session',
+    measure_state_label: 'Session state:',
+    measure_next_position: 'Next position:',
+    measure_positions_done: 'measured:',
+    measure_position1_note:
+      'Position 1 measures the full detected channel plan (detection pass) — channel selection applies from position 2.',
+    measure_channels: 'Channels to measure',
+    measure_position_button: 'Measure position',
+    measure_measuring_position: 'Measuring position',
+    measure_complete: 'Complete session',
+    measure_cancel: 'Cancel session',
+    measure_mdat_hint:
+      'When all positions are measured, complete the session and save your measurements as a .mdat file in REW (File > Save all measurements).',
+    measure_sublevel_title: 'Subwoofer level matching',
+    measure_sublevel_hint:
+      'Adjust the gain knob of the subwoofer until the live SPL reads about 75 dB, then stop.',
+    measure_sublevel_start: 'Match level',
+    measure_sublevel_stop: 'Stop',
+    measure_sublevel_spl: 'Live SPL:',
+    measure_session_ready:
+      'Measurement session ready — place the microphone at the main listening position',
+    measure_position_done: 'Position measured:',
+    measure_session_cancelled: 'Measurement session cancelled',
+    measure_complete_reminder:
+      'Measurement session completed — save your measurements as a .mdat file in REW now (File > Save all measurements)',
+    measure_exit_failed:
+      'The AVR did not exit calibration mode cleanly: power-cycle (restart) the AVR before using it',
+    measure_err_mic_not_plugged:
+      'The Audyssey microphone is not plugged in: connect it to the SETUP MIC jack of the AVR, then retry',
+    measure_err_headphone_plugged:
+      'Headphones are plugged into the AVR: unplug them, then retry',
+    measure_err_bttx_connected:
+      'A Bluetooth transmitter is active on the AVR: disconnect it, then retry',
+    measure_err_avr_power_off: 'The AVR main zone is off: power it on, then retry',
+    measure_err_ifver_mismatch:
+      'This AVR calibration interface version is not supported by the bridge',
+    measure_err_mic_curve_invalid:
+      'The bridge microphone correction data is unusable: reinstall or update the RCH Bridge',
+    measure_err_sublevel_not_supported:
+      'This AVR does not support per-subwoofer level matching',
     summary_mso: 'MSO Import',
     time_align: 'Time Align',
     align_spl: 'Align SPL',
@@ -380,6 +423,50 @@ const translations = {
     chain_need_avr: 'enregistrer votre ampli',
     chain_avr_unreachable:
       'ampli injoignable — vérifiez alimentation/réseau puis « Vérifier l’ampli »',
+    measure_title: 'Mesure Audyssey',
+    measure_intro:
+      'Le bridge pilote l’ampli : il joue les sweeps Audyssey sur chaque enceinte et RCH importe chaque réponse impulsionnelle dans REW. Placez le micro à hauteur d’oreille à la position d’écoute avant chaque mesure.',
+    measure_start_session: 'Démarrer la session de mesure',
+    measure_state_label: 'État de la session :',
+    measure_next_position: 'Position suivante :',
+    measure_positions_done: 'mesurées :',
+    measure_position1_note:
+      'La position 1 mesure le plan complet des canaux détectés (passe de détection) — la sélection de canaux s’applique à partir de la position 2.',
+    measure_channels: 'Canaux à mesurer',
+    measure_position_button: 'Mesurer la position',
+    measure_measuring_position: 'Mesure de la position',
+    measure_complete: 'Terminer la session',
+    measure_cancel: 'Annuler la session',
+    measure_mdat_hint:
+      'Une fois toutes les positions mesurées, terminez la session puis sauvegardez vos mesures en fichier .mdat dans REW (File > Save all measurements).',
+    measure_sublevel_title: 'Réglage du niveau des caissons',
+    measure_sublevel_hint:
+      'Ajustez le gain du caisson jusqu’à ce que le SPL en direct affiche environ 75 dB, puis arrêtez.',
+    measure_sublevel_start: 'Ajuster le niveau',
+    measure_sublevel_stop: 'Arrêter',
+    measure_sublevel_spl: 'SPL en direct :',
+    measure_session_ready:
+      'Session de mesure prête — placez le micro à la position d’écoute principale',
+    measure_position_done: 'Position mesurée :',
+    measure_session_cancelled: 'Session de mesure annulée',
+    measure_complete_reminder:
+      'Session de mesure terminée — sauvegardez maintenant vos mesures en fichier .mdat dans REW (File > Save all measurements)',
+    measure_exit_failed:
+      'L’ampli n’a pas quitté proprement le mode calibration : redémarrez-le (arrêt/marche) avant de l’utiliser',
+    measure_err_mic_not_plugged:
+      'Le micro Audyssey n’est pas branché : connectez-le à la prise SETUP MIC de l’ampli, puis réessayez',
+    measure_err_headphone_plugged:
+      'Un casque est branché sur l’ampli : débranchez-le, puis réessayez',
+    measure_err_bttx_connected:
+      'Un émetteur Bluetooth est actif sur l’ampli : déconnectez-le, puis réessayez',
+    measure_err_avr_power_off:
+      'La zone principale de l’ampli est éteinte : allumez-la, puis réessayez',
+    measure_err_ifver_mismatch:
+      'La version d’interface de calibration de cet ampli n’est pas supportée par le bridge',
+    measure_err_mic_curve_invalid:
+      'Les données de correction micro du bridge sont inutilisables : réinstallez ou mettez à jour le RCH Bridge',
+    measure_err_sublevel_not_supported:
+      'Cet ampli ne supporte pas le réglage de niveau caisson par caisson',
     summary_mso: 'Import MSO',
     time_align: 'Aligner temporellement',
     align_spl: 'Aligner SPL',

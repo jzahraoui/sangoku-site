@@ -65,4 +65,10 @@ export const confirmMessages = {
       'This will reset all measurements to default settings (smoothing, IR window, target curve, equalizer, delays, inversion). Continue?',
     danger: false,
   },
+  cancelMeasurement: {
+    title: 'Cancel Audyssey measurement',
+    message:
+      'This will abort the measurement session on the AVR. Measurements already imported into REW are kept. Continue?',
+    danger: true,
+  },
 };

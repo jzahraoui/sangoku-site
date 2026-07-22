@@ -28,6 +28,7 @@ import {
 } from './services/avr-data-synthesis.js';
 import { createFilterBanks } from './services/filter-banks.js';
 import { createCalibrationTransfer } from './services/calibration-transfer.js';
+import { createBridgeMeasurement } from './services/bridge-measurement.js';
 import {
   MAX_FILE_SIZE_BYTES,
   VALID_FILE_EXTENSIONS,
@@ -266,6 +267,42 @@ class MeasurementViewModel {
     this.avrReachable = ko.observable(null);
     this.avrBusyReason = ko.observable('');
     this.discoveredAvrs = ko.observableArray([]);
+
+    // Audyssey measurement assistant state (written by bridge-measurement.js).
+    this.measureState = ko.observable('idle');
+    this.measurePosition = ko.observable(null);
+    this.measureProgress = ko.observable(0);
+    this.measurePhase = ko.observable('');
+    this.measureChannelPlan = ko.observable([]);
+    this.measureMaxPositions = ko.observable(0);
+    this.measurePositionsDone = ko.observable([]);
+    this.measureNextPosition = ko.observable(1);
+    this.measureWarnings = ko.observable([]);
+    this.measureSwLvlMatch = ko.observable(false);
+    this.sublevelSub = ko.observable(null);
+    this.sublevelSpl = ko.observable(null);
+    this.measureSessionActive = ko.pureComputed(() => this.measureState() !== 'idle');
+    // Per-channel selection for positions >= 2 — presentation state over the
+    // service-owned plan (position 1 always measures the full detected plan).
+    this._measureChannelSelected = {};
+    this.measureChannelItems = ko.pureComputed(() =>
+      this.measureChannelPlan().map(entry => {
+        this._measureChannelSelected[entry.code] ??= ko.observable(true);
+        return { ...entry, selected: this._measureChannelSelected[entry.code] };
+      }),
+    );
+    // Every plan change (new session, session end) restarts fully selected.
+    this.measureChannelPlan.subscribe(() => {
+      for (const selected of Object.values(this._measureChannelSelected)) {
+        selected(true);
+      }
+    });
+    this.measureSubChannels = ko.pureComputed(() =>
+      this.measureChannelItems().filter(item => item.isSub),
+    );
+    this.measureChannelsSelectable = ko.pureComputed(
+      () => this.measureState() === 'ready' && this.measureNextPosition() > 1,
+    );
 
     this.businessTools = new BusinessTools(this);
 
@@ -893,6 +930,95 @@ class MeasurementViewModel {
       } catch (error) {
         this.handleError(`Bridge shutdown failed: ${error.message}`, error);
       }
+    };
+
+    // --- Audyssey measurement assistant (delegation to bridge-measurement) --
+
+    // Presentation mapping of the bridge measurement error codes to the
+    // translated actionable messages (fallback: the service's own message).
+    this.describeMeasureError = error => {
+      const key = `measure_err_${String(error?.code ?? '').toLowerCase()}`;
+      return this.translations()[key] ?? error.message;
+    };
+
+    this.buttonStartMeasureSession = async () => {
+      if (this.isProcessing()) return;
+      try {
+        this.error('');
+        await this.bridgeMeasurement.startSession();
+        this.handleSuccess(this.translations().measure_session_ready);
+      } catch (error) {
+        this.handleError(this.describeMeasureError(error), error);
+      }
+    };
+
+    this.buttonMeasurePosition = async () => {
+      if (this.isProcessing()) return;
+      const position = this.measureNextPosition();
+      try {
+        const items = this.measureChannelItems();
+        const selected = items.filter(item => item.selected());
+        const channels =
+          position === 1 || selected.length === items.length
+            ? null
+            : selected.map(item => item.code);
+        const result = await this.bridgeMeasurement.measurePosition(position, channels);
+        if (result?.state === 'cancelled') {
+          this.handleSuccess(this.translations().measure_session_cancelled);
+        } else {
+          this.handleSuccess(`${this.translations().measure_position_done} ${position}`);
+        }
+      } catch (error) {
+        this.handleError(this.describeMeasureError(error), error);
+      }
+    };
+
+    this.buttonStartSublevel = async item => {
+      if (this.isProcessing()) return;
+      try {
+        await this.bridgeMeasurement.startSublevel(item.commandId);
+      } catch (error) {
+        this.handleError(this.describeMeasureError(error), error);
+      }
+    };
+
+    this.buttonStopSublevel = async () => {
+      try {
+        await this.bridgeMeasurement.stopSublevel();
+      } catch (error) {
+        this.handleError(this.describeMeasureError(error), error);
+      }
+    };
+
+    this.buttonCompleteMeasureSession = async () => {
+      if (this.isProcessing()) return;
+      try {
+        const result = await this.bridgeMeasurement.complete();
+        if (result?.exitOk === false) {
+          lm.warn(this.translations().measure_exit_failed);
+        }
+        this.handleSuccess(this.translations().measure_complete_reminder);
+      } catch (error) {
+        this.handleError(this.describeMeasureError(error), error);
+      }
+    };
+
+    // Deliberately NOT gated on isProcessing: cancelling must stay available
+    // while a position measurement holds the processing lock.
+    this.buttonCancelMeasureSession = async () => {
+      try {
+        await this.bridgeMeasurement.cancel();
+        this.handleSuccess(this.translations().measure_session_cancelled);
+      } catch (error) {
+        this.handleError(this.describeMeasureError(error), error);
+      }
+    };
+
+    this.confirmCancelMeasureSession = () => {
+      this.confirmManager.show({
+        ...confirmMessages.cancelMeasurement,
+        onConfirm: () => this.buttonCancelMeasureSession(),
+      });
     };
 
     this.renameMeasurement = async () => {
@@ -1977,6 +2103,36 @@ class MeasurementViewModel {
       createApi: baseUrl => new BridgeApi(baseUrl),
       onAvrDataAvailable: payload => this.applyLiveAvrData(payload),
       onError: (message, error) => this.handleError(message, error),
+      log: lm,
+    });
+
+    // Audyssey measurement assistant (RCH 2.0) — the bridge drives the AVR
+    // sweeps; every impulse response is imported into REW on the fly. The
+    // session snapshot re-feeds the live jsonAvrData synthesis (authority).
+    this.bridgeMeasurement = createBridgeMeasurement({
+      bridgeSession: this.bridgeSession,
+      session: this.rewSession,
+      importer: importSession,
+      state: observableProxy(this, [
+        'measureState',
+        'measurePosition',
+        'measureProgress',
+        'measurePhase',
+        'measureChannelPlan',
+        'measureMaxPositions',
+        'measurePositionsDone',
+        'measureNextPosition',
+        'measureWarnings',
+        'measureSwLvlMatch',
+        'sublevelSub',
+        'sublevelSpl',
+      ]),
+      onAvrSnapshot: avr => {
+        if (avr?.rawInfo && avr?.rawStatus) {
+          this.applyLiveAvrData({ info: avr.rawInfo, status: avr.rawStatus });
+        }
+      },
+      pollIntervalMs: this.pollingInterval,
       log: lm,
     });
 
