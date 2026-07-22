@@ -321,7 +321,28 @@ describe('BridgeSession', () => {
       session.disconnect();
     });
 
-    it('keeps the previous model name when none is provided', async () => {
+    it('resolves the model through discovery when none is provided', async () => {
+      const api = makeApi({
+        discoverAvrs: vi.fn().mockResolvedValue({
+          avrs: [{ ip: '10.0.0.5', model: 'Denon AVC-A1H' }],
+        }),
+      });
+      const { session, state } = makeSession({
+        api,
+        state: makeState({ avrModelName: 'Denon AVR-X3800H' }),
+      });
+      await session.connect();
+
+      await session.registerAvr('10.0.0.5');
+
+      // The stale model of a previously registered AVR must not survive: the
+      // model always comes from the API (SSDP scan matched by IP).
+      expect(api.discoverAvrs).toHaveBeenCalled();
+      expect(state.avrModelName).toBe('Denon AVC-A1H');
+      session.disconnect();
+    });
+
+    it('clears a stale model when discovery cannot identify the new AVR', async () => {
       const { session, state } = makeSession({
         state: makeState({ avrModelName: 'Denon AVR-X3800H' }),
       });
@@ -329,7 +350,7 @@ describe('BridgeSession', () => {
 
       await session.registerAvr('10.0.0.5');
 
-      expect(state.avrModelName).toBe('Denon AVR-X3800H');
+      expect(state.avrModelName).toBe('');
       session.disconnect();
     });
 
@@ -344,6 +365,7 @@ describe('BridgeSession', () => {
 
       expect(state.avrRegistered).toBe(false);
       expect(state.avrIp).toBe('');
+      expect(state.avrModelName).toBe('');
       expect(state.avrReachable).toBeNull();
       session.disconnect();
     });

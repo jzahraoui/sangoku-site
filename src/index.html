@@ -1082,7 +1082,7 @@
                 <strong data-i18n="bridge_avr">AVR:</strong>
                 <span
                   data-testid="bridge-avr-state"
-                  data-bind="text: avrRegistered() ? avrIp() + (avrModelName() ? ' — ' + avrModelName() : '') : translations().avr_not_registered"
+                  data-bind="text: avrRegistered() ? (avrModelName() || translations().avr_registered) : translations().avr_not_registered"
                 ></span>
                 <span
                   class="warning"
@@ -1106,15 +1106,6 @@
                   data-testid="avr-ip-input"
                   placeholder="192.168.1.x"
                   data-bind="value: avrIpAddress"
-                />
-                <label for="avr-model-field" class="sr-only" data-i18n="avr_model_placeholder"
-                  >Model (e.g. Denon AVR-X3800H)</label
-                >
-                <input
-                  id="avr-model-field"
-                  type="text"
-                  data-testid="avr-model-input"
-                  data-bind="value: avrModelName, attr: { placeholder: translations().avr_model_placeholder }"
                 />
                 <button
                   class="button"
@@ -1145,7 +1136,8 @@
                   <span data-i18n="avr_unregister">Unregister</span>
                 </button>
               </div>
-              <!-- ko if: discoveredAvrs().length -->
+              <!-- Shown only when a CHOICE is needed: a single discovered AVR fills the IP field directly. -->
+              <!-- ko if: discoveredAvrs().length > 1 -->
               <ul class="discovered-avrs" data-testid="discovered-avrs" data-bind="foreach: discoveredAvrs">
                 <li>
                   <button

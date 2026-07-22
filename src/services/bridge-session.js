@@ -184,6 +184,12 @@ class BridgeSession {
     this.state.avrIp = ip;
     if (model) {
       this.state.avrModelName = model;
+    } else {
+      // The model is never typed by the user: forget any previous value (it
+      // may belong to another AVR) and resolve it from the API (SSDP scan
+      // matched by the registered IP).
+      this.state.avrModelName = '';
+      await this.resolveModelFromDiscovery();
     }
     await this.probeAvr();
   }
@@ -193,6 +199,7 @@ class BridgeSession {
     await this.api.unregisterAvr();
     this.state.avrRegistered = false;
     this.state.avrIp = '';
+    this.state.avrModelName = '';
     this.state.avrReachable = null;
     this.state.avrBusyReason = '';
   }

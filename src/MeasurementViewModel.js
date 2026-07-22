@@ -849,8 +849,20 @@ class MeasurementViewModel {
     this.buttonRegisterAvr = async () => {
       try {
         const ip = this.avrIpAddress().trim();
-        await this.bridgeSession.registerAvr(ip, this.avrModelName().trim() || null);
+        // The model is never asked from the user: reuse the one found by a
+        // previous discovery for this IP, otherwise the session resolves it
+        // through an SSDP scan right after registration.
+        const discovered = this.discoveredAvrs().find(avr => avr.ip === ip);
+        await this.bridgeSession.registerAvr(
+          ip,
+          discovered?.model ?? discovered?.name ?? null,
+        );
         this.handleSuccess(`AVR registered at ${ip}`);
+        if (!this.avrModelName()) {
+          lm.warn(
+            'AVR model could not be identified: check the AVR is powered on, then run Discover again',
+          );
+        }
       } catch (error) {
         this.handleError(`Failed to register AVR: ${error.message}`, error);
       }
@@ -868,6 +880,11 @@ class MeasurementViewModel {
     this.buttonDiscoverAvr = async () => {
       try {
         const avrs = await this.bridgeSession.discover();
+        if (avrs.length === 1) {
+          // A single AVR on the network: fill the IP field directly (the
+          // list is only shown when a choice is needed).
+          this.useDiscoveredAvr(avrs[0]);
+        }
         this.handleSuccess(`Discovery finished: ${avrs.length} AVR(s) found`);
       } catch (error) {
         this.handleError(`AVR discovery failed: ${error.message}`, error);

@@ -35,17 +35,20 @@ test('gating: app locked until REW + bridge + AVR are all green', async t => {
     });
 
     await t.test('discover then register the AVR', async () => {
+      // A single AVR on the network: discovery fills the IP field directly
+      // (no list, no extra click, no model input — the model comes from the
+      // discovery response).
       await page.getByTestId('avr-discover').click();
-      await page.getByTestId('discovered-avrs').waitFor({ state: 'attached' });
-      await page.getByTestId('discovered-avrs').locator('button').first().click();
-      assert.equal(
-        await page.getByTestId('avr-ip-input').inputValue(),
-        '192.168.1.99',
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[data-testid="avr-ip-input"]').value ===
+          '192.168.1.99',
       );
+      assert.equal(await page.getByTestId('discovered-avrs').count(), 0);
       await page.getByTestId('avr-register').click();
       await page
         .getByTestId('bridge-avr-state')
-        .filter({ hasText: '192.168.1.99' })
+        .filter({ hasText: 'Denon AVC-A1H' })
         .waitFor({ state: 'attached' });
       await page.locator('#RewCommands.app-gated').waitFor({ state: 'attached' });
     });
