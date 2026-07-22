@@ -1074,6 +1074,42 @@ textarea {
   margin: 6px 0;
 }
 
+.filter-banks {
+  margin: 12px 0;
+}
+
+.bank-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.bank-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color, #888);
+  border-radius: 6px;
+  min-width: 220px;
+}
+
+.bank-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.transfer-progress {
+  margin-top: 10px;
+}
+
+.transfer-progress progress {
+  width: 60%;
+  margin-right: 8px;
+}
+
 /* Indicators */
 .polling-indicator {
   transition: color 0.3s ease;

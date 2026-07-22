@@ -1837,36 +1837,109 @@
                   <span class="checkmark"></span>
                 </label>
               </div>
-              <div class="radio-group">
-                <span data-i18n="oca_file_format">OCA file format:</span>
-                <label class="radio-container">
-                  <input type="radio" value="odd" data-bind="checked: ocaFileFormat" />
-                  <span data-i18n="oca_format_odd"
-                    >odd.wtf (does not support Cirrus Logic chips)</span
+            </div>
+
+            <div class="filter-banks" data-testid="filter-banks">
+              <h3 data-i18n="banks_title">Audyssey filter banks (Reference / Flat)</h3>
+              <p
+                class="warning"
+                data-testid="bank-lock-hint"
+                data-bind="visible: bankLockActive()"
+                data-i18n="bank_lock_hint"
+              >
+                One bank is saved: only change the target curve, recompute the
+                filters, then save the other bank (delays/gains/crossovers must
+                stay identical).
+              </p>
+              <div class="bank-cards">
+                <!-- ko foreach: ['reference', 'flat'] -->
+                <div class="bank-card">
+                  <strong data-bind="text: $data === 'reference' ? 'Reference' : 'Flat'"></strong>
+                  <span
+                    data-bind="
+                      attr: { 'data-testid': 'bank-state-' + $data },
+                      text: $root.bankSummary()[$data].loaded
+                        ? ($root.bankSummary()[$data].tcName || $root.bankSummary()[$data].targetCurve || '?') +
+                          ' (' + $root.bankSummary()[$data].channelCount + ' ch)'
+                        : $root.translations().bank_empty"
+                  ></span>
+                  <button
+                    class="button"
+                    data-bind="
+                      attr: { 'data-testid': 'bank-save-' + $data, 'data-tooltip': $root.translations().bank_save_tooltip },
+                      click: function () { $root.buttonSaveBank($data); },
+                      disable: $root.isProcessing(),
+                      css: { disabled: $root.isProcessing, loading: $root.isProcessing }"
                   >
-                </label>
-                <label class="radio-container">
-                  <input type="radio" value="a1" data-bind="checked: ocaFileFormat" />
-                  <span data-i18n="oca_format_a1">A1 Evo Acoustica</span>
-                </label>
+                    <span data-i18n="bank_save">Save current filters</span>
+                  </button>
+                </div>
+                <!-- /ko -->
+              </div>
+              <div class="bank-actions">
+                <button
+                  class="button"
+                  data-testid="bank-duplicate"
+                  data-bind="
+                    click: buttonDuplicateBank,
+                    disable: isProcessing() || !bankLockActive(),
+                    attr: { 'data-tooltip': translations().bank_duplicate_tooltip }"
+                >
+                  <span data-i18n="bank_duplicate">Duplicate to the other bank</span>
+                </button>
+                <button
+                  class="button"
+                  data-testid="bank-clear"
+                  data-bind="click: buttonClearBanks, disable: isProcessing()"
+                >
+                  <span data-i18n="bank_clear">Clear banks</span>
+                </button>
               </div>
             </div>
 
             <div class="button-container">
               <button
-                class="button primary-button large-button"
-                data-testid="create-oca"
+                class="button"
+                data-testid="transfer-validate"
                 data-bind="
-                click: buttoncreateOCAButton,
-                disable: isProcessing(),
-                css: { disabled: isProcessing, loading: isProcessing },
-                attr: { 'data-tooltip': translations().create_oca_tooltip }"
+                click: buttonValidateTransfer,
+                disable: isProcessing() || !banksBothLoaded(),
+                css: { disabled: isProcessing() || !banksBothLoaded() },
+                attr: { 'data-tooltip': translations().transfer_validate_tooltip }"
+              >
+                <span data-i18n="transfer_validate">Validate on AVR</span>
+              </button>
+              <button
+                class="button primary-button large-button"
+                data-testid="transfer-start"
+                data-bind="
+                click: buttonStartTransfer,
+                disable: isProcessing() || !banksBothLoaded(),
+                css: { disabled: isProcessing() || !banksBothLoaded(), loading: transferRunning },
+                attr: { 'data-tooltip': translations().transfer_start_tooltip }"
               >
                 <i
-                  data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-file-export'"
+                  data-bind="css: transferRunning() ? 'fas fa-spinner' : 'fas fa-upload'"
                   aria-hidden="true"
                 ></i>
-                <span data-i18n="create_oca_file">Create OCA File</span>
+                <span data-i18n="transfer_start">Transfer to AVR</span>
+              </button>
+              <button
+                class="button danger"
+                data-testid="transfer-cancel"
+                data-bind="click: buttonCancelTransfer, visible: transferRunning()"
+              >
+                <span data-i18n="transfer_cancel">Cancel transfer</span>
+              </button>
+              <button
+                class="button"
+                data-testid="archive-download"
+                data-bind="
+                click: buttonDownloadArchive,
+                disable: isProcessing() || !banksBothLoaded(),
+                attr: { 'data-tooltip': translations().archive_download_tooltip }"
+              >
+                <span data-i18n="archive_download">Download .rch.json</span>
               </button>
 
               <button
@@ -1885,6 +1958,33 @@
                 <span data-i18n="create_settings_file">Create Settings File</span>
               </button>
             </div>
+
+            <!-- ko if: transferStatus -->
+            <div class="transfer-progress" data-testid="transfer-progress">
+              <p>
+                <strong data-i18n="transfer_state">Transfer:</strong>
+                <span
+                  data-testid="transfer-state"
+                  data-bind="text: transferStatus().state + (transferStatus().phase ? ' — ' + transferStatus().phase : '')"
+                ></span>
+                <span
+                  data-bind="visible: transferStatus().currentChannel, text: transferStatus().currentChannel"
+                ></span>
+              </p>
+              <progress
+                max="100"
+                data-bind="attr: { value: transferStatus().progress ?? 0 }"
+              ></progress>
+              <span data-bind="text: (transferStatus().progress ?? 0) + '%'"></span>
+              <p
+                class="warning"
+                data-bind="visible: transferStatus().failedChannels && transferStatus().failedChannels.length,
+                  text: transferStatus().failedChannels && transferStatus().failedChannels.length
+                    ? translations().transfer_failed_channels + ' ' + transferStatus().failedChannels.join(', ')
+                    : ''"
+              ></p>
+            </div>
+            <!-- /ko -->
           </div>
         </section>
         <!-- Result Status -->

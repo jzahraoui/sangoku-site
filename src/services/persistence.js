@@ -74,7 +74,6 @@ function createPersistenceService({
       upperFrequencyBoundSub: settings.get('upperFrequencyBoundSub'),
       lowerFrequencyBoundSub: settings.get('lowerFrequencyBoundSub'),
       apiBaseUrl: settings.get('apiBaseUrl'),
-      ocaFileFormat: settings.get('ocaFileFormat'),
       avrIpAddress: settings.get('avrIpAddress'),
       bridgeBaseUrl: settings.get('bridgeBaseUrl'),
       avrModelName: settings.get('avrModelName'),
@@ -137,7 +136,6 @@ function createPersistenceService({
       settings.set('upperFrequencyBoundSub', data.upperFrequencyBoundSub);
     data.lowerFrequencyBoundSub &&
       settings.set('lowerFrequencyBoundSub', data.lowerFrequencyBoundSub);
-    data.ocaFileFormat && settings.set('ocaFileFormat', data.ocaFileFormat);
     data.avrIpAddress && settings.set('avrIpAddress', data.avrIpAddress);
     restoreBridgeSettings(data);
     data.inhibitGraphUpdates !== undefined &&

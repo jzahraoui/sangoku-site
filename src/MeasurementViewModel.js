@@ -26,6 +26,8 @@ import {
   sameAvrIdentity,
   synthesizeAvrData,
 } from './services/avr-data-synthesis.js';
+import { createFilterBanks } from './services/filter-banks.js';
+import { createCalibrationTransfer } from './services/calibration-transfer.js';
 import {
   MAX_FILE_SIZE_BYTES,
   VALID_FILE_EXTENSIONS,
@@ -208,8 +210,23 @@ class MeasurementViewModel {
       translations[localStorage.getItem('userLanguage') || 'en'],
     );
 
-    this.ocaFileFormat = ko.observable('odd');
     this.avrIpAddress = ko.observable('');
+
+    // Banques de filtres Audyssey (Reference/Flat) + etat du transfert.
+    this.bankSummary = ko.observable({
+      reference: { loaded: false },
+      flat: { loaded: false },
+    });
+    this.transferStatus = ko.observable(null);
+    this.transferRunning = ko.observable(false);
+    this.banksBothLoaded = ko.pureComputed(
+      () => this.bankSummary().reference.loaded && this.bankSummary().flat.loaded,
+    );
+    // Une seule banque chargee = phase « courbe cible seule » entre les deux
+    // enregistrements (bandeau d'instruction ; garde dure a l'enregistrement).
+    this.bankLockActive = ko.pureComputed(
+      () => this.bankSummary().reference.loaded !== this.bankSummary().flat.loaded,
+    );
 
     this.SubsFrequencyBands = null;
 
@@ -779,7 +796,6 @@ class MeasurementViewModel {
           this.resetApplicationState();
         }
         this.jsonAvrData(synthesized);
-        this.ocaFileFormat(synthesized.avr.hasCirrusLogicDsp ? 'a1' : 'odd');
         lm.info(
           `Live AVR data loaded: ${synthesized.targetModelName} (MultEQ ${synthesized.avr.multEQType}, ${synthesized.detectedChannels.length} channels)`,
         );
@@ -1439,45 +1455,146 @@ class MeasurementViewModel {
       { value: 'L+M', text: 'LFE + Main' },
     ];
 
-    this.buttoncreateOCAButton = async () => {
+    // Snapshot de configuration partage par les banques et l'archive de
+    // transfert (meme surface que l'ancien export OCA).
+    this.transferConfig = () => ({
+      targetCurve: this.targetCurve(),
+      tcName: ko.unwrap(this.tcName),
+      softRoll: this.softRoll(),
+      enableDynamicEq: this.enableDynamicEq(),
+      dynamicEqRefLevel: this.dynamicEqRefLevel(),
+      enableDynamicVolume: this.enableDynamicVolume(),
+      dynamicVolumeSetting: this.dynamicVolumeSetting(),
+      enableLowFrequencyContainment: this.enableLowFrequencyContainment(),
+      lowFrequencyContainmentLevel: this.lowFrequencyContainmentLevel(),
+      subwooferOutput: this.subwooferOutput(),
+      lpfForLFE: this.lpfForLFE(),
+      numberOfSubwoofers: this.uniqueSubsMeasurements().length,
+      currentVersion: this.currentVersion,
+    });
+
+    this.buttonSaveBank = async bank => {
       if (this.isProcessing()) return;
       try {
         await this.setProcessing(true);
-        lm.info('OCA file generation...');
-
-        const avrData = this.jsonAvrData();
-        if (!avrData?.targetModelName) {
-          throw new Error(`Please load avr file first`);
-        }
+        lm.info(`Generating filters for the ${bank} bank...`);
         await this.setTargetLevelFromMeasurement();
-
-        const { filename, blob } = await exportsService.generateOcaExport({
-          avrData,
+        await this.calibrationTransfer.saveCurrentFiltersToBank(bank, {
+          avrData: this.jsonAvrData(),
           measurements: this.uniqueMeasurements(),
-          config: {
-            targetCurve: this.targetCurve(),
-            fileFormat: this.ocaFileFormat(),
-            tcName: ko.unwrap(this.tcName),
-            softRoll: this.softRoll(),
-            enableDynamicEq: this.enableDynamicEq(),
-            dynamicEqRefLevel: this.dynamicEqRefLevel(),
-            enableDynamicVolume: this.enableDynamicVolume(),
-            dynamicVolumeSetting: this.dynamicVolumeSetting(),
-            enableLowFrequencyContainment: this.enableLowFrequencyContainment(),
-            lowFrequencyContainmentLevel: this.lowFrequencyContainmentLevel(),
-            subwooferOutput: this.subwooferOutput(),
-            lpfForLFE: this.lpfForLFE(),
-            numberOfSubwoofers: this.uniqueSubsMeasurements().length,
-            currentVersion: this.currentVersion,
-          },
+          config: { ...this.transferConfig(), savedAt: new Date().toISOString() },
         });
-
-        // Save file
-        saveAs(blob, filename);
-
-        this.handleSuccess('OCA file created successfully');
+        this.refreshBankSummary();
+        this.handleSuccess(`Filters saved to the ${bank} bank`);
       } catch (error) {
-        this.handleError(`OCA file failed: ${error.message}`, error);
+        this.handleError(`Bank save failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
+    this.buttonDuplicateBank = () => {
+      try {
+        const summary = this.bankSummary();
+        const source = summary.reference.loaded ? 'reference' : 'flat';
+        this.filterBanks.duplicateToOther(source);
+        this.refreshBankSummary();
+        this.handleSuccess(`Filters duplicated from the ${source} bank`);
+      } catch (error) {
+        this.handleError(`Bank duplication failed: ${error.message}`, error);
+      }
+    };
+
+    this.buttonClearBanks = () => {
+      this.filterBanks.clearAll();
+      this.refreshBankSummary();
+      this.handleSuccess('Filter banks cleared');
+    };
+
+    this.buildTransferArchive = async () => {
+      const liveStatus = await this.calibrationTransfer.fetchLiveStatus();
+      const { archive, warnings } = this.calibrationTransfer.buildCalibrationArchive({
+        avrData: this.jsonAvrData(),
+        measurements: this.uniqueMeasurements(),
+        config: this.transferConfig(),
+        liveStatus,
+      });
+      for (const warning of warnings) {
+        lm.warn(warning);
+      }
+      return archive;
+    };
+
+    this.buttonValidateTransfer = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+        const archive = await this.buildTransferArchive();
+        const result = await this.calibrationTransfer.validateArchive(archive);
+        if (result.valid) {
+          this.handleSuccess('Calibration is compatible with the connected AVR');
+        } else {
+          this.handleError(
+            `Calibration is not compatible: ${JSON.stringify(result.report ?? {})}`,
+          );
+        }
+      } catch (error) {
+        this.handleError(`Validation failed: ${error.message}`, error);
+      } finally {
+        await this.setProcessing(false);
+      }
+    };
+
+    this.buttonStartTransfer = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+        this.transferStatus(null);
+        this.transferRunning(true);
+        const archive = await this.buildTransferArchive();
+        lm.info('Transfer started...');
+        const finalStatus = await this.calibrationTransfer.runTransfer(archive, {
+          onStatus: status => this.transferStatus(status),
+        });
+        if (finalStatus.state === 'completed') {
+          this.handleSuccess('Calibration transferred to the AVR');
+        } else if (finalStatus.state === 'cancelled') {
+          this.handleSuccess('Transfer cancelled');
+        } else {
+          this.handleError(
+            `Transfer failed (${finalStatus.error?.code ?? 'unknown'}): ${finalStatus.error?.message ?? ''}`,
+          );
+        }
+      } catch (error) {
+        this.handleError(`Transfer failed: ${error.message}`, error);
+      } finally {
+        this.transferRunning(false);
+        await this.setProcessing(false);
+      }
+    };
+
+    this.buttonCancelTransfer = async () => {
+      try {
+        await this.calibrationTransfer.cancelTransfer();
+        lm.info('Transfer cancellation requested (deferred during FINZ_COEFS)');
+      } catch (error) {
+        this.handleError(`Cancel failed: ${error.message}`, error);
+      }
+    };
+
+    this.buttonDownloadArchive = async () => {
+      if (this.isProcessing()) return;
+      try {
+        await this.setProcessing(true);
+        const archive = await this.buildTransferArchive();
+        const blob = new Blob([JSON.stringify(archive, null, 2)], {
+          type: 'application/json',
+        });
+        const model = (archive.model ?? 'avr').replaceAll(' ', '-');
+        saveAs(blob, `${model}.rch.json`);
+        this.handleSuccess('Calibration archive downloaded');
+      } catch (error) {
+        this.handleError(`Archive download failed: ${error.message}`, error);
       } finally {
         await this.setProcessing(false);
       }
@@ -1862,6 +1979,15 @@ class MeasurementViewModel {
       onError: (message, error) => this.handleError(message, error),
       log: lm,
     });
+
+    // Banques Reference/Flat + transfert de calibration via le bridge.
+    this.filterBanks = createFilterBanks({ log: lm });
+    this.calibrationTransfer = createCalibrationTransfer({
+      bridgeSession: this.bridgeSession,
+      banks: this.filterBanks,
+      log: lm,
+    });
+    this.refreshBankSummary = () => this.bankSummary(this.filterBanks.summary());
 
     // Target curve / alignment services.
     this.targetCurveService = createTargetCurveService({

@@ -61,6 +61,8 @@ class BridgeMock {
     busyReason = null,
     info = DEFAULT_INFO,
     status = DEFAULT_STATUS,
+    // Nombre de polls "in-progress" avant completed (fenetre d'annulation).
+    transferSteps = 2,
   } = {}) {
     this.state = {
       registered,
@@ -73,6 +75,10 @@ class BridgeMock {
     };
     this.info = info;
     this.status = status;
+    // Transfert scripte : chaque GET /transfer avance d'un cran.
+    this.transferSteps = transferSteps;
+    this.transfer = { state: 'idle', script: null, step: 0, archive: null };
+    this.lastArchive = null;
     this.discoverResults = [{ ip: DEFAULT_AVR.ip, name: DEFAULT_AVR.model, model: DEFAULT_AVR.model }];
     this.unknownRequests = [];
     this.errors = [];
@@ -190,6 +196,74 @@ class BridgeMock {
     return { supported: true, preset: this.state.preset, success: true };
   }
 
+  handleValidate(body) {
+    if (!this.state.registered) return this.requireRegistered();
+    this.lastArchive = body;
+    return { ip: this.state.ip, valid: true, report: { checked: true } };
+  }
+
+  handleTransferStart(body) {
+    if (!this.state.registered) return this.requireRegistered();
+    if (this.transfer.state === 'in-progress') {
+      return { __status: 409, error: 'BUSY', message: 'transfer already running' };
+    }
+    this.lastArchive = body;
+    const channelCount = body?.channels?.length ?? 0;
+    const inProgress = Array.from({ length: this.transferSteps }, (_, index) => ({
+      state: 'in-progress',
+      phase: index === 0 ? 'SET_SETDAT' : 'SET_COEFDT',
+      progress: Math.round(((index + 1) / (this.transferSteps + 1)) * 100),
+      currentChannel: body?.channels?.[index % Math.max(1, channelCount)]?.commandId ?? null,
+    }));
+    this.transfer = {
+      state: 'in-progress',
+      step: 0,
+      archive: body,
+      script: [
+        ...inProgress,
+        {
+          state: 'completed',
+          phase: 'DONE',
+          progress: 100,
+          succeededChannels: (body?.channels ?? []).map(channel => channel.commandId),
+          failedChannels: [],
+        },
+      ],
+    };
+    return {
+      __status: 202,
+      transferId: 'mock-transfer-1',
+      state: 'in-progress',
+      totalChannels: channelCount,
+    };
+  }
+
+  handleTransferStatus() {
+    const { script } = this.transfer;
+    if (!script) {
+      return { state: this.transfer.state, transferId: 'mock-transfer-1' };
+    }
+    const status = script[Math.min(this.transfer.step, script.length - 1)];
+    this.transfer.step += 1;
+    if (status.state !== 'in-progress') {
+      this.transfer.state = status.state;
+    }
+    return { transferId: 'mock-transfer-1', ...status };
+  }
+
+  handleTransferCancel() {
+    if (this.transfer.state !== 'in-progress') {
+      return { cancelled: false, reason: 'no_transfer_active' };
+    }
+    // L'annulation reste differee d'un poll (FINZ) puis termine en cancelled.
+    this.transfer.script = [
+      { state: 'in-progress', phase: 'FINZ_COEFS', progress: 95 },
+      { state: 'cancelled', phase: 'EXIT_AUDMD', progress: 95, cancelled: true },
+    ];
+    this.transfer.step = 0;
+    return { transferId: 'mock-transfer-1', cancelled: true, reason: 'user_request' };
+  }
+
   dispatch(method, pathname, searchParams, body) {
     const key = `${method} ${pathname}`;
     switch (key) {
@@ -215,6 +289,14 @@ class BridgeMock {
         return { preset: this.state.preset, supported: true };
       case 'POST /avr/preset':
         return this.handlePreset(body);
+      case 'POST /avr/validate':
+        return this.handleValidate(body);
+      case 'POST /transfer':
+        return this.handleTransferStart(body);
+      case 'GET /transfer':
+        return this.handleTransferStatus();
+      case 'DELETE /transfer':
+        return this.handleTransferCancel();
       case 'POST /reset':
         return { reset: true };
       case 'POST /shutdown':

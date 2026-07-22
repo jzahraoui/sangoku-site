@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   assertMockClean,
-  clickAndDownload,
   connectBridge,
   startHarness,
   stopHarness,
@@ -18,11 +16,11 @@ const ADY_FIXTURE = path.join(FIXTURES_DIR, 'sample.ady');
 /**
  * Journey 1 — basic README workflow against the mocked REW API:
  * connect → import .ady (auto-import into REW) → averages → time align
- * → align SPL → export .oca. Assertions target semantic outputs (mock
- * store contents, displayed key values, generated .oca structure), not
- * DOM layout.
+ * → align SPL → save both filter banks → transfer to the AVR through the
+ * bridge mock. Assertions target semantic outputs (mock store contents,
+ * displayed key values, received CalibrationArchive), not DOM layout.
  */
-test('basic workflow: connect, import .ady, average, align, export OCA', async t => {
+test('basic workflow: connect, import .ady, average, align, transfer', async t => {
   const harness = await startHarness();
   const { page, rew, bridge } = harness;
 
@@ -114,33 +112,43 @@ test('basic workflow: connect, import .ady, average, align, export OCA', async t
       );
     });
 
-    await t.test('export OCA file', async () => {
-      const { path: downloadPath, suggestedFilename } = await clickAndDownload(
-        page,
-        'create-oca',
-      );
-      assert.match(suggestedFilename, /\.oca$/);
-      assert.match(suggestedFilename, /Denon-AVC-A1H/);
+    await t.test('save both banks and transfer to the AVR (mock)', async () => {
+      await page.getByTestId('bank-save-reference').click();
+      await waitForStatus(page, 'Filters saved to the reference bank');
+      await page.getByTestId('bank-duplicate').click();
+      await waitForStatus(page, 'Filters duplicated from the reference bank');
 
-      // Structural assertions on the generated .oca (odd format): filter
-      // VALUES come from the identity-EQ mock and are not meaningful, but
-      // the document shape and channel set are the workflow's contract.
-      const oca = JSON.parse(readFileSync(downloadPath, 'utf8'));
-      assert.equal(oca.model, 'Denon AVC-A1H');
-      assert.equal(oca.title, 'e2e-sample');
-      assert.match(oca.tcName, /e2eTarget/);
-      assert.equal(oca.numberOfSubwoofers, 2);
-      assert.ok(Array.isArray(oca.channels), 'channels missing');
-      assert.equal(oca.channels.length, 5, `expected 5 channels, got ${oca.channels.length}`);
-      for (const channel of oca.channels) {
-        assert.ok(Number.isInteger(channel.channelType), 'channelType missing');
+      await page.getByTestId('transfer-start').click();
+      await waitForStatus(page, 'Calibration transferred to the AVR');
+
+      // Structural assertions on the CalibrationArchive received by the
+      // bridge mock: filter VALUES come from the identity-EQ mock and are
+      // not meaningful, but the document shape, the channel set and the
+      // FR-062 lengths are the workflow's contract.
+      const archive = bridge.lastArchive;
+      assert.ok(archive, 'no archive received by the bridge mock');
+      assert.equal(archive.eqType, 2);
+      assert.equal(archive.model, 'Denon AVC-A1H');
+      assert.equal(archive.title, 'e2e-sample');
+      assert.equal(archive.numberOfSubwoofers, 2);
+      assert.equal(archive.ampAssign, '2chBiAmp');
+      assert.ok(archive.ampAssignBin, 'ampAssignBin missing');
+      assert.ok(Array.isArray(archive.channels), 'channels missing');
+      assert.equal(
+        archive.channels.length,
+        5,
+        `expected 5 channels, got ${archive.channels.length}`,
+      );
+      for (const channel of archive.channels) {
+        assert.ok(typeof channel.commandId === 'string', 'commandId missing');
         assert.ok(typeof channel.speakerType === 'string', 'speakerType missing');
         assert.ok(Number.isFinite(channel.distanceInMeters), 'distance missing');
         assert.ok(Number.isFinite(channel.trimAdjustmentInDbs), 'trim missing');
-        assert.ok(
-          Array.isArray(channel.filter) && channel.filter.length > 0,
-          'filter taps missing',
-        );
+        const expectedTaps = channel.commandId.startsWith('SW') ? 16055 : 16321;
+        for (const key of ['filterRef', 'filterFlat']) {
+          const taps = Buffer.from(channel[key], 'base64').length / 4;
+          assert.equal(taps, expectedTaps, `${channel.commandId} ${key} taps`);
+        }
       }
     });
 

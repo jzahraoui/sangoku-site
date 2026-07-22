@@ -1,5 +1,4 @@
 import JSZip from 'jszip';
-import OCAFileGenerator from '../oca-file.js';
 
 /**
  * Export/report generation service extracted from MeasurementViewModel
@@ -181,83 +180,6 @@ async function appendMsoMeasurement(
 }
 
 function createExportsService({ log = noopLog } = {}) {
-  /**
-   * Build the .oca file from the AVR data, the unique measurements and a
-   * snapshot of the export configuration.
-   */
-  async function generateOcaExport({ avrData, measurements, config }) {
-    const measurementsinError = measurements.filter(item => unwrap(item.hasErrors));
-
-    if (measurementsinError.length > 0) {
-      log.warn(
-        `There are ${measurementsinError.length} measurements with errors. Please fix them before generating the OCA file.`,
-      );
-    }
-    if (!avrData?.targetModelName) {
-      throw new Error(`Please load avr file first`);
-    }
-    const OCAFile = new OCAFileGenerator(avrData);
-
-    if (!config.targetCurve) {
-      throw new Error(
-        `Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"`,
-      );
-    }
-    OCAFile.fileFormat = config.fileFormat;
-    OCAFile.tcName = config.tcName;
-    OCAFile.softRoll = config.softRoll;
-    OCAFile.enableDynamicEq = config.enableDynamicEq;
-    OCAFile.dynamicEqRefLevel = config.dynamicEqRefLevel;
-    OCAFile.enableDynamicVolume = config.enableDynamicVolume;
-    OCAFile.dynamicVolumeSetting = config.dynamicVolumeSetting;
-    OCAFile.enableLowFrequencyContainment = config.enableLowFrequencyContainment;
-    OCAFile.lowFrequencyContainmentLevel = config.lowFrequencyContainmentLevel;
-    OCAFile.subwooferOutput = config.subwooferOutput;
-    OCAFile.lpfForLFE = config.lpfForLFE;
-    OCAFile.numberOfSubwoofers = config.numberOfSubwoofers;
-    OCAFile.versionEvo = `RCH ${config.currentVersion}`;
-
-    const jsonData = await OCAFile.createOCAFile(measurements);
-
-    // Logs alimentés par ce que le générateur a RÉELLEMENT fait (liste
-    // remplie pendant createsFilters) — pas de seconde copie du prédicat
-    // « bass managed », pas de log émis avant une génération qui peut échouer.
-    const baked = OCAFile.electricalHighPassChannels;
-    if (baked.length) {
-      log.info(
-        `Electrical BW12 high-pass baked into the OCA filters (LR24|LR24 ` +
-          `junction): ${baked
-            .map(({ channelName, crossover }) => `${channelName}@${crossover}Hz`)
-            .join(', ')}`,
-      );
-      const speakerFilterSpec = avrData.avr?.multEQSpecs?.speakerFilter;
-      const filterDurationMs = speakerFilterSpec
-        ? (speakerFilterSpec.samples / speakerFilterSpec.frequency) * 1000
-        : Infinity;
-      const lowCrossovers = baked.filter(({ crossover }) => crossover < 60);
-      if (filterDurationMs < 50 && lowCrossovers.length) {
-        log.warn(
-          `Speaker FIR is only ${filterDurationMs.toFixed(0)} ms on this MultEQ ` +
-            `type: the electrical BW12 tail is truncated (~-33 dB) below 60 Hz ` +
-            `(${lowCrossovers.map(({ channelName }) => channelName).join(', ')})`,
-        );
-      }
-    }
-
-    // Validate input
-    if (!jsonData) {
-      throw new Error('No data to save');
-    }
-
-    const model = avrData.targetModelName.replaceAll(' ', '-');
-    const filename = `${timestampSlug()}_${config.fileFormat}_${config.targetCurve}_${model}.oca`;
-
-    return {
-      filename,
-      blob: new Blob([jsonData], { type: 'application/json' }),
-    };
-  }
-
   /** Build the MSO sub package (one response file per sub and position). */
   async function buildMsoExportZip(measurements, { model, targetLevel }) {
     const jszip = new JSZip();
@@ -304,7 +226,6 @@ function createExportsService({ log = noopLog } = {}) {
   return {
     appendMsoMeasurement,
     buildMsoExportZip,
-    generateOcaExport,
     generateSettingsReport,
     importMsoConfig,
   };
