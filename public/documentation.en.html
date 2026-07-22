@@ -3,10 +3,12 @@
     <li><a href="#introduction">Introduction</a></li>
     <li><a href="#prerequisites">Before you start</a></li>
     <li><a href="#entry-points">Choose your starting point</a></li>
+    <li><a href="#measure">Measuring with the assistant</a></li>
     <li><a href="#workflow">Recommended workflow</a></li>
     <li><a href="#autoeq">Filter calculation (AutoEQ)</a></li>
     <li><a href="#subwoofers">Subwoofers and MSO</a></li>
-    <li><a href="#finalization">Finalization</a></li>
+    <li><a href="#finalization">Finalization and transfer</a></li>
+    <li><a href="#session">Session</a></li>
     <li><a href="#troubleshooting">Troubleshooting</a></li>
     <li><a href="#help">Help</a></li>
   </ul>
@@ -19,13 +21,15 @@
     <h2>Introduction</h2>
     <p>
       Room Correction Helper (RCH) is a calibration tool for Denon and Marantz home
-      theater systems based on Audyssey. It works with REW to import measurements, align
-      speakers and subwoofers, generate filters, verify previews, and produce an OCA file
-      that can be used with your AVR.
+      theater systems based on Audyssey. It works with REW to measure, align speakers
+      and subwoofers, generate filters and verify previews, then transfers the
+      calibration directly into your AVR through the RCH Bridge, a small local
+      program that drives the receiver over the network (Audyssey measurement
+      included).
     </p>
     <p>
       RCH is not a one-click magic button. The goal of the application is to provide a
-      guided but transparent process so you can verify each step before the final export.
+      guided but transparent process so you can verify each step before the final transfer.
     </p>
     <p>
       This documentation describes the current behavior of the application and follows the
@@ -44,39 +48,62 @@
     <h2>Before you start</h2>
     <p>Before using RCH, make sure the following points are covered:</p>
     <ul>
-      <li>You have a Denon or Marantz AVR compatible with Audyssey.</li>
+      <li>
+        You have a Denon or Marantz AVR compatible with Audyssey, powered on and
+        connected to the same network as your computer.
+      </li>
       <li>You have installed a recent REW beta version.</li>
       <li>The REW API server is enabled on port 4735.</li>
       <li>
-        All calculation steps require an active REW connection. Without it, RCH can still
-        inspect some files and produce exports, but it cannot run processing steps.
-      </li>
-      <li>
-        You have a supported entry point for the current workflow: ADY for the guided
-        mode, or AVR + REW measurements for the advanced mode.
-      </li>
-      <li>
-        For advanced use, you already know how to measure correctly in REW with a
-        measurement microphone or an equivalent method.
+        You have downloaded and launched the RCH Bridge, the small local program
+        that links RCH to the AVR. The per-platform binaries and first-launch
+        instructions are in the Resources tab, RCH Bridge section. Just leave it
+        running while you use RCH.
       </li>
     </ul>
 
+    <h3>The REW / Bridge / AVR operational chain</h3>
     <p>
-      If you plan to generate and then load an OCA file into the AVR, odd.wtf remains the
-      most natural companion tool for that workflow.
+      RCH needs three links to work, shown at the top of the Application page as
+      three indicators:
+    </p>
+    <ol>
+      <li>
+        <strong>REW</strong>: start REW with its API server, then click Connect in
+        Main commands.
+      </li>
+      <li>
+        <strong>Bridge</strong>: launch the RCH Bridge binary, then click Connect
+        Bridge.
+      </li>
+      <li>
+        <strong>AVR</strong>: once the bridge is connected, register your receiver
+        in the bridge panel — enter its IP address and click Register AVR, or click
+        Discover to find it automatically on the network and pick it from the list.
+        The Denon or Marantz mobile app is a quick way to retrieve the IP address
+        if needed.
+      </li>
+    </ol>
+    <p>
+      As long as the chain is incomplete (three green indicators), the application
+      is deliberately locked: only the connection panels stay usable, and the banner
+      lists the missing links. This is by design — the receiver configuration
+      (model, MultEQ version, detected channels) is read live from the connected
+      AVR, and every step of the workflow depends on it.
     </p>
     <p>
-      Platform-specific odd.wtf binaries, lossless sweeps, and Atmos files remain
-      centralized in the Resources tab. This page therefore focuses on when to use them,
-      not on duplicating the full download catalog.
+      Browser note: recent Chrome and Edge ask for a "local network" permission the
+      first time RCH connects to the bridge — accept it. Firefox works without any
+      extra step. Safari is not supported with the https site (WebKit limitation):
+      use Chrome, Edge or Firefox.
     </p>
 
     <img src="img/doc/rew-api-preferences.png" alt="REW API server configuration" />
 
     <p>
-      Practical advice: keep a clean working folder with your ADY, MQX, liveproject, AVR,
-      MDAT, OCA, and target curve files. This avoids many protocol and file-handling
-      mistakes.
+      Practical advice: keep a clean working folder with your measurement files
+      (MDAT, ADY, MQX, liveproject), your RCH session files and your target curves.
+      This avoids many file-handling mistakes.
     </p>
     <p>
       If you use a custom target curve, prepare it in advance as well. You will need it in
@@ -87,141 +114,106 @@
   <section id="entry-points">
     <h2>Choose your starting point</h2>
 
-    <h3>1. Basic mode with an ADY file</h3>
     <p>
-      This is the simplest entry point. You measure with odd.wtf or with the Audyssey
-      MultEQ Editor app, then import the ADY file into RCH. When RCH is connected to REW,
-      the measurements are loaded automatically into REW.
-    </p>
-    <p>
-      With odd.wtf, the simplest path is the built-in measurement workflow that directly
-      produces an ADY file. If you prefer to measure manually in REW with your own mic,
-      keep odd.wtf only for generating the AVR file used by advanced mode.
-    </p>
-    <p>
-      If REW is not connected, RCH can still extract the measurements from the file, but
-      the automatic import into REW will not happen.
+      Whichever starting point you pick, the <strong>receiver configuration</strong>
+      (model, MultEQ version, amp assignment, detected channels) always comes from
+      the AVR connected through the bridge — never from a file. Files only provide
+      measurements.
     </p>
 
-    <h3>2. Special case: MQX files</h3>
+    <img src="img/doc/rch-avr-configuration.png" alt="AVR configuration details" />
+
+    <h3>1. Measure with the built-in assistant (recommended)</h3>
     <p>
-      RCH can also process MQX files, but this path is not currently the most robust
-      standard workflow in the Application page.
-    </p>
-    <p>
-      In practice, you should mainly rely on ADY for the simple workflow and AVR + REW for
-      the advanced workflow. If you work with MQX, treat it as an advanced case that
-      should be validated carefully for your project and AVR context.
-    </p>
-    <p>
-      To use this path, load AVR data first. RCH needs it to rebuild the channel mapping
-      correctly.
+      The bridge drives the receiver to play the Audyssey sweeps on every speaker,
+      and RCH imports each impulse response into REW as the measurement progresses.
+      This is the most direct path: no file to handle, and the measurements arrive
+      already named by channel and position. The full walkthrough is in
+      <a href="#measure">Measuring with the assistant</a>.
     </p>
 
-    <h3>3. Advanced mode with REW</h3>
+    <h3>2. Import a measurement file (.ady, .mqx or .liveproject)</h3>
     <p>
-      If you measure manually in REW, you must first generate an AVR file with odd.wtf,
-      then load that AVR file into RCH. Your REW measurement names must follow the
-      Audyssey names exposed by the AVR file, otherwise they will not be matched to the
-      correct channels in the measurement table.
+      If you already measured with the Audyssey MultEQ Editor app (.ady), with
+      MultEQ-X (.mqx) or with Dirac Live (.liveproject), drag and drop the file onto
+      the drop zone of the Application page. The measurements are loaded
+      automatically into REW.
     </p>
     <p>
-      The most reliable sequence is: start REW empty, enable its API, connect RCH, and
-      only then open the MDAT file in REW. Before calculating, also make sure your
-      measurements are not carrying leftover EQ, delay, or inversion state.
+      These files provide <strong>measurements only</strong>: the configuration stays
+      the one of the connected AVR. If the file does not match that receiver
+      (different model, different MultEQ version), RCH shows a warning but lets the
+      import proceed — it is up to you to judge whether the measurements are still
+      relevant for the receiver in place.
+    </p>
+
+    <h3>3. Advanced mode: measure yourself in REW</h3>
+    <p>
+      If you measure manually in REW with your own mic, your measurement names must
+      follow the Audyssey names of the detected channels of the connected AVR
+      (visible in the AVR Configuration panel), otherwise they will not be matched
+      to the correct channels in the measurement table.
+    </p>
+    <p>
+      The most reliable sequence is: start REW empty, enable its API, connect the
+      full chain, and only then open the MDAT file in REW. Before calculating, also
+      make sure your measurements are not carrying leftover EQ, delay, or inversion
+      state.
     </p>
 
     <h4>Recommended preparation for manual REW measurements</h4>
     <p>
-      Before the measurement session, return the AVR to a simple and predictable state.
-      The minimum useful checklist is:
+      Before the measurement session, return the AVR to a simple and predictable
+      state:
     </p>
     <ul>
-      <li>Remove or neutralize any previous correction before measuring.</li>
-      <li>Set the volume around 62 or -18 dB, with roughly 75 dB on Front Right.</li>
       <li>
-        Disable unnecessary processing during measurement, especially ECO mode and
-        loudness processing.
+        Neutralize any previous correction: clear the Audyssey calibration in the AVR
+        menu, or import flat correction curves from an MQX file saved flat.
       </li>
       <li>
-        If you measure subwoofers through the LFE path, temporarily raise LPF for LFE to
-        its maximum value, or plan to use Revert later inside RCH.
+        Set the volume to 62 (absolute scale) or -18 dB: this gives roughly 75 dB on
+        Front Right.
       </li>
       <li>
-        For an Atmos system, use the matching lossless sweeps from Resources, with Front
-        Left as the acoustic timing reference.
+        (Optional, depending on your listening preference) If you plan to use Dynamic
+        EQ: switch it on with a 5 dB strength, all other Audyssey processing off.
+      </li>
+      <li>Disable loudness management and turn off ECO mode.</li>
+      <li>
+        For subwoofer measurements, either set LPF for LFE to 250 Hz and cancel the
+        filter effect later with "Revert AVR LPF" in RCH, or assign the subwoofer XLR
+        output to the center channel to bypass the LFE low-pass filter.
+      </li>
+      <li>
+        Check that all distances are set to 3 m (do not use the "set default" button)
+        and all levels to 0 dB.
+      </li>
+    </ul>
+    <p>On the REW side:</p>
+    <ul>
+      <li>Select the Java EXCL driver if your interface supports it.</li>
+      <li>48 kHz sampling, 0-24000 Hz measurement range.</li>
+      <li>
+        Measurement level at -12 dBFS — important so the Atmos channels play at the
+        correct volume.
+      </li>
+      <li>
+        For an Atmos system, play the lossless TrueHD files (one per channel) with
+        VLC. All the files are available from the Resources tab, Audio Files section:
+        the WAV measurement sweep and the per-channel .mlp files, including the SWx
+        and SWx +10 dB variants for subwoofers.
+      </li>
+      <li>
+        Acoustic timing reference on the Front Left channel (the same one the Atmos
+        files use).
       </li>
     </ul>
     <p>
-      On the REW side, keep a stable setup: Java EXCL if your interface supports it, 48
-      kHz sampling, 0-24000 Hz sweep range, and -12 dBFS sweeps so Atmos channels stay
-      level-consistent.
+      Measure every channel with the played sweeps, preferably several times and at
+      several positions. Measure the main listening position last and leave the
+      microphone in place: post-calibration checks will be easier.
     </p>
-
-    <h4>Generate an AVR file with odd.wtf</h4>
-    <p>
-      In advanced mode, the AVR file is the naming reference that lets RCH match REW
-      measurements to the correct Audyssey channels.
-    </p>
-    <ol>
-      <li>
-        Download the binary that matches your OS from the Resources tab and place it in a
-        stable folder.
-      </li>
-      <li>
-        On macOS or Linux, make it executable if needed, then start with a help command to
-        confirm that it launches correctly.
-      </li>
-      <li>
-        Use the network search command to detect the AVR, then run the generation command
-        to produce the AVR file that you will import into RCH.
-      </li>
-      <li>
-        If automatic detection fails, rerun the generation command while specifying the
-        AVR IP address directly.
-      </li>
-    </ol>
-
-    <figure>
-      <img
-        src="img/doc/odd-menu-screenshot.png"
-        loading="lazy"
-        alt="odd.wtf menu with workflow options"
-        class="thumbnail"
-        data-full="img/doc/odd-menu-screenshot.png"
-        width="360"
-      />
-      <figcaption>
-        The odd.wtf menu covers the guided workflow, AVR file generation, and final OCA
-        upload.
-      </figcaption>
-    </figure>
-
-    <div class="code-block">
-      <code class="code-text">odd search<br />odd gen<br />odd gen -i 192.168.x.x</code>
-    </div>
-
-    <figure>
-      <img
-        src="img/doc/terminal-screenshot.png"
-        loading="lazy"
-        alt="Example odd.wtf command line usage"
-        class="thumbnail"
-        data-full="img/doc/terminal-screenshot.png"
-        width="360"
-      />
-      <figcaption>
-        On the command line, start with help output, then use search and gen for your AVR.
-      </figcaption>
-    </figure>
-
-    <p>
-      The exact binary name depends on your platform. Adapt the command to odd.wtf,
-      odd.mac, or odd.linux as needed. The Denon or Marantz mobile app is usually the
-      fastest way to retrieve the AVR IP address.
-    </p>
-
-    <img src="img/doc/rch-avr-configuration.png" alt="AVR configuration details" />
 
     <h3>4. Dirac Live import (.liveproject file)</h3>
     <p>
@@ -253,38 +245,115 @@
       because their delay includes the subwoofer DSP latency: this is normal.
     </p>
     <p>
-      Important: a <code>.liveproject</code> does not provide a companion AVR file. RCH
-      synthesizes the minimum needed to import and display the measurements on the correct
-      channels. For OCA export or full optimization, you may also need to load an AVR (or
-      ADY) file matching your device.
+      Important: like the other files, a <code>.liveproject</code> only provides
+      measurements. The configuration (channels, MultEQ version, options) is the one
+      of the AVR connected through the bridge, and that is what drives the
+      optimization and the final transfer.
+    </p>
+  </section>
+
+  <section id="measure">
+    <h2>Measuring with the assistant</h2>
+    <p>
+      The Audyssey Measurement section of the Application page drives a complete
+      measurement session through the bridge: the receiver plays the Audyssey sweeps
+      on every speaker, and RCH imports each impulse response into REW as the
+      session progresses, already named by channel and position. The Audyssey
+      microphone calibration is handled by the bridge: you have no calibration file
+      to load.
+    </p>
+    <p>
+      The assistant is optional: you can just as well measure yourself in REW with
+      your own microphone (see
+      <a href="#entry-points">Choose your starting point</a>, advanced mode) or
+      import an existing measurement file.
+    </p>
+
+    <h3>Prepare the session</h3>
+    <ul>
+      <li>
+        Plug the Audyssey microphone supplied with the receiver into its SETUP MIC
+        jack.
+      </li>
+      <li>Unplug any headphones and disconnect any Bluetooth transmitter.</li>
+      <li>
+        Place the microphone at ear height at the main listening position, pointing
+        at the ceiling, on a stand if possible.
+      </li>
+      <li>Keep the room silent during each measurement.</li>
+    </ul>
+    <p>
+      Then click Start measurement session. If a precondition is not met
+      (microphone not plugged, headphones plugged, receiver powered off...), RCH
+      shows an explicit message: fix it and retry.
+    </p>
+
+    <h3>Measure the positions</h3>
+    <p>
+      <strong>Position 1</strong> always measures the full channel plan detected by
+      the receiver: it is the detection pass (speaker presence, polarity). Channel
+      selection only applies from position 2 onward: you can then remeasure only a
+      subset of channels if needed.
+    </p>
+    <p>
+      For each position: move the microphone, click Measure position, and wait for
+      the sweeps to finish (progress is displayed). The responses are imported into
+      REW as the measurement progresses. Any warnings (reversed polarity detected,
+      asymmetry) are displayed but do not block the session: note them and check
+      the physical wiring if an inversion is reported.
+    </p>
+
+    <h3>Set the subwoofer levels</h3>
+    <p>
+      For each detected subwoofer, the Subwoofer level matching block shows a live
+      SPL reading: click Match level, turn the gain knob of the subwoofer until it
+      reads about 75 dB, then click Stop. Preferably do this before measuring the
+      positions, so the measurements capture the right level.
+    </p>
+
+    <h3>Complete or cancel</h3>
+    <p>
+      When all positions are measured, click Complete session to hand control back
+      to the receiver. Cancel session abandons the session at any time.
+    </p>
+    <p>
+      <strong>Then save your measurements in REW</strong> (File / Save all
+      measurements) as a .mdat file: that file is what keeps your measurements from
+      one working session to the next — RCH stores no signal data (see
+      <a href="#session">Session</a>).
     </p>
   </section>
 
   <section id="workflow">
     <h2>Recommended workflow</h2>
 
-    <h3>Step 1. Connect REW and load the project</h3>
+    <h3>Step 1. Connect the chain and load the measurements</h3>
     <ol>
-      <li>Start REW and enable its API server.</li>
+      <li>Start REW (API server enabled) and the RCH Bridge binary.</li>
       <li>Switch back to the Application tab.</li>
-      <li>Click Connect in Main Commands.</li>
-      <li>Drag and drop your ADY or AVR file.</li>
       <li>
-        If you are in advanced mode, then open your measurement set in REW so RCH can map
-        the measurements correctly.
+        Complete the chain: Connect (REW), Connect Bridge, then register the AVR
+        (see <a href="#prerequisites">Before you start</a>). The three indicators of
+        the banner must be green.
+      </li>
+      <li>
+        Load your measurements: run a session with
+        <a href="#measure">the measurement assistant</a>, or drag and drop an .ady,
+        .mqx or .liveproject file, or measure yourself in REW / open your .mdat
+        (advanced mode).
       </li>
     </ol>
 
     <img src="img/doc/rch-connect-button.png" alt="REW connection button" />
 
     <p>
-      Once the project is loaded, open the AVR details and verify that the detected
-      channels match your actual setup.
+      Once the AVR is registered, open the AVR Configuration panel and verify that
+      the detected channels match your actual setup.
     </p>
     <p>
       In advanced mode, avoid loading the MDAT before connecting. RCH populates its table
       more reliably when REW is already running, the API is active, and the file is opened
-      only after clicking Connect.
+      once the chain is complete.
     </p>
 
     <h3>Step 2. Reset the calculation state when needed</h3>
@@ -421,7 +490,7 @@
       Filters are computed by RCH. If you prefer to generate or adjust them directly in
       REW (EQ / Match target, or manual editing), RCH detects that the filters changed
       and uses the ones present in REW for the rest of the process: previews, sub
-      alignment and exports.
+      alignment and transfer.
     </p>
     <p>
       The calculation itself is driven by the Settings panel. The defaults are designed
@@ -484,13 +553,13 @@
     <p>
       When the search succeeds, RCH also updates LPF for LFE to a value consistent with
       the selected speaker, with a 120 Hz minimum. Still verify that field before the
-      final export.
+      final transfer.
     </p>
 
     <h3>Step 9. Check the previews</h3>
     <p>
       Use the Preview buttons line by line, or All previews, to verify predicted
-      speaker-plus-subwoofer responses before export. This is the best way to detect a
+      speaker-plus-subwoofer responses before transfer. This is the best way to detect a
       poor handoff, a useful polarity change, or a wrong crossover choice.
     </p>
     <p>
@@ -512,7 +581,7 @@
       betting that the speaker's natural roll-off completes that BW12 — yet the EQ
       has just flattened that roll-off, which would push the sum about 2 dB above
       the target around the crossover. RCH corrects this by design: a second BW12 is
-      baked into the OCA filters of every bass-managed speaker, so the real junction
+      baked into the transferred filters of every bass-managed speaker, so the real junction
       becomes a symmetric LR24|LR24 pair, in phase at every frequency. Previews and
       Find Best LFE Low-Pass simulate that complete chain: what the preview shows is
       what will come out of the AVR. The alignment measurements (Check, Find Sub
@@ -871,8 +940,8 @@
       Subwoofer Tools to compensate for that effect.
     </p>
     <p>
-      If your measurements come from odd.wtf or from the Audyssey app, this step is
-      usually not needed.
+      If your measurements come from the measurement assistant or from the Audyssey
+      app, this step is usually not needed.
     </p>
     <p>
       If you measured through the AVR LFE path, using the highest LPF for LFE value during
@@ -1050,32 +1119,34 @@
 
     <h3>Special case: ADY measurements with multiple subs</h3>
     <p>
-      For measurements coming from odd.wtf or from the Audyssey app with multiple
-      subwoofers, directional bass mode matters. Without it, RCH may not have enough
+      For measurements imported from an ADY file with multiple subwoofers,
+      directional bass mode matters: without it, the file may not contain enough
       usable individual subwoofer measurements for a real multi-sub workflow.
     </p>
     <p>
-      If a multi-sub ADY import fails or warns about this, you usually need to repeat the
-      measurement session in Directional bass mode. Depending on the AVR model, RCH may
-      also direct you toward a manual REW method or an odd.wtf workflow variant for that
-      model.
+      If a multi-sub ADY import fails or warns about this, repeat the measurement
+      session with the built-in assistant (it measures each subwoofer
+      individually), or repeat the Audyssey session in Directional bass mode, or
+      measure each subwoofer manually in REW.
     </p>
     <p>
-      Directional bass mode is only needed for taking the measurements: leave the AVR in
-      that mode until the OCA file has been loaded. The transfer sets the subwoofer mode
-      back to Standard by itself — Standard is the listening mode the settings produced
-      by RCH are built for.
+      Directional bass mode is only needed for taking the measurements: after the
+      calibration transfer, check that the subwoofer mode of the receiver is set to
+      Standard — the listening mode the settings produced by RCH are built for.
     </p>
   </section>
 
   <section id="finalization">
-    <h2>Finalization</h2>
+    <h2>Finalization and transfer</h2>
     <p>
-      Once the previews look correct, open the Finalization area to prepare the export.
+      Once the previews look correct, open the Finalization area to prepare the
+      transfer of the calibration into the receiver. The transfer goes directly
+      through the bridge: there is no file to generate and no external program to
+      run.
     </p>
     <p>
       If you have just used Find Sub Alignment, verify the LPF for LFE field before
-      creating the OCA file. RCH may have raised it automatically to stay consistent with
+      transferring. RCH may have raised it automatically to stay consistent with
       the selected speaker crossover.
     </p>
     <p>
@@ -1096,64 +1167,124 @@
     </p>
 
     <p>
-      OCA file generation is now fully internal: RCH reads the filters present in REW
-      (including any you regenerated or adjusted directly in its interface) and
-      computes the impulse response in your AVR's format by itself. The export is
-      faster and no longer creates temporary measurements in REW. Supported filter
-      types are PK, all-pass, low/high pass (LP, HP, LP1, HP1), notch, the low/high
-      shelves (LS, HS, LS 6dB, LS 12dB, HS 6dB, HS 12dB) and modal filters — each
-      reproduces REW's output exactly. If another active type is present on a channel
-      (for example a crossover-style Low pass/High pass on slots 21/22), the export
-      stops with a message naming the slot: disable or replace that filter before
-      retrying.
+      Calibration filter generation is fully internal: RCH reads the filters present
+      in REW (including any you regenerated or adjusted directly in its interface)
+      and computes the impulse response in your AVR's format by itself. Supported
+      filter types are PK, all-pass, low/high pass (LP, HP, LP1, HP1), notch, the
+      low/high shelves (LS, HS, LS 6dB, LS 12dB, HS 6dB, HS 12dB) and modal filters
+      — each reproduces REW's output exactly. If another active type is present on a
+      channel (for example a crossover-style Low pass/High pass on slots 21/22), the
+      save stops with a message naming the slot: disable or replace that filter
+      before retrying.
     </p>
 
     <img src="img/doc/finalization-box.png" alt="Finalization area" />
 
     <p>
-      The export bakes an electrical Butterworth 12 dB/oct high-pass at the
-      channel's crossover frequency into the OCA filters of every bass-managed
-      speaker. Cascaded with the BW12 the AVR applies, the junction with the
+      The transferred filters of every bass-managed speaker bake in an electrical
+      Butterworth 12 dB/oct high-pass at the channel's crossover frequency.
+      Cascaded with the BW12 the AVR applies, the junction with the
       subwoofer becomes a symmetric, in-phase LR24|LR24 pair — the ~2 dB bump at the
       handoff disappears (see step 9). Subwoofers and Large speakers are untouched,
-      and each channel's exported level is preserved. The affected channels are
-      listed in the logs on every export. Note for MultEQ (non XT/XT32): with a
+      and each channel's level is preserved. The affected channels are
+      listed in the logs. Note for MultEQ (non XT/XT32): with a
       crossover below 60 Hz the filter response is slightly truncated by the AVR's
       limited filter length (a warning is logged).
     </p>
 
+    <h3>The two filter banks: Reference and Flat</h3>
+    <p>
+      An Audyssey receiver stores two filter banks, Reference and Flat, which you
+      switch between while listening in the Audyssey menu of the receiver. RCH lets
+      you fill each of the two with your own calculations. Key point of the Audyssey
+      format: the receiver only carries one set of delays, levels, distances and
+      crossovers, shared by both banks — only the filters differ from one bank to
+      the other.
+    </p>
+    <p>The recommended path:</p>
+    <ol>
+      <li>
+        Run the full workflow (averages, alignments, subwoofer optimization, filter
+        generation, previews) with your main target curve.
+      </li>
+      <li>
+        Click Save current filters on the Reference bank: RCH captures the filters
+        of every channel.
+      </li>
+      <li>
+        Change <strong>the target curve, and nothing else</strong> (a flat target
+        for example), then recompute the filters (All Filters, Equalize Sub).
+      </li>
+      <li>
+        Click Save current filters on the Flat bank. Since delays, levels and
+        crossovers are shared by both banks, RCH refuses to save the second bank if
+        anything other than the filters changed since the first one — the message
+        then lists the detected differences.
+      </li>
+    </ol>
+    <p>
+      The Duplicate to the other bank button is a shortcut: it copies the already
+      saved bank into the other one, to transfer the same filters on both sides
+      without recomputing. Clear banks empties both banks to start over.
+    </p>
+
+    <h3>Transfer to the receiver</h3>
+    <p>The transfer requires both banks to be saved. Before transferring:</p>
     <ul>
       <li>Choose the LPF for LFE value.</li>
-      <li>Choose the subwoofer output mode.</li>
-      <li>Enable or disable dynamic options depending on your use case.</li>
-      <li>Choose the OCA format that matches your hardware.</li>
-      <li>Click Create OCA File to generate the final file.</li>
       <li>
-        Click Create Settings File if you want to keep a full text record of the settings
-        used for this export.
+        Choose the subwoofer output mode: LFE is the recommended baseline; use
+        LFE + Main only if you explicitly know why you need it.
       </li>
+      <li>Enable or disable dynamic options depending on your use case.</li>
     </ul>
+    <p>
+      First click Validate on AVR: the receiver checks the complete calibration
+      without writing anything (dress rehearsal). Then Transfer to AVR starts the
+      real transfer: progress is shown per channel, and Cancel transfer lets you
+      interrupt — cancellation can take a few seconds if the receiver is
+      finalizing. The amp assignment is read live from the receiver when the
+      archive is built, so there is no possible mismatch between the transfer and
+      the actual state of the receiver. If delays, levels or crossovers changed
+      since a bank was saved, RCH flags that bank as stale: save it again before
+      transferring.
+    </p>
+    <p>
+      Once the transfer completes, check the result by ear and in the receiver
+      menu: MultEQ active, and switching between Reference and Flat available.
+    </p>
+    <p>
+      Two complementary buttons: Download .rch.json downloads the calibration
+      archive that was built (useful for inspection or support), and Create
+      Settings File generates a full text record of the settings used.
+    </p>
+  </section>
 
+  <section id="session">
+    <h2>Session</h2>
     <p>
-      The OCA file is the final output of RCH. You can then load it into your AVR with
-      odd.wtf or another tool that matches your workflow.
+      The Session section of the Application page saves your work so you can resume
+      it later. Export session downloads a .json file containing the settings, the
+      working state of the measurements (without signal data) and the filter banks.
+      Import session restores that file.
     </p>
     <p>
-      Multi-sub sessions measured in Directional bass mode: load the OCA file while the
-      AVR is still in Directional mode, the state the measurements were taken in. The
-      transfer tool checks that the AVR amplifier configuration matches the file, then
-      sets the subwoofer mode back to Standard by itself at the end of the transfer. Do
-      not switch back to Standard manually before loading: the check would fail with an
-      Amp Assign mismatch message.
+      RCH also saves your state continuously in the browser (auto-save): a simple
+      page reload loses nothing. The session file is for archiving a project,
+      resuming it on another machine, or after a browser cleanup.
     </p>
     <p>
-      For a standard workflow, Subwoofer Output in LFE mode is the recommended baseline.
-      Use LFE + Main only if you explicitly know why you need it.
+      <strong>The measurements themselves live in REW</strong>: save them as a
+      .mdat file (File / Save all measurements). To resume a project, reload the
+      .mdat in REW first, <strong>then</strong> import the session: each measurement
+      of the session is re-attached by identifier to the matching REW measurement.
+      Session measurements that cannot be found in REW are reported (title and
+      position) — reload the right .mdat and import again if that list is not
+      empty.
     </p>
     <p>
-      The odd.wtf OCA format matches the standard upload flow. The A1 Evo Acoustica format
-      is for hardware or workflows that require it, especially when odd.wtf is not suited
-      to the target DSP.
+      The existing side exports (subwoofer measurements for MSO, CamillaDSP
+      conversion) are kept and independent from the session file.
     </p>
   </section>
 
@@ -1165,6 +1296,53 @@
       <li>Make sure REW is running.</li>
       <li>Make sure the API server is started.</li>
       <li>Do not change the port unless you have a good reason to do so.</li>
+    </ul>
+
+    <h3>RCH does not connect to the bridge</h3>
+    <ul>
+      <li>
+        Make sure the RCH Bridge binary is launched and still running (terminal
+        window open).
+      </li>
+      <li>
+        On Chrome or Edge, accept the "local network" permission asked on first
+        connection. If you declined it, re-allow it in the site settings.
+      </li>
+      <li>
+        Safari is not supported with the https site: use Chrome, Edge or Firefox.
+      </li>
+      <li>
+        If the bridge seems stuck, the Reset bridge button (AVR / Bridge actions
+        menu) puts it back into a clean state.
+      </li>
+    </ul>
+
+    <h3>The bridge does not find the AVR</h3>
+    <ul>
+      <li>
+        Make sure the receiver is powered on and on the same network as the machine
+        running the bridge.
+      </li>
+      <li>
+        Try Discover for an automatic network scan; otherwise retrieve the IP
+        address from the Denon or Marantz app, enter it, then Register AVR.
+      </li>
+      <li>
+        If the receiver is flagged busy, a measurement or a transfer is in
+        progress: wait for it to finish, the connection stays valid.
+      </li>
+    </ul>
+
+    <h3>The application is locked (grayed sections)</h3>
+    <ul>
+      <li>
+        The REW / Bridge / AVR chain is incomplete: the banner at the top of the
+        page lists the missing links.
+      </li>
+      <li>
+        Connect REW, connect the bridge, then register the AVR. The unlock is
+        immediate as soon as the three indicators are green.
+      </li>
     </ul>
 
     <h3>My measurements do not appear in the table</h3>
@@ -1190,7 +1368,7 @@
       <li>Try another reference speaker in Tuning.</li>
       <li>Try a higher crossover value.</li>
       <li>Regenerate the speaker filter before retrying Find Sub Alignment.</li>
-      <li>Check the previews before exporting.</li>
+      <li>Check the previews before transferring.</li>
     </ul>
 
     <h3>Advanced mode does not populate the table correctly</h3>
@@ -1202,49 +1380,42 @@
 
     <h3>Multi-sub ADY cannot be used properly</h3>
     <ul>
-      <li>Repeat the measurement session in Directional bass mode.</li>
       <li>
-        If RCH asks for it, switch to the manual REW method or to the odd.wtf workflow
-        variant that matches your AVR.
+        Repeat the measurement session with the built-in assistant (each subwoofer
+        is measured individually).
+      </li>
+      <li>
+        Or repeat the Audyssey session in Directional bass mode, or measure each
+        subwoofer manually in REW.
       </li>
     </ul>
 
-    <h3>The OCA transfer reports an Amp Assign mismatch</h3>
+    <h3>The transfer fails or seems stuck</h3>
     <ul>
       <li>
-        If the measurements were taken in Directional bass mode, put the AVR back in that
-        mode before retrying the transfer: the OCA file carries the configuration of the
-        measurement session.
+        Run Validate on AVR first: the dry-run error message points at the problem
+        without writing anything into the receiver.
       </li>
       <li>
-        Otherwise, check that the amplifier assignment (Amp Assign) has not changed since
-        the measurements and restore it in the AVR menu.
+        If a bank is flagged stale, delays, levels or crossovers changed since it
+        was saved: save both banks again on consistent states.
       </li>
-      <li>The transfer sets the subwoofer mode back to Standard by itself at the end.</li>
+      <li>
+        A cancellation during the final phase can take a few seconds: let the
+        transfer finish cleanly.
+      </li>
+      <li>
+        If the receiver stays in a strange state after an incident, power it off
+        and on again before retrying.
+      </li>
     </ul>
 
     <h3>An action is disabled or fails immediately</h3>
     <ul>
-      <li>Confirm that REW is connected before any calculation step.</li>
       <li>
-        Without an active API connection, RCH can load files but cannot run processing.
+        Check the REW / Bridge / AVR chain: the three indicators must be green.
       </li>
-    </ul>
-
-    <h3>odd.wtf does not find the AVR</h3>
-    <ul>
-      <li>
-        Make sure the AVR is powered on and on the same network as the machine running
-        odd.wtf.
-      </li>
-      <li>
-        Retrieve the IP address from the Denon or Marantz app, then rerun the command with
-        the -i option.
-      </li>
-      <li>
-        On macOS or Linux, also verify that the binary is executable before assuming this
-        is only a network discovery problem.
-      </li>
+      <li>Without a complete chain, RCH only allows the connection panels.</li>
     </ul>
 
     <h3>You want to start over</h3>
@@ -1259,8 +1430,8 @@
     <p>For more information, you can use the following resources:</p>
     <ul>
       <li>
-        The Resources tab inside the application to download REW, odd.wtf, useful helper
-        files, target curves, and workflow assets.
+        The Resources tab inside the application to download the RCH Bridge, REW,
+        useful helper files, target curves, and workflow assets.
       </li>
       <li>The Change Log tab inside the application to track recent RCH changes.</li>
       <li>

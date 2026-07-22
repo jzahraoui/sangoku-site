@@ -453,7 +453,7 @@ class AdyTools {
 
     if (this.fileContent.avr?.hasCirrusLogicDsp) {
       throw new Error(
-        `Try manually measuring each of your subwoofers with REW and a calibrated microphone or use 'odd.wtf measure -s' tool with subwoofer RCA cable swapping method.`,
+        `Try manually measuring each of your subwoofers with REW and a calibrated microphone, or run a new session with the measurement assistant (Audyssey Measurement panel, RCH Bridge required).`,
         {
           cause: new Error(
             'Cirrus Logic DSP detected, requires manual subwoofer measurement',
@@ -463,7 +463,7 @@ class AdyTools {
     }
 
     throw new Error(
-      `Repeat measurement process with 'odd.wtf measure -b' 'directional bass' mode hack (will work with your receiver model).`,
+      `Repeat the measurement process with the measurement assistant (Audyssey Measurement panel, RCH Bridge required), or import a file measured in 'directional bass' mode.`,
       {
         cause: new Error(
           'No specific error identified, but directional mode is required',

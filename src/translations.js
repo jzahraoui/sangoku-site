@@ -33,7 +33,7 @@ const translations = {
     sub_tools: 'Subwoofer Tools',
     revert_avr_filter: '(Optional) Revert AVR low pass filter:',
     revert_avr_info:
-      'This step is not needed if you used odd to take the measurements. If your subwoofer measurements were taken with REW and you have your own microphone, you can revert the effect of the AVR low-pass filter. Select the filter frequency that was active during the measurements.',
+      'This step is not needed if the measurements come from the measurement assistant or the Audyssey app. If your subwoofer measurements were taken with REW and you have your own microphone, you can revert the effect of the AVR low-pass filter. Select the filter frequency that was active during the measurements.',
     replace_original: 'Delete original',
     revert: 'Revert',
     option2: 'Generate Automated Configuration',
@@ -367,7 +367,7 @@ const translations = {
     sub_tools: 'Outils des caissons',
     revert_avr_filter: '(Optionnel) Annuler le filtre passe-bas AVR :',
     revert_avr_info:
-      "Cette étape n'est pas nécessaire si vous avez utilisé odd pour effectuer les mesures. Si vos mesures de caisson ont été réalisées avec REW et que vous disposez de votre propre microphone, vous pouvez annuler l'effet du filtre passe-bas de l'AVR. Sélectionnez la fréquence du filtre active au moment des mesures.",
+      "Cette étape n'est pas nécessaire si les mesures proviennent de l'assistant de mesure ou de l'application Audyssey. Si vos mesures de caisson ont été réalisées avec REW et que vous disposez de votre propre microphone, vous pouvez annuler l'effet du filtre passe-bas de l'AVR. Sélectionnez la fréquence du filtre active au moment des mesures.",
     replace_original: "Supprimer l'original",
     revert: 'Annuler',
     option2: 'Générer une configuration automatisée',

@@ -1,6 +1,6 @@
 # Room Correction Helper
 
-Room Correction Helper (RCH) is an open-source browser-based application for advanced home theater calibration on Denon and Marantz AVRs using Audyssey. It works alongside REW (Room EQ Wizard) to import measurements, align speakers and subwoofers, generate correction filters, preview predicted results, and export an OCA file ready to load into compatible hardware.
+Room Correction Helper (RCH) is an open-source browser-based application for advanced home theater calibration on Denon and Marantz AVRs using Audyssey. It works alongside REW (Room EQ Wizard) to measure, align speakers and subwoofers, generate correction filters and preview predicted results, then transfers the calibration directly into the receiver through the RCH Bridge — a small local companion program that drives the AVR over the network (Audyssey measurement included).
 
 The project is built for users who want more control than the standard Audyssey workflow offers while keeping a guided, browser-based interface.
 
@@ -15,7 +15,7 @@ This project is a good fit if you:
 - use a Denon or Marantz AVR with Audyssey
 - already work with REW, or want a guided workflow around it
 - want tighter control over timing, levels, crossovers, and subwoofer integration
-- need a workflow that can start from `.ady`, `.mqx`, or manual REW measurements
+- need a workflow that can start from a bridge-driven Audyssey measurement session, `.ady`, `.mqx`, `.liveproject`, or manual REW measurements
 
 RCH is probably not the right tool if you want a fully automatic one-click calibration process with no manual validation.
 
@@ -23,11 +23,11 @@ RCH is probably not the right tool if you want a fully automatic one-click calib
 
 ### Basic workflow in 5 steps
 
-1. Install a recent REW beta and enable the REW API server.
+1. Install a recent REW beta and enable the REW API server; download and launch the RCH Bridge from the Resources tab.
 2. Open [https://sangoku.work/](https://sangoku.work/).
-3. Import your `.ady` file from odd.wtf or the Audyssey app. If you work from `.mqx`, load AVR data first.
-4. Connect RCH to REW, create averages, run Time Align, load your target curve in REW, and run Align SPL.
-5. Optimize subs, validate previews, and export your `.oca` file for AVR upload.
+3. Complete the operational chain: connect REW, connect the bridge, register your AVR (IP or network discovery).
+4. Measure with the built-in Audyssey assistant (or import `.ady`/`.mqx`/`.liveproject` measurements, or measure manually in REW), create averages, run Time Align, load your target curve in REW, and run Align SPL.
+5. Optimize subs, validate previews, save the Reference and Flat filter banks, and transfer the calibration into the AVR.
 
 ## What This Tool Does
 
@@ -35,13 +35,14 @@ RCH helps you turn raw room measurements into a usable room-correction configura
 
 Typical use cases include:
 
+- measuring through the bridge-driven Audyssey assistant
 - importing measurements from Audyssey-based workflows or manual REW sessions
 - averaging multi-position measurements
 - aligning speakers in time and level
 - optimizing one or multiple subwoofers
 - importing or exporting MSO-related data
 - generating preview responses before committing changes
-- exporting an OCA file for upload to the AVR
+- transferring the calibration directly into the AVR
 
 ## Project Goal
 
@@ -49,14 +50,14 @@ The goal of RCH is to give the user a practical calibration toolbox, not a black
 
 Instead of hiding the process, RCH exposes each important step of the workflow:
 
-- measurement import
+- measurement (assistant or import)
 - averaging
 - time alignment
 - SPL alignment
 - subwoofer optimization
 - crossover and filter generation
 - preview validation
-- final OCA export
+- filter banks and final calibration transfer
 
 This makes it possible to build better room-correction results while keeping manual control over key decisions.
 
@@ -66,58 +67,61 @@ Use RCH when you want a workflow that sits between raw measurement tooling and f
 
 Compared to a default AVR calibration flow, RCH gives you more control over:
 
-- how measurements are imported and organized
+- how measurements are taken, imported, and organized
 - how speakers are aligned in time and SPL
 - how one or several subwoofers are optimized
 - how crossover decisions are validated through previews
-- how the final OCA payload is generated and documented
+- what exactly is transferred into the AVR, and how it is documented
 
 ## Supported Workflows
 
-RCH supports two main usage styles.
+RCH supports two main usage styles. Both require the full operational chain: REW connected, RCH Bridge connected, and the AVR registered — the receiver configuration is always read live from the connected AVR, files only provide measurements.
 
 ### Basic workflow
 
-For users working with Audyssey-generated measurements:
+For users working with Audyssey measurements:
 
-- import `.ady` files created from odd.wtf or the Audyssey MultEQ Editor app
-- optionally import `.mqx` data from MultEQ-X workflows
-- automatically load measurements into REW
-- average positions, align speakers, optimize subs, and export OCA
+- measure with the built-in assistant (the bridge drives the AVR sweeps and imports each impulse response into REW), or import `.ady`, `.mqx`, or Dirac Live `.liveproject` measurement files
+- average positions, align speakers, optimize subs
+- save the Reference and Flat filter banks, then transfer into the AVR
 
 ### Advanced workflow
 
 For users working directly in REW with their own microphone:
 
-- generate an `.avr` file from odd.wtf
-- make and manage measurements manually in REW
-- use RCH for alignment, optimization, preview, and export
+- make and manage measurements manually in REW, named after the detected channels of the connected AVR
+- use RCH for alignment, optimization, preview, banks, and transfer
 
 ## Key Features
 
 - Direct REW API integration
-- Import of `.avr`, `.ady`, and `.mqx` project data
+- RCH Bridge integration: AVR registration (IP or SSDP discovery), live receiver configuration, operational chain gating
+- Bridge-driven Audyssey measurement assistant with live impulse response import and subwoofer level matching
+- Import of `.ady`, `.mqx`, and Dirac Live `.liveproject` measurement data
 - Automatic measurement import into REW when connected
 - English and French interface
-- AVR configuration parsing and channel mapping display
+- AVR configuration display synthesized live from the receiver
 - Multi-position averaging
 - Speaker time alignment and SPL alignment
 - Subwoofer tools for LPF reversion, alignment, EQ, and preview
 - Optional all-pass filters for multi-sub optimization
 - MSO export package generation and MSO Equalizer APO import
 - Predicted preview generation for sub and speaker-plus-sub responses
-- OCA export in odd.wtf or A1 Evo Acoustica compatible formats
+- Reference/Flat filter banks and direct calibration transfer (dry-run validation, per-channel progress, cancellation)
+- Session export/import (`.json`) with continuous auto-save
 - Settings file export for documenting a calibration session
 
 ## Inputs And Outputs
 
 ### Inputs
 
-- `.ady` files from odd.wtf or the Audyssey mobile app
+- measurements taken by the bridge-driven Audyssey assistant
+- `.ady` files from the Audyssey mobile app
 - `.mqx` files from MultEQ-X workflows
-- `.avr` files describing the current AVR configuration
+- Dirac Live `.liveproject` files
 - REW measurements from manual workflows
 - Equalizer APO exports from MSO
+- RCH session files (`.json`)
 - target curves loaded in REW for SPL alignment and validation
 
 ### Outputs
@@ -125,7 +129,9 @@ For users working directly in REW with their own microphone:
 - calibrated data inside REW
 - preview measurements for validation
 - subwoofer export ZIP files for MSO workflows
-- `.oca` calibration files for AVR upload
+- calibration transferred directly into the AVR (Reference and Flat banks)
+- calibration archive download (`.rch.json`) for inspection
+- RCH session files (`.json`)
 - plain-text settings reports documenting the generated configuration
 
 ## Requirements
@@ -133,10 +139,10 @@ For users working directly in REW with their own microphone:
 To use the application effectively, you typically need:
 
 - REW with API support enabled
-- an active REW connection for all calculation steps
-- an Audyssey-compatible Denon or Marantz AVR
-- odd.wtf for generating AVR files and loading OCA files, depending on workflow
-- measurement data from Audyssey, MultEQ-X, or manual REW sessions
+- the RCH Bridge running locally (binaries available in the Resources tab)
+- an Audyssey-compatible Denon or Marantz AVR, reachable on the local network
+- the full operational chain (REW + bridge + registered AVR) for all workflow steps
+- measurement data from the assistant, Audyssey, MultEQ-X, Dirac Live, or manual REW sessions
 
 For advanced workflows, a calibrated microphone and solid REW knowledge are recommended.
 
@@ -195,7 +201,7 @@ Recommended contribution flow:
 4. Run `npm run test:smoke` and `npx eslint src/` before submitting.
 5. Open a pull request with a clear description of the problem, the fix, and any calibration impact.
 
-If your change affects measurement handling, filter generation, MSO import/export, or OCA generation, include enough detail for reviewers to understand the expected audio behavior.
+If your change affects measurement handling, filter generation, MSO import/export, or the calibration transfer path, include enough detail for reviewers to understand the expected audio behavior.
 
 ### Optimizer Changes
 
@@ -224,7 +230,7 @@ Before sending any generated configuration to your AVR, verify the parameters ca
 ## Acknowledgments
 
 - John Mulcahy for REW
-- RatNeuron for odd.wtf
+- RatNeuron for odd.wtf, which powered the pre-2.0 upload workflow
 - the users and testers who helped validate the workflows
 - the open-source libraries used by this project
 

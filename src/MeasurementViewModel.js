@@ -1735,7 +1735,7 @@ class MeasurementViewModel {
 
         const avrData = this.jsonAvrData();
         if (!avrData?.targetModelName) {
-          throw new Error(`Please load avr file first`);
+          throw new Error(`Please register the AVR first (bridge connection)`);
         }
         await this.setTargetLevelFromMeasurement();
 

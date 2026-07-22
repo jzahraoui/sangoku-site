@@ -4,9 +4,10 @@ import JSZip from 'jszip';
  * Export/report generation service extracted from MeasurementViewModel
  *.
  *
- * [ORCHESTRATION] service: builds the OCA file, the settings report, the MSO
- * sub package and the .avr receiver config as `{ filename, blob }` results —
- * saving to disk (`saveAs`) stays in the viewmodel. No Knockout, no DOM.
+ * [ORCHESTRATION] service: builds the settings report and the MSO sub
+ * package as `{ filename, blob }` results — saving to disk (`saveAs`) stays
+ * in the viewmodel. No Knockout, no DOM. (The OCA/.avr exports were removed
+ * with RCH 2.0: the calibration now goes through the bridge transfer.)
  */
 
 const noopLog = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
@@ -25,7 +26,7 @@ function timestampSlug() {
  */
 function generateSettingsReport({ avrData, settings, reducedMeasurements }) {
   if (!avrData?.targetModelName) {
-    throw new Error(`Please load avr file first`);
+    throw new Error(`Please register the AVR first (bridge connection)`);
   }
   if (!settings.targetCurve) {
     throw new Error(
