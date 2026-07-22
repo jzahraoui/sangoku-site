@@ -343,7 +343,8 @@ class AvrCaracteristics {
    * @throws {Error} If the type doesn't exist
    */
   static getDescription(type) {
-    const config = this.EQ_TYPES[type];
+    // toUpperCase : la cle BASIC ne coincide pas avec son name 'Basic'.
+    const config = this.EQ_TYPES[type.toUpperCase()];
     return `${config.name} (sub filter: ${config.specs.subFilter.samples} samples / ${config.specs.subFilter.taps} taps, speaker filter: ${config.specs.speakerFilter.samples} samples / ${config.specs.speakerFilter.taps} taps)`;
   }
 
@@ -356,7 +357,8 @@ class AvrCaracteristics {
     if (!targetModelName) {
       throw new Error('Target model name is required');
     }
-    if (!enMultEQType) {
+    // == null : accepte l'id 0 (MultEQ Basic), rejette null/undefined.
+    if (enMultEQType == null) {
       throw new Error('MultEQ type is required');
     }
 

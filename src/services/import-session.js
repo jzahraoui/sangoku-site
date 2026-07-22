@@ -15,7 +15,7 @@ import MqxTools from '../mqx-tools.js';
  */
 
 const MAX_FILE_SIZE_BYTES = 209715200; // 200 MB
-const VALID_FILE_EXTENSIONS = ['.avr', '.ady', '.mqx', '.liveproject'];
+const VALID_FILE_EXTENSIONS = ['.ady', '.mqx', '.liveproject'];
 // Extensions lues comme binaire (arrayBuffer) plutot que texte JSON.
 const BINARY_FILE_EXTENSIONS = ['.liveproject'];
 
@@ -136,7 +136,9 @@ function normalizeChannelMapping(data, log = noopLog) {
 /** Convert a .mqx structure to an .ady-like structure. */
 async function processMqxFile(data, jsonAvrData) {
   if (!jsonAvrData) {
-    throw new Error('Please load AVR data first');
+    throw new Error(
+      'AVR data is not available: connect the bridge and register your AVR first',
+    );
   }
   const mqxTools = new MqxTools(data, jsonAvrData);
   mqxTools.parse();

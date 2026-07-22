@@ -22,6 +22,11 @@ import { createRewSession } from './services/rew-session.js';
 import BridgeApi from './bridge/bridge-api.js';
 import { createBridgeSession } from './services/bridge-session.js';
 import {
+  describeFileMismatch,
+  sameAvrIdentity,
+  synthesizeAvrData,
+} from './services/avr-data-synthesis.js';
+import {
   MAX_FILE_SIZE_BYTES,
   VALID_FILE_EXTENSIONS,
   createImportSession,
@@ -512,6 +517,15 @@ class MeasurementViewModel {
       lm.info('Loading file: ' + filename);
 
       try {
+        // Le bridge est l'autorite de configuration : le fichier ne fournit
+        // que les mesures ; le contexte AVR live doit deja etre en place.
+        const liveAvrData = this.lastBridgeAvrData ?? this.jsonAvrData();
+        if (!liveAvrData?.avr) {
+          throw new Error(
+            'AVR data is not available: connect the bridge and register your AVR first',
+          );
+        }
+
         if (filename.endsWith('.mqx')) {
           // convert mqx to ady like structure
           data = await this.processMqxFile(data, filename);
@@ -529,20 +543,14 @@ class MeasurementViewModel {
 
         this.normalizeChannelMapping(data);
 
-        const avr = new AvrCaracteristics(data.targetModelName, data.enMultEQType);
-        data.avr = avr.toJSON();
-
-        // if has cirrus logic dsp select a1 format otherwise odd format
-        if (avr.hasCirrusLogicDsp) {
-          this.ocaFileFormat('a1');
-        } else {
-          this.ocaFileFormat('odd');
+        for (const mismatch of describeFileMismatch(data, liveAvrData)) {
+          lm.warn(`Measurement file does not match the connected AVR: ${mismatch}`);
         }
-        // reset application
-        this.resetApplicationState();
 
-        // load jsonAvrData to prevent bug when avr data is not loaded
-        this.jsonAvrData(data);
+        // reset application, then keep the live AVR context ; le titre est une
+        // metadonnee de la session de MESURE : il vient du fichier importe.
+        this.resetApplicationState();
+        this.jsonAvrData({ ...liveAvrData, title: data.title ?? liveAvrData.title });
 
         // Check if we have any measurements meaning we have a ady file
         if (!data.detectedChannels?.[0].responseData?.[0]) {
@@ -550,7 +558,12 @@ class MeasurementViewModel {
           return;
         }
 
-        const needCal = data.avr.hasCirrusLogicDsp || filename.endsWith('.mqx');
+        // La cal micro depend de l'ampli qui a MESURE (celui du fichier).
+        const fileAvr = new AvrCaracteristics(
+          data.targetModelName ?? liveAvrData.targetModelName,
+          data.enMultEQType ?? liveAvrData.enMultEQType,
+        );
+        const needCal = fileAvr.hasCirrusLogicDsp || filename.endsWith('.mqx');
         const adyTools = new AdyTools(data);
         // create zip containing all measurements
         const zipContent = await adyTools.parseContent(needCal);
@@ -567,48 +580,40 @@ class MeasurementViewModel {
           for (const channel of data.detectedChannels) {
             channel.responseData = {};
           }
-          this.jsonAvrData(data);
         }
       }
     };
 
     // Reconstruct a Dirac Live `.liveproject`: decode + rebuild IRs in a Web
-    // Worker, synthesize a minimal AVR context (no companion .avr file), then
-    // push the impulse responses into REW.
+    // Worker, then push the impulse responses into REW. The AVR context stays
+    // the live one from the bridge (configuration authority) — the project
+    // only supplies measurements.
     this.onLiveprojectLoaded = async (decoded, filename) => {
       lm.info('Loading Dirac Live file: ' + filename);
+
+      const liveAvrData = this.lastBridgeAvrData ?? this.jsonAvrData();
+      if (!liveAvrData?.avr) {
+        throw new Error(
+          'AVR data is not available: connect the bridge and register your AVR first',
+        );
+      }
 
       const results = document.getElementById('resultsAvr');
       if (results) results.innerHTML = '';
 
-      // Reset before importing so previous measurements/state are cleared.
-      this.resetApplicationState();
-
-      // Synthesize a minimal jsonAvrData: MeasurementItem requires avr data
-      // (speed of sound) and detectedChannels (channel identity) to build.
-      const seen = new Set();
-      const detectedChannels = [];
-      for (const c of decoded.channelTable) {
-        if (seen.has(c.code) || c.channelIndex == null) continue;
-        seen.add(c.code);
-        detectedChannels.push({
-          commandId: c.code,
-          enChannelType: c.channelIndex,
-          channelReport: {},
-        });
-      }
-      const modelName = [decoded.source.vendor, decoded.source.model]
+      const diracModel = [decoded.source.vendor, decoded.source.model]
         .filter(Boolean)
-        .join(' ') || 'Dirac Live';
-      this.jsonAvrData({
-        targetModelName: modelName,
-        detectedChannels,
-        avr: {
-          speedOfSound: 343,
-          splOffset: decoded.splOffset,
-          multiSubwoofers: detectedChannels.filter(c => c.commandId.startsWith('SW')).length > 1,
-        },
-      });
+        .join(' ');
+      if (diracModel && diracModel !== liveAvrData.targetModelName) {
+        lm.warn(
+          `Dirac project source (${diracModel}) differs from the connected AVR (${liveAvrData.targetModelName})`,
+        );
+      }
+
+      // Reset before importing so previous measurements/state are cleared,
+      // then keep the live AVR context.
+      this.resetApplicationState();
+      this.jsonAvrData(liveAvrData);
 
       await importSession.importLiveprojectImpulses(this.rewSession, decoded, {
         splOffset: decoded.splOffset,
@@ -739,20 +744,6 @@ class MeasurementViewModel {
       }
     };
 
-    this.buttonDownloadAvr = async () => {
-      if (this.isProcessing()) return;
-      try {
-        const { filename, blob } = exportsService.buildAvrExport(
-          this.jsonAvrData(),
-          this.avrIpAddress(),
-        );
-        saveAs(blob, filename);
-        this.handleSuccess('Download successful');
-      } catch (error) {
-        this.handleError(`.avr file failed: ${error.message}`, error);
-      }
-    };
-
     this.buttoncheckREWButton = async () => {
       if (this.isProcessing()) return;
       try {
@@ -767,6 +758,37 @@ class MeasurementViewModel {
       if (this.isProcessing()) return;
       this.error('');
       await this.bridgeSession.toggleConnection();
+    };
+
+    // Installe le contexte AVR synthetise depuis le bridge (decision RCH 2.0 :
+    // l'ampli connecte est LA source de verite de la configuration ; les
+    // fichiers de mesures n'installent plus de jsonAvrData). Meme identite
+    // d'ampli -> rafraichissement sans reset, sinon repartir d'une session
+    // propre.
+    this.lastBridgeAvrData = null;
+    this.applyLiveAvrData = ({ info, status, model }) => {
+      try {
+        const synthesized = synthesizeAvrData(
+          { info, status, model: model || this.avrModelName() || undefined },
+          lm,
+        );
+        this.lastBridgeAvrData = synthesized;
+        const current = this.jsonAvrData();
+        if (current && !sameAvrIdentity(current, synthesized)) {
+          lm.info('Different AVR identity detected: resetting the working session');
+          this.resetApplicationState();
+        }
+        this.jsonAvrData(synthesized);
+        this.ocaFileFormat(synthesized.avr.hasCirrusLogicDsp ? 'a1' : 'odd');
+        lm.info(
+          `Live AVR data loaded: ${synthesized.targetModelName} (MultEQ ${synthesized.avr.multEQType}, ${synthesized.detectedChannels.length} channels)`,
+        );
+      } catch (error) {
+        this.handleError(
+          `Failed to build AVR data from the bridge: ${error.message}`,
+          error,
+        );
+      }
     };
 
     this.buttonRegisterAvr = async () => {
@@ -1836,11 +1858,7 @@ class MeasurementViewModel {
         'isProcessing',
       ]),
       createApi: baseUrl => new BridgeApi(baseUrl),
-      onAvrDataAvailable: payload => {
-        lm.debug(
-          `Live AVR data received (EQType ${payload?.info?.EQType ?? 'unknown'})`,
-        );
-      },
+      onAvrDataAvailable: payload => this.applyLiveAvrData(payload),
       onError: (message, error) => this.handleError(message, error),
       log: lm,
     });

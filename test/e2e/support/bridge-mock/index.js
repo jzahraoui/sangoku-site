@@ -1,8 +1,12 @@
 const BRIDGE_PORT = '7735';
 
+// Aligned with the e2e fixture `sample.ady` (Denon AVC-A1H, XT32,
+// enAmpAssignType 6 = '2chBiAmp', 2 directional subs, channels
+// FL/C/FR/SW1/SW2) so the live-synthesized jsonAvrData matches the
+// measurements the journeys import.
 const DEFAULT_AVR = Object.freeze({
   ip: '192.168.1.99',
-  model: 'Denon AVR-X3800H',
+  model: 'Denon AVC-A1H',
 });
 
 // GET_AVRINF payload of an XT32/Float model (shape from the bridge
@@ -14,21 +18,25 @@ const DEFAULT_INFO = Object.freeze({
   CoefWaitTime: { Init: 0, Final: 0 },
 });
 
-// GET_AVRSTS payload (raw AVR status): speaker setup, amp assignment.
+// GET_AVRSTS payload (raw AVR status): speaker setup, amp assignment
+// (shape from the bridge data-model.md § AVRStatus).
 const DEFAULT_STATUS = Object.freeze({
-  Ifver: '00.08',
-  AmpAssign: 'Normal',
-  AssignBin: 'QVNTSUdOQklOLU1PQ0s=',
+  HPPlug: false,
+  Mic: false,
+  AmpAssign: '2chBiAmp',
+  AssignBin:
+    '040401020001000002000000080000000000000000000000000000000208000808100001020304070900000100' +
+    '01070000',
   ChSetup: [
     { FL: 'S' },
-    { FR: 'S' },
     { C: 'S' },
-    { SW1: 'E' },
-    { SLA: 'S' },
-    { SRA: 'S' },
+    { FR: 'S' },
+    { SWMIX1: 'E' },
+    { SWMIX2: 'E' },
   ],
-  SWSetup: { SWNum: 1, SWMode: 'Standard' },
+  BTTXStatus: false,
   SpPreset: '1',
+  SWSetup: { SWNum: 2, SWMode: 'Directional', SWLayout: 'FL/FR/RL/RR' },
 });
 
 /**

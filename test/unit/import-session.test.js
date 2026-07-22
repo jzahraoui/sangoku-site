@@ -156,7 +156,9 @@ describe('normalizeChannelMapping', () => {
 
 describe('processMqxFile', () => {
   it('requires AVR data to be loaded first', async () => {
-    await expect(processMqxFile({}, null)).rejects.toThrow('Please load AVR data first');
+    await expect(processMqxFile({}, null)).rejects.toThrow(
+      'connect the bridge and register your AVR first',
+    );
   });
 });
 

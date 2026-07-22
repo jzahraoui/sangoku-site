@@ -1,7 +1,5 @@
 import JSZip from 'jszip';
 import OCAFileGenerator from '../oca-file.js';
-import RewApi from '../rew/rew-api.js';
-import ampAssignType from '../amp-type.js';
 
 /**
  * Export/report generation service extracted from MeasurementViewModel
@@ -20,36 +18,6 @@ const labelOf = m => unwrap(m.displayMeasurementTitle) ?? unwrap(m.title);
 
 function timestampSlug() {
   return new Date().toISOString().slice(0, 16).replace('T', '-').replaceAll(':', '-');
-}
-
-/** Build the receiver_config.avr download from the loaded AVR data. */
-function buildAvrExport(avrData, rawIpAddress) {
-  if (!avrData) throw new Error('please load file before');
-
-  const ipAddress = rawIpAddress.trim();
-  if (!ipAddress) throw new Error('please enter AVR IP address');
-  if (!RewApi.isValidIpAddress(ipAddress)) {
-    throw new Error('please enter a valid AVR IP address');
-  }
-
-  const newAvrData = {
-    targetModelName: avrData.targetModelName,
-    ipAddress,
-    enMultEQType: avrData.enMultEQType,
-    subwooferNum: avrData.subwooferNum,
-    ampAssign: ampAssignType.getByIndex(avrData.enAmpAssignType),
-    ampAssignInfo: avrData.ampAssignInfo,
-    detectedChannels: avrData.detectedChannels.map(channel => ({
-      commandId: channel.commandId,
-    })),
-  };
-
-  return {
-    filename: 'receiver_config.avr',
-    blob: new Blob([JSON.stringify(newAvrData, null, 2)], {
-      type: 'application/json',
-    }),
-  };
 }
 
 /**
@@ -335,7 +303,6 @@ function createExportsService({ log = noopLog } = {}) {
 
   return {
     appendMsoMeasurement,
-    buildAvrExport,
     buildMsoExportZip,
     generateOcaExport,
     generateSettingsReport,
@@ -343,4 +310,4 @@ function createExportsService({ log = noopLog } = {}) {
   };
 }
 
-export { buildAvrExport, createExportsService };
+export { createExportsService };

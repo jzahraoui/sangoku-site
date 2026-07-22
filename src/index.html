@@ -172,14 +172,14 @@
               }, css: { 'dragover': isDragging }"
             >
               <span id="dropzoneAvrText" class="dropzone-text" data-i18n="drop_avr">
-                Drop .avr, .ady, .mqx or .liveproject file here or click to select
+                Drop .ady, .mqx or .liveproject measurement file here or click to select
               </span>
               <input
                 type="file"
                 class="dropzone-input"
                 id="fileInputAvr"
                 data-testid="avr-file-input"
-                accept=".avr,.ady,.mqx,.liveproject"
+                accept=".ady,.mqx,.liveproject"
                 data-bind="event: { change: handleFileSelect }"
               />
             </label>
@@ -277,36 +277,13 @@
                   </div>
                 </div>
 
-                <label
-                  ><span data-i18n="avr_api_address">AVR API Address:</span>
-                  <input
-                    type="text"
-                    placeholder="ex. 192.168.1.200"
-                    data-i18n="avr_api_placeholder"
-                    data-bind="value: avrIpAddress"
-                  />
-                </label>
-                <button
-                  class="button"
-                  data-bind="
-                  click: buttonDownloadAvr, 
-                  disable: isProcessing(), 
-                  css: { disabled: isProcessing, loading: isProcessing },
-                  attr: { 'data-tooltip': translations().download_a1_avr_tooltip }"
-                >
-                  <i
-                    data-bind="css: isProcessing() ? 'fas fa-spinner' : 'fas fa-download'"
-                    aria-hidden="true"
-                  ></i>
-                  <span data-i18n="download_a1_avr">Download A1 .avr</span>
-                </button>
               </div>
             </details>
           </div>
           <!-- /ko -->
           <!-- ko ifnot: jsonAvrData()?.avr -->
           <p class="warning" data-i18n="load_avr_warning">
-            Please load an AVR file to see configuration details.
+            Connect the bridge and register your AVR to see its configuration.
           </p>
           <!-- /ko -->
           <!-- ko if: jsonAvrData()?.detectedChannels?.length > 0 -->

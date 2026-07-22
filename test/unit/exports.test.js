@@ -22,43 +22,12 @@ vi.mock('../../src/oca-file.js', () => ({
   },
 }));
 
-const { buildAvrExport, createExportsService } = await import(
-  '../../src/services/exports.js'
-);
+const { createExportsService } = await import('../../src/services/exports.js');
 const { default: FakeOcaFileGenerator } = await import('../../src/oca-file.js');
 
 const exportsService = createExportsService();
 
 const TIMESTAMP_PATTERN = String.raw`\d{4}-\d{2}-\d{2}-\d{2}-\d{2}`;
-
-describe('buildAvrExport', () => {
-  const avrData = {
-    targetModelName: 'Denon AVR-X3800H',
-    enMultEQType: 2,
-    subwooferNum: 2,
-    enAmpAssignType: 0,
-    ampAssignInfo: 'info',
-    detectedChannels: [{ commandId: 'FL', extra: 'dropped' }],
-  };
-
-  it('validates its inputs', () => {
-    expect(() => buildAvrExport(null, '1.2.3.4')).toThrow('please load file before');
-    expect(() => buildAvrExport(avrData, '  ')).toThrow('please enter AVR IP address');
-    expect(() => buildAvrExport(avrData, 'not-an-ip')).toThrow(
-      'please enter a valid AVR IP address',
-    );
-  });
-
-  it('builds the receiver config download', async () => {
-    const { filename, blob } = buildAvrExport(avrData, ' 192.168.1.10 ');
-
-    expect(filename).toBe('receiver_config.avr');
-    const content = JSON.parse(await blob.text());
-    expect(content.ipAddress).toBe('192.168.1.10');
-    expect(content.targetModelName).toBe('Denon AVR-X3800H');
-    expect(content.detectedChannels).toEqual([{ commandId: 'FL' }]);
-  });
-});
 
 describe('generateOcaExport', () => {
   const config = {

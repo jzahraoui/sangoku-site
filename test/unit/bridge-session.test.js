@@ -101,6 +101,57 @@ describe('BridgeSession', () => {
       );
     });
 
+    it('resolves the model of a pre-registered AVR through discovery', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        discoverAvrs: vi.fn().mockResolvedValue({
+          avrs: [
+            { ip: '10.0.0.9', name: 'Marantz CINEMA 50' },
+            { ip: '10.0.0.2', name: 'Denon AVC-A1H', model: 'Denon AVC-A1H' },
+          ],
+        }),
+      });
+      const { session, state, onAvrDataAvailable } = makeSession({ api });
+
+      await session.connect();
+
+      expect(state.avrModelName).toBe('Denon AVC-A1H');
+      expect(onAvrDataAvailable).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'Denon AVC-A1H' }),
+      );
+      session.disconnect();
+    });
+
+    it('skips discovery when the model is already known', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+      });
+      const { session } = makeSession({
+        api,
+        state: makeState({ avrModelName: 'Denon AVR-X3800H' }),
+      });
+
+      await session.connect();
+
+      expect(api.discoverAvrs).not.toHaveBeenCalled();
+      session.disconnect();
+    });
+
+    it('keeps connecting when discovery cannot resolve the model', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+        discoverAvrs: vi.fn().mockRejectedValue(new Error('scan failed')),
+      });
+      const { session, state, onAvrDataAvailable } = makeSession({ api });
+
+      await session.connect();
+
+      expect(state.bridgeConnected).toBe(true);
+      expect(state.avrModelName).toBe('');
+      expect(onAvrDataAvailable).toHaveBeenCalled();
+      session.disconnect();
+    });
+
     it('does not probe when no AVR is registered', async () => {
       const { session, state, api } = makeSession();
 

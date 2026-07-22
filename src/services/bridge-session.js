@@ -68,6 +68,9 @@ class BridgeSession {
       this.state.bridgeConnected = true;
       await this.refreshAvrRegistration();
       if (this.state.avrRegistered) {
+        if (!this.state.avrModelName) {
+          await this.resolveModelFromDiscovery();
+        }
         await this.probeAvr();
       }
       this.pollerId = setInterval(() => this.pollTick(), this.pollingInterval);
@@ -199,6 +202,26 @@ class BridgeSession {
     const { avrs } = await this.api.discoverAvrs();
     this.state.discoveredAvrs = avrs ?? [];
     return this.state.discoveredAvrs;
+  }
+
+  // The bridge only persists the registered IP, not the model name — when a
+  // pre-registered AVR comes back at connect time, try to resolve its model
+  // by matching the IP against an SSDP scan (the model drives the
+  // AvrCaracteristics tables of the live synthesis).
+  async resolveModelFromDiscovery() {
+    try {
+      const avrs = await this.discover();
+      const match = avrs.find(avr => avr.ip === this.state.avrIp);
+      const modelName = match?.model ?? match?.name;
+      if (modelName) {
+        this.state.avrModelName = modelName;
+        this.log.info(`AVR model resolved by discovery: ${modelName}`);
+        return true;
+      }
+    } catch (error) {
+      this.log.warn(`AVR model discovery failed: ${error.message}`);
+    }
+    return false;
   }
 
   // --- Annex AVR / bridge actions ------------------------------------------
