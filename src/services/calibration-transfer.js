@@ -302,7 +302,11 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
       isNewModel: !avrData.avr.isOldModelForDistanceConversion,
       isGriffin: Boolean(avrData.avr.isGriffinLiteAVR),
       ...(liveStatus?.AmpAssign && { ampAssign: liveStatus.AmpAssign }),
-      ...(liveStatus?.AssignBin && { ampAssignBin: liveStatus.AssignBin }),
+      // ampAssignBin OMIS deliberement (decision 2026-07-23) : l'ampli
+      // regenere son AssignBin en changeant de mode subwoofer (seul l'octet
+      // selecteur bouge — 46 sur la famille Griffin, bit 0x04 = Directional).
+      // Un blob capture en Directional ferait echouer tout re-validate apres
+      // la bascule ; sans le champ, le validateur bridge ne compare pas.
       // MultEQ on/off + courbe d'ecoute vises apres transfert. Portes par
       // l'archive .rch.json ; leur application par le bridge (AudyMultEq /
       // AudyEqSet) est un chantier bridge.

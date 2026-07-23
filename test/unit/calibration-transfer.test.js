@@ -356,7 +356,9 @@ describe('buildCalibrationArchive', () => {
     expect(archive.isNewModel).toBe(true);
     expect(archive.isGriffin).toBe(true);
     expect(archive.ampAssign).toBe('2chBiAmp');
-    expect(archive.ampAssignBin).toBe('0404AA');
+    // ampAssignBin omis : l'ampli regenere son AssignBin au changement de
+    // mode subwoofer — un blob capture ferait echouer le re-validate.
+    expect(archive.ampAssignBin).toBeUndefined();
     expect(archive.enableDynamicEq).toBe(true);
     expect(archive.enableMultEq).toBe(true);
     expect(archive.multEqMode).toBe('Reference');

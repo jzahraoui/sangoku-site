@@ -149,4 +149,21 @@ describe('createFilterBanks', () => {
     restored.restore(null);
     expect(restored.get('reference')).toBeNull();
   });
+
+  it('discards a restored bank whose channels lost their filters', () => {
+    // Corruption historique : l'ancien anti-cycle du store droppait les
+    // tableaux de filtres partages (clones de sub mutualise) a la
+    // serialisation — une banque sans tous ses FIR est inutilisable.
+    const banks = createFilterBanks();
+    banks.save('reference', bankPayload());
+    banks.save('flat', bankPayload({ tcName: 'Flat curve' }));
+
+    const payload = JSON.parse(JSON.stringify(banks.toJSON()));
+    delete payload.reference.channels[1].filter;
+
+    const restored = createFilterBanks();
+    restored.restore(payload);
+    expect(restored.get('reference')).toBeNull();
+    expect(restored.get('flat').channels).toHaveLength(2);
+  });
 });

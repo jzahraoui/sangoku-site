@@ -37,19 +37,26 @@ class PersistentStore {
 
   // Helper method to remove circular references
   removeCircularReferences(obj) {
-    const seen = new WeakSet();
+    // Cycle = the value is one of its own ANCESTORS. A global "seen" set
+    // would also drop legitimate shared references (e.g. the duplicated
+    // subwoofer bank channels sharing one filter array) and corrupt the
+    // saved payload — only the ancestor stack detects true cycles.
+    const stack = [];
 
-    return JSON.stringify(obj, (key, value) => {
+    return JSON.stringify(obj, function (key, value) {
       // Skip DOM nodes and functions
       if (value instanceof Node) return undefined;
       if (typeof value === 'function') return undefined;
 
-      // Handle circular references
       if (typeof value === 'object' && value !== null) {
-        if (seen.has(value)) {
+        // `this` is the holder: unwind the stack to the current depth.
+        while (stack.length > 0 && stack.at(-1) !== this) {
+          stack.pop();
+        }
+        if (stack.includes(value)) {
           return undefined;
         }
-        seen.add(value);
+        stack.push(value);
       }
       return value;
     });

@@ -132,7 +132,14 @@ test('basic workflow: connect, import .ady, average, align, transfer', async t =
       assert.equal(archive.title, 'e2e-sample');
       assert.equal(archive.numberOfSubwoofers, 2);
       assert.equal(archive.ampAssign, '2chBiAmp');
-      assert.ok(archive.ampAssignBin, 'ampAssignBin missing');
+      // ampAssignBin omis du contrat (l'ampli le regenere au changement de
+      // mode subwoofer) ; swSetup porte l'etat final vise.
+      assert.equal(archive.ampAssignBin, undefined);
+      assert.deepEqual(archive.swSetup, {
+        SWNum: 2,
+        SWMode: 'Standard',
+        SWLayout: 'N/A',
+      });
       assert.ok(Array.isArray(archive.channels), 'channels missing');
       assert.equal(
         archive.channels.length,

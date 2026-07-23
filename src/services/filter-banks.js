@@ -159,9 +159,22 @@ function createFilterBanks({ log = noopLog } = {}) {
     clearAll();
     for (const bank of BANKS) {
       const entry = data?.[bank];
-      if (entry?.channels?.length && entry.fingerprint) {
-        banks[bank] = entry;
+      if (!entry?.channels?.length || !entry.fingerprint) {
+        continue;
       }
+      // Garde anti-corruption : un enregistrement historique a pu perdre des
+      // FIR a la serialisation (references partagees droppees par l'ancien
+      // anti-cycle du store). Une banque sans tous ses filtres est inutilisable
+      // pour l'archive — on repart d'une banque vide plutot que d'echouer au
+      // transfert.
+      if (!entry.channels.every(channel => Array.isArray(channel.filter))) {
+        log.warn(
+          `The restored ${bank} bank is missing filter data and was discarded: ` +
+            'save the current filters to the bank again',
+        );
+        continue;
+      }
+      banks[bank] = entry;
     }
   }
 

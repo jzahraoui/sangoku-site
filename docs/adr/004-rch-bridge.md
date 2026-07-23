@@ -149,7 +149,11 @@
   racine optionnel `swSetup` (`{SWNum, SWMode, SWLayout}`, appliqué par le
   bridge — amendement du 2026-07-23 ; auparavant le `SET_SETDAT` échoyait le
   `SWSetup` lu en direct sur l'ampli). L'archive porte aussi `enableMultEq`
-  et `multEqMode` (Reference/Flat), consommation bridge à venir.
+  et `multEqMode` (Reference/Flat), consommation bridge à venir. Elle **omet
+  `ampAssignBin`** : l'ampli régénère son AssignBin en changeant de mode
+  subwoofer (seul l'octet sélecteur change — 46 sur la famille Griffin,
+  bit 0x04 = Directional) ; un blob capturé en Directional ferait échouer
+  tout re-validate après la bascule.
 - Toute évolution de l'API bridge se négocie par `MIN_BRIDGE_VERSION` côté
   client et par la version du binaire côté serveur ; les erreurs arrivent
   typées (enveloppe `{error, message?, reason?, details?}`) et jamais dans un

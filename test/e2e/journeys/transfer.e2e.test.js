@@ -106,6 +106,14 @@ test('transfer: bank gating, validate dry-run, deferred cancellation', async t =
       assert.equal(bridge.lastArchive.enableDynamicVolume, false);
     });
 
+    await t.test('archive download produces the .rch.json file', async () => {
+      const downloadPromise = page.waitForEvent('download');
+      await page.getByTestId('archive-download').click();
+      const download = await downloadPromise;
+      assert.match(download.suggestedFilename(), /\.rch\.json$/);
+      await waitForStatus(page, 'Calibration archive downloaded');
+    });
+
     await t.test('cancellation is deferred then reported', async () => {
       await page.getByTestId('transfer-start').click();
       await page.getByTestId('transfer-cancel').waitFor({ state: 'visible' });
