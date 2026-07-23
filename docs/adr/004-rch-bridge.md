@@ -134,6 +134,16 @@
   est une ancre du domaine de capture brute ADC (ingrédient de la formule de
   trim) et ne s'applique pas à l'échelle numérique de l'IR déconvoluée —
   amendement du 2026-07-23, il n'est plus utilisé à l'import.
+- **Subwoofers multiples** (amendement du 2026-07-23) : l'ampli expose ses
+  subwoofers dans `ChSetup` et accepte des filtres/gains/délais **par sub
+  dans tous les modes** — la synthèse live conserve donc SW1..SWn tels
+  quels, sans repli lié au `SWMode`. Le mode Directional est un mode de
+  **mesure** : il fournit les réponses individuelles des subs (hors
+  Directional, le protocole officiel mutualise le sweep — un seul canal
+  mesurable). L'état final visé après transfert reste le mode Standard avec
+  les réglages propres à chaque sub (lignée A1Evo) ; le `SET_SETDAT` du
+  bridge échoit le `SWSetup` lu en direct sur l'ampli au moment du
+  transfert.
 - Toute évolution de l'API bridge se négocie par `MIN_BRIDGE_VERSION` côté
   client et par la version du binaire côté serveur ; les erreurs arrivent
   typées (enveloppe `{error, message?, reason?, details?}`) et jamais dans un

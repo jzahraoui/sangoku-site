@@ -92,18 +92,18 @@ function reclassifySingleSBack(channels) {
   left.speakerSize = 'S';
 }
 
-function buildDetectedChannels(chSetup, swMode, log) {
-  const directional = swMode === 'Directional';
+// Every ChSetup subwoofer is kept REGARDLESS of the SWMode (decision
+// 2026-07-23, REGLES-METIER): even in Standard mode the AVR exposes its
+// subwoofers and accepts per-sub filters/gains/delays (A1Evo lineage —
+// Directional is a MEASUREMENT mode; SET_SETDAT echoes the live SWSetup).
+// Never collapse SW2..SW4 outside Directional: it would strip the per-sub
+// calibration the Standard end state relies on.
+function buildDetectedChannels(chSetup, log) {
   const channels = [];
   for (const entry of chSetup) {
     const [wireCode, speakerSize] = Object.entries(entry ?? {})[0] ?? [];
     if (!wireCode) continue;
     const commandId = normalizeChannelCode(wireCode);
-    // Outside Directional mode the calibration carries a SINGLE subwoofer
-    // channel: the individual SWMix2/3/4 subs are excluded from the official
-    // plan (DeviceController.java:820) and the mutualised sweep imports as
-    // SW1 — the physical sub count stays in `subwooferNum`.
-    if (!directional && /^SW[234]$/.test(commandId)) continue;
     // Subwoofer SW1..4 ids resolve through the deterministic SW branch of
     // getByCode; every speaker code must be in the official table.
     const channelType =
@@ -166,8 +166,7 @@ function synthesizeAvrData({ info, status, model }, log = noopLog) {
   }
 
   const targetModelName = model || 'Unknown AVR';
-  const swMode = status.SWSetup?.SWMode ?? null;
-  const detectedChannels = buildDetectedChannels(status.ChSetup ?? [], swMode, log);
+  const detectedChannels = buildDetectedChannels(status.ChSetup ?? [], log);
   if (detectedChannels.length === 0) {
     throw new Error('The AVR reported no configured channels');
   }
@@ -177,12 +176,9 @@ function synthesizeAvrData({ info, status, model }, log = noopLog) {
     log.warn(`Unknown AVR amp assignment: ${status.AmpAssign}`);
   }
 
-  // Physical sub count from the wire setup — detectedChannels may be
-  // collapsed to a single SW1 outside Directional mode.
-  const subCount = (status.ChSetup ?? []).filter(entry => {
-    const [wireCode] = Object.keys(entry ?? {});
-    return wireCode && normalizeChannelCode(wireCode).startsWith('SW');
-  }).length;
+  const subCount = detectedChannels.filter(channel =>
+    channel.commandId.startsWith('SW'),
+  ).length;
 
   return {
     source: 'bridge-live',
@@ -192,7 +188,7 @@ function synthesizeAvrData({ info, status, model }, log = noopLog) {
     enAmpAssignType: ampAssignIndex >= 0 ? ampAssignIndex : null,
     ampAssignInfo: status.AssignBin ?? null,
     subwooferNum: status.SWSetup?.SWNum ?? subCount,
-    subwooferMode: swMode,
+    subwooferMode: status.SWSetup?.SWMode ?? null,
     subwooferLayout: status.SWSetup?.SWLayout ?? null,
     spPreset: status.SpPreset ?? null,
     interfaceVersion: info.Ifver ?? null,
