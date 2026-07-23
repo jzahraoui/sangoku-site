@@ -430,6 +430,45 @@ describe('BridgeMeasurement', () => {
       expect(context.state.measureState).toBe(READY);
     });
 
+    it('warns when several subwoofers are collapsed by a non-Directional mode', async () => {
+      const context = makeService();
+      context.api.getMeasureSession.mockResolvedValue(
+        sessionView({
+          avr: {
+            ...sessionView().avr,
+            subwooferSetup: { num: 4, maxSubwoofer: 4, mode: 'Standard', layout: 'Na' },
+          },
+        }),
+      );
+
+      await context.service.startSession();
+
+      expect(context.state.measureWarnings).toEqual([
+        expect.stringContaining('Subwoofer mode "Standard": the 4 subwoofers'),
+      ]);
+    });
+
+    it('stays silent on the sub warning in Directional mode', async () => {
+      const context = makeService();
+      context.api.getMeasureSession.mockResolvedValue(
+        sessionView({
+          avr: {
+            ...sessionView().avr,
+            subwooferSetup: {
+              num: 4,
+              maxSubwoofer: 4,
+              mode: 'Directional',
+              layout: 'FL/FR/RL/RR',
+            },
+          },
+        }),
+      );
+
+      await context.service.startSession();
+
+      expect(context.state.measureWarnings).toEqual([]);
+    });
+
     it('keeps sweeping when one response import fails, then surfaces a warning', async () => {
       const context = makeService();
       await startReadySession(context);

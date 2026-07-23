@@ -41,6 +41,10 @@ describe('normalizeChannelCode', () => {
     ['SWMIX', 'SW1'],
     ['LFE', 'SW1'],
     ['SW2', 'SW2'],
+    ['SWL', 'SW1'],
+    ['SWR', 'SW2'],
+    ['SWFL', 'SW1'],
+    ['SWBR', 'SW4'],
     ['FL', 'FL'],
     ['SLA', 'SLA'],
     ['TML', 'TML'],
@@ -159,6 +163,83 @@ describe('synthesizeAvrData', () => {
     expect(log.warn).toHaveBeenCalledWith(
       expect.stringContaining('SomethingNew'),
     );
+  });
+
+  it('resolves the ambiguous surround/back codes like the official analyzer', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const data = synthesizeAvrData({
+      info: INFO_XT32,
+      status: statusFixture({
+        ChSetup: [
+          { FL: 'S' },
+          { SLA: 'S' },
+          { SRA: 'S' },
+          { SBL: 'S' },
+          { SBR: 'S' },
+          { SWMIX1: 'E' },
+        ],
+      }),
+      model: 'Denon AVC-A1H',
+    });
+
+    const byCommand = Object.fromEntries(
+      data.detectedChannels.map(c => [c.commandId, c.enChannelType]),
+    );
+    // SurrLeftA (13) / SurrRightA (5) / SBackLeft (10), never the ambiguous
+    // first-match picks SurrRight (4) or SBackCenter (9).
+    expect(byCommand.SLA).toBe(13);
+    expect(byCommand.SRA).toBe(5);
+    expect(byCommand.SBL).toBe(10);
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it('resolves the whole-code channels CH and TS exactly', () => {
+    // A prefix-based match (getBestMatchCode style) would see CH as ambiguous
+    // with C; the official table is exact-match.
+    const data = synthesizeAvrData({
+      info: INFO_XT32,
+      status: statusFixture({
+        ChSetup: [{ C: 'S' }, { CH: 'S' }, { TS: 'S' }, { SWMIX1: 'E' }],
+      }),
+      model: 'Denon AVC-A1H',
+    });
+
+    const byCommand = Object.fromEntries(
+      data.detectedChannels.map(c => [c.commandId, c.enChannelType]),
+    );
+    expect(byCommand.C).toBe(1);
+    expect(byCommand.CH).toBe(16); // FrontHeightCenter
+    expect(byCommand.TS).toBe(41); // Overhead
+  });
+
+  it('reclassifies a lone connected back-left speaker as back center', () => {
+    const data = synthesizeAvrData({
+      info: INFO_XT32,
+      status: statusFixture({
+        ChSetup: [{ FL: 'S' }, { SBL: 'S' }, { SBR: 'N' }, { SWMIX1: 'E' }],
+      }),
+      model: 'Denon AVC-A1H',
+    });
+
+    const sbl = data.detectedChannels.find(c => c.commandId === 'SBL');
+    expect(sbl.enChannelType).toBe(9); // SBackCenter
+    expect(sbl.speakerSize).toBe('S');
+    expect(sbl.wireCode).toBe('SBL');
+  });
+
+  it('keeps a connected back pair as left/right', () => {
+    const data = synthesizeAvrData({
+      info: INFO_XT32,
+      status: statusFixture({
+        ChSetup: [{ SBL: 'L' }, { SBR: 'L' }, { SWMIX1: 'E' }],
+      }),
+      model: 'Denon AVC-A1H',
+    });
+
+    const sbl = data.detectedChannels.find(c => c.commandId === 'SBL');
+    expect(sbl.enChannelType).toBe(10); // SBackLeft
+    expect(sbl.speakerSize).toBe('L');
   });
 
   it('skips unknown channel codes with a warning', () => {

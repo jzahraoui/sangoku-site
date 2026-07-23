@@ -30,10 +30,66 @@ const EQ_TYPE_BY_NAME = Object.freeze({
  */
 function normalizeChannelCode(wireCode) {
   const upper = String(wireCode).toUpperCase();
-  const mix = /^SWMIX([1-4])$/.exec(upper);
-  if (mix) return `SW${mix[1]}`;
+  // Mutualised sweep codes without a numbered alias, then the shared alias
+  // table (SW1..4, SWMIXn, SWL/SWR, SWFL/SWFR/SWBL/SWBR...).
   if (upper === 'SWLFE' || upper === 'SWMIX' || upper === 'LFE') return 'SW1';
+  if (upper.startsWith('SW')) return CHANNEL_TYPES.getStandardSubwooferName(upper);
   return upper;
+}
+
+// GET_AVRSTS speaker status codes → CHANNEL_TYPES entries, transcribed from
+// the official analyzer's exhaustive dispatch
+// (GetAVRStatusAnalyzer.createDetectedChannelListjson:176-392 — the table the
+// bridge channel plan is built from). Exact-match and total, so the wire
+// codes carried by several CHANNEL_TYPES entries (SLA/SRA/SBL, historic .ady
+// vocabulary) resolve deterministically — never through a scan of the table.
+const STATUS_CODE_CHANNEL_TYPES = Object.freeze({
+  FL: 'EnChannelType_FrontLeft',
+  FR: 'EnChannelType_FrontRight',
+  C: 'EnChannelType_Center',
+  SLA: 'EnChannelType_SurrLeftA',
+  SRA: 'EnChannelType_SurrRightA',
+  SLB: 'EnChannelType_SurrLeftB',
+  SRB: 'EnChannelType_SurrRightB',
+  SBL: 'EnChannelType_SBackLeft',
+  SBR: 'EnChannelType_SBackRight',
+  FHL: 'EnChannelType_FrontHeightLeft',
+  FHR: 'EnChannelType_FrontHeightRight',
+  FWL: 'EnChannelType_FrontWideLeft',
+  FWR: 'EnChannelType_FrontWideRight',
+  TFL: 'EnChannelType_TopFrontLeft',
+  TFR: 'EnChannelType_TopFrontRight',
+  TML: 'EnChannelType_TopMiddleLeft',
+  TMR: 'EnChannelType_TopMiddleRight',
+  TRL: 'EnChannelType_TopBackLeft',
+  TRR: 'EnChannelType_TopBackRight',
+  RHL: 'EnChannelType_RearHeightLeft',
+  RHR: 'EnChannelType_RearHeightRight',
+  FDL: 'EnChannelType_FrontDolbyLeft',
+  FDR: 'EnChannelType_FrontDolbyRight',
+  SDL: 'EnChannelType_SurrDolbyLeft',
+  SDR: 'EnChannelType_SurrDolbyRight',
+  BDL: 'EnChannelType_SBDolbyLeft',
+  BDR: 'EnChannelType_SBDolbyRight',
+  SHL: 'EnChannelType_SurrHeightLeft',
+  SHR: 'EnChannelType_SurrHeightRight',
+  CH: 'EnChannelType_FrontHeightCenter',
+  TS: 'EnChannelType_Overhead',
+});
+
+// Official single-back-speaker rule (GetAVRStatusAnalyzer
+// convJsonArrtoChannelArr:157-167): a connected SBL without a connected SBR
+// is a back CENTER speaker, forced Small. The wire code stays SBL.
+function reclassifySingleSBack(channels) {
+  const left = channels.find(
+    channel =>
+      channel.enChannelType === CHANNEL_TYPES.EnChannelType_SBackLeft.channelIndex,
+  );
+  if (!left || (left.speakerSize ?? 'N') === 'N') return;
+  const right = channels.find(channel => channel.commandId === 'SBR');
+  if (right && (right.speakerSize ?? 'N') !== 'N') return;
+  left.enChannelType = CHANNEL_TYPES.EnChannelType_SBackCenter.channelIndex;
+  left.speakerSize = 'S';
 }
 
 function buildDetectedChannels(chSetup, log) {
@@ -42,8 +98,12 @@ function buildDetectedChannels(chSetup, log) {
     const [wireCode, speakerSize] = Object.entries(entry ?? {})[0] ?? [];
     if (!wireCode) continue;
     const commandId = normalizeChannelCode(wireCode);
-    const channelType = CHANNEL_TYPES.getByCode(commandId);
-    if (!channelType || channelType === CHANNEL_TYPES.EnChannelType_SWMode) {
+    // Subwoofer SW1..4 ids resolve through the deterministic SW branch of
+    // getByCode; every speaker code must be in the official table.
+    const channelType =
+      CHANNEL_TYPES[STATUS_CODE_CHANNEL_TYPES[commandId]] ??
+      (commandId.startsWith('SW') ? CHANNEL_TYPES.getByCode(commandId) : null);
+    if (!channelType) {
       log.warn(`Unknown AVR channel code skipped: ${wireCode}`);
       continue;
     }
@@ -57,6 +117,7 @@ function buildDetectedChannels(chSetup, log) {
       responseData: {},
     });
   }
+  reclassifySingleSBack(channels);
   return channels;
 }
 

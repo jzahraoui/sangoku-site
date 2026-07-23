@@ -106,6 +106,15 @@ function nextPosition(donePositions, maxPositions) {
 /** Human-readable, NON-blocking session warnings. */
 function describeSessionWarnings(view) {
   const warnings = [];
+  // Official protocol: outside Directional mode, multiple subs collapse to a
+  // single mutualised sweep — surface why only one subwoofer shows up.
+  const sw = view.avr?.subwooferSetup;
+  if (sw && Number(sw.num) > 1 && sw.mode !== 'Directional') {
+    warnings.push(
+      `Subwoofer mode "${sw.mode}": the ${sw.num} subwoofers are measured together as a single sweep. ` +
+        'Set the AVR subwoofer mode to Directional to measure each subwoofer individually.',
+    );
+  }
   for (const warning of view.warnings ?? []) {
     if (warning.code === 'SPEAKER_PHASE_WARNING') {
       warnings.push(
