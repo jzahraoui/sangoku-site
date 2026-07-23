@@ -84,6 +84,9 @@ class BridgeSession {
 
   disconnect() {
     this.state.bridgeConnected = false;
+    // Without the bridge the AVR link state is unknowable: back to unknown.
+    this.state.avrReachable = null;
+    this.state.avrBusyReason = '';
     if (this.pollerId) {
       clearInterval(this.pollerId);
       this.pollerId = null;

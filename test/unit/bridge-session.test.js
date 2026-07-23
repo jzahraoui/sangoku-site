@@ -228,6 +228,22 @@ describe('BridgeSession', () => {
       );
     });
 
+    it('resets the AVR link state to unknown when the bridge is lost', async () => {
+      const api = makeApi({
+        getCurrentAvr: vi.fn().mockResolvedValue({ ip: '10.0.0.2', registered: true }),
+      });
+      const { session, state } = makeSession({ api });
+      await session.connect();
+      expect(state.avrReachable).toBe(true);
+      api.health.mockRejectedValue(new Error('bridge gone'));
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(state.bridgeConnected).toBe(false);
+      expect(state.avrReachable).toBeNull();
+      expect(state.avrBusyReason).toBe('');
+    });
+
     it('suspends ticks while the app is processing', async () => {
       const { session, state, api } = makeSession();
       await session.connect();
