@@ -12,6 +12,7 @@ function makeState(overrides = {}) {
     measurePosition: null,
     measureProgress: 0,
     measurePhase: '',
+    measureCurrentChannel: null,
     measureChannelPlan: [],
     measureMaxPositions: 0,
     measurePositionsDone: [],
@@ -489,6 +490,42 @@ describe('BridgeMeasurement', () => {
       expect(context.state.sublevelSub).toBe('SW1');
       expect(context.state.sublevelSpl).toBe(72.5);
       await context.service.stopSublevel();
+    });
+
+    it('tracks then clears the channel under work across a position', async () => {
+      const context = makeService();
+      await startReadySession(context);
+      let channelDuringImport = null;
+      context.api.getMeasureResponse.mockImplementation(async () => {
+        channelDuringImport = context.state.measureCurrentChannel;
+        return responseFixture();
+      });
+      context.api.getMeasureSession
+        .mockResolvedValueOnce(
+          sessionView({
+            state: MEASURING,
+            currentOperation: {
+              kind: 'position',
+              position: 1,
+              channel: 'SWMIX1',
+              phase: 'sweep',
+              progress: 0.4,
+            },
+          }),
+        )
+        .mockResolvedValue(
+          sessionView({
+            availableResponses: [{ position: 1, channel: 'SWMIX1' }],
+            positions: { 1: { position: 1, state: 'done' } },
+          }),
+        );
+
+      await context.service.measurePosition(1);
+
+      // The wire code of the swept/imported channel surfaces as the app id.
+      expect(channelDuringImport).toBe('SW1');
+      // Cleared once the position completes.
+      expect(context.state.measureCurrentChannel).toBeNull();
     });
 
     it('exposes the session warnings and the per-response plausibility flags', async () => {

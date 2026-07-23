@@ -14,9 +14,10 @@
  *   is, so `applyCal` stays false (the bridge corrects Cirrus microphones
  *   itself; RCH never applies a mic calibration on bridge measurements).
  * - `state`: accessor over the app state — measureState, measurePosition,
- *   measureProgress, measurePhase, measureChannelPlan, measureMaxPositions,
- *   measurePositionsDone, measureNextPosition, measureWarnings,
- *   measureSwLvlMatch, sublevelSub, sublevelSpl (all written by this service).
+ *   measureProgress, measurePhase, measureCurrentChannel, measureChannelPlan,
+ *   measureMaxPositions, measurePositionsDone, measureNextPosition,
+ *   measureWarnings, measureSwLvlMatch, sublevelSub, sublevelSpl (all written
+ *   by this service).
  * - `onAvrSnapshot(avr)`: called once the session is ready, with the AVR
  *   snapshot captured by the bridge (rawInfo/rawStatus feed the live
  *   jsonAvrData synthesis).
@@ -198,6 +199,7 @@ class BridgeMeasurement {
     this.state.measurePosition = null;
     this.state.measureProgress = 0;
     this.state.measurePhase = '';
+    this.state.measureCurrentChannel = null;
     this.state.measureChannelPlan = [];
     this.state.measureMaxPositions = 0;
     this.state.measurePositionsDone = [];
@@ -377,6 +379,9 @@ class BridgeMeasurement {
     const progress = Math.min(1, Math.max(0, operation?.progress ?? 0));
     this.state.measureProgress = Math.round(progress * 100);
     this.state.measurePhase = operation?.phase ?? '';
+    // Channel under work on the bridge (sweep/retrieve) — the site-side
+    // import overwrites it while an IR lands into REW.
+    this.state.measureCurrentChannel = this.commandIdForWireCode(operation?.channel);
     const done = Object.entries(view.positions ?? {})
       .filter(([, position]) => position?.state === 'done')
       .map(([number]) => Number(number))
@@ -474,6 +479,7 @@ class BridgeMeasurement {
   finishPosition(position, positionView) {
     this.state.measureState = STATE_READY;
     this.state.measurePhase = '';
+    this.state.measureCurrentChannel = null;
     if (positionView.state === 'failed') {
       throw new Error(
         `Position ${position} failed: ${positionView.error?.message ?? positionView.error ?? 'unknown error'}`,
@@ -498,12 +504,19 @@ class BridgeMeasurement {
     }
   }
 
-  async importOneResponse({ position, channel }, key) {
+  /** App command id of a WIRE channel code, resolved through the plan. */
+  commandIdForWireCode(wireCode) {
+    if (!wireCode) return null;
     const entry = this.state.measureChannelPlan.find(
-      candidate => candidate.code === channel,
+      candidate => candidate.code === wireCode,
     );
-    const commandId = entry?.commandId ?? normalizeChannelCode(channel);
+    return entry?.commandId ?? normalizeChannelCode(wireCode);
+  }
+
+  async importOneResponse({ position, channel }, key) {
+    const commandId = this.commandIdForWireCode(channel);
     const title = measurementTitle(commandId, position);
+    this.state.measureCurrentChannel = commandId;
     try {
       // `channel` is the WIRE code from availableResponses (e.g. SWMIX1) —
       // required verbatim by GET /measure/response.

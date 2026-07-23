@@ -53,6 +53,12 @@ test('measure: bridge-driven Audyssey session imports IRs into REW', async t => 
 
     await t.test('measure position 1 (full detected plan)', async () => {
       await page.getByTestId('measure-position').click();
+      // The channel under work is highlighted in the plan list while the
+      // sweep/retrieve/import runs.
+      await page
+        .locator('[data-testid="measure-channels"] label.measure-current')
+        .first()
+        .waitFor({ state: 'attached', timeout: 60000 });
       await waitForStatus(page, 'Position measured: 1', 120000);
 
       const titles = rew.titles();

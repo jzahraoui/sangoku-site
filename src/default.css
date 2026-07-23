@@ -643,6 +643,14 @@ textarea {
   width: 0;
 }
 
+/* Channel currently swept/retrieved/imported by the measurement assistant. */
+.checkbox-container.measure-current {
+  outline: 2px solid var(--primary-500);
+  outline-offset: 2px;
+  border-radius: var(--border-radius);
+  background-color: var(--bg-secondary);
+}
+
 .checkmark {
   position: absolute;
   left: 0;

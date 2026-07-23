@@ -280,6 +280,7 @@ class MeasurementViewModel {
     this.measurePosition = ko.observable(null);
     this.measureProgress = ko.observable(0);
     this.measurePhase = ko.observable('');
+    this.measureCurrentChannel = ko.observable(null);
     this.measureChannelPlan = ko.observable([]);
     this.measureMaxPositions = ko.observable(0);
     this.measurePositionsDone = ko.observable([]);
@@ -2183,6 +2184,7 @@ class MeasurementViewModel {
         'measurePosition',
         'measureProgress',
         'measurePhase',
+        'measureCurrentChannel',
         'measureChannelPlan',
         'measureMaxPositions',
         'measurePositionsDone',

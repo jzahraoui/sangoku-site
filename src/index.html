@@ -1279,7 +1279,9 @@
                   <!-- ko foreach: measureChannelItems -->
                   <label
                     class="checkbox-container"
-                    data-bind="attr: { 'data-testid': 'measure-channel-' + commandId }"
+                    data-bind="
+                      attr: { 'data-testid': 'measure-channel-' + commandId },
+                      css: { 'measure-current': $root.measureCurrentChannel() === commandId }"
                   >
                     <input
                       type="checkbox"
@@ -1336,7 +1338,7 @@
               <!-- ko if: measureRunning -->
               <div class="transfer-progress" data-testid="measure-progress">
                 <span
-                  data-bind="text: translations().measure_measuring_position + ' ' + measurePosition() + (measurePhase() ? ' — ' + measurePhase() : '')"
+                  data-bind="text: translations().measure_measuring_position + ' ' + measurePosition() + (measurePhase() ? ' — ' + measurePhase() : '') + (measureCurrentChannel() ? ' — ' + measureCurrentChannel() : '')"
                 ></span>
                 <progress max="100" data-bind="attr: { value: measureProgress() }"></progress>
                 <span
