@@ -25,8 +25,9 @@ describe('createAverages', () => {
       validMeasurements: [
         item('FL_P01'),
         item('FL_P02'),
+        // High IR peak is NOT an exclusion criterion (2026-07-23).
+        item('FL_P03', { IRPeakValue: 1.2 }),
         item('FLavg', { isAverage: true }), // excluded from the checks
-        item('clipped', { IRPeakValue: 1.2, inverted: () => true }), // excluded too
       ],
       groupedMeasurements: grouped,
       averageMethod: 'Vector average',
@@ -104,7 +105,8 @@ describe('createAveragingProcessor (records)', () => {
       irByUuid: { fl1: burstIR(50), fl2: burstIR(150), c1: burstIR(60), c2: burstIR(60) },
     });
     const fl1 = record('fl1', 'FL_P01');
-    const fl2 = record('fl2', 'FL_P02');
+    // Peak above digital full scale: stays a full member of the average.
+    const fl2 = record('fl2', 'FL_P02', 1.05);
     const c1 = record('c1', 'C_P01');
     const c2 = record('c2', 'C_P02');
     const grouped = {

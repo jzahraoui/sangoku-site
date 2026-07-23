@@ -174,10 +174,12 @@ function createImportSession({ log = noopLog } = {}) {
     );
     measurementItem.IRPeakValue = max;
     if (max >= 1) {
-      log.warn(
-        `${identifier} IR is above 1(${max.toFixed(
-          2,
-        )}), it will not be used for processing`,
+      // Informational only: the IR is a deconvolved transfer function — a
+      // peak above digital full scale does NOT indicate mic saturation and
+      // never excludes the measurement (decision 2026-07-23). Real capture
+      // problems are reported by the AVR (plausibility flag).
+      log.info(
+        `${identifier} IR peak is ${max.toFixed(2)} (above digital full scale)`,
       );
     }
   }

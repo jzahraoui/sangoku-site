@@ -43,10 +43,10 @@ async function createAverages({
   deleteOriginal,
   processGroupedResponses,
 }) {
-  // Snapshot once — reactive computeds would otherwise re-evaluate
-  const filteredMeasurements = validMeasurements.filter(
-    item => !isAverageOf(item) && item.IRPeakValue <= 1,
-  );
+  // Snapshot once — reactive computeds would otherwise re-evaluate.
+  // No IR-peak gate: the peak of a deconvolved transfer function carries no
+  // saturation information (decision 2026-07-23, REGLES-METIER).
+  const filteredMeasurements = validMeasurements.filter(item => !isAverageOf(item));
 
   // Prime the per-item derivations once, then validate on plain numbers
   // (logic in src/measurement/measurement-selection.js).
@@ -135,9 +135,10 @@ function createAveragingProcessor({ session, operations, log = null }) {
   }
 
   async function processCodeGroup(code, group, avgMethod, deleteOriginal) {
-    // exclude previous results, predictions and out-of-range peaks
+    // exclude previous results and predictions (never on IR peak — a
+    // deconvolved IR above digital full scale is a legitimate measurement)
     const usableItems = group.items.filter(
-      item => !isAverageOf(item) && !isPredictedOf(item) && item.IRPeakValue <= 1,
+      item => !isAverageOf(item) && !isPredictedOf(item),
     );
     const itemsToDelete = group.items.filter(item => !usableItems.includes(item));
     await session.removeMeasurements(itemsToDelete);
