@@ -140,7 +140,10 @@
   quels, sans repli lié au `SWMode`. Le mode Directional est un mode de
   **mesure** : il fournit les réponses individuelles des subs (hors
   Directional, le protocole officiel mutualise le sweep — un seul canal
-  mesurable). L'état final visé après transfert reste le mode Standard avec
+  mesurable ; dans ce cas la calibration du sub mesuré est **dupliquée**
+  vers chaque sub détecté au moment des banques et de l'archive — par
+  linéarité, filtrer chaque sub revient à filtrer la somme mesurée).
+  L'état final visé après transfert reste le mode Standard avec
   les réglages propres à chaque sub (lignée A1Evo) ; le `SET_SETDAT` du
   bridge échoit le `SWSetup` lu en direct sur l'ampli au moment du
   transfert.

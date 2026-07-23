@@ -39,10 +39,42 @@ function parseInterfaceVersion(interfaceVersion) {
   };
 }
 
+/**
+ * Mesure mutualisee (mode Standard : un seul sweep pour n subs) : l'ampli
+ * expose n subs mais les mesures n'en portent qu'un. La calibration du sub
+ * mesure s'applique a l'identique a chaque sub (linearite : filtrer chaque
+ * sub = filtrer la somme mesuree) — meme etat final que la chaine
+ * officielle, rendu explicite par duplication (decision 2026-07-23,
+ * REGLES-METIER). L'alignement inter-subs, lui, exige une mesure
+ * Directional. Retourne `{measuredId, targets}` ou null quand il n'y a
+ * rien a dupliquer (plusieurs subs mesures, un seul sub detecte, sub
+ * mesure inconnu de l'ampli).
+ */
+function mutualisedSubExpansion(avrData, measurements) {
+  const detectedSubs = (avrData?.detectedChannels ?? []).filter(channel =>
+    channel.commandId?.startsWith('SW'),
+  );
+  if (detectedSubs.length <= 1) return null;
+  const measuredIds = new Set(
+    measurements
+      .filter(item => typeof item?.isSub === 'function' && item.isSub())
+      .map(item => item.channelName()),
+  );
+  if (measuredIds.size !== 1) return null;
+  const [measuredId] = measuredIds;
+  if (!detectedSubs.some(channel => channel.commandId === measuredId)) return null;
+  return {
+    measuredId,
+    targets: detectedSubs.filter(channel => channel.commandId !== measuredId),
+  };
+}
+
 function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
   /**
    * Genere les canaux (FIR aux longueurs bridge) depuis les mesures
-   * courantes — memes gardes et meme acoustique que l'export OCA.
+   * courantes — memes gardes et meme acoustique que l'export OCA. En mesure
+   * mutualisee, les subs non mesures sont retires pour la generation (garde
+   * de completude du generateur) puis recrees par duplication du sub mesure.
    */
   async function generateChannels({ avrData, measurements, config }) {
     if (!avrData?.targetModelName) {
@@ -53,7 +85,16 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
         'Target curve not found. Please upload your preferred target curve under "REW/EQ/Target settings/House curve"',
       );
     }
-    const generator = new OCAFileGenerator(cloneAvrDataWithBridgeSpecs(avrData));
+    const expansion = mutualisedSubExpansion(avrData, measurements);
+    const generationAvrData = expansion
+      ? {
+          ...avrData,
+          detectedChannels: avrData.detectedChannels.filter(
+            channel => !expansion.targets.includes(channel),
+          ),
+        }
+      : avrData;
+    const generator = new OCAFileGenerator(cloneAvrDataWithBridgeSpecs(generationAvrData));
     // Le format a1 fait porter commandId a chaque canal genere.
     generator.fileFormat = 'a1';
     const channels = await generator.createsFilters(measurements);
@@ -66,7 +107,7 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
           .join(', ')}`,
       );
     }
-    return channels.map(channel => ({
+    const generated = channels.map(channel => ({
       commandId: channel.commandId,
       channelType: channel.channelType,
       speakerType: channel.speakerType,
@@ -75,6 +116,28 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
       filter: channel.filter,
       ...(channel.xover !== undefined && { xover: channel.xover }),
     }));
+
+    if (expansion) {
+      const source = generated.find(
+        channel => channel.commandId === expansion.measuredId,
+      );
+      if (source) {
+        for (const target of expansion.targets) {
+          generated.push({
+            ...source,
+            commandId: target.commandId,
+            channelType: target.enChannelType,
+          });
+        }
+        log.info(
+          `Mutualised subwoofer measurement: ${expansion.measuredId} calibration ` +
+            `(filter, gain, distance) duplicated to ${expansion.targets
+              .map(target => target.commandId)
+              .join(', ')}`,
+        );
+      }
+    }
+    return generated;
   }
 
   /**
@@ -107,6 +170,19 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
         ...(bassManaged && { xover: crossover }),
       };
     });
+    // Meme duplication que generateChannels — sinon les banques (n subs)
+    // seraient toujours declarees perimees face aux mesures (1 sub).
+    const expansion = mutualisedSubExpansion(avrData, measurements);
+    if (expansion) {
+      const source = pseudoChannels.find(
+        channel => channel.commandId === expansion.measuredId,
+      );
+      if (source) {
+        for (const target of expansion.targets) {
+          pseudoChannels.push({ ...source, commandId: target.commandId });
+        }
+      }
+    }
     return computeFingerprint(pseudoChannels, avrData.enMultEQType);
   }
 
@@ -204,7 +280,11 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
       model: avrData.targetModelName,
       ...(ifVersion ?? {}),
       channels,
-      numberOfSubwoofers: config.numberOfSubwoofers,
+      // Depuis les entrees de l'archive (et non les mesures) : en mesure
+      // mutualisee dupliquee, l'archive porte n subs pour 1 sub mesure.
+      numberOfSubwoofers: channels.filter(channel =>
+        channel.commandId.startsWith('SW'),
+      ).length,
       subwooferOutput: config.subwooferOutput === 'L+M' ? 'LFE+MAIN' : 'LFE',
       bassMode: config.subwooferOutput === 'L+M' ? 'L+M' : 'LFE',
       lpfForLFE: config.lpfForLFE,

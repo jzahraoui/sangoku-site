@@ -164,6 +164,144 @@ describe('generateChannels', () => {
     expect(channels[1].xover).toBeUndefined();
   });
 
+  it('duplicates a mutualised single-sub calibration to every detected sub', async () => {
+    // Mesure en mode Standard : un seul sweep sub (SW1) pour un ampli qui
+    // expose 4 subs — la calibration du sub mesure s'applique a l'identique
+    // a chacun (linearite, decision 2026-07-23).
+    const { service } = makeService();
+    const avrData = avrDataFixture({
+      detectedChannels: [
+        { commandId: 'FL', enChannelType: 0 },
+        { commandId: 'SW1', enChannelType: 54 },
+        { commandId: 'SW2', enChannelType: 55 },
+        { commandId: 'SW3', enChannelType: 56 },
+        { commandId: 'SW4', enChannelType: 57 },
+      ],
+    });
+    const measurements = [
+      { isSub: () => false, channelName: () => 'FL' },
+      { isSub: () => true, channelName: () => 'SW1' },
+    ];
+
+    const channels = await service.generateChannels({
+      avrData,
+      measurements,
+      config: configFixture(),
+    });
+
+    // Generation restreinte au sub mesure (garde de completude du generateur).
+    const generator = generatorSpy.instances.at(-1);
+    expect(generator.avrFileContent.detectedChannels.map(c => c.commandId)).toEqual([
+      'FL',
+      'SW1',
+    ]);
+    expect(channels.map(c => c.commandId)).toEqual(['FL', 'SW1', 'SW2', 'SW3', 'SW4']);
+    const [sw1, sw2, sw3, sw4] = channels.slice(1);
+    for (const clone of [sw2, sw3, sw4]) {
+      expect(clone.filter).toEqual(sw1.filter);
+      expect(clone.speakerType).toBe(sw1.speakerType);
+      expect(clone.distanceInMeters).toBe(sw1.distanceInMeters);
+      expect(clone.trimAdjustmentInDbs).toBe(sw1.trimAdjustmentInDbs);
+    }
+    // channelType du sub cible, pas celui du sub mesure.
+    expect(sw2.channelType).toBe(55);
+    expect(sw4.channelType).toBe(57);
+  });
+
+  it('does not duplicate with several measured subs or a single detected sub', async () => {
+    const { service } = makeService();
+    const detectedChannels = [
+      { commandId: 'FL', enChannelType: 0 },
+      { commandId: 'SW1', enChannelType: 54 },
+      { commandId: 'SW2', enChannelType: 55 },
+    ];
+
+    // Plusieurs subs mesures (mesure Directional) : rien a dupliquer.
+    const multiSub = await service.generateChannels({
+      avrData: avrDataFixture({ detectedChannels }),
+      measurements: [
+        { isSub: () => true, channelName: () => 'SW1' },
+        { isSub: () => true, channelName: () => 'SW2' },
+      ],
+      config: configFixture(),
+    });
+    expect(generatorSpy.instances.at(-1).avrFileContent.detectedChannels).toHaveLength(3);
+    expect(multiSub.map(c => c.commandId)).toEqual(['FL', 'SW1']);
+
+    // Un seul sub detecte : rien a dupliquer non plus.
+    const singleDetected = await service.generateChannels({
+      avrData: avrDataFixture({
+        detectedChannels: detectedChannels.slice(0, 2),
+      }),
+      measurements: [{ isSub: () => true, channelName: () => 'SW1' }],
+      config: configFixture(),
+    });
+    expect(singleDetected.map(c => c.commandId)).toEqual(['FL', 'SW1']);
+  });
+
+  it('keeps the stale-guard fingerprint and the archive coherent after duplication', async () => {
+    const { service } = makeService();
+    const avrData = avrDataFixture({
+      detectedChannels: [
+        { commandId: 'FL', enChannelType: 0 },
+        { commandId: 'SW1', enChannelType: 54 },
+        { commandId: 'SW2', enChannelType: 55 },
+        { commandId: 'SW3', enChannelType: 56 },
+        { commandId: 'SW4', enChannelType: 57 },
+      ],
+    });
+    // Items alignes sur les valeurs du generateur mocke (FL 3.5m/-1.5dB@80,
+    // SW1 4.1m/0dB) pour que l'empreinte courante colle aux banques.
+    const measurements = [
+      {
+        channelName: () => 'FL',
+        speakerType: () => 'S',
+        distanceInMeters: () => 3.5,
+        splForAvr: () => -1.5,
+        crossover: () => 80,
+        isSub: () => false,
+      },
+      {
+        channelName: () => 'SW1',
+        speakerType: () => 'E',
+        distanceInMeters: () => 4.1,
+        splForAvr: () => 0,
+        crossover: () => Number.NaN,
+        isSub: () => true,
+      },
+    ];
+
+    await service.saveCurrentFiltersToBank('reference', {
+      avrData,
+      measurements,
+      config: configFixture(),
+    });
+    await service.saveCurrentFiltersToBank('flat', {
+      avrData,
+      measurements,
+      config: configFixture({ tcName: 'Flat curve', targetCurve: 'flat.txt' }),
+    });
+
+    const { archive, warnings } = service.buildCalibrationArchive({
+      avrData,
+      measurements,
+      config: configFixture(),
+      liveStatus: {},
+    });
+
+    // Sans l'expansion de l'empreinte, les banques (5 canaux) seraient
+    // declarees perimees face aux mesures (2 canaux).
+    expect(warnings).toEqual([]);
+    expect(archive.channels.map(c => c.commandId)).toEqual([
+      'FL',
+      'SW1',
+      'SW2',
+      'SW3',
+      'SW4',
+    ]);
+    expect(archive.numberOfSubwoofers).toBe(4);
+  });
+
   it('guards on missing AVR data and target curve', async () => {
     const { service } = makeService();
     await expect(

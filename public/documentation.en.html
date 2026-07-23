@@ -1136,6 +1136,15 @@
       calibration transfer, check that the subwoofer mode of the receiver is set to
       Standard — the listening mode the settings produced by RCH are built for.
     </p>
+    <p>
+      If your measurements contain a single subwoofer channel (session done in
+      Standard mode: the receiver then measures all subwoofers together, as a
+      single sweep), RCH automatically copies that calibration (filter, gain,
+      distance) to every detected subwoofer when saving the banks and building the
+      transfer. This matches the official behaviour; individual subwoofer
+      alignment (per-sub delays and gains) however requires measurements taken in
+      Directional bass mode.
+    </p>
   </section>
 
   <section id="finalization">
