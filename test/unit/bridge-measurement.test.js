@@ -222,6 +222,58 @@ describe('BridgeMeasurement', () => {
       await expect(context.service.startSession()).rejects.toThrow(/ENTER_AUDY refused/);
       expect(context.state.measureState).toBe('idle');
     });
+
+    it('closes the just-opened session when the ready wait is lost', async () => {
+      // POST succeeded, then every poll fails: the session opened on the
+      // bridge must not stay holding the AVR in calibration mode.
+      const context = makeService();
+      context.api.getMeasureSession.mockRejectedValue(new Error('socket hang up'));
+
+      await expect(context.service.startSession()).rejects.toThrow(/socket hang up/);
+      expect(context.api.cancelMeasureSession).toHaveBeenCalledTimes(1);
+      expect(context.state.measureState).toBe('idle');
+    });
+
+    it('does not close anything when the start POST itself fails', async () => {
+      const context = makeService({
+        api: makeApi({
+          startMeasureSession: vi.fn().mockRejectedValue(bridgeError('MIC_NOT_PLUGGED')),
+        }),
+      });
+
+      await expect(context.service.startSession()).rejects.toThrow(/microphone/);
+      expect(context.api.cancelMeasureSession).not.toHaveBeenCalled();
+    });
+
+    it('re-attaches to the open bridge session on BUSY (measurement)', async () => {
+      // The bridge still holds a session this client lost track of (failed
+      // re-attach at reconnect): start must recover it instead of trapping
+      // the user behind a hidden session.
+      const busy = bridgeError('BUSY', 409);
+      busy.reason = 'measurement';
+      const context = makeService({
+        api: makeApi({ startMeasureSession: vi.fn().mockRejectedValue(busy) }),
+      });
+
+      await context.service.startSession();
+
+      expect(context.state.measureState).toBe(READY);
+      expect(context.state.measureChannelPlan).toHaveLength(3);
+      expect(context.onAvrSnapshot).toHaveBeenCalled();
+    });
+
+    it('still fails on BUSY held by another operation', async () => {
+      const busy = bridgeError('BUSY', 409);
+      busy.reason = 'transfer';
+      const context = makeService({
+        api: makeApi({ startMeasureSession: vi.fn().mockRejectedValue(busy) }),
+      });
+
+      await expect(context.service.startSession()).rejects.toMatchObject({
+        code: 'BUSY',
+      });
+      expect(context.state.measureState).toBe('idle');
+    });
   });
 
   describe('measurePosition', () => {

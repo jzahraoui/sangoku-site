@@ -235,6 +235,19 @@ class BridgeMeasurement {
     try {
       const model = this.bridgeSession.state.avrModelName || null;
       await this.api.startMeasureSession(model);
+    } catch (error) {
+      this.resetSessionState();
+      if (error?.code === 'BUSY' && error?.reason === 'measurement') {
+        // The bridge still holds a session this client lost track of (e.g. a
+        // re-attach that failed at reconnect): re-attach it now — a page
+        // reload is otherwise the only way out, with the AVR held in
+        // calibration mode in the meantime.
+        const resumed = await this.resumeSession();
+        if (resumed !== null) return null;
+      }
+      throw describeMeasureFailure(error);
+    }
+    try {
       const view = await this.waitForSessionReady();
       this.installSessionSnapshot(view);
       this.state.measureState = STATE_READY;
@@ -245,8 +258,22 @@ class BridgeMeasurement {
       await this.onAvrSnapshot(view.avr ?? null);
       return view;
     } catch (error) {
+      // The session opened above must not keep the AVR in calibration mode
+      // once this client gives up on it (ready-wait timeout or poll loss).
+      await this.closeSessionQuietly();
       this.resetSessionState();
       throw describeMeasureFailure(error);
+    }
+  }
+
+  /** Best-effort close of the bridge session (ABORT_OPRT then EXIT_AUDMD). */
+  async closeSessionQuietly() {
+    try {
+      await this.api.cancelMeasureSession();
+    } catch (error) {
+      if (error?.code !== 'NOT_FOUND') {
+        this.log.warn(`Could not close the measurement session: ${error.message}`);
+      }
     }
   }
 
