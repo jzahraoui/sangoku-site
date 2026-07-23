@@ -85,11 +85,12 @@ function makeService({
   api = makeApi(),
   state = makeState(),
   rewPolling = true,
+  model = 'Denon AVC-A1H',
   importer = { importImpulseResponse: vi.fn().mockResolvedValue(undefined) },
 } = {}) {
   const bridgeSession = {
     assertConnected: vi.fn(),
-    state: { avrModelName: 'Denon AVC-A1H' },
+    state: { avrModelName: model },
     api,
   };
   const session = {
@@ -263,7 +264,9 @@ describe('BridgeMeasurement', () => {
       expect(firstCall[1].name).toBe('FL_P01');
       expect(firstCall[1].data).toBeInstanceOf(Float32Array);
       expect(Array.from(firstCall[1].data)).toEqual([0, 0.5, 0.25, 0.125]);
-      expect(firstCall[2]).toMatchObject({ sampleRate: 48000, splOffset: 108.2852 });
+      // Model file-import convention (A1H non-Cirrus → 80 dB), never the
+      // raw-capture dbSplAtFullScale of the bridge levelReference.
+      expect(firstCall[2]).toMatchObject({ sampleRate: 48000, splOffset: 80 });
       const secondCall = context.importer.importImpulseResponse.mock.calls[1];
       expect(secondCall[1].name).toBe('SW1_P01');
       // The response fetch uses the WIRE code, never the normalized SW1.
@@ -289,7 +292,7 @@ describe('BridgeMeasurement', () => {
       ]);
     });
 
-    it('imports with applyCal false and the absolute SPL through the real importer', async () => {
+    it('imports with applyCal false and the model convention offset through the real importer', async () => {
       const rewImport = { importImpulseResponseData: vi.fn().mockResolvedValue({}) };
       const created = {};
       const session = {
@@ -325,22 +328,16 @@ describe('BridgeMeasurement', () => {
         expect.objectContaining({
           identifier: 'FL_P01',
           sampleRate: 48000,
-          splOffset: 108.2852,
+          splOffset: 80,
           applyCal: false,
         }),
       );
       expect(created.IRPeakValue).toBe(0.5);
     });
 
-    it('falls back to 80 dB with a warning when no absolute reference exists', async () => {
-      const context = makeService();
-      context.api.getMeasureSession.mockResolvedValueOnce(
-        sessionView({ avr: { maxPositions: 32, swLvlMatch: false, levelReference: null } }),
-      );
-      await context.service.startSession();
-      context.api.getMeasureResponse.mockResolvedValue(
-        responseFixture({ levelReference: null }),
-      );
+    it('imports at 105 dB for a Cirrus-DSP model (file-import convention)', async () => {
+      const context = makeService({ model: 'Denon AVR-X3600H' });
+      await startReadySession(context);
       context.api.getMeasureSession.mockResolvedValue(
         sessionView({
           availableResponses: [{ position: 1, channel: 'FL' }],
@@ -350,10 +347,7 @@ describe('BridgeMeasurement', () => {
 
       await context.service.measurePosition(1);
 
-      expect(context.importer.importImpulseResponse.mock.calls[0][2].splOffset).toBe(80);
-      expect(context.log.warn).toHaveBeenCalledWith(
-        expect.stringContaining('No absolute SPL reference'),
-      );
+      expect(context.importer.importImpulseResponse.mock.calls[0][2].splOffset).toBe(105);
     });
 
     it('rejects a channels subset for position 1', async () => {

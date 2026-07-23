@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   describeFileMismatch,
+  modelSplOffset,
   normalizeChannelCode,
   sameAvrIdentity,
   synthesizeAvrData,
@@ -50,6 +51,15 @@ describe('normalizeChannelCode', () => {
     ['TML', 'TML'],
   ])('maps %s to %s', (wire, expected) => {
     expect(normalizeChannelCode(wire)).toBe(expected);
+  });
+});
+
+describe('modelSplOffset', () => {
+  it('returns the file-import convention of the model', () => {
+    expect(modelSplOffset('Denon AVC-A1H', 'MultEQXT32')).toBe(80);
+    expect(modelSplOffset('Denon AVR-X3600H', 'MultEQXT')).toBe(105);
+    expect(modelSplOffset('', 'MultEQXT32')).toBe(80);
+    expect(modelSplOffset(undefined, undefined)).toBe(80);
   });
 });
 

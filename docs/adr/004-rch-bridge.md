@@ -125,10 +125,15 @@
   d'IR de `bridge-measurement` qui réutilise `importImpulseResponse` du
   service d'import existant.
 - La mesure Audyssey complète (détection position 1, positions suivantes par
-  sous-ensemble de canaux, import des IR au fil de l'eau avec SPL absolu
-  `dbSplAtFullScale`, sublevel SPL live) se fait sans quitter l'application ;
-  la calibration micro est portée par le bridge (aucun fichier de calibration
-  côté RCH).
+  sous-ensemble de canaux, import des IR au fil de l'eau, sublevel SPL live)
+  se fait sans quitter l'application ; la calibration micro est portée par le
+  bridge (aucun fichier de calibration côté RCH). Les IR mesurées s'importent
+  dans REW à la convention fichier du modèle (`AvrCaracteristics.splOffset`,
+  105 dB Cirrus / 80 dB sinon — même domaine GET_RESPONSE que les
+  `responseData` des `.ady`) ; le `levelReference.dbSplAtFullScale` du bridge
+  est une ancre du domaine de capture brute ADC (ingrédient de la formule de
+  trim) et ne s'applique pas à l'échelle numérique de l'IR déconvoluée —
+  amendement du 2026-07-23, il n'est plus utilisé à l'import.
 - Toute évolution de l'API bridge se négocie par `MIN_BRIDGE_VERSION` côté
   client et par la version du binaire côté serveur ; les erreurs arrivent
   typées (enveloppe `{error, message?, reason?, details?}`) et jamais dans un

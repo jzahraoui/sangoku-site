@@ -22,13 +22,16 @@
  *   snapshot captured by the bridge (rawInfo/rawStatus feed the live
  *   jsonAvrData synthesis).
  *
- * SPL convention: measured IRs are imported at the ABSOLUTE reference level
- * `avr.levelReference.dbSplAtFullScale` (FR-198) — never the historical 80/105
- * `avr.splOffset` used by file imports.
+ * SPL convention: measured IRs are imported at the MODEL file-import offset
+ * (`AvrCaracteristics.splOffset`, 105 dB Cirrus / 80 dB otherwise) — the same
+ * GET_RESPONSE domain as the `.ady` responseData. The bridge
+ * `levelReference.dbSplAtFullScale` is a RAW-CAPTURE anchor (trim formula
+ * ingredient): it does not apply to the deconvolved IR scale and must never
+ * be used at import (decision 2026-07-23).
  */
 import { CHANNEL_TYPES } from '../audyssey.js';
 import { decodeBase64ToFloat32 } from '../rew/rew-codec.js';
-import { normalizeChannelCode } from './avr-data-synthesis.js';
+import { modelSplOffset, normalizeChannelCode } from './avr-data-synthesis.js';
 
 const noopLog = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
 
@@ -43,8 +46,8 @@ const STATE_COMPLETING = 'completing';
 const SESSION_OVER_STATES = new Set(['completed', 'failed', 'cancelled']);
 const POSITION_TERMINAL_STATES = new Set(['done', 'failed', 'cancelled']);
 
-// Fallback import level when the AVR snapshot carries no usable absolute SPL
-// reference (unknown model / no ADC lineup) — logged once per session.
+// Import offset safety net when no session snapshot resolved the model
+// convention (matches the non-Cirrus `AvrCaracteristics.splOffset`).
 const DEFAULT_SPL_OFFSET_DB = 80;
 
 const MEASUREMENT_SAMPLE_RATE = 48000;
@@ -171,7 +174,7 @@ class BridgeMeasurement {
     this.importedKeys = new Set();
     this.responseRetries = new Map();
     this.importWarnings = [];
-    this.warnedNoLevelReference = false;
+    this.importSplOffsetDb = null;
     this.sublevelActive = false;
     this.sublevelTask = null;
     this.resumeTask = null;
@@ -193,7 +196,7 @@ class BridgeMeasurement {
     this.importedKeys.clear();
     this.responseRetries.clear();
     this.importWarnings = [];
-    this.warnedNoLevelReference = false;
+    this.importSplOffsetDb = null;
     this.sublevelActive = false;
     this.state.measureState = STATE_IDLE;
     this.state.measurePosition = null;
@@ -362,7 +365,13 @@ class BridgeMeasurement {
     this.importedKeys.clear();
     this.responseRetries.clear();
     this.importWarnings = [];
-    this.warnedNoLevelReference = false;
+    this.importSplOffsetDb = modelSplOffset(
+      this.bridgeSession.state.avrModelName,
+      view.avr?.eqType,
+    );
+    this.log.info(
+      `Measured IRs import into REW at ${this.importSplOffsetDb} dB (model file convention)`,
+    );
     this.state.measureChannelPlan = (view.channelPlan ?? []).map(entry => ({
       channel: entry.channel,
       code: entry.code,
@@ -527,7 +536,7 @@ class BridgeMeasurement {
         { name: title, data: samples },
         {
           sampleRate: response.sampleRateHz ?? MEASUREMENT_SAMPLE_RATE,
-          splOffset: this.resolveSplOffset(response),
+          splOffset: this.resolveSplOffset(),
         },
       );
       this.importedKeys.add(key);
@@ -555,20 +564,11 @@ class BridgeMeasurement {
     }
   }
 
-  resolveSplOffset(response) {
-    const absolute =
-      response.levelReference?.dbSplAtFullScale ??
-      this.avrSnapshot?.levelReference?.dbSplAtFullScale;
-    if (typeof absolute === 'number' && Number.isFinite(absolute)) {
-      return absolute;
-    }
-    if (!this.warnedNoLevelReference) {
-      this.warnedNoLevelReference = true;
-      this.log.warn(
-        `No absolute SPL reference from the AVR: importing at ${DEFAULT_SPL_OFFSET_DB} dB full-scale`,
-      );
-    }
-    return DEFAULT_SPL_OFFSET_DB;
+  // Model file-import convention resolved at session install. NEVER the
+  // bridge `levelReference.dbSplAtFullScale`: that anchor belongs to the raw
+  // ADC capture domain, not to the deconvolved IR the AVR returns.
+  resolveSplOffset() {
+    return this.importSplOffsetDb ?? DEFAULT_SPL_OFFSET_DB;
   }
 
   addImportWarning(message) {

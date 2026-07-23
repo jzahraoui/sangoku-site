@@ -130,6 +130,26 @@ function buildDetectedChannels(chSetup, log) {
  * @param {string} [input.model] - AVR model name (discovery / user entry) driving the AvrCaracteristics tables.
  * @param {object} [log]
  */
+/**
+ * File-import SPL convention of a model (`AvrCaracteristics.splOffset`:
+ * 105 dB on Cirrus-DSP models, 80 dB otherwise). Also applied to the
+ * bridge-measured IRs — same GET_RESPONSE domain as the `.ady` responseData:
+ * a deconvolved transfer function whose digital scale is NOT the raw ADC
+ * capture, so the capture-domain anchor `levelReference.dbSplAtFullScale`
+ * must never be used at import (decision 2026-07-23).
+ *
+ * @param {string} [model] AVR model name (empty/unknown → 80 dB).
+ * @param {string} [eqTypeName] `GET /avr/info` EQType wire name.
+ */
+function modelSplOffset(model, eqTypeName) {
+  const enMultEQType = EQ_TYPE_BY_NAME[eqTypeName] ?? 2;
+  try {
+    return new AvrCaracteristics(model || 'Unknown AVR', enMultEQType).splOffset;
+  } catch {
+    return 80;
+  }
+}
+
 function synthesizeAvrData({ info, status, model }, log = noopLog) {
   if (!info || !status) {
     throw new Error('AVR info and status are both required');
@@ -224,6 +244,7 @@ function describeFileMismatch(fileData, liveData) {
 
 export {
   describeFileMismatch,
+  modelSplOffset,
   normalizeChannelCode,
   sameAvrIdentity,
   synthesizeAvrData,
