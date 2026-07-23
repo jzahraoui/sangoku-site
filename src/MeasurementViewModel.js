@@ -2150,10 +2150,26 @@ class MeasurementViewModel {
         'isProcessing',
       ]),
       createApi: baseUrl => new BridgeApi(baseUrl),
+      onConnected: () => this.resumeMeasureSession(),
       onAvrDataAvailable: payload => this.applyLiveAvrData(payload),
       onError: (message, error) => this.handleError(message, error),
       log: lm,
     });
+
+    // Page reloaded while the bridge still holds a measurement session (the
+    // AVR probe answers BUSY "measurement"): re-attach the assistant instead
+    // of leaving an idle UI that can only collect 409s. Never fails the
+    // bridge connection itself.
+    this.resumeMeasureSession = async () => {
+      try {
+        const resumed = await this.bridgeMeasurement.resumeSession();
+        if (resumed) {
+          this.handleSuccess(this.translations().measure_session_resumed);
+        }
+      } catch (error) {
+        this.handleError(this.describeMeasureError(error), error);
+      }
+    };
 
     // Audyssey measurement assistant (RCH 2.0) — the bridge drives the AVR
     // sweeps; every impulse response is imported into REW on the fly. The

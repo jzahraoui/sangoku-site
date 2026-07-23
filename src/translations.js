@@ -163,6 +163,8 @@ const translations = {
     measure_session_ready:
       'Measurement session ready — place the microphone at the main listening position',
     measure_position_done: 'Position measured:',
+    measure_session_resumed:
+      'Ongoing measurement session found on the bridge — re-attached',
     measure_session_cancelled: 'Measurement session cancelled',
     measure_complete_reminder:
       'Measurement session completed — save your measurements as a .mdat file in REW now (File > Save all measurements)',
@@ -506,6 +508,8 @@ const translations = {
     measure_session_ready:
       'Session de mesure prête — placez le micro à la position d’écoute principale',
     measure_position_done: 'Position mesurée :',
+    measure_session_resumed:
+      'Session de mesure en cours retrouvée sur le bridge — reprise de l’affichage',
     measure_session_cancelled: 'Session de mesure annulée',
     measure_complete_reminder:
       'Session de mesure terminée — sauvegardez maintenant vos mesures en fichier .mdat dans REW (File > Save all measurements)',

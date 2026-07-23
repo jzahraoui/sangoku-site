@@ -403,6 +403,94 @@ describe('BridgeMeasurement', () => {
       );
     });
 
+    it('re-attaches to a ready session left open on the bridge (page reload)', async () => {
+      const context = makeService();
+      context.api.getMeasureSession.mockResolvedValue(
+        sessionView({
+          availableResponses: [
+            { position: 1, channel: 'FL' },
+            { position: 1, channel: 'C' },
+          ],
+          positions: { 1: { position: 1, state: 'done' } },
+        }),
+      );
+
+      const resumed = await context.service.resumeSession();
+
+      expect(resumed).toBe(READY);
+      expect(context.state.measureState).toBe(READY);
+      expect(context.state.measureChannelPlan).toHaveLength(3);
+      expect(context.state.measurePositionsDone).toEqual([1]);
+      expect(context.state.measureNextPosition).toBe(2);
+      expect(context.onAvrSnapshot).toHaveBeenCalled();
+      expect(context.api.startMeasureSession).not.toHaveBeenCalled();
+      // Already-listed responses were imported before the reload: no re-import.
+      expect(context.api.getMeasureResponse).not.toHaveBeenCalled();
+      expect(context.importer.importImpulseResponse).not.toHaveBeenCalled();
+    });
+
+    it('returns null when the bridge holds no session or an ended one', async () => {
+      const context = makeService();
+      context.api.getMeasureSession.mockRejectedValue(bridgeError('NOT_FOUND', 404));
+      expect(await context.service.resumeSession()).toBeNull();
+      expect(context.state.measureState).toBe('idle');
+
+      context.api.getMeasureSession.mockResolvedValue(sessionView({ state: 'cancelled' }));
+      expect(await context.service.resumeSession()).toBeNull();
+      expect(context.state.measureState).toBe('idle');
+    });
+
+    it('re-attaches to a running sweep and imports only the new responses', async () => {
+      const context = makeService();
+      const running = sessionView({
+        state: MEASURING,
+        currentOperation: { kind: 'position', position: 2, phase: 'sweep', progress: 0.5 },
+        availableResponses: [{ position: 1, channel: 'FL' }],
+        positions: {
+          1: { position: 1, state: 'done' },
+          2: { position: 2, state: 'running' },
+        },
+      });
+      context.api.getMeasureSession.mockResolvedValueOnce(running).mockResolvedValue(
+        sessionView({
+          availableResponses: [
+            { position: 1, channel: 'FL' },
+            { position: 2, channel: 'FL' },
+          ],
+          positions: {
+            1: { position: 1, state: 'done' },
+            2: { position: 2, state: 'done' },
+          },
+        }),
+      );
+
+      const resumed = await context.service.resumeSession();
+      expect(resumed).toBe(MEASURING);
+      expect(context.state.measurePosition).toBe(2);
+      await context.service.resumeTask;
+
+      expect(context.state.measureState).toBe(READY);
+      // Only the response measured after the re-attach is imported.
+      expect(context.api.getMeasureResponse).toHaveBeenCalledTimes(1);
+      expect(context.api.getMeasureResponse).toHaveBeenCalledWith(2, 'FL');
+      expect(context.session.setProcessing).toHaveBeenCalledWith(true);
+      expect(context.session.setProcessing).toHaveBeenCalledWith(false);
+    });
+
+    it('re-attaches to a running sub level matching and backfills the sub', async () => {
+      const context = makeService();
+      context.api.getMeasureSession.mockResolvedValue(sessionView({ state: 'subleveling' }));
+
+      const resumed = await context.service.resumeSession();
+      expect(resumed).toBe('sublevel');
+      expect(context.state.measureState).toBe('sublevel');
+
+      await new Promise(resolve => setTimeout(resolve, 5));
+      expect(context.state.sublevelSub).toBe('SW1');
+      expect(context.state.sublevelSpl).toBe(72.5);
+      await context.service.stopSublevel();
+    });
+
     it('exposes the session warnings and the per-response plausibility flags', async () => {
       const context = makeService();
       await startReadySession(context);

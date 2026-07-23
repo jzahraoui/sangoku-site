@@ -94,6 +94,16 @@ function measurementTitle(commandId, position) {
   return `${commandId}_P${String(position).padStart(2, '0')}`;
 }
 
+/** Position number of the non-terminal position entry of a session view. */
+function runningPosition(view) {
+  for (const [number, position] of Object.entries(view.positions ?? {})) {
+    if (position && !POSITION_TERMINAL_STATES.has(position.state)) {
+      return Number(number);
+    }
+  }
+  return null;
+}
+
 /** Smallest position number not measured yet (1-based). */
 function nextPosition(donePositions, maxPositions) {
   const taken = new Set(donePositions);
@@ -163,6 +173,7 @@ class BridgeMeasurement {
     this.warnedNoLevelReference = false;
     this.sublevelActive = false;
     this.sublevelTask = null;
+    this.resumeTask = null;
   }
 
   get api() {
@@ -227,6 +238,96 @@ class BridgeMeasurement {
     } catch (error) {
       this.resetSessionState();
       throw describeMeasureFailure(error);
+    }
+  }
+
+  /**
+   * Re-attaches to a measurement session still open on the bridge — page
+   * reload while the AVR is held (`avrBusyReason` "measurement"). Restores
+   * the snapshot, the plan and the measured positions, then resumes the
+   * running activity (position sweep or sub level matching). The responses
+   * the bridge already lists were imported into REW on the fly before the
+   * reload (REW is not reset by a page reload) and are NOT re-imported.
+   *
+   * @returns {Promise<string|null>} the restored measurement state, or null
+   *   when the bridge holds no session to re-attach.
+   */
+  async resumeSession() {
+    if (this.state.measureState !== STATE_IDLE) return null;
+    this.bridgeSession.assertConnected();
+    let view;
+    try {
+      view = await this.api.getMeasureSession();
+    } catch (error) {
+      if (error?.code === 'NOT_FOUND') return null;
+      throw describeMeasureFailure(error);
+    }
+    if (!view || SESSION_OVER_STATES.has(view.state) || view.state === 'completing') {
+      return null;
+    }
+    if (view.state === 'starting') {
+      view = await this.waitForSessionReady();
+    }
+    this.installSessionSnapshot(view);
+    const alreadyImported = view.availableResponses ?? [];
+    for (const available of alreadyImported) {
+      this.importedKeys.add(`${available.position}:${available.channel}`);
+    }
+    if (alreadyImported.length > 0) {
+      this.log.info(
+        `${alreadyImported.length} measured response(s) kept as already imported into REW`,
+      );
+    }
+    await this.onAvrSnapshot(view.avr ?? null);
+    return this.resumeActivity(view);
+  }
+
+  /** Restores the UI state matching the bridge activity at re-attach time. */
+  resumeActivity(view) {
+    if (view.state === 'subleveling') {
+      this.state.measureState = STATE_SUBLEVEL;
+      this.sublevelActive = true;
+      this.sublevelTask = this.runSublevelLoop().catch(error => {
+        this.log.error(`Subwoofer level polling failed: ${error.message}`);
+        this.clearSublevelState();
+      });
+      this.log.info('Re-attached to the running subwoofer level matching');
+      return STATE_SUBLEVEL;
+    }
+    if (view.state === 'measuring' || view.state === 'cancelling') {
+      const position = view.currentOperation?.position ?? runningPosition(view);
+      if (position == null) {
+        this.log.warn(
+          'Running position unknown at re-attach: showing the session as ready',
+        );
+        this.state.measureState = STATE_READY;
+        return STATE_READY;
+      }
+      this.state.measureState = STATE_MEASURING;
+      this.state.measurePosition = position;
+      this.resumeTask = this.resumePositionRun(position);
+      this.log.info(`Re-attached to the running measurement of position ${position}`);
+      return STATE_MEASURING;
+    }
+    this.state.measureState = STATE_READY;
+    this.log.info('Re-attached to the open measurement session');
+    return STATE_READY;
+  }
+
+  /** Self-driven continuation of a position sweep started before the reload. */
+  async resumePositionRun(position) {
+    try {
+      await this.session.setProcessing(true);
+      try {
+        await this.runPositionLoop(position);
+      } finally {
+        await this.session.setProcessing(false);
+      }
+    } catch (error) {
+      if (this.state.measureState === STATE_MEASURING) {
+        this.state.measureState = STATE_READY;
+      }
+      this.log.error(`Resumed position ${position} failed: ${error.message}`);
     }
   }
 
@@ -511,6 +612,10 @@ class BridgeMeasurement {
     }
     if (this.sublevelActive && typeof status.spl === 'number') {
       this.state.sublevelSpl = status.spl;
+    }
+    // Re-attached routine: the measured sub is only known from the poll.
+    if (this.sublevelActive && status.sub && !this.state.sublevelSub) {
+      this.state.sublevelSub = status.sub;
     }
     if (status.state === 'error') {
       this.log.warn(`Subwoofer level matching error: ${status.error ?? 'unknown'}`);

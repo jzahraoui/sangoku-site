@@ -75,6 +75,29 @@ test('measure: bridge-driven Audyssey session imports IRs into REW', async t => 
       );
     });
 
+    await t.test('page reload re-attaches the open session', async () => {
+      const titlesBefore = rew.titles();
+      await page.reload();
+      // The restored session auto-reconnects REW and the bridge; the
+      // assistant re-attaches to the session still open on the bridge.
+      await waitForStatus(page, 're-attached', 60000);
+      await page
+        .getByTestId('measure-state')
+        .filter(READY_STATE)
+        .waitFor({ state: 'attached' });
+      await page
+        .getByTestId('measure-next-position')
+        .filter({ hasText: '2 / 32' })
+        .waitFor({ state: 'attached' });
+      // The already-measured responses were NOT re-imported into REW.
+      assert.deepEqual(rew.titles(), titlesBefore);
+      // Wait for the reconnect processing lock to release.
+      await page.waitForFunction(
+        () => !document.querySelector('[data-testid="create-averages"]').disabled,
+        { timeout: 60000 },
+      );
+    });
+
     await t.test('measure position 2 with a channel subset', async () => {
       await page
         .getByTestId('measure-next-position')
