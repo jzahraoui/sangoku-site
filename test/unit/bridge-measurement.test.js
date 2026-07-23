@@ -258,7 +258,7 @@ describe('BridgeMeasurement', () => {
 
       const result = await context.service.measurePosition(1);
 
-      expect(result).toEqual({ state: 'done', position: 1 });
+      expect(result).toEqual({ state: 'done', position: 1, missingImports: [] });
       expect(context.importer.importImpulseResponse).toHaveBeenCalledTimes(2);
       const firstCall = context.importer.importImpulseResponse.mock.calls[0];
       expect(firstCall[1].name).toBe('FL_P01');
@@ -348,6 +348,89 @@ describe('BridgeMeasurement', () => {
       await context.service.measurePosition(1);
 
       expect(context.importer.importImpulseResponse.mock.calls[0][2].splOffset).toBe(105);
+    });
+
+    it('recovers a given-up response through the end-of-position pass', async () => {
+      const context = makeService();
+      await startReadySession(context);
+      // 3 transient failures burn the whole per-response budget (give-up),
+      // then the end-of-position pass succeeds with its fresh budget.
+      context.api.getMeasureResponse
+        .mockRejectedValueOnce(new Error('[503] REW busy'))
+        .mockRejectedValueOnce(new Error('[503] REW busy'))
+        .mockRejectedValueOnce(new Error('[503] REW busy'))
+        .mockResolvedValue(responseFixture());
+      const running = sessionView({
+        state: MEASURING,
+        availableResponses: [{ position: 1, channel: 'SBR' }],
+      });
+      context.api.getMeasureSession
+        .mockResolvedValueOnce(running)
+        .mockResolvedValueOnce(running)
+        .mockResolvedValueOnce(running)
+        .mockResolvedValue(
+          sessionView({
+            availableResponses: [{ position: 1, channel: 'SBR' }],
+            positions: {
+              1: { position: 1, state: 'done', irAvailable: ['SBR'] },
+            },
+          }),
+        );
+
+      const result = await context.service.measurePosition(1);
+
+      expect(result.missingImports).toEqual([]);
+      expect(context.importer.importImpulseResponse).toHaveBeenCalledTimes(1);
+      expect(
+        context.importer.importImpulseResponse.mock.calls[0][1].name,
+      ).toBe('SBR_P01');
+    });
+
+    it('imports a response the differential never listed (irAvailable only)', async () => {
+      const context = makeService();
+      await startReadySession(context);
+      context.api.getMeasureSession.mockResolvedValue(
+        sessionView({
+          // availableResponses forgot SBR — irAvailable is authoritative.
+          availableResponses: [{ position: 1, channel: 'SBL' }],
+          positions: {
+            1: { position: 1, state: 'done', irAvailable: ['SBL', 'SBR'] },
+          },
+        }),
+      );
+
+      const result = await context.service.measurePosition(1);
+
+      expect(result.missingImports).toEqual([]);
+      const names = context.importer.importImpulseResponse.mock.calls.map(
+        call => call[1].name,
+      );
+      expect(names).toEqual(['SBL_P01', 'SBR_P01']);
+    });
+
+    it('reports the titles still missing after the final pass as a visible result', async () => {
+      const context = makeService();
+      await startReadySession(context);
+      context.api.getMeasureResponse.mockRejectedValue(new Error('[404] NOT_FOUND'));
+      context.api.getMeasureSession.mockResolvedValue(
+        sessionView({
+          availableResponses: [{ position: 1, channel: 'SBR' }],
+          positions: {
+            1: { position: 1, state: 'done', irAvailable: ['SBR'] },
+          },
+        }),
+      );
+
+      const result = await context.service.measurePosition(1);
+
+      expect(result.missingImports).toEqual(['SBR_P01']);
+      expect(context.state.measureWarnings).toEqual(
+        expect.arrayContaining([expect.stringContaining('SBR_P01: import failed')]),
+      );
+      expect(context.log.error).toHaveBeenCalledWith(
+        expect.stringContaining('missing from REW: SBR_P01'),
+      );
+      expect(context.state.measureState).toBe(READY);
     });
 
     it('rejects a channels subset for position 1', async () => {

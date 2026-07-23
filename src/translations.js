@@ -163,6 +163,8 @@ const translations = {
     measure_session_ready:
       'Measurement session ready — place the microphone at the main listening position',
     measure_position_done: 'Position measured:',
+    measure_missing_imports:
+      'Position measured, but some responses could not be imported into REW — measure this position again:',
     measure_session_resumed:
       'Ongoing measurement session found on the bridge — re-attached',
     measure_session_cancelled: 'Measurement session cancelled',
@@ -508,6 +510,8 @@ const translations = {
     measure_session_ready:
       'Session de mesure prête — placez le micro à la position d’écoute principale',
     measure_position_done: 'Position mesurée :',
+    measure_missing_imports:
+      'Position mesurée, mais des réponses n’ont pas pu être importées dans REW — remesurez cette position :',
     measure_session_resumed:
       'Session de mesure en cours retrouvée sur le bridge — reprise de l’affichage',
     measure_session_cancelled: 'Session de mesure annulée',

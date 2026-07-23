@@ -1007,6 +1007,12 @@ class MeasurementViewModel {
         const result = await this.bridgeMeasurement.measurePosition(position, channels);
         if (result?.state === 'cancelled') {
           this.handleSuccess(this.translations().measure_session_cancelled);
+        } else if (result?.missingImports?.length) {
+          // Sweep OK but some responses never landed in REW despite the
+          // end-of-position retry pass: surface it as a visible error.
+          this.handleError(
+            `${this.translations().measure_missing_imports} ${result.missingImports.join(', ')}`,
+          );
         } else {
           this.handleSuccess(`${this.translations().measure_position_done} ${position}`);
         }

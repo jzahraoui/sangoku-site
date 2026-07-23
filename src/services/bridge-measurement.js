@@ -173,6 +173,9 @@ class BridgeMeasurement {
     this.avrSnapshot = null;
     this.importedKeys = new Set();
     this.responseRetries = new Map();
+    // Keys given up after the per-response retry limit — candidates for the
+    // end-of-position completeness pass (ensurePositionImports).
+    this.failedImports = new Set();
     this.importWarnings = [];
     this.importSplOffsetDb = null;
     this.sublevelActive = false;
@@ -195,6 +198,7 @@ class BridgeMeasurement {
     this.avrSnapshot = null;
     this.importedKeys.clear();
     this.responseRetries.clear();
+    this.failedImports.clear();
     this.importWarnings = [];
     this.importSplOffsetDb = null;
     this.sublevelActive = false;
@@ -364,6 +368,7 @@ class BridgeMeasurement {
     this.avrSnapshot = view.avr ?? null;
     this.importedKeys.clear();
     this.responseRetries.clear();
+    this.failedImports.clear();
     this.importWarnings = [];
     this.importSplOffsetDb = modelSplOffset(
       this.bridgeSession.state.avrModelName,
@@ -469,7 +474,11 @@ class BridgeMeasurement {
       }
       const positionView = view.positions?.[position];
       if (positionView && POSITION_TERMINAL_STATES.has(positionView.state)) {
-        return this.finishPosition(position, positionView);
+        const missingImports =
+          positionView.state === 'done'
+            ? await this.ensurePositionImports(positionView, position)
+            : [];
+        return this.finishPosition(position, positionView, missingImports);
       }
     }
   }
@@ -485,7 +494,7 @@ class BridgeMeasurement {
     );
   }
 
-  finishPosition(position, positionView) {
+  finishPosition(position, positionView, missingImports = []) {
     this.state.measureState = STATE_READY;
     this.state.measurePhase = '';
     this.state.measureCurrentChannel = null;
@@ -499,8 +508,48 @@ class BridgeMeasurement {
       return { state: 'cancelled', position };
     }
     this.state.measureProgress = 100;
-    this.log.info(`Position ${position} measured`);
-    return { state: 'done', position };
+    if (missingImports.length) {
+      this.log.error(
+        `Position ${position} measured but missing from REW: ${missingImports.join(', ')}`,
+      );
+    } else {
+      this.log.info(`Position ${position} measured`);
+    }
+    return { state: 'done', position, missingImports };
+  }
+
+  /**
+   * End-of-position completeness pass (2026-07-23, after a real-world loss
+   * of one response): every channel the bridge reports with an available IR
+   * (`positions[n].irAvailable` — the authoritative per-position list) must
+   * have landed in REW. Covers both silent give-ups (per-response retry
+   * limit spent on transient failures) and responses that never showed up
+   * in the availableResponses differential. Each gap gets a fresh retry
+   * budget at quiet time; the measurement titles still missing afterwards
+   * are returned so the caller surfaces a visible, persistent error.
+   */
+  async ensurePositionImports(positionView, position) {
+    const missing = [];
+    for (const channel of positionView.irAvailable ?? []) {
+      const key = `${position}:${channel}`;
+      if (this.importedKeys.has(key) && !this.failedImports.has(key)) continue;
+      const title = measurementTitle(this.commandIdForWireCode(channel), position);
+      this.log.warn(`${title} is not in REW yet: final retry pass`);
+      this.failedImports.delete(key);
+      this.importedKeys.delete(key);
+      this.responseRetries.delete(key);
+      for (
+        let attempt = 0;
+        attempt < BridgeMeasurement.RESPONSE_RETRY_LIMIT && !this.importedKeys.has(key);
+        attempt++
+      ) {
+        await this.importOneResponse({ position, channel }, key);
+      }
+      if (this.failedImports.has(key)) {
+        missing.push(title);
+      }
+    }
+    return missing;
   }
 
   // --- Impulse-response import (differential, on the fly) ------------------
@@ -540,6 +589,7 @@ class BridgeMeasurement {
         },
       );
       this.importedKeys.add(key);
+      this.failedImports.delete(key);
       if (response.plausibilityWarning) {
         this.addImportWarning(`${title}: the AVR flagged this response as implausible`);
       }
@@ -553,8 +603,10 @@ class BridgeMeasurement {
     const retries = (this.responseRetries.get(key) ?? 0) + 1;
     this.responseRetries.set(key, retries);
     if (retries >= BridgeMeasurement.RESPONSE_RETRY_LIMIT) {
-      // Stop retrying: the sweep itself succeeded, surface the gap loudly.
+      // Stop retrying for now: the sweep itself succeeded. The key stays in
+      // failedImports so the end-of-position pass gives it a fresh budget.
       this.importedKeys.add(key);
+      this.failedImports.add(key);
       this.addImportWarning(`${title}: import failed (${error.message})`);
       this.log.error(
         `Import of ${title} failed after ${retries} attempts: ${error.message}`,
