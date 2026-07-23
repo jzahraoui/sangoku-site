@@ -71,6 +71,9 @@ function configFixture(overrides = {}) {
     targetCurve: 'harman.txt',
     tcName: 'Harman',
     softRoll: false,
+    enableMultEq: true,
+    multEqMode: 'Reference',
+    subwooferMode: 'Standard',
     enableDynamicEq: true,
     dynamicEqRefLevel: 0,
     enableDynamicVolume: false,
@@ -300,6 +303,7 @@ describe('generateChannels', () => {
       'SW4',
     ]);
     expect(archive.numberOfSubwoofers).toBe(4);
+    expect(archive.swSetup.SWNum).toBe(4);
   });
 
   it('guards on missing AVR data and target curve', async () => {
@@ -354,6 +358,10 @@ describe('buildCalibrationArchive', () => {
     expect(archive.ampAssign).toBe('2chBiAmp');
     expect(archive.ampAssignBin).toBe('0404AA');
     expect(archive.enableDynamicEq).toBe(true);
+    expect(archive.enableMultEq).toBe(true);
+    expect(archive.multEqMode).toBe('Reference');
+    expect(archive.numberOfSubwoofers).toBe(1);
+    expect(archive.swSetup).toEqual({ SWNum: 1, SWMode: 'Standard', SWLayout: 'N/A' });
 
     expect(archive.channels).toHaveLength(2);
     const fl = archive.channels[0];
@@ -365,6 +373,42 @@ describe('buildCalibrationArchive', () => {
     const sw = archive.channels[1];
     expect(sw.xover).toBeUndefined();
     expect(decodeBase64ToFloat32(sw.filterRef, true)).toHaveLength(16055);
+  });
+
+  it('defaults the MultEQ and subwoofer-mode fields when absent from the config', async () => {
+    const { service } = makeService();
+    await loadBothBanks(service);
+    const config = configFixture();
+    delete config.enableMultEq;
+    delete config.multEqMode;
+    delete config.subwooferMode;
+
+    const { archive } = service.buildCalibrationArchive({
+      avrData: avrDataFixture(),
+      measurements: [],
+      config,
+    });
+
+    expect(archive.enableMultEq).toBe(true);
+    expect(archive.multEqMode).toBe('Reference');
+    expect(archive.swSetup.SWMode).toBe('Standard');
+  });
+
+  it('echoes the AVR layout in swSetup when the target mode is Directional', async () => {
+    const { service } = makeService();
+    await loadBothBanks(service);
+
+    const { archive } = service.buildCalibrationArchive({
+      avrData: avrDataFixture({ subwooferLayout: 'FL/FR/RL/RR' }),
+      measurements: [],
+      config: configFixture({ subwooferMode: 'Directional' }),
+    });
+
+    expect(archive.swSetup).toEqual({
+      SWNum: 1,
+      SWMode: 'Directional',
+      SWLayout: 'FL/FR/RL/RR',
+    });
   });
 
   it('accepts a 70 Hz crossover and rejects out-of-domain values', async () => {

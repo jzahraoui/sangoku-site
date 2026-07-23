@@ -1614,6 +1614,8 @@ class MeasurementViewModel {
     };
 
     this.softRoll = ko.observable(false);
+    this.enableMultEq = ko.observable(true);
+    this.multEqMode = ko.observable('Reference');
     this.enableDynamicEq = ko.observable(false);
     this.dynamicEqRefLevel = ko.observable(0);
     this.enableDynamicVolume = ko.observable(false);
@@ -1622,11 +1624,33 @@ class MeasurementViewModel {
     this.lowFrequencyContainmentLevel = ko.observable(3);
     this.subwooferOutput = ko.observable('LFE');
     this.lpfForLFE = ko.observable(120);
+    // Etat final vise apres transfert (Directional = mode de mesure ;
+    // l'ecoute multi-subs se fait en Standard — ADR 004).
+    this.subwooferMode = ko.observable('Standard');
 
     // Available filter options
     this.subwooferOutputChoice = [
       { value: 'LFE', text: 'LFE' },
       { value: 'L+M', text: 'LFE + Main' },
+    ];
+    this.multEqModeChoice = [
+      { value: 'Reference', text: 'Reference' },
+      { value: 'Flat', text: 'Flat' },
+    ];
+    this.dynamicVolumeChoice = [
+      { value: 0, text: 'Low' },
+      { value: 1, text: 'Medium' },
+      { value: 2, text: 'High' },
+    ];
+    this.dynamicEqRefLevelChoice = [
+      { value: 0, text: '0' },
+      { value: 5, text: '5' },
+      { value: 10, text: '10' },
+      { value: 15, text: '15' },
+    ];
+    this.subwooferModeChoice = [
+      { value: 'Standard', text: 'Standard' },
+      { value: 'Directional', text: 'Directional' },
     ];
 
     // Snapshot de configuration partage par les banques et l'archive de
@@ -1635,6 +1659,9 @@ class MeasurementViewModel {
       targetCurve: this.targetCurve(),
       tcName: ko.unwrap(this.tcName),
       softRoll: this.softRoll(),
+      enableMultEq: this.enableMultEq(),
+      multEqMode: this.multEqMode(),
+      subwooferMode: this.subwooferMode(),
       enableDynamicEq: this.enableDynamicEq(),
       dynamicEqRefLevel: this.dynamicEqRefLevel(),
       enableDynamicVolume: this.enableDynamicVolume(),

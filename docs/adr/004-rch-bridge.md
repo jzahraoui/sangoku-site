@@ -144,9 +144,12 @@
   vers chaque sub détecté au moment des banques et de l'archive — par
   linéarité, filtrer chaque sub revient à filtrer la somme mesurée).
   L'état final visé après transfert reste le mode Standard avec
-  les réglages propres à chaque sub (lignée A1Evo) ; le `SET_SETDAT` du
-  bridge échoit le `SWSetup` lu en direct sur l'ampli au moment du
-  transfert.
+  les réglages propres à chaque sub (lignée A1Evo) : l'archive `.rch.json`
+  porte le mode subwoofer final choisi dans la Finalisation via le champ
+  racine optionnel `swSetup` (`{SWNum, SWMode, SWLayout}`, appliqué par le
+  bridge — amendement du 2026-07-23 ; auparavant le `SET_SETDAT` échoyait le
+  `SWSetup` lu en direct sur l'ampli). L'archive porte aussi `enableMultEq`
+  et `multEqMode` (Reference/Flat), consommation bridge à venir.
 - Toute évolution de l'API bridge se négocie par `MIN_BRIDGE_VERSION` côté
   client et par la version du binaire côté serveur ; les erreurs arrivent
   typées (enveloppe `{error, message?, reason?, details?}`) et jamais dans un

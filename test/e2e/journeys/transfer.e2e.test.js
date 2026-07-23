@@ -84,10 +84,26 @@ test('transfer: bank gating, validate dry-run, deferred cancellation', async t =
     });
 
     await t.test('validate dry-run reaches the bridge', async () => {
+      // Les cartes Audyssey pilotent l'archive : Dynamic EQ active avec
+      // offset 10, mode MultEQ Flat, mode subwoofer Directional.
+      await page.getByTestId('audy-dyneq-toggle').click();
+      await page.getByTestId('audy-dyneq-offset').selectOption('10');
+      await page.getByTestId('audy-multeq-mode').selectOption('Flat');
+      await page.getByTestId('audy-submode').selectOption('Directional');
+      // Le reglage dependant suit l'etat du toggle (Dynamic Volume inactif).
+      assert.equal(await page.getByTestId('audy-dynvol-mode').isDisabled(), true);
+
       await page.getByTestId('transfer-validate').click();
       await waitForStatus(page, 'Calibration is compatible with the connected AVR');
       assert.ok(bridge.lastArchive, 'validation archive not received');
       assert.equal(bridge.lastArchive.eqType, 2);
+      assert.equal(bridge.lastArchive.enableMultEq, true);
+      assert.equal(bridge.lastArchive.multEqMode, 'Flat');
+      assert.equal(bridge.lastArchive.swSetup?.SWMode, 'Directional');
+      assert.ok(bridge.lastArchive.swSetup.SWNum >= 1);
+      assert.equal(bridge.lastArchive.enableDynamicEq, true);
+      assert.equal(bridge.lastArchive.dynamicEqRefLevel, 10);
+      assert.equal(bridge.lastArchive.enableDynamicVolume, false);
     });
 
     await t.test('cancellation is deferred then reported', async () => {

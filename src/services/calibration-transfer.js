@@ -274,6 +274,10 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
     }
 
     const ifVersion = parseInterfaceVersion(avrData.interfaceVersion);
+    const swNum = channels.filter(channel =>
+      channel.commandId.startsWith('SW'),
+    ).length;
+    const swMode = config.subwooferMode ?? 'Standard';
     const archive = {
       eqType: reference.eqType,
       title: avrData.title ?? avrData.targetModelName,
@@ -282,9 +286,16 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
       channels,
       // Depuis les entrees de l'archive (et non les mesures) : en mesure
       // mutualisee dupliquee, l'archive porte n subs pour 1 sub mesure.
-      numberOfSubwoofers: channels.filter(channel =>
-        channel.commandId.startsWith('SW'),
-      ).length,
+      numberOfSubwoofers: swNum,
+      // Etat subwoofer FINAL vise apres transfert, applique par le bridge
+      // (champ racine optionnel du contrat d'archive). Le layout n'a de sens
+      // qu'en Directional : il reprend alors celui de l'ampli connecte.
+      swSetup: {
+        SWNum: swNum,
+        SWMode: swMode,
+        SWLayout:
+          swMode === 'Directional' ? (avrData.subwooferLayout ?? 'N/A') : 'N/A',
+      },
       subwooferOutput: config.subwooferOutput === 'L+M' ? 'LFE+MAIN' : 'LFE',
       bassMode: config.subwooferOutput === 'L+M' ? 'L+M' : 'LFE',
       lpfForLFE: config.lpfForLFE,
@@ -292,6 +303,11 @@ function createCalibrationTransfer({ bridgeSession, banks, log = noopLog }) {
       isGriffin: Boolean(avrData.avr.isGriffinLiteAVR),
       ...(liveStatus?.AmpAssign && { ampAssign: liveStatus.AmpAssign }),
       ...(liveStatus?.AssignBin && { ampAssignBin: liveStatus.AssignBin }),
+      // MultEQ on/off + courbe d'ecoute vises apres transfert. Portes par
+      // l'archive .rch.json ; leur application par le bridge (AudyMultEq /
+      // AudyEqSet) est un chantier bridge.
+      enableMultEq: config.enableMultEq ?? true,
+      multEqMode: config.multEqMode ?? 'Reference',
       enableDynamicEq: config.enableDynamicEq,
       dynamicEqRefLevel: config.dynamicEqRefLevel,
       enableDynamicVolume: config.enableDynamicVolume,
