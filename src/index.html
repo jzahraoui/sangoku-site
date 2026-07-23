@@ -1998,136 +1998,119 @@
 
             </div>
 
-            <div class="audy-cards" data-testid="audy-cards">
-              <div class="audy-card" data-testid="audy-card-multeq">
-                <span class="audy-card-title">MultEQ</span>
-                <label class="toggle-switch audy-card-toggle" data-testid="audy-multeq-toggle">
-                  <span
-                    data-bind="text: enableMultEq() ? translations().state_enabled : translations().state_disabled"
-                  ></span>
-                  <input
-                    type="checkbox"
-                    data-testid="audy-multeq-toggle-input"
-                    data-bind="checked: enableMultEq"
-                  />
-                  <span class="toggle-slider" aria-hidden="true"></span>
-                </label>
-                <label class="audy-card-row">
-                  <span data-i18n="audy_mode_label">Mode</span>
-                  <select
-                    class="combo-box"
-                    data-testid="audy-multeq-mode"
-                    data-bind="
-                      options: multEqModeChoice,
-                      optionsText: 'text',
-                      optionsValue: 'value',
-                      value: multEqMode,
-                      enable: enableMultEq"
-                  ></select>
-                </label>
-              </div>
+            <div class="audy-options" data-testid="audy-cards">
+              <span class="audy-option-name">MultEQ</span>
+              <label class="toggle-switch" data-testid="audy-multeq-toggle">
+                <input
+                  type="checkbox"
+                  data-testid="audy-multeq-toggle-input"
+                  aria-label="MultEQ"
+                  data-bind="checked: enableMultEq"
+                />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </label>
+              <label class="audy-option-setting">
+                <span data-i18n="audy_mode_label">Mode</span>
+                <select
+                  class="combo-box"
+                  data-testid="audy-multeq-mode"
+                  data-bind="
+                    options: multEqModeChoice,
+                    optionsText: 'text',
+                    optionsValue: 'value',
+                    value: multEqMode,
+                    enable: enableMultEq"
+                ></select>
+              </label>
 
-              <div class="audy-card" data-testid="audy-card-dynvol">
-                <span class="audy-card-title">Dynamic Volume</span>
-                <label class="toggle-switch audy-card-toggle" data-testid="audy-dynvol-toggle">
-                  <span
-                    data-bind="text: enableDynamicVolume() ? translations().state_enabled : translations().state_disabled"
-                  ></span>
-                  <input
-                    type="checkbox"
-                    data-testid="audy-dynvol-toggle-input"
-                    data-bind="checked: enableDynamicVolume"
-                  />
-                  <span class="toggle-slider" aria-hidden="true"></span>
-                </label>
-                <label class="audy-card-row">
-                  <span data-i18n="audy_mode_label">Mode</span>
-                  <select
-                    class="combo-box"
-                    data-testid="audy-dynvol-mode"
-                    data-bind="
-                      options: dynamicVolumeChoice,
-                      optionsText: 'text',
-                      optionsValue: 'value',
-                      value: dynamicVolumeSetting,
-                      enable: enableDynamicVolume"
-                  ></select>
-                </label>
-              </div>
+              <span class="audy-option-name">Dynamic Volume</span>
+              <label class="toggle-switch" data-testid="audy-dynvol-toggle">
+                <input
+                  type="checkbox"
+                  data-testid="audy-dynvol-toggle-input"
+                  aria-label="Dynamic Volume"
+                  data-bind="checked: enableDynamicVolume"
+                />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </label>
+              <label class="audy-option-setting">
+                <span data-i18n="audy_mode_label">Mode</span>
+                <select
+                  class="combo-box"
+                  data-testid="audy-dynvol-mode"
+                  data-bind="
+                    options: dynamicVolumeChoice,
+                    optionsText: 'text',
+                    optionsValue: 'value',
+                    value: dynamicVolumeSetting,
+                    enable: enableDynamicVolume"
+                ></select>
+              </label>
 
-              <div class="audy-card" data-testid="audy-card-dyneq">
-                <span class="audy-card-title">Dynamic EQ</span>
-                <label class="toggle-switch audy-card-toggle" data-testid="audy-dyneq-toggle">
-                  <span
-                    data-bind="text: enableDynamicEq() ? translations().state_enabled : translations().state_disabled"
-                  ></span>
-                  <input
-                    type="checkbox"
-                    data-testid="audy-dyneq-toggle-input"
-                    data-bind="checked: enableDynamicEq"
-                  />
-                  <span class="toggle-slider" aria-hidden="true"></span>
-                </label>
-                <label class="audy-card-row">
-                  <span data-i18n="audy_ref_offset_label">Reference Offset (dB)</span>
-                  <select
-                    class="combo-box"
-                    data-testid="audy-dyneq-offset"
-                    data-bind="
-                      options: dynamicEqRefLevelChoice,
-                      optionsText: 'text',
-                      optionsValue: 'value',
-                      value: dynamicEqRefLevel,
-                      enable: enableDynamicEq"
-                  ></select>
-                </label>
-              </div>
+              <span class="audy-option-name">Dynamic EQ</span>
+              <label class="toggle-switch" data-testid="audy-dyneq-toggle">
+                <input
+                  type="checkbox"
+                  data-testid="audy-dyneq-toggle-input"
+                  aria-label="Dynamic EQ"
+                  data-bind="checked: enableDynamicEq"
+                />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </label>
+              <label class="audy-option-setting">
+                <span data-i18n="audy_ref_offset_label">Reference Offset (dB)</span>
+                <select
+                  class="combo-box"
+                  data-testid="audy-dyneq-offset"
+                  data-bind="
+                    options: dynamicEqRefLevelChoice,
+                    optionsText: 'text',
+                    optionsValue: 'value',
+                    value: dynamicEqRefLevel,
+                    enable: enableDynamicEq"
+                ></select>
+              </label>
 
-              <div class="audy-card" data-testid="audy-card-lfc">
-                <span class="audy-card-title" data-i18n="enable_lfc"
-                  >Low Frequency Containment</span
-                >
-                <label class="toggle-switch audy-card-toggle" data-testid="audy-lfc-toggle">
-                  <span
-                    data-bind="text: enableLowFrequencyContainment() ? translations().state_enabled : translations().state_disabled"
-                  ></span>
-                  <input
-                    type="checkbox"
-                    data-testid="audy-lfc-toggle-input"
-                    data-bind="checked: enableLowFrequencyContainment"
-                  />
-                  <span class="toggle-slider" aria-hidden="true"></span>
-                </label>
-                <label class="audy-card-row">
-                  <span data-i18n="audy_lfc_amount_label">Amount</span>
-                  <input
-                    type="number"
-                    class="combo-box audy-amount"
-                    min="1"
-                    max="7"
-                    step="1"
-                    data-testid="audy-lfc-amount"
-                    data-bind="value: lowFrequencyContainmentLevel, enable: enableLowFrequencyContainment"
-                  />
-                </label>
-              </div>
+              <span class="audy-option-name" data-i18n="enable_lfc"
+                >Low Frequency Containment</span
+              >
+              <label class="toggle-switch" data-testid="audy-lfc-toggle">
+                <input
+                  type="checkbox"
+                  data-testid="audy-lfc-toggle-input"
+                  aria-label="Low Frequency Containment"
+                  data-bind="checked: enableLowFrequencyContainment"
+                />
+                <span class="toggle-slider" aria-hidden="true"></span>
+              </label>
+              <label class="audy-option-setting">
+                <span data-i18n="audy_lfc_amount_label">Amount</span>
+                <input
+                  type="number"
+                  class="combo-box audy-amount"
+                  min="1"
+                  max="7"
+                  step="1"
+                  data-testid="audy-lfc-amount"
+                  data-bind="value: lowFrequencyContainmentLevel, enable: enableLowFrequencyContainment"
+                />
+              </label>
 
-              <div class="audy-card" data-testid="audy-card-submode">
-                <span class="audy-card-title" data-i18n="audy_sub_mode_label"
-                  >Subwoofer Mode</span
-                >
-                <label class="audy-card-row">
-                  <select
-                    class="combo-box"
-                    data-testid="audy-submode"
-                    data-bind="
-                      options: subwooferModeChoice,
-                      optionsText: 'text',
-                      optionsValue: 'value',
-                      value: subwooferMode"
-                  ></select>
-                </label>
-              </div>
+              <span class="audy-option-name" data-i18n="audy_sub_mode_label"
+                >Subwoofer Mode</span
+              >
+              <span aria-hidden="true"></span>
+              <label class="audy-option-setting">
+                <select
+                  class="combo-box"
+                  data-testid="audy-submode"
+                  data-bind="
+                    options: subwooferModeChoice,
+                    optionsText: 'text',
+                    optionsValue: 'value',
+                    value: subwooferMode"
+                ></select>
+              </label>
             </div>
 
             <div class="filter-banks" data-testid="filter-banks">
