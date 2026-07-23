@@ -59,7 +59,7 @@ test('basic workflow: connect, import .ady, average, align, transfer', async t =
       }
       await page
         .getByTestId('measurement-count')
-        .filter({ hasText: '16 / 199' })
+        .filter({ hasText: '16 (max 199)' })
         .waitFor({ state: 'attached' });
     });
 

@@ -125,7 +125,7 @@ test('session file: export, fresh browser, import, reattach and report', async t
       // Measurements re-attached by uuid: the REW mock still holds them all.
       await page2
         .getByTestId('measurement-count')
-        .filter({ hasText: '6 / 199' })
+        .filter({ hasText: '6 (max 199)' })
         .waitFor({ state: 'attached' });
     });
 
@@ -146,7 +146,7 @@ test('session file: export, fresh browser, import, reattach and report', async t
       await waitForStatus(page2, 'not found in REW', 60000);
       await page2
         .getByTestId('measurement-count')
-        .filter({ hasText: '6 / 199' })
+        .filter({ hasText: '6 (max 199)' })
         .waitFor({ state: 'attached' });
     });
 
