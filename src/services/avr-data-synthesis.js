@@ -92,12 +92,18 @@ function reclassifySingleSBack(channels) {
   left.speakerSize = 'S';
 }
 
-function buildDetectedChannels(chSetup, log) {
+function buildDetectedChannels(chSetup, swMode, log) {
+  const directional = swMode === 'Directional';
   const channels = [];
   for (const entry of chSetup) {
     const [wireCode, speakerSize] = Object.entries(entry ?? {})[0] ?? [];
     if (!wireCode) continue;
     const commandId = normalizeChannelCode(wireCode);
+    // Outside Directional mode the calibration carries a SINGLE subwoofer
+    // channel: the individual SWMix2/3/4 subs are excluded from the official
+    // plan (DeviceController.java:820) and the mutualised sweep imports as
+    // SW1 — the physical sub count stays in `subwooferNum`.
+    if (!directional && /^SW[234]$/.test(commandId)) continue;
     // Subwoofer SW1..4 ids resolve through the deterministic SW branch of
     // getByCode; every speaker code must be in the official table.
     const channelType =
@@ -160,7 +166,8 @@ function synthesizeAvrData({ info, status, model }, log = noopLog) {
   }
 
   const targetModelName = model || 'Unknown AVR';
-  const detectedChannels = buildDetectedChannels(status.ChSetup ?? [], log);
+  const swMode = status.SWSetup?.SWMode ?? null;
+  const detectedChannels = buildDetectedChannels(status.ChSetup ?? [], swMode, log);
   if (detectedChannels.length === 0) {
     throw new Error('The AVR reported no configured channels');
   }
@@ -170,9 +177,12 @@ function synthesizeAvrData({ info, status, model }, log = noopLog) {
     log.warn(`Unknown AVR amp assignment: ${status.AmpAssign}`);
   }
 
-  const subCount = detectedChannels.filter(channel =>
-    channel.commandId.startsWith('SW'),
-  ).length;
+  // Physical sub count from the wire setup — detectedChannels may be
+  // collapsed to a single SW1 outside Directional mode.
+  const subCount = (status.ChSetup ?? []).filter(entry => {
+    const [wireCode] = Object.keys(entry ?? {});
+    return wireCode && normalizeChannelCode(wireCode).startsWith('SW');
+  }).length;
 
   return {
     source: 'bridge-live',
@@ -182,7 +192,7 @@ function synthesizeAvrData({ info, status, model }, log = noopLog) {
     enAmpAssignType: ampAssignIndex >= 0 ? ampAssignIndex : null,
     ampAssignInfo: status.AssignBin ?? null,
     subwooferNum: status.SWSetup?.SWNum ?? subCount,
-    subwooferMode: status.SWSetup?.SWMode ?? null,
+    subwooferMode: swMode,
     subwooferLayout: status.SWSetup?.SWLayout ?? null,
     spPreset: status.SpPreset ?? null,
     interfaceVersion: info.Ifver ?? null,

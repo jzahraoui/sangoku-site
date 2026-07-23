@@ -158,6 +158,75 @@ describe('synthesizeAvrData', () => {
     expect(data.avr.hasCirrusLogicDsp).toBe(true);
   });
 
+  it.each([['Standard'], ['Na'], ['N/A']])(
+    'collapses the subwoofers to a single SW1 channel in %s mode',
+    swMode => {
+      // Official plan outside Directional (DeviceController.java:820): the
+      // individual SWMix2/3/4 subs are excluded, one mutualised sweep → SW1.
+      const data = synthesizeAvrData({
+        info: INFO_XT32,
+        status: statusFixture({
+          ChSetup: [
+            { FL: 'S' },
+            { FR: 'S' },
+            { SWMIX1: 'E' },
+            { SWMIX2: 'E' },
+            { SWMIX3: 'E' },
+            { SWMIX4: 'E' },
+          ],
+          SWSetup: { SWNum: 4, SWMode: swMode, SWLayout: 'N/A' },
+        }),
+        model: 'Denon AVC-A1H',
+      });
+
+      expect(data.detectedChannels.map(c => c.commandId)).toEqual([
+        'FL',
+        'FR',
+        'SW1',
+      ]);
+      // The physical sub count is preserved.
+      expect(data.subwooferNum).toBe(4);
+      expect(data.subwooferMode).toBe(swMode);
+    },
+  );
+
+  it('collapses multiple subs without an SWSetup key and keeps the physical count', () => {
+    const status = statusFixture({
+      ChSetup: [{ FL: 'S' }, { FR: 'S' }, { SW1: 'E' }, { SW2: 'E' }],
+    });
+    delete status.SWSetup;
+
+    const data = synthesizeAvrData({ info: INFO_XT32, status, model: 'Denon AVC-A1H' });
+
+    expect(data.detectedChannels.map(c => c.commandId)).toEqual(['FL', 'FR', 'SW1']);
+    expect(data.subwooferNum).toBe(2);
+  });
+
+  it('keeps every subwoofer in Directional mode', () => {
+    const data = synthesizeAvrData({
+      info: INFO_XT32,
+      status: statusFixture({
+        ChSetup: [
+          { FL: 'S' },
+          { SWMIX1: 'E' },
+          { SWMIX2: 'E' },
+          { SWMIX3: 'E' },
+          { SWMIX4: 'E' },
+        ],
+        SWSetup: { SWNum: 4, SWMode: 'Directional', SWLayout: 'FL/FR/RL/RR' },
+      }),
+      model: 'Denon AVC-A1H',
+    });
+
+    expect(data.detectedChannels.map(c => c.commandId)).toEqual([
+      'FL',
+      'SW1',
+      'SW2',
+      'SW3',
+      'SW4',
+    ]);
+  });
+
   it('warns and keeps a null enAmpAssignType on unknown amp assignment', () => {
     const log = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     const data = synthesizeAvrData(
